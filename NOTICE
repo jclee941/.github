@@ -1,0 +1,70 @@
+github-bot
+Copyright (C) 2026 jclee941
+
+================================================================================
+
+This program is a hard fork of PR-Agent, an open-source AI-powered PR reviewer.
+
+Upstream project: qodo-ai/pr-agent
+Upstream URL:     https://github.com/qodo-ai/pr-agent
+Upstream license: AGPL-3.0
+Upstream copyright: Copyright (C) 2023-2026 CodiumAI / Qodo and PR-Agent contributors
+
+Forked from upstream commit: d82f7d3e (2026-04-10)
+   Subject: fix: prevent dummy_key from overriding provider-specific API keys
+   Commit URL: https://github.com/qodo-ai/pr-agent/commit/d82f7d3e
+
+================================================================================
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, version 3.
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public
+License along with this program. If not, see
+<https://www.gnu.org/licenses/>.
+
+================================================================================
+
+Fork-specific modifications in this repository include:
+
+  * pr_agent/settings/configuration.toml
+      - Default LLM model pointed at internal CLIProxyAPI (`openai/gpt-5.2`)
+      - Fallback model set to `claude-sonnet-4-6`
+
+  * .pr_agent.toml
+      - Added [config] section with fork model/fallback pinned
+      - Added [openai] section with `api_base = http://192.168.50.114:8317/v1`
+
+  * .github/workflows/pr-review.yml  (NEW)
+      - Self-hosted runner workflow targeting `[self-hosted, homelab]`
+      - Injects cli_proxy endpoint and API key via env vars
+
+  * README.md                         (REPLACED)
+      - Fork-specific readme
+      - Upstream README preserved at docs/pr-agent-upstream-README.md
+
+  * AGENTS.md                         (REPLACED)
+      - Fork project knowledge base
+
+  * NOTICE                            (NEW, this file)
+      - Attribution and modification disclosure
+
+  * .env.example                      (NEW)
+      - Template for cli_proxy environment variables
+
+To see the full list of modifications since the fork base:
+
+    git log upstream/main..HEAD --name-status
+
+AGPL-3.0 §13 (Remote Network Interaction):
+  This fork is deployed as a private service accessible only to jclee941's
+  repositories on GitHub. Source access for authorized users is provided via
+  this repository itself (https://github.com/jclee941/github-bot).
+
+================================================================================
