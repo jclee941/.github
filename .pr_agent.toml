@@ -4,8 +4,7 @@
 [config]
 # FORK: route all LLM calls through homelab CLIProxyAPI (OpenAI-compatible)
 # Models available: openai/gpt-5.2, claude-sonnet-4-6, gpt-5.1-codex-max, gemini-2.5-flash, ...
-model = "gpt-5.2"
-fallback_models = ["gpt-5.1", "gpt-5"]
+model = "gpt-5-codex"
 custom_model_max_tokens = 128000
 
 [openai]
@@ -64,9 +63,17 @@ pr_commands = [
   "/improve",
   "/agentic_review",
 ]
-
 handle_push_trigger = true
 push_commands = ["/improve", "/agentic_review"]
+
+[github_action_config]
+pr_actions = [
+  "opened",
+  "reopened",
+  "ready_for_review",
+  "review_requested",
+  "synchronize",
+]
 
 [review_agent]
 enabled = true

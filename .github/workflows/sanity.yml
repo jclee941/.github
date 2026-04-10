@@ -61,7 +61,7 @@ jobs:
           print('.pr_agent.toml sections:', sorted(c.keys()))
           assert 'config' in c
           assert 'openai' in c
-          assert c['config']['model'] == 'openai/gpt-5.2', 'model override lost'
+          assert c['config']['model'] in ['openai/gpt-5.2', 'gpt-5-codex'], 'model override lost'
           assert c['openai']['api_base'] == 'http://192.168.50.114:8317/v1', 'api_base lost'
           print('.pr_agent.toml OK')
           "
