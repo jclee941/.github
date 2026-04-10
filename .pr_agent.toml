@@ -12,6 +12,9 @@ custom_model_max_tokens = 128000
 # The api_key is NOT set here; use env var OPENAI_KEY from GitHub Secrets or .env
 api_base = "http://192.168.50.114:8317/v1"
 
+[litellm]
+drop_params = true
+
 [pr_reviewer]
 enable_review_labels_effort = true
 enable_auto_approval = true
