@@ -4,8 +4,7 @@
 
 [config]
 # models
-model="openai/gpt-5.2"                      # FORK: default model via CLIProxyAPI (router-for-me/CLIProxyAPI)
-fallback_models=["claude-sonnet-4-6"]        # FORK: fallback via cli_proxy
+fallback_models=["openai/gpt-5.1", "openai/gpt-5"]
 #model_reasoning="o4-mini" # dedicated reasoning model for self-reflection
 #model_weak="gpt-4o" # optional, a weaker model to use for some easier tasks
 # CLI
