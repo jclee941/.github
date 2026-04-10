@@ -75,30 +75,6 @@ pr_actions = [
   "review_requested",
   "synchronize",
 ]
-pr_actions = [
-  "/describe --pr_description.publish_description_as_comment=true",
-  "/improve",
-  "/agentic_review",
-]
-handle_push_trigger = true
-push_commands = ["/improve", "/agentic_review"]
-
-[github_action_config]
-pr_actions = [
-  "opened",
-  "reopened",
-  "ready_for_review",
-  "review_requested",
-  "synchronize",
-]
-pr_commands = [
-  "/describe --pr_description.publish_description_as_comment=true",
-  "/improve",
-  "/agentic_review",
-]
-
-handle_push_trigger = true
-push_commands = ["/improve", "/agentic_review"]
 
 [review_agent]
 enabled = true
