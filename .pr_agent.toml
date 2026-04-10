@@ -15,6 +15,47 @@ api_base = "http://192.168.50.114:8317/v1"
 [pr_reviewer]
 enable_review_labels_effort = true
 enable_auto_approval = true
+response_language = "ko"
+
+extra_instructions = """## Code Review Guidelines (Korean)
+리뷰어는 한국어로 응답합니다. 다음 원칙을 따릅니다:
+
+### 우선순위
+1. **보안**: SQL Injection, XSS, 인증/인가 문제, secrets 노출
+2. **정확성**: 논리 오류, 경쟁조건, edge case 미처리
+3. **성능**: 불필요한 쿼리, 메모리 누수, 비효율적인 알고리즘
+4. **유지보수성**: 코드 중복, 과도한 복잡성, 테스트 부재
+
+### 리뷰 형식
+- 각 이슈는 번호를 매겨 제시
+- 심각도 표시: [CRITICAL] [WARNING] [INFO]
+- 위치: 파일명 + 라인 번호
+- 개선 제안: 구체적인 코드 예시 포함
+
+### 예시 응답 형식
+```
+## 리뷰 요약
+- 변경사항: {요약}
+- 전반적 평가: {APPROVE / NEEDS_REVISION}
+
+## 상세 피드백
+
+### [CRITICAL] 파일명:라인
+**문제**: {설명}
+**개선안**:
+```코드
+{개선된 코드}
+```
+
+### [WARNING] 파일명:라인
+...
+```
+```
+
+### 특수 상황
+- `/agentic_review`: 더 깊은 분석 수행, architecture impact 포함
+- security label: 보안 중심 리뷰 (SAST mindset)
+- draft PR: 경미한 이슈만 코멘트, blocking 없음"""
 
 [github_app]
 pr_commands = [

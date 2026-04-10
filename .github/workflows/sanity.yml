@@ -1,0 +1,91 @@
+# Sanity CI — fast smoke test on every push/PR
+# ---------------------------------------------
+# Replaces upstream CI workflows removed from the fork.
+# Catches import-breaking changes, invalid TOML, and regressions in
+# `test_fix_json_escape_char.py` (minimum gate per AGENTS.md).
+#
+# Runs on GitHub-hosted runner — keep it fast (under 3 minutes).
+
+name: Sanity
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  import-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-sanity-${{ hashFiles('pyproject.toml', 'requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-sanity-
+            ${{ runner.os }}-pip-
+
+      - name: Install pr-agent
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest
+
+      - name: Verify core package imports
+        run: |
+          python -c "import pr_agent; print('pr_agent:', pr_agent.__file__)"
+          python -c "from pr_agent.tools.pr_reviewer import PRReviewer; print('PRReviewer OK')"
+          python -c "from pr_agent.tools.pr_description import PRDescription; print('PRDescription OK')"
+          python -c "from pr_agent.tools.pr_code_suggestions import PRCodeSuggestions; print('PRCodeSuggestions OK')"
+          python -c "from pr_agent.agent.pr_agent import PRAgent; print('PRAgent OK')"
+          python -c "from pr_agent.servers.github_action_runner import run_action; print('github_action_runner OK')"
+
+      - name: Verify fork config files parse
+        run: |
+          python3 -c "
+          import tomllib
+          c = tomllib.loads(open('.pr_agent.toml').read())
+          print('.pr_agent.toml sections:', sorted(c.keys()))
+          assert 'config' in c
+          assert 'openai' in c
+          assert c['config']['model'] == 'openai/gpt-5.2', 'model override lost'
+          assert c['openai']['api_base'] == 'http://192.168.50.114:8317/v1', 'api_base lost'
+          print('.pr_agent.toml OK')
+          "
+          python3 -c "
+          import tomllib
+          c = tomllib.loads(open('pr_agent/settings/configuration.toml').read())
+          assert c['config']['model'] == 'openai/gpt-5.2', 'upstream configuration.toml model override lost'
+          print('pr_agent/settings/configuration.toml OK')
+          "
+
+      - name: Verify workflow YAML files parse
+        run: |
+          python3 -c "
+          import yaml, os, glob
+          for f in sorted(glob.glob('.github/workflows/*.y*ml')):
+              with open(f) as fp:
+                  try:
+                      d = yaml.safe_load(fp)
+                      print(f'{f}: OK ({d.get(\"name\", \"unnamed\")})')
+                  except Exception as e:
+                      print(f'{f}: FAIL — {e}')
+                      raise SystemExit(1)
+          "
+
+      - name: Fast unittest smoke (AGENTS.md minimum gate)
+        run: |
+          PYTHONPATH=. pytest tests/unittest/test_fix_json_escape_char.py -v
