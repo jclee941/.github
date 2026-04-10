@@ -5,7 +5,8 @@
 # FORK: route all LLM calls through homelab CLIProxyAPI (OpenAI-compatible)
 # Models available: openai/gpt-5.2, claude-sonnet-4-6, gpt-5.1-codex-max, gemini-2.5-flash, ...
 model = "openai/gpt-5.2"
-fallback_models = ["claude-sonnet-4-6"]
+fallback_models = ["openai/gpt-5.1", "openai/gpt-5"]
+custom_model_max_tokens = 128000
 
 [openai]
 # FORK: CLIProxyAPI endpoint on homelab LXC 100 (cliproxy.homelab.local)
