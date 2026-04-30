@@ -17,7 +17,6 @@ const (
 	prTitle              = "chore: add standard automation workflows"
 	prBody               = "## Summary\n- add standardized automation workflows from github-bot\n- includes PR checks, issue management, and docs sync\n- targets the self-hosted homelab runner configuration"
 	branchName           = "chore/add-pr-review-bot-workflow"
-	targetBaseBranch     = "master"
 )
 
 var workflowFiles = []string{
@@ -47,8 +46,9 @@ var defaultRepos = []string{
 }
 
 type config struct {
-	dryRun bool
-	repos  []string
+	dryRun     bool
+	repos      []string
+	baseBranch string
 }
 
 type repoResult struct {
@@ -102,7 +102,7 @@ func run() error {
 			fmt.Fprintf(r.errOut, "[%s] warning: CLIPROXY_API_KEY secret is missing\n", repo)
 		}
 
-		if err := deployRepo(r, rootDir, repo); err != nil {
+		if err := deployRepo(r, rootDir, repo, cfg.baseBranch); err != nil {
 			result.status = "failed"
 			result.err = err
 		} else if cfg.dryRun {
@@ -134,7 +134,8 @@ func parseFlags() (config, error) {
 	var reposFlag string
 
 	flag.BoolVar(&cfg.dryRun, "dry-run", false, "preview deployment steps without making changes")
-	flag.StringVar(&reposFlag, "repos", strings.Join(defaultRepos, ","), "comma-separated repo names: resume,safetywallet,youtube")
+	flag.StringVar(&cfg.baseBranch, "base-branch", "master", "target base branch (master or main)")
+flag.StringVar(&reposFlag, "repos", strings.Join(defaultRepos, ","), "comma-separated repo names: resume,safetywallet,youtube")
 	flag.Parse()
 
 	repos, err := normalizeRepos(reposFlag)
@@ -228,7 +229,7 @@ func checkSecret(repo string) (bool, error) {
 	return false, nil
 }
 
-func deployRepo(r runner, rootDir, repo string) error {
+func deployRepo(r runner, rootDir, repo, baseBranch string) error {
 	fullRepo := fullRepoName(repo)
 	workDir := filepath.Join(os.TempDir(), "deploy-to-repos", repo)
 
@@ -241,11 +242,11 @@ func deployRepo(r runner, rootDir, repo string) error {
 		}
 	}
 
-	if err := runLogged(r, "", "gh", "repo", "clone", fullRepo, workDir, "--", "--branch", targetBaseBranch, "--single-branch"); err != nil {
+	if err := runLogged(r, "", "gh", "repo", "clone", fullRepo, workDir, "--", "--branch", baseBranch, "--single-branch"); err != nil {
 		return fmt.Errorf("clone %s: %w", fullRepo, err)
 	}
 
-	if err := runLogged(r, workDir, "git", "checkout", "-B", branchName, targetBaseBranch); err != nil {
+	if err := runLogged(r, workDir, "git", "checkout", "-B", branchName, baseBranch); err != nil {
 		return fmt.Errorf("create branch for %s: %w", repo, err)
 	}
 
@@ -281,7 +282,7 @@ func deployRepo(r runner, rootDir, repo string) error {
 	if err := runLogged(r, workDir, "git", "push", "-u", "origin", branchName); err != nil {
 		return fmt.Errorf("git push for %s: %w", repo, err)
 	}
-	if err := runLogged(r, workDir, "gh", "pr", "create", "--base", targetBaseBranch, "--head", branchName, "--title", prTitle, "--body", prBody); err != nil {
+	if err := runLogged(r, workDir, "gh", "pr", "create", "--base", baseBranch, "--head", branchName, "--title", prTitle, "--body", prBody); err != nil {
 		return fmt.Errorf("gh pr create for %s: %w", repo, err)
 	}
 
