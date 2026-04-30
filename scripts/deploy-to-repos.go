@@ -39,10 +39,6 @@ var defaultRepos = []string{
 	"slack-opencode-bridge",
 	"natively-cluely-ai-assistant",
 	"terraform-homelab",
-	"n8n-workflows",
-	"n8n-workflow",
-	"n8n-agent",
-	"dot-github",
 }
 
 type config struct {
