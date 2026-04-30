@@ -21,7 +21,7 @@ const (
 )
 
 var workflowFiles = []string{
-	".github/workflows/pr-review.yml",
+	".github/workflows/pr-checks.yml",
 	".github/workflows/issue-management.yml",
 	".github/workflows/docs-sync.yml",
 }
