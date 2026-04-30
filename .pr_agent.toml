@@ -74,6 +74,7 @@ extra_instructions = """IMPORTANT: You MUST respond entirely in Korean (한국�
 [github_app]
 pr_commands = [
   "/describe --pr_description.publish_description_as_comment=true",
+  "/review",
   "/improve",
   "/agentic_review",
 ]
