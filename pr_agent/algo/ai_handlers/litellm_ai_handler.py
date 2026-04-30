@@ -442,6 +442,11 @@ class LiteLLMAIHandler(BaseAiHandler):
         Wrapper that automatically handles streaming for required models.
         """
         model = kwargs["model"]
+        # FORK: route prefix-less Kimi/Claude/Minimax/GPT model names through the
+        # configured OpenAI-compatible endpoint (CLIProxyAPI via Cloudflare Tunnel).
+        # Lets users write CONFIG.MODEL="kimi-k2.6" without any provider prefix.
+        if "/" not in model and any(model.startswith(p) for p in ("kimi-", "minimax-", "claude-", "gpt-", "codex-", "gemini-")):
+            kwargs["custom_llm_provider"] = "openai"
         if model in self.streaming_required_models:
             kwargs["stream"] = True
             get_logger().info(f"Using streaming mode for model {model}")

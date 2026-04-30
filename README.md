@@ -4,20 +4,21 @@
 
 [![Fork of pr-agent](https://img.shields.io/badge/fork-qodo--ai%2Fpr--agent-blue)](https://github.com/qodo-ai/pr-agent)
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL%20v3-blue.svg)](LICENSE)
-[![Runner: self-hosted](https://img.shields.io/badge/runner-self--hosted%20homelab-orange)](#architecture)
+[![Deployment: GitHub App](https://img.shields.io/badge/deployment-GitHub%20App-green)](#architecture)
 
 ---
 
 ## What is this?
 
-A hard fork of PR-Agent wired to run entirely inside the jclee941 homelab:
+A hard fork of PR-Agent wired to run entirely inside the jclee941 homelab as a **GitHub App**:
 
 - **LLM backend**: [`router-for-me/CLIProxyAPI`](https://github.com/router-for-me/CLIProxyAPI) on LXC 100 (`192.168.50.114:8317`), wrapping Claude Code CLI / Codex CLI / Gemini CLI as an OpenAI-compatible API
-- **Runner**: Self-hosted GitHub Actions runner tagged `homelab` (`192.168.50.111` / `.200`)
-- **Default model**: `openai/gpt-5.2` (via cli_proxy), fallback `claude-sonnet-4-6`
+- **Deployment**: GitHub App `jclee-bot` (ID: 3540327) running on LXC 100 via Cloudflare Tunnel
+- **Default model**: `kimi-k2.6` (via cli_proxy), fallback `kimi-k2.5`, `claude-sonnet-4-6`
 - **Scope**: Private — for `jclee941/*` repositories only
+- **Webhook**: `https://bot.jclee.me/api/v1/github_webhooks`
 
-No data leaves the homelab LAN. PR reviews go straight from GitHub webhook → self-hosted runner → internal cli_proxy → back to GitHub.
+No data leaves the homelab LAN. PR reviews go straight from GitHub webhook → Cloudflare Tunnel → LXC 100 → internal cli_proxy → back to GitHub.
 
 ## Features (inherited from pr-agent)
 
@@ -40,18 +41,18 @@ See [docs/pr-agent-upstream-README.md](docs/pr-agent-upstream-README.md) for the
   PR event on jclee941/<repo>
             │
             ▼
-  .github/workflows/pr-review.yml
+  GitHub App: jclee-bot
+  Webhook URL: https://bot.jclee.me/api/v1/github_webhooks
             │
             ▼
-  Self-hosted runner  [self-hosted, homelab]
-  at 192.168.50.111 / .200
+  Cloudflare Tunnel (bot.jclee.me)
             │
             ▼
-  python -m pr_agent.servers.github_action_runner
+  github-bot-app container (LXC 100, localhost:3001)
             │
             ▼
-  litellm.completion(model="openai/gpt-5.2",
-                     api_base="http://192.168.50.114:8317/v1")
+  litellm.completion(model="kimi-k2.6",
+                     api_base="http://localhost:8317/v1")
             │
             ▼
   CLIProxyAPI  (docker container on LXC 100)
@@ -65,23 +66,15 @@ See [docs/pr-agent-upstream-README.md](docs/pr-agent-upstream-README.md) for the
 
 ## Quick start
 
-### 1. Set repo secrets
+The GitHub App `jclee-bot` is already installed on all `jclee941/*` repositories. No per-repo setup is required.
 
-On every repo you want the bot to review, set:
+### 1. Open a PR
 
-```bash
-# From a machine that can SSH to 192.168.50.114
-gh -R jclee941/<target-repo> secret set CLIPROXY_API_KEY --body "$(ssh root@192.168.50.114 \
-  "python3 -c 'import yaml; print(yaml.safe_load(open(\"/opt/cli-proxy-api/config.yaml\"))[\"api-keys\"][0])'")"
-```
+Create a pull request in any `jclee941/*` repository. The bot will automatically review it if configured to do so.
 
-### 2. Copy the workflow
+### 2. Use slash commands
 
-Copy `.github/workflows/pr-review.yml` from this repo into your target repo's `.github/workflows/`.
-
-Ensure the target repo has access to a self-hosted runner with the `homelab` label.
-
-### 3. Open a PR or use slash commands
+Comment on any PR with:
 
 ```text
 /review
@@ -89,6 +82,8 @@ Ensure the target repo has access to a self-hosted runner with the `homelab` lab
 /improve
 /ask What does this PR change?
 ```
+
+The bot will respond via the GitHub App installation.
 
 ## Local development
 

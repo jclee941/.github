@@ -1,16 +1,14 @@
 # github-bot PR review workflow
 # ------------------------------
-# Runs pr-agent on a self-hosted homelab runner, with CLIProxyAPI
-# (192.168.50.114:8317) as the LLM backend.
+# Runs pr-agent on a GitHub-hosted runner, using CLIProxyAPI exposed via
+# Cloudflare Tunnel at https://cliproxy.jclee.me/v1 as the LLM backend.
 #
 # Triggers:
 #   - pull_request events: opened, synchronize, reopened, ready_for_review
 #   - issue_comment on PRs starting with /review /describe /improve /ask /help
 #
 # Requirements on the target repo:
-#   - secret CLIPROXY_API_KEY set
-#   - access to a runner with the `homelab` label
-#   - runner is on the same LAN segment as 192.168.50.114
+#   - secret CLIPROXY_API_KEY set (rotate via 1Password: op://homelab/cliproxy-github-bot)
 #
 # This file is intended to be copied into any jclee941/* repo that wants
 # AI-powered PR reviews.
@@ -43,7 +41,7 @@ jobs:
         startsWith(github.event.comment.body, '/update_changelog')))
 
     # Self-hosted runner with LAN access to 192.168.50.114:8317
-    runs-on: [self-hosted, homelab]
+    runs-on: ubuntu-latest
     name: Run pr-agent via CLIProxyAPI
     timeout-minutes: 15
 
@@ -77,8 +75,8 @@ jobs:
         run: |
           set -e
           HTTP_CODE=$(curl -sS -o /tmp/cli_proxy_test.json -w '%{http_code}' \
-            --max-time 10 \
-            http://192.168.50.114:8317/v1/models \
+            --max-time 15 \
+            https://cliproxy.jclee.me/v1/models \
             -H "Authorization: Bearer $CLIPROXY_API_KEY")
           if [ "$HTTP_CODE" != "200" ]; then
             echo "ERROR: cli_proxy returned HTTP $HTTP_CODE"
@@ -93,12 +91,12 @@ jobs:
           # LiteLLM reads OPENAI_KEY regardless of the underlying provider
           OPENAI_KEY: ${{ secrets.CLIPROXY_API_KEY }}
 
-          # Custom OpenAI-compatible endpoint (homelab cli_proxy)
-          OPENAI.API_BASE: http://192.168.50.114:8317/v1
+          # Custom OpenAI-compatible endpoint (CLIProxyAPI via Cloudflare Tunnel)
+          OPENAI.API_BASE: https://cliproxy.jclee.me/v1
 
-          # Model selection (CLIProxyAPI aliases)
-          CONFIG.MODEL: openai/openai/gpt-5.4
-          CONFIG.FALLBACK_MODELS: '["openai/openai/gpt-5.4-mini", "gpt-5-codex"]'
+          # Model selection — Kimi via CLIProxyAPI (no prefix; auto-routed by handler hook)
+          CONFIG.MODEL: kimi-k2.6
+          CONFIG.FALLBACK_MODELS: '["kimi-k2.5", "claude-sonnet-4-6"]'
 
           # GitHub auth for posting reviews
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

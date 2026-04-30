@@ -1,0 +1,37 @@
+# GitHub App webhook server (self-hosted on LXC 100)
+# Listens on port 3000, served by gunicorn with uvicorn workers.
+# Fork-specific: routes LLM via CLIProxyAPI at https://cliproxy.jclee.me/v1
+FROM python:3.12.10-slim AS base
+
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y git curl ca-certificates \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install python deps first for layer cache
+COPY pyproject.toml requirements.txt ./
+RUN pip install --no-cache-dir . \
+    && pip install --no-cache-dir gunicorn uvicorn[standard]
+
+# Copy app source
+COPY pr_agent pr_agent
+COPY .pr_agent.toml ./
+
+ENV PYTHONPATH=/app \
+    PORT=3000 \
+    PYTHONUNBUFFERED=1
+
+EXPOSE 3000
+
+# Healthcheck: hit "/" (returns 200 with build info)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl -fsS http://localhost:3000/ || exit 1
+
+# Gunicorn + uvicorn workers (production WSGI/ASGI bridge)
+CMD ["python", "-m", "gunicorn", \
+     "-k", "uvicorn.workers.UvicornWorker", \
+     "-c", "pr_agent/servers/gunicorn_config.py", \
+     "--forwarded-allow-ips", "*", \
+     "pr_agent.servers.github_app:app"]

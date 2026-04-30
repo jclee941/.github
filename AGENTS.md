@@ -1,6 +1,6 @@
 # github-bot — PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-04-10
+**Generated:** 2026-04-14
 **Upstream base:** qodo-ai/pr-agent @ `d82f7d3e`
 
 ## OVERVIEW
@@ -13,14 +13,41 @@ All upstream pr-agent features are preserved: `/review`, `/improve`, `/describe`
 
 | File | Change | Reason |
 |------|--------|--------|
-| `pr_agent/settings/configuration.toml` | `[config] model` → `openai/gpt-5.2`, `fallback_models` → `["claude-sonnet-4-6"]` | Default model via cli_proxy instead of direct OpenAI |
-| `.pr_agent.toml` | Prepended `[config]` and `[openai]` sections | Pin fork-level model and `api_base` to cli_proxy |
+| `pr_agent/settings/configuration.toml` | `[config] model` → `openai/openai/gpt-5.4`, `fallback_models` → `["openai/openai/gpt-5.4-mini", "gpt-5-codex"]` | Default model via cli_proxy (double `openai/` prefix — litellm strips one) |
+| `.pr_agent.toml` | Prepended `[config]`, `[openai]`, `[litellm]` sections | Pin fork-level model and `api_base` to cli_proxy |
 | `.github/workflows/pr-review.yml` | **NEW** | Self-hosted runner + cli_proxy env vars |
+| `.github/workflows/pr-review-security.yml` | **NEW** | Deep security review (Korean, `pull_request_target`) |
+| `.github/workflows/sanity.yml` | **NEW** | Fork CI gate (replaces upstream CI) |
+| `scripts/deploy-to-repos.go` | **NEW** | Deploy `pr-review.yml` to `jclee941/*` repos |
 | `README.md` | **REPLACED** | Fork-specific readme (upstream moved to `docs/pr-agent-upstream-README.md`) |
 | `AGENTS.md` | **REPLACED** | This file |
 | `NOTICE` | **NEW** | AGPL-3.0 attribution to upstream |
 | `.env.example`, `.env` | **NEW** | cli_proxy env vars (`.env` is gitignored) |
 | `docs/pr-agent-upstream-README.md` | **MOVED** | Preserved upstream README for reference |
+| `action.yaml` | **REMOVED** | Upstream GitHub Marketplace metadata (unused by fork) |
+| `Dockerfile.github_action_dockerhub` | **REMOVED** | Upstream Docker Hub image ref (unused by fork) |
+| `docker/` | **REMOVED** | Multi-provider Dockerfiles — GitHub App, Lambda (unused by fork) |
+| `.github/ISSUE_TEMPLATE/` | **REMOVED** | Upstream issue templates (fork uses Archon) |
+| `.github/workflows/pr-agent-review.yaml` | **REMOVED** | Upstream action template |
+| `.github/workflows/e2e_tests.yaml` | **REMOVED** | Upstream E2E tests (Docker-based) |
+| `.github/workflows/pre-commit.yml` | **REMOVED** | Disabled upstream pre-commit |
+| `.github/workflows/build-and-test.yaml` | **REMOVED** | Upstream CI |
+| `.github/workflows/code_coverage.yaml` | **REMOVED** | Upstream CI |
+| `.github/workflows/docs-ci.yaml` | **REMOVED** | Upstream CI |
+| `tests/e2e_tests/` | **REMOVED** | Upstream E2E test suite |
+| `tests/health_test/` | **REMOVED** | Upstream health check |
+| `pr_compliance_checklist.yaml` | **REMOVED** | Upstream compliance artifact |
+| `CONTRIBUTING.md` | **REMOVED** | Upstream contributing guide (references Discord, qodo.ai) |
+| `SECURITY.md` | **REMOVED** | Upstream security policy (references qodo.ai) |
+| `CODE_OF_CONDUCT.md` | **REMOVED** | Upstream CoC (references qodo.ai contact) |
+| `CHANGELOG.md` | **REMOVED** | Upstream changelog (2023 only, no fork entries) |
+| `RELEASE_NOTES.md` | **REMOVED** | Upstream release notes (v0.7–v0.11, codiumai images) |
+| `codecov.yml` | **REMOVED** | Disabled coverage config (no coverage CI in fork) |
+| `.pre-commit-config.yaml` | **REMOVED** | Mostly commented out, unused by fork CI |
+| `docs/docs/` | **REMOVED** | Upstream mkdocs site (broken internal links) |
+| `docs/mkdocs.yml` | **REMOVED** | Upstream mkdocs config |
+| `docs/overrides/` | **REMOVED** | Upstream mkdocs theme overrides |
+| `docs/README.md` | **REMOVED** | Upstream docs redirect |
 
 Everything under `pr_agent/` (except `settings/configuration.toml`) is untouched upstream code.
 
@@ -45,9 +72,12 @@ github-bot/
 │       └── ...                    # other prompt templates
 ├── .github/workflows/
 │   ├── pr-review.yml              # FORK: self-hosted + cli_proxy
-│   ├── pr-agent-review.yaml       # upstream template (kept for reference)
-│   ├── build-and-test.yaml        # upstream CI
-│   └── ...
+│   ├── pr-review-security.yml     # FORK: deep security review (Korean)
+│   └── sanity.yml                 # FORK: CI gate (replaces upstream CI)
+├── scripts/
+│   └── deploy-to-repos.go        # FORK: deploy workflow to jclee941/* repos
+├── github_action/
+│   └── entrypoint.sh             # Docker entrypoint for GitHub Action
 ├── .pr_agent.toml                 # FORK: cli_proxy config + existing pr-agent overrides
 ├── .env.example                   # cli_proxy env vars template
 ├── .env                           # local secrets (gitignored)
@@ -56,23 +86,25 @@ github-bot/
 ├── AGENTS.md                      # THIS FILE
 ├── README.md                      # fork-specific readme
 ├── docs/
-│   ├── pr-agent-upstream-README.md  # original pr-agent README
-│   └── docs/                      # mkdocs site (upstream)
-└── tests/                         # upstream pytest suite
+│   └── pr-agent-upstream-README.md  # original pr-agent README
+└── tests/                         # upstream pytest suite (unit tests only)
 ```
 
 ## WHERE TO LOOK
 
 | Task | Location | Notes |
 |------|----------|-------|
-| Change default model | `pr_agent/settings/configuration.toml` `[config].model` | Line 7, currently `openai/gpt-5.2` |
+| Change default model | `pr_agent/settings/configuration.toml` `[config].model` | Line 7, currently `openai/openai/gpt-5.4` (double `openai/` prefix — litellm strips one) |
 | Override model per-repo | `.pr_agent.toml` `[config].model` | Fork-level override, takes precedence |
 | Change cli_proxy endpoint | `.pr_agent.toml` `[openai].api_base` | Currently `http://192.168.50.114:8317/v1` |
 | Edit review prompts | `pr_agent/settings/pr_reviewer_prompts.toml` | upstream TOML |
 | Edit improve prompts | `pr_agent/settings/code_suggestions/` | |
 | Workflow triggers | `.github/workflows/pr-review.yml` | PR events + slash commands |
+| Security review config | `.github/workflows/pr-review-security.yml` | Triggered by `security-review` label |
+| CI gate | `.github/workflows/sanity.yml` | TOML parse + pytest gate |
 | Slash command handling | `pr_agent/servers/github_app.py`, `github_action_runner.py` | |
 | Add a git provider | `pr_agent/git_providers/` | implement base class |
+| Deploy to another repo | `scripts/deploy-to-repos.go` | Automates workflow + secret setup |
 | Upstream sync | `git fetch upstream && git merge upstream/main` | resolve conflicts in configuration.toml, .pr_agent.toml |
 
 ## CLI_PROXY INTEGRATION DETAILS
@@ -90,6 +122,9 @@ github-bot/
 | **API format** | OpenAI-compatible: `/v1/chat/completions`, `/v1/completions`, `/v1/models` |
 
 ### Available models (24 total as of 2026-04-10)
+
+> **Current default**: `openai/openai/gpt-5.4` with fallbacks `openai/openai/gpt-5.4-mini`, `gpt-5-codex`.
+> The double `openai/` prefix is intentional — litellm strips one during routing.
 
 - **Codex (GPT)**: `openai/gpt-5.2`, `openai/gpt-5.1`, `openai/gpt-5`, `gpt-5-codex-mini`, `gpt-5.1-codex-max`, `gpt-4.1`, `gpt-4.1-mini`
 - **Antigravity (Gemini)**: `gemini-3-pro-preview`, `gemini-3-flash-preview`, `gemini-2.5-flash`
@@ -135,7 +170,7 @@ source .env
 curl -sS http://192.168.50.114:8317/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $CLIPROXY_API_KEY" \
-  -d '{"model":"openai/gpt-5.2","messages":[{"role":"user","content":"ping"}],"max_tokens":10}'
+  -d '{"model":"openai/openai/gpt-5.4","messages":[{"role":"user","content":"ping"}],"max_tokens":10}'
 
 # ==================
 # Upstream sync
@@ -148,16 +183,20 @@ git push origin main
 # ==================
 # Deploy workflow to another jclee941 repo
 # ==================
+# Option 1: automated deploy script (opens PRs)
+go run scripts/deploy-to-repos.go
+
+# Option 2: manual deploy
 REPO=jclee941/<target-repo>
 gh -R "$REPO" secret set CLIPROXY_API_KEY --body "$(cat /home/jclee/.cache/sisyphus/cliproxy-api-key)"
-# Copy .github/workflows/pr-review.yml to the target repo manually or via a script
+# Copy .github/workflows/pr-review.yml to the target repo manually
 ```
 
 ## CONVENTIONS
 
 - **Python**: ≥ 3.12, ruff 120-char line length, isort imports, double quotes
 - **Commits**: Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`)
-- **Fork-specific commits**: tag with scope `fork:` (e.g. `feat(fork): pin model to openai/gpt-5.2`)
+- **Fork-specific commits**: tag with scope `fork:` (e.g. `feat(fork): pin model to openai/openai/gpt-5.4`)
 - **Upstream sync commits**: `chore(upstream): merge qodo-ai/pr-agent@<sha>`
 - **Secrets**: only in `.env`, `.secrets.toml`, or GitHub Actions secrets — never in TOML/YAML in git
 - **Type safety**: never suppress (`as any`, `@ts-ignore`, `# type: ignore[...]` without justification)

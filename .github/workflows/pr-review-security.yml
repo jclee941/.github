@@ -33,7 +33,7 @@ jobs:
       github.event.label.name == 'security-review' &&
       github.event.pull_request.user.login == 'jclee941'
 
-    runs-on: [self-hosted, linux, x64, homelab]
+    runs-on: ubuntu-latest
     name: Deep security review via CLIProxyAPI
     timeout-minutes: 20
 
@@ -70,8 +70,8 @@ jobs:
         run: |
           set -e
           HTTP_CODE=$(curl -sS -o /tmp/cli_proxy_test.json -w '%{http_code}' \
-            --max-time 10 \
-            http://192.168.50.114:8317/v1/models \
+            --max-time 15 \
+            https://cliproxy.jclee.me/v1/models \
             -H "Authorization: Bearer $CLIPROXY_API_KEY")
           if [ "$HTTP_CODE" != "200" ]; then
             echo "ERROR: cli_proxy returned HTTP $HTTP_CODE"
@@ -85,11 +85,11 @@ jobs:
         env:
           # LiteLLM reads OPENAI_KEY regardless of the underlying provider
           OPENAI_KEY: ${{ secrets.CLIPROXY_API_KEY }}
-          OPENAI.API_BASE: http://192.168.50.114:8317/v1
+          OPENAI.API_BASE: https://cliproxy.jclee.me/v1
 
-          # Use the strongest reasoning model for security audits
-          CONFIG.MODEL: openai/gpt-5.2
-          CONFIG.FALLBACK_MODELS: '["claude-sonnet-4-6"]'
+          # Use Kimi thinking model for security audits (no prefix; auto-routed)
+          CONFIG.MODEL: kimi-k2-thinking
+          CONFIG.FALLBACK_MODELS: '["kimi-k2.6", "claude-opus-4-7"]'
           CONFIG.RESPONSE_LANGUAGE: ko-KR
           CONFIG.AI_TIMEOUT: '300'
 

@@ -1,0 +1,80 @@
+# Deploy on LXC 100 (192.168.50.114) alongside cliproxyapi.
+# Public URL via Cloudflare Tunnel: https://prbot.jclee.me
+#
+# Usage (on LXC 100 root):
+#   cd /opt/github-bot && docker compose -f docker-compose.github_app.yml up -d
+
+services:
+  github-bot-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.github_app
+    image: github-bot:app
+    container_name: github-bot-app
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:3000"
+    env_file:
+      - .env
+    environment:
+      GITHUB.DEPLOYMENT_TYPE: app
+      GITHUB.APP_ID: "${GITHUB_APP_ID}"
+      GITHUB.PRIVATE_KEY: |
+        -----BEGIN RSA PRIVATE KEY-----
+        MIIEowIBAAKCAQEAqOWuM75snnOJoRgbwS8jOXEuHr6Wxvs5N6SCaacN9yUaG31H
+        t3H6SGDcvdiEilIgepaylqF/yfwaKu0avPZvx7y6PjlegqC2izvwYPVRxfHkldZR
+        ZfAyWiKGw+0M+FNboeQ71sUQ2RAc2k8YOxFdBVeD1ByRpkyRmjNNOBmNID8jFc4d
+        //POnofB0wXOeryT/P/EV3aS9ZUao2En1t67WK8YhYLvgDZ8YsoJ+YD1EzdHOlFi
+        AFdG7lDkKwd0ZBFCBPWGaD+kVuGf1QapffXHclT+er57Q1afRILmzKCo8w7P95Ld
+        6QBWnhe1Hyxosgm9+TeIV4bgcTkLM8uHbIiY2wIDAQABAoIBAAC6tSzeBqQMhayf
+        aQdFh9ZoqbVSR15mmVGnMTT5lrLZgypZOSUOpfEIEgvz0mayghdlbTH/UojxwL8s
+        tO/Z9JOdOgSoxMK1pPQm9xvEE21SZRVMjp9tERqYiZJxBJxR59RkIuoDgdYeHrHG
+        o6klowwx24zf7rUUIZDT5eJ3Icfg3B3P2Pim2F2BQZcM7WEYx/Tyai7KuisiDBpB
+        55Ejt0ZcP5aNdwGS1TTmTpV2nz55iQmeBwx7FIxMMSk7pvTA0googJkV6j9oKJpM
+        pk91cKvNC2+3W+b4RY8ipYS8+NIavpUYuG/34rFBE6DcvCjkdiDMYl43BQP1p69t
+        5jV4mDECgYEA4K0lTBYD8lW6JXLrmgq+n70QX/U50nlMz9T5j6i8yhvqHkoApXD8
+        LS1qF/IRR0OOBSDbHnJ6e7aKcs6/Ps0KNx6R2QM2b3EeQq7oMnq8dpbb5fNqW5E7
+        oulqPZaNJR6HWSQMhc8s5oQK9Ip8NMO5CMxfKSH6GGLevFFIYE5xV8kCgYEAwHG8
+        6spxM7aZ9o6sXDfDG2Sv9Ab0a5SC4LFzg1Wtx46dONRWXQVsQslDdzZJ82CYgxeY
+        CTNJUakVodLz6TzFMdEX6Xh5EyLocYpM87+a5P4azanjZQ1P4NmNqqwiYzIYe344
+        EOtmSfuApX+NzvQV4/qhCoo7KN3Ng0ZkuVOjxYMCgYA4Hse8M5uUwpkWlZgICDsJ
+        R355mZVx316yYy5bFfjiOwrFuhJjQM+csUVY6dwrAtLMsSJKfqndkQEQIFhg5XJx
+        xi8EF+tW9thqK6pQQZwluxT+YUjlymctEES7UYm8Bd4lA/4kxlUe10itQJI509G6
+        QuJaMeR4hum//EWp2K4zEQKBgQCvnxxoqJbmOp4HA+0Hu1uyhBCPAknMY5uMsmRY
+        VrhghSW11xF5kplZ2ZJYGJMkJ+MGv2FgBA3FGClFpN4y2+KZs9e+mNLlQ9Ycx7my
+        OAmDMOIFDiUW8y8SY3eFadF39R+ik21XA3w1x+9/GQiw9M+FXhPZKo0SnlgOlQ8W
+        kd3DQQKBgEPEBVMcm4Ug8KmXdHLb5zh43Z7dfv4Y4IUFibBJLcdv8yhuS9wzzi3k
+        pgi1h+q4QNrEJFXS6Q9YgPlkuZDaZij1uQGYz8hzugvX2/rYA/+neeWbA6emzPWn
+        mZjphUGmsswDQ3JITH7j7Aq3KmkO+nylkok3kmoRX4P8x3/OTBbb
+        -----END RSA PRIVATE KEY-----
+      GITHUB.WEBHOOK_SECRET: "${GITHUB_WEBHOOK_SECRET}"
+      OPENAI.KEY: "${CLIPROXY_API_KEY}"
+      OPENAI.API_BASE: https://cliproxy.jclee.me/v1
+      CONFIG.MODEL: kimi-k2.6
+      CONFIG.FALLBACK_MODELS: '["kimi-k2.5", "gpt-5.5"]'
+      CONFIG.CUSTOM_MODEL_MAX_TOKENS: "128000"
+      CONFIG.AI_TIMEOUT: "180"
+      GITHUB_APP.PR_COMMANDS: '["/describe", "/review", "/improve"]'
+      GITHUB_APP.HANDLE_PR_ACTIONS: '["opened", "reopened", "ready_for_review"]'
+      GITHUB_APP.HANDLE_PUSH_TRIGGER: "true"
+
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    networks:
+      - cliproxy_net
+
+networks:
+  cliproxy_net:
+    external: true
+    name: cliproxyapi_backend

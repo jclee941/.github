@@ -61,8 +61,8 @@ jobs:
           print('.pr_agent.toml sections:', sorted(c.keys()))
           assert 'config' in c
           assert 'openai' in c
-          assert c['config']['model'] in ['openai/openai/gpt-5.4', 'openai/gpt-5.4', 'openai/gpt-5.2', 'gpt-5-codex'], 'model override lost'
-          assert c['openai']['api_base'] == 'http://192.168.50.114:8317/v1', 'api_base lost'
+          assert c['config']['model'] in ['kimi-k2.6', 'kimi-k2.5', 'kimi-k2-thinking'], 'model override lost'
+          assert c['openai']['api_base'] == 'https://cliproxy.jclee.me/v1', 'api_base lost'
           print('.pr_agent.toml OK')
           "
           python3 -c "

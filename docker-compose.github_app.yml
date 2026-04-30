@@ -1,0 +1,63 @@
+# Deploy on LXC 100 (192.168.50.114) alongside cliproxyapi.
+# Public URL via Cloudflare Tunnel: https://prbot.jclee.me
+#
+# Usage (on LXC 100 root):
+#   cd /opt/github-bot && docker compose -f docker-compose.github_app.yml up -d
+#
+# Required: /opt/github-bot/.env with secrets (see below).
+#   GITHUB_APP_ID=...
+#   GITHUB_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
+#   GITHUB_WEBHOOK_SECRET=...
+#   CLIPROXY_API_KEY=sk-cliproxy-github-bot-...
+services:
+  github-bot-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.github_app
+    image: github-bot:app
+    container_name: github-bot-app
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:3000"   # bind to localhost; CF tunnel ingress to localhost:3001
+    env_file:
+      - .env
+    environment:
+      # GitHub App auth (dynaconf reads dotted keys from env)
+      GITHUB.DEPLOYMENT_TYPE: app
+      GITHUB.APP_ID: "${GITHUB_APP_ID}"
+      GITHUB.PRIVATE_KEY: "${GITHUB_PRIVATE_KEY}"
+      GITHUB.WEBHOOK_SECRET: "${GITHUB_WEBHOOK_SECRET}"
+
+      # CLIProxyAPI backend (same as workflow path)
+      OPENAI.KEY: "${CLIPROXY_API_KEY}"
+      OPENAI.API_BASE: https://cliproxy.jclee.me/v1
+      CONFIG.MODEL: kimi-k2.6
+      CONFIG.FALLBACK_MODELS: '["kimi-k2.5", "gpt-5.5"]'
+      CONFIG.CUSTOM_MODEL_MAX_TOKENS: "128000"
+      CONFIG.AI_TIMEOUT: "180"
+
+      # github_app commands fired automatically per event
+      GITHUB_APP.PR_COMMANDS: '["/describe", "/review", "/improve"]'
+      GITHUB_APP.HANDLE_PR_ACTIONS: '["opened", "reopened", "ready_for_review"]'
+      GITHUB_APP.HANDLE_PUSH_TRIGGER: "true"
+
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    networks:
+      - cliproxy_net
+
+networks:
+  cliproxy_net:
+    external: true
+    name: cliproxyapi_backend   # piggyback on existing cliproxy network on LXC 100

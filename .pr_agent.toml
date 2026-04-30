@@ -2,15 +2,17 @@
 # See AGENTS.md for full context
 
 [config]
-# FORK: route all LLM calls through homelab CLIProxyAPI (OpenAI-compatible)
-# Models available: openai/gpt-5.2, claude-sonnet-4-6, gpt-5.1-codex-max, gemini-2.5-flash, ...
-model = "openai/openai/gpt-5.4"
+# FORK: route all LLM calls through homelab CLIProxyAPI via Cloudflare Tunnel
+# Public endpoint: https://cliproxy.jclee.me/v1 (origin: 192.168.50.114:8317 LXC 100)
+# Available Kimi models: kimi-k2, kimi-k2-thinking, kimi-k2.5, kimi-k2.6
+model = "kimi-k2.6"
+fallback_models = ["kimi-k2.5", "claude-sonnet-4-6"]
 custom_model_max_tokens = 128000
 
 [openai]
-# FORK: CLIProxyAPI endpoint on homelab LXC 100 (cliproxy.homelab.local)
-# The api_key is NOT set here; use env var OPENAI_KEY from GitHub Secrets or .env
-api_base = "http://192.168.50.114:8317/v1"
+# FORK: CLIProxyAPI public endpoint via Cloudflare Tunnel
+# api_key is NOT set here; use env var OPENAI_KEY from GitHub Secrets or .env
+api_base = "https://cliproxy.jclee.me/v1"
 
 [litellm]
 drop_params = true
@@ -21,6 +23,52 @@ enable_auto_approval = true
 response_language = "ko"
 
 extra_instructions = """## Code Review Guidelines (Korean)
+리뷰어는 한국어로 응답합니다. 다음 원칙을 따릅니다:
+
+### 우선순위
+1. **보안**: SQL Injection, XSS, 인증/인가 문제, secrets 노출
+2. **정확성**: 논리 오류, 경쟁조건, edge case 미처리
+3. **성능**: 불필요한 쿼리, 메모리 누수, 비효율적인 알고리즘
+4. **유지보수성**: 코드 중복, 과도한 복잡성, 테스트 부재
+5. **문서화**: README.md, API 문서, 주석/독스트링 업데이트 필요성
+
+### 문서화 검토
+- PR의 변경사항으로 인해 README.md 업데이트가 필요한지 확인
+- 새로운 기능, API 변경, 설정 옵션 추가 시 문서화 제안
+- 인라인 주석 및 독스트링의 완성도 검토
+- PR 설명 자체의 명확성과 완전성 평가
+- Configuration 예시나 사용법 변경 시 문서 반영 필요성 확인
+
+### 리뷰 형식
+- 각 이슈는 번호를 매겨 제시
+- 심각도 표시: [CRITICAL] [WARNING] [INFO]
+- 위치: 파일명 + 라인 번호
+- 개선 제안: 구체적인 코드 예시 포함
+
+### 예시 응답 형식
+```
+## 리뷰 요약
+- 변경사항: {요약}
+- 전반적 평가: {APPROVE / NEEDS_REVISION}
+
+## 상세 피드백
+
+### [CRITICAL] 파일명:라인
+**문제**: {설명}
+**개선안**:
+```코드
+{개선된 코드}
+```
+
+### [WARNING] 파일명:라인
+...
+```
+```
+
+### 특수 상황
+- `/agentic_review`: 더 깊은 분석 수행, architecture impact 포함
+- security label: 보안 중심 리뷰 (SAST mindset)
+- draft PR: 경미한 이슈만 코멘트, blocking 없음"""
 리뷰어는 한국어로 응답합니다. 다음 원칙을 따릅니다:
 
 ### 우선순위

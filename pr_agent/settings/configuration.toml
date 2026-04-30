@@ -3,9 +3,9 @@
 # Your repository configuration should only include options you wish to override from the defaults.
 
 [config]
-# models
-model="openai/gpt-5.2"                      # FORK: default model via CLIProxyAPI (router-for-me/CLIProxyAPI)
-fallback_models=["claude-sonnet-4-6"]        # FORK: fallback via cli_proxy
+# models — FORK: Kimi via CLIProxyAPI (Cloudflare Tunnel: cliproxy.jclee.me)
+model="kimi-k2.6"
+fallback_models=["kimi-k2.5", "claude-sonnet-4-6"]
 #model_reasoning="o4-mini" # dedicated reasoning model for self-reflection
 #model_weak="gpt-4o" # optional, a weaker model to use for some easier tasks
 # CLI
@@ -84,7 +84,7 @@ require_ticket_analysis_review=true
 # general options
 publish_output_no_suggestions=true # Set to "false" if you only need the reviewer's remarks (not labels, not "security audit", etc.) and want to avoid noisy "No major issues detected" comments.
 persistent_comment=true
-extra_instructions = ""
+extra_instructions = "Additionally, evaluate whether this PR requires documentation updates. Check if README.md, API documentation, configuration examples, or inline comments/docstrings need updating due to new features, changed behavior, or new options introduced by this PR. If documentation gaps are found, include specific suggestions for what to document and where. Also verify that the PR description itself is clear and complete."
 num_max_findings = 3
 final_update_message = true
 # review labels
