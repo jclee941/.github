@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	prTitle              = "chore: add standard automation workflows"
-	prBody               = "## Summary\n- add standardized automation workflows from github-bot\n- includes PR checks, issue management, and docs sync\n- targets the self-hosted homelab runner configuration"
-	branchName           = "chore/add-pr-review-bot-workflow"
+	prTitle    = "chore: add standard automation workflows"
+	prBody     = "## Summary\n- add standardized automation workflows from github-bot\n- includes PR checks, issue management, and docs sync\n- targets the self-hosted homelab runner configuration"
+	branchName = "chore/add-pr-review-bot-workflow"
 )
 
 var workflowFiles = []string{
@@ -26,8 +26,8 @@ var workflowFiles = []string{
 }
 
 var defaultRepos = []string{
-"resume",
-"safetywallet",
+	"resume",
+	"safetywallet",
 	"youtube",
 	"tmux",
 	"hycu_fsds",
@@ -52,10 +52,9 @@ type config struct {
 }
 
 type repoResult struct {
-	name         string
-	secretExists bool
-	status       string
-	err          error
+	name   string
+	status string
+	err    error
 }
 
 type runner struct {
@@ -94,13 +93,6 @@ func run() error {
 
 	for _, repo := range cfg.repos {
 		result := repoResult{name: repo}
-		secretExists, secretErr := checkSecret(repo)
-		result.secretExists = secretExists
-		if secretErr != nil {
-			fmt.Fprintf(r.errOut, "[%s] warning: failed to check CLIPROXY_API_KEY secret: %v\n", repo, secretErr)
-		} else if !secretExists {
-			fmt.Fprintf(r.errOut, "[%s] warning: CLIPROXY_API_KEY secret is missing\n", repo)
-		}
 
 		if err := deployRepo(r, rootDir, repo, cfg.baseBranch); err != nil {
 			result.status = "failed"
@@ -134,8 +126,8 @@ func parseFlags() (config, error) {
 	var reposFlag string
 
 	flag.BoolVar(&cfg.dryRun, "dry-run", false, "preview deployment steps without making changes")
-	flag.StringVar(&cfg.baseBranch, "base-branch", "master", "target base branch (master or main)")
-flag.StringVar(&reposFlag, "repos", strings.Join(defaultRepos, ","), "comma-separated repo names: resume,safetywallet,youtube")
+	flag.StringVar(&cfg.baseBranch, "base-branch", "", "target base branch override (auto-detected if empty)")
+	flag.StringVar(&reposFlag, "repos", strings.Join(defaultRepos, ","), "comma-separated repo names: resume,safetywallet,youtube")
 	flag.Parse()
 
 	repos, err := normalizeRepos(reposFlag)
@@ -203,9 +195,9 @@ func findRepoRoot() (string, error) {
 	return "", fmt.Errorf("could not find repo root containing %s from %s", workflowFiles[0], wd)
 }
 
-func checkSecret(repo string) (bool, error) {
+func getDefaultBranch(repo string) (string, error) {
 	fullRepo := fullRepoName(repo)
-	cmd := exec.Command("gh", "secret", "list", "-R", fullRepo)
+	cmd := exec.Command("gh", "api", fmt.Sprintf("repos/%s", fullRepo), "--jq", ".default_branch")
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -214,24 +206,30 @@ func checkSecret(repo string) (bool, error) {
 	err := cmd.Run()
 	if err != nil {
 		if stderr.Len() > 0 {
-			return false, fmt.Errorf("gh secret list: %s", strings.TrimSpace(stderr.String()))
+			return "", fmt.Errorf("gh api: %s", strings.TrimSpace(stderr.String()))
 		}
-		return false, fmt.Errorf("gh secret list: %w", err)
+		return "", fmt.Errorf("gh api: %w", err)
 	}
 
-	for _, line := range strings.Split(stdout.String(), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) > 0 && fields[0] == "CLIPROXY_API_KEY" {
-			return true, nil
-		}
+	branch := strings.TrimSpace(stdout.String())
+	if branch == "" {
+		return "master", nil
 	}
-
-	return false, nil
+	return branch, nil
 }
 
-func deployRepo(r runner, rootDir, repo, baseBranch string) error {
+func deployRepo(r runner, rootDir, repo, baseBranchOverride string) error {
 	fullRepo := fullRepoName(repo)
 	workDir := filepath.Join(os.TempDir(), "deploy-to-repos", repo)
+
+	baseBranch := baseBranchOverride
+	if baseBranch == "" {
+		var err error
+		baseBranch, err = getDefaultBranch(repo)
+		if err != nil {
+			return fmt.Errorf("detect default branch for %s: %w", repo, err)
+		}
+	}
 
 	if !r.dryRun {
 		if err := os.RemoveAll(workDir); err != nil {
@@ -383,16 +381,11 @@ func printSummary(w io.Writer, dryRun bool, results []repoResult) {
 	}
 	fmt.Fprintf(w, "\nSummary (%s):\n", mode)
 	for _, result := range results {
-		secretStatus := "present"
-		if !result.secretExists {
-			secretStatus = "missing-or-unverified"
-		}
-
 		if result.err != nil {
-			fmt.Fprintf(w, "- %s: %s (secret: %s) - %v\n", fullRepoName(result.name), result.status, secretStatus, result.err)
+			fmt.Fprintf(w, "- %s: %s - %v\n", fullRepoName(result.name), result.status, result.err)
 			continue
 		}
-		fmt.Fprintf(w, "- %s: %s (secret: %s)\n", fullRepoName(result.name), result.status, secretStatus)
+		fmt.Fprintf(w, "- %s: %s\n", fullRepoName(result.name), result.status)
 	}
 }
 

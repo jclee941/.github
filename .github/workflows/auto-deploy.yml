@@ -20,9 +20,25 @@ jobs:
         with:
           go-version: '1.21'
 
+      - name: Dry-run preview
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Previewing deployment changes..."
+          go run scripts/deploy-to-repos.go --dry-run
+
       - name: Deploy to all repos
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
           echo "Deploying updated workflows to all jclee941/* repos..."
           go run scripts/deploy-to-repos.go
+
+      - name: Create failure issue
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create --repo ${{ github.repository }} \
+            --title "chore: auto-deploy failed on ${{ github.sha }}" \
+            --body "Workflow auto-deployment failed.\n\n- Commit: ${{ github.sha }}\n- Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\n\nPlease investigate and re-run if needed."
