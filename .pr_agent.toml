@@ -21,7 +21,9 @@ drop_params = true
 [pr_reviewer]
 enable_review_labels_effort = true
 
-extra_instructions = """## Code Review Guidelines (Korean)
+extra_instructions = """IMPORTANT: You MUST respond entirely in Korean (한국어). All review comments, summaries, and explanations must be written in Korean. Do not use English.
+
+## Code Review Guidelines (Korean)
 리뷰어는 한국어로 응답합니다. 다음 원칙을 따릅니다:
 
 ### 우선순위
