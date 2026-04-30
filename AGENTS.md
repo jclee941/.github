@@ -86,6 +86,10 @@ github-bot/
 ├── AGENTS.md                      # THIS FILE
 ├── README.md                      # fork-specific readme
 ├── docs/
+│   ├── review-templates/              # FORK: review templates (Korean)
+│   │   ├── code-review-template.md      # Master review format and priorities
+│   │   ├── documentation-checklist.md   # Documentation review checklist
+│   │   └── security-review-template.md  # Security-focused review checklist
 │   └── pr-agent-upstream-README.md  # original pr-agent README
 └── tests/                         # upstream pytest suite (unit tests only)
 ```
@@ -105,7 +109,9 @@ github-bot/
 | Slash command handling | `pr_agent/servers/github_app.py`, `github_action_runner.py` | |
 | Add a git provider | `pr_agent/git_providers/` | implement base class |
 | Deploy to another repo | `scripts/deploy-to-repos.go` | Automates workflow + secret setup |
-| Upstream sync | `git fetch upstream && git merge upstream/main` | resolve conflicts in configuration.toml, .pr_agent.toml |
+|| Upstream sync | `git fetch upstream && git merge upstream/main` | resolve conflicts in configuration.toml, .pr_agent.toml |
+|| Edit review templates | `docs/review-templates/` | Korean-language review templates (code, docs, security) |
+|| Configure documentation review | `.pr_agent.toml` `[pr_reviewer].extra_instructions` | Documentation checklist embedded in instructions |
 
 ## CLI_PROXY INTEGRATION DETAILS
 
@@ -218,6 +224,47 @@ gh -R "$REPO" secret set CLIPROXY_API_KEY --body "$(cat /home/jclee/.cache/sisyp
 - AGPL-3.0 compliance: this is a private deployment serving only jclee941; source access is provided via this repo itself to authorized users (which is just jclee941)
 
 ## FORK ATTRIBUTION
+
+## REVIEW TEMPLATES
+
+> Korean-language review templates for the `jclee-bot` GitHub App.
+Located in `docs/review-templates/` and referenced from `.pr_agent.toml`.
+
+| Template | Purpose | Trigger |
+|----------|---------|---------|
+| `code-review-template.md` | Master review format, priorities, severity levels | Every `/review` |
+| `documentation-checklist.md` | README, API docs, docstring, PR description checks | Embedded in `extra_instructions` |
+| `security-review-template.md` | OWASP Top 10, secret scanning, SAST checks | `security-review` label or `/agentic_review --security` |
+
+### Template Usage Flow
+
+```
+PR opened / labeled
+    │
+    ▼
+GitHub App receives webhook
+    │
+    ▼
+pr_agent reads .pr_agent.toml
+    │
+    ▼
+extra_instructions loaded (compact rules from templates)
+    │
+    ▼
+LLM (kimi-k2.6) generates Korean review
+    │
+    ▼
+Review posted as PR comment (markdown tables + code blocks)
+```
+
+### Customizing Templates
+
+1. Edit the relevant `.md` file in `docs/review-templates/`
+2. Update `.pr_agent.toml` `[pr_reviewer].extra_instructions` to match (compact form)
+3. Commit to `master` (default branch — GitHub App reads from here)
+4. Restart container: `docker compose restart github-bot-app`
+
+**Note**: Templates are for human reference. The bot actually uses the compact `extra_instructions` in `.pr_agent.toml`. Keep them in sync.
 
 - **Upstream**: [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent) — AGPL-3.0 © 2023-2026 CodiumAI / Qodo contributors
 - **Base commit**: `d82f7d3e` (`fix: prevent dummy_key from overriding provider-specific API keys`)

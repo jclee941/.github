@@ -35,6 +35,30 @@ No data leaves the homelab LAN. PR reviews go straight from GitHub webhook → C
 
 See [docs/pr-agent-upstream-README.md](docs/pr-agent-upstream-README.md) for the full feature reference from upstream.
 
+## Documentation Review
+
+Every PR review automatically checks for documentation completeness:
+
+- **README.md** — new features, API changes, config options require updates
+- **API docs** — endpoint changes need spec updates
+- **Code comments** — complex logic requires inline explanations
+- **PR description** — clarity and completeness of the change rationale
+- **Config examples** — `.env`/`.toml` changes need documentation
+
+The bot suggests specific documentation updates in review comments when gaps are detected.
+
+## Review Templates
+
+Structured Korean-language review templates live in [`docs/review-templates/`](docs/review-templates/):
+
+| Template | File | Purpose |
+|----------|------|---------|
+| Code Review | [`code-review-template.md`](docs/review-templates/code-review-template.md) | Master format, priorities, severity levels |
+| Documentation | [`documentation-checklist.md`](docs/review-templates/documentation-checklist.md) | README, API docs, docstring checks |
+| Security | [`security-review-template.md`](docs/review-templates/security-review-template.md) | OWASP Top 10, secret scanning, SAST |
+
+These templates define the review standards used by `jclee-bot`. Modify the templates and update `.pr_agent.toml` `extra_instructions` to change review behavior.
+
 ## Architecture
 
 ```
