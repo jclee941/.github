@@ -1,0 +1,28 @@
+name: Auto Deploy Workflows
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/**'
+      - 'scripts/deploy-to-repos.go'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Deploy to all repos
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Deploying updated workflows to all jclee941/* repos..."
+          go run scripts/deploy-to-repos.go
