@@ -14,12 +14,17 @@ import (
 )
 
 const (
-	workflowRelativePath = ".github/workflows/pr-review.yml"
 	prTitle              = "chore: add PR review bot workflow"
 	prBody               = "## Summary\n- add the PR review workflow backed by github-bot\n- target the self-hosted homelab runner configuration\n- verify the CLIPROXY_API_KEY secret exists before rollout"
 	branchName           = "chore/add-pr-review-bot-workflow"
 	targetBaseBranch     = "master"
 )
+
+var workflowFiles = []string{
+	".github/workflows/pr-review.yml",
+	".github/workflows/issue-management.yml",
+	".github/workflows/docs-sync.yml",
+}
 
 var defaultRepos = []string{
 	"resume",
@@ -63,9 +68,11 @@ func run() error {
 		return err
 	}
 
-	workflowSource := filepath.Join(rootDir, workflowRelativePath)
-	if _, err := os.Stat(workflowSource); err != nil {
-		return fmt.Errorf("workflow source %q not found: %w", workflowSource, err)
+	for _, wf := range workflowFiles {
+		workflowSource := filepath.Join(rootDir, wf)
+		if _, err := os.Stat(workflowSource); err != nil {
+			return fmt.Errorf("workflow source %q not found: %w", workflowSource, err)
+		}
 	}
 
 	r := runner{dryRun: cfg.dryRun, out: os.Stdout, errOut: os.Stderr}
@@ -81,7 +88,7 @@ func run() error {
 			fmt.Fprintf(r.errOut, "[%s] warning: CLIPROXY_API_KEY secret is missing\n", repo)
 		}
 
-		if err := deployRepo(r, workflowSource, repo); err != nil {
+		if err := deployRepo(r, rootDir, repo); err != nil {
 			result.status = "failed"
 			result.err = err
 		} else if cfg.dryRun {
@@ -166,7 +173,7 @@ func findRepoRoot() (string, error) {
 
 	current := wd
 	for {
-		candidate := filepath.Join(current, workflowRelativePath)
+		candidate := filepath.Join(current, workflowFiles[0])
 		if _, err := os.Stat(candidate); err == nil {
 			return current, nil
 		}
@@ -178,7 +185,7 @@ func findRepoRoot() (string, error) {
 		current = parent
 	}
 
-	return "", fmt.Errorf("could not find repo root containing %s from %s", workflowRelativePath, wd)
+	return "", fmt.Errorf("could not find repo root containing %s from %s", workflowFiles[0], wd)
 }
 
 func checkSecret(repo string) (bool, error) {
@@ -207,7 +214,7 @@ func checkSecret(repo string) (bool, error) {
 	return false, nil
 }
 
-func deployRepo(r runner, workflowSource, repo string) error {
+func deployRepo(r runner, rootDir, repo string) error {
 	fullRepo := fullRepoName(repo)
 	workDir := filepath.Join(os.TempDir(), "deploy-to-repos", repo)
 
@@ -228,22 +235,31 @@ func deployRepo(r runner, workflowSource, repo string) error {
 		return fmt.Errorf("create branch for %s: %w", repo, err)
 	}
 
-	targetWorkflow := filepath.Join(workDir, workflowRelativePath)
-	if err := copyWorkflow(r, workflowSource, targetWorkflow); err != nil {
-		return fmt.Errorf("copy workflow for %s: %w", repo, err)
+	changed := false
+	for _, wf := range workflowFiles {
+		src := filepath.Join(rootDir, wf)
+		dst := filepath.Join(workDir, wf)
+		if err := copyWorkflow(r, src, dst); err != nil {
+			return fmt.Errorf("copy workflow %s for %s: %w", wf, repo, err)
+		}
+		fileChanged, err := hasFileDiff(r, workDir, wf)
+		if err != nil {
+			return fmt.Errorf("check diff for %s in %s: %w", wf, repo, err)
+		}
+		if fileChanged {
+			changed = true
+		}
 	}
 
-	changed, err := hasWorkflowDiff(r, workDir)
-	if err != nil {
-		return fmt.Errorf("check workflow diff for %s: %w", repo, err)
-	}
 	if !changed {
-		fmt.Fprintf(r.out, "[%s] workflow already matches source; skipping PR creation\n", repo)
+		fmt.Fprintf(r.out, "[%s] all workflows already match source; skipping PR creation\n", repo)
 		return nil
 	}
 
-	if err := runLogged(r, workDir, "git", "add", workflowRelativePath); err != nil {
-		return fmt.Errorf("git add for %s: %w", repo, err)
+	for _, wf := range workflowFiles {
+		if err := runLogged(r, workDir, "git", "add", wf); err != nil {
+			return fmt.Errorf("git add %s for %s: %w", wf, repo, err)
+		}
 	}
 	if err := runLogged(r, workDir, "git", "commit", "-m", prTitle); err != nil {
 		return fmt.Errorf("git commit for %s: %w", repo, err)
@@ -278,13 +294,13 @@ func copyWorkflow(r runner, src, dst string) error {
 	return nil
 }
 
-func hasWorkflowDiff(r runner, workDir string) (bool, error) {
+func hasFileDiff(r runner, workDir, filePath string) (bool, error) {
 	if r.dryRun {
-		fmt.Fprintf(r.out, "[dry-run] inspect workflow diff in %s\n", workDir)
+		fmt.Fprintf(r.out, "[dry-run] inspect diff for %s in %s\n", filePath, workDir)
 		return true, nil
 	}
 
-	cmd := exec.Command("git", "status", "--short", "--", workflowRelativePath)
+	cmd := exec.Command("git", "status", "--short", "--", filePath)
 	cmd.Dir = workDir
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
