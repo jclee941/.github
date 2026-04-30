@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	prTitle              = "chore: add PR review bot workflow"
-	prBody               = "## Summary\n- add the PR review workflow backed by github-bot\n- target the self-hosted homelab runner configuration\n- verify the CLIPROXY_API_KEY secret exists before rollout"
+	prTitle              = "chore: add standard automation workflows"
+	prBody               = "## Summary\n- add standardized automation workflows from github-bot\n- includes PR checks, issue management, and docs sync\n- targets the self-hosted homelab runner configuration"
 	branchName           = "chore/add-pr-review-bot-workflow"
 	targetBaseBranch     = "master"
 )
@@ -27,9 +27,23 @@ var workflowFiles = []string{
 }
 
 var defaultRepos = []string{
-	"resume",
-	"safetywallet",
+"resume",
+"safetywallet",
 	"youtube",
+	"tmux",
+	"hycu_fsds",
+	"splunk",
+	"blacklist",
+	"opencode",
+	"terraform",
+	".github",
+	"slack-opencode-bridge",
+	"natively-cluely-ai-assistant",
+	"terraform-homelab",
+	"n8n-workflows",
+	"n8n-workflow",
+	"n8n-agent",
+	"dot-github",
 }
 
 type config struct {
