@@ -139,32 +139,32 @@ def convert_to_markdown_v2(output_data: dict,
     """
 
     emojis = {
-        "Can be split": "🔀",
-        "Key issues to review": "⚡",
-        "Recommended focus areas for review": "⚡",
-        "Score": "🏅",
-        "Relevant tests": "🧪",
-        "Focused PR": "✨",
-        "Relevant ticket": "🎫",
-        "Security concerns": "🔒",
-        "Todo sections": "📝",
-        "Insights from user's answers": "📝",
-        "Code feedback": "🤖",
-        "Estimated effort to review [1-5]": "⏱️",
-        "Contribution time cost estimate": "⏳",
-        "Ticket compliance check": "🎫",
+        "분할 가능": "🔀",
+        "검토할 주요 이슈": "⚡",
+        "검토 권장 영역": "⚡",
+        "점수": "🏅",
+        "관련 테스트": "🧪",
+        "집중된 PR": "✨",
+        "관련 티켓": "🎫",
+        "보안 우려 사항": "🔒",
+        "TODO 섹션": "📝",
+        "사용자 답변에서 얻은 인사이트": "📝",
+        "코드 피드백": "🤖",
+        "검토 예상 소요 시간 [1-5]": "⏱️",
+        "기여 시간 비용 추정": "⏳",
+        "티켓 준수 확인": "🎫",
     }
     markdown_text = ""
     if not incremental_review:
         markdown_text += f"{PRReviewHeader.REGULAR.value} 🔍\n\n"
     else:
         markdown_text += f"{PRReviewHeader.INCREMENTAL.value} 🔍\n\n"
-        markdown_text += f"⏮️ Review for commits since previous PR-Agent review {incremental_review}.\n\n"
+        markdown_text += f"⏮️ 이전 PR-Agent 리뷰 이후 커밋에 대한 검토 {incremental_review}.\n\n"
     if not output_data or not output_data.get('review', {}):
         return ""
 
     if get_settings().get("pr_reviewer.enable_intro_text", False):
-        markdown_text += f"Here are some key observations to aid the review process:\n\n"
+        markdown_text += f"검토에 도움이 되는 주요 관찰 사항입니다:\n\n"
 
     if gfm_supported:
         markdown_text += "<table>\n"
@@ -191,7 +191,7 @@ def convert_to_markdown_v2(output_data: dict,
             value = f"{value_int} {blue_bars}{white_bars}"
             if gfm_supported:
                 markdown_text += f"<tr><td>"
-                markdown_text += f"{emoji}&nbsp;<strong>{key_nice}</strong>: {value}"
+                markdown_text += f"{emoji}&nbsp;<strong>복수 PR 주제</strong>: {value}"
                 markdown_text += f"</td></tr>\n"
             else:
                 markdown_text += f"### {emoji} {key_nice}: {value}\n\n"
@@ -200,55 +200,55 @@ def convert_to_markdown_v2(output_data: dict,
             if gfm_supported:
                 markdown_text += f"<tr><td>"
                 if is_value_no(value):
-                    markdown_text += f"{emoji}&nbsp;<strong>No relevant tests</strong>"
+                    markdown_text += f"{emoji}&nbsp;<strong>관련 테스트 없음</strong>"
                 else:
-                    markdown_text += f"{emoji}&nbsp;<strong>PR contains tests</strong>"
+                    markdown_text += f"{emoji}&nbsp;<strong>PR에 테스트 포함</strong>"
                 markdown_text += f"</td></tr>\n"
             else:
                 if is_value_no(value):
-                    markdown_text += f'### {emoji} No relevant tests\n\n'
+                    markdown_text += f'### {emoji} 관련 테스트 없음\n\n'
                 else:
-                    markdown_text += f"### {emoji} PR contains tests\n\n"
+                    markdown_text += f"### {emoji} PR에 테스트 포함\n\n"
         elif 'ticket compliance check' in key_nice.lower():
             markdown_text = ticket_markdown_logic(emoji, markdown_text, value, gfm_supported)
         elif 'contribution time cost estimate' in key_nice.lower():
             if gfm_supported:
-                markdown_text += f"<tr><td>{emoji}&nbsp;<strong>Contribution time estimate</strong> (best, average, worst case): "
+                markdown_text += f"<tr><td>{emoji}&nbsp;<strong>기여 시간 예상</strong> (최선, 평균, 최악의 경우): "
                 markdown_text += f"{value['best_case'].replace('m', ' minutes')} | {value['average_case'].replace('m', ' minutes')} | {value['worst_case'].replace('m', ' minutes')}"
                 markdown_text += f"</td></tr>\n"
             else:
-                markdown_text += f"### {emoji} Contribution time estimate (best, average, worst case): "
+                markdown_text += f"### {emoji} 기여 시간 예상 (최선, 평균, 최악의 경우): "
                 markdown_text += f"{value['best_case'].replace('m', ' minutes')} | {value['average_case'].replace('m', ' minutes')} | {value['worst_case'].replace('m', ' minutes')}\n\n"
         elif 'security concerns' in key_nice.lower():
             if gfm_supported:
                 markdown_text += f"<tr><td>"
                 if is_value_no(value):
-                    markdown_text += f"{emoji}&nbsp;<strong>No security concerns identified</strong>"
+                    markdown_text += f"{emoji}&nbsp;<strong>보안 우려 사항 없음</strong>"
                 else:
-                    markdown_text += f"{emoji}&nbsp;<strong>Security concerns</strong><br><br>\n\n"
+                    markdown_text += f"{emoji}&nbsp;<strong>보안 우려 사항</strong><br><br>\n\n"
                     value = emphasize_header(value.strip())
                     markdown_text += f"{value}"
                 markdown_text += f"</td></tr>\n"
             else:
                 if is_value_no(value):
-                    markdown_text += f'### {emoji} No security concerns identified\n\n'
+                    markdown_text += f'### {emoji} 보안 우려 사항 없음\n\n'
                 else:
-                    markdown_text += f"### {emoji} Security concerns\n\n"
+                    markdown_text += f"### {emoji} 보안 우려 사항\n\n"
                     value = emphasize_header(value.strip(), only_markdown=True)
                     markdown_text += f"{value}\n\n"
         elif 'todo sections' in key_nice.lower():
             if gfm_supported:
                 markdown_text += "<tr><td>"
                 if is_value_no(value):
-                    markdown_text += f"✅&nbsp;<strong>No TODO sections</strong>"
+                    markdown_text += f"✅&nbsp;<strong>TODO 섹션 없음</strong>"
                 else:
                     markdown_todo_items = format_todo_items(value, git_provider, gfm_supported)
-                    markdown_text += f"{emoji}&nbsp;<strong>TODO sections</strong>\n<br><br>\n"
+                    markdown_text += f"{emoji}&nbsp;<strong>TODO 섹션</strong>\n<br><br>\n"
                     markdown_text += markdown_todo_items
                 markdown_text += "</td></tr>\n"
             else:
                 if is_value_no(value):
-                    markdown_text += f"### ✅ No TODO sections\n\n"
+                    markdown_text += f"### ✅ TODO 섹션 없음\n\n"
                 else:
                     markdown_todo_items = format_todo_items(value, git_provider, gfm_supported)
                     markdown_text += f"### {emoji} TODO sections\n\n"
@@ -263,18 +263,18 @@ def convert_to_markdown_v2(output_data: dict,
             if is_value_no(value):
                 if gfm_supported:
                     markdown_text += f"<tr><td>"
-                    markdown_text += f"{emoji}&nbsp;<strong>No major issues detected</strong>"
+                    markdown_text += f"{emoji}&nbsp;<strong>주요 이슈 없음</strong>"
                     markdown_text += f"</td></tr>\n"
                 else:
-                    markdown_text += f"### {emoji} No major issues detected\n\n"
+                    markdown_text += f"### {emoji} 주요 이슈 없음\n\n"
             else:
                 issues = value
                 if gfm_supported:
                     markdown_text += f"<tr><td>"
-                    # markdown_text += f"{emoji}&nbsp;<strong>{key_nice}</strong><br><br>\n\n"
-                    markdown_text += f"{emoji}&nbsp;<strong>Recommended focus areas for review</strong><br><br>\n\n"
+                    # markdown_text += f"{emoji}&nbsp;<strong>복수 PR 주제</strong><br><br>\n\n"
+                    markdown_text += f"{emoji}&nbsp;<strong>검토 권장 영역</strong><br><br>\n\n"
                 else:
-                    markdown_text += f"### {emoji} Recommended focus areas for review\n\n#### \n"
+                    markdown_text += f"### {emoji} 검토 권장 영역\n\n#### \n"
                 for i, issue in enumerate(issues):
                     try:
                         if not issue or not isinstance(issue, dict):
@@ -282,7 +282,7 @@ def convert_to_markdown_v2(output_data: dict,
                         relevant_file = issue.get('relevant_file', '').strip()
                         issue_header = issue.get('issue_header', '').strip()
                         if issue_header.lower() == 'possible bug':
-                            issue_header = 'Possible Issue'  # Make the header less frightening
+                            issue_header = '가능한 이슈'  # Make the header less frightening
                         issue_content = issue.get('issue_content', '').strip()
                         start_line = int(str(issue.get('start_line', 0)).strip())
                         end_line = int(str(issue.get('end_line', 0)).strip())
@@ -314,7 +314,7 @@ def convert_to_markdown_v2(output_data: dict,
         else:
             if gfm_supported:
                 markdown_text += f"<tr><td>"
-                markdown_text += f"{emoji}&nbsp;<strong>{key_nice}</strong>: {value}"
+                markdown_text += f"{emoji}&nbsp;<strong>복수 PR 주제</strong>: {value}"
                 markdown_text += f"</td></tr>\n"
             else:
                 markdown_text += f"### {emoji} {key_nice}: {value}\n\n"
@@ -390,14 +390,14 @@ def ticket_markdown_logic(emoji, markdown_text, value, gfm_supported) -> str:
                 # Calculate individual ticket compliance level
                 if fully_compliant_str:
                     if not_compliant_str:
-                        ticket_compliance_level = 'Partially compliant'
+                        ticket_compliance_level = '부분적으로 준수'
                     else:
                         if not requires_further_human_verification:
-                            ticket_compliance_level = 'Fully compliant'
+                            ticket_compliance_level = '완전히 준수'
                         else:
-                            ticket_compliance_level = 'PR Code Verified'
+                            ticket_compliance_level = 'PR 코드 검증됨'
                 elif not_compliant_str:
-                    ticket_compliance_level = 'Not compliant'
+                    ticket_compliance_level = '준수 안 됨'
 
                 # Store the compliance level for aggregation
                 if ticket_compliance_level:
@@ -405,11 +405,11 @@ def ticket_markdown_logic(emoji, markdown_text, value, gfm_supported) -> str:
 
                 # build compliance string
                 if fully_compliant_str:
-                    explanation += f"Compliant requirements:\n\n{fully_compliant_str}\n\n"
+                    explanation += f"준수 요구 사항:\n\n{fully_compliant_str}\n\n"
                 if not_compliant_str:
-                    explanation += f"Non-compliant requirements:\n\n{not_compliant_str}\n\n"
+                    explanation += f"비준수 요구 사항:\n\n{not_compliant_str}\n\n"
                 if requires_further_human_verification:
-                    explanation += f"Requires further human verification:\n\n{requires_further_human_verification}\n\n"
+                    explanation += f"추가 인간 검증 필요:\n\n{requires_further_human_verification}\n\n"
                 ticket_compliance_str += f"\n\n**[{ticket_url.split('/')[-1]}]({ticket_url}) - {ticket_compliance_level}**\n\n{explanation}\n\n"
 
                 # for debugging
@@ -425,25 +425,25 @@ def ticket_markdown_logic(emoji, markdown_text, value, gfm_supported) -> str:
 
         # Calculate overall compliance level and emoji
         if all_compliance_levels:
-            if all(level == 'Fully compliant' for level in all_compliance_levels):
-                compliance_level = 'Fully compliant'
+            if all(level == '완전히 준수' for level in all_compliance_levels):
+                compliance_level = '완전히 준수'
                 compliance_emoji = '✅'
-            elif all(level == 'PR Code Verified' for level in all_compliance_levels):
-                compliance_level = 'PR Code Verified'
+            elif all(level == 'PR 코드 검증됨' for level in all_compliance_levels):
+                compliance_level = 'PR 코드 검증됨'
                 compliance_emoji = '✅'
-            elif any(level == 'Not compliant' for level in all_compliance_levels):
+            elif any(level == '준수 안 됨' for level in all_compliance_levels):
                 # If there's a mix of compliant and non-compliant tickets
-                if any(level in ['Fully compliant', 'PR Code Verified'] for level in all_compliance_levels):
-                    compliance_level = 'Partially compliant'
+                if any(level in ['완전히 준수', 'PR 코드 검증됨'] for level in all_compliance_levels):
+                    compliance_level = '부분적으로 준수'
                     compliance_emoji = '🔶'
                 else:
                     compliance_level = 'Not compliant'
                     compliance_emoji = '❌'
-            elif any(level == 'Partially compliant' for level in all_compliance_levels):
-                compliance_level = 'Partially compliant'
+            elif any(level == '부분적으로 준수' for level in all_compliance_levels):
+                compliance_level = '부분적으로 준수'
                 compliance_emoji = '🔶'
             else:
-                compliance_level = 'PR Code Verified'
+                compliance_level = 'PR 코드 검증됨'
                 compliance_emoji = '✅'
 
             # Set extra statistics outside the ticket loop
@@ -452,11 +452,11 @@ def ticket_markdown_logic(emoji, markdown_text, value, gfm_supported) -> str:
         # editing table row for ticket compliance analysis
         if gfm_supported:
             markdown_text += f"<tr><td>\n\n"
-            markdown_text += f"**{emoji} Ticket compliance analysis {compliance_emoji}**\n\n"
+            markdown_text += f"**{emoji} 티켓 준수 분석 {compliance_emoji}**\n\n"
             markdown_text += ticket_compliance_str
             markdown_text += f"</td></tr>\n"
         else:
-            markdown_text += f"### {emoji} Ticket compliance analysis {compliance_emoji}\n\n"
+            markdown_text += f"### {emoji} 티켓 준수 분석 {compliance_emoji}\n\n"
             markdown_text += ticket_compliance_str + "\n\n"
 
     return markdown_text
@@ -469,35 +469,35 @@ def process_can_be_split(emoji, value):
         markdown_text = ""
         if not value or isinstance(value, list) and len(value) == 1:
             value = "No"
-            # markdown_text += f"<tr><td> {emoji}&nbsp;<strong>{key_nice}</strong></td><td>\n\n{value}\n\n</td></tr>\n"
+            # markdown_text += f"<tr><td> {emoji}&nbsp;<strong>복수 PR 주제</strong></td><td>\n\n{value}\n\n</td></tr>\n"
             # markdown_text += f"### {emoji} No multiple PR themes\n\n"
-            markdown_text += f"{emoji} <strong>No multiple PR themes</strong>\n\n"
+            markdown_text += f"{emoji} <strong>복수 PR 주제 없음</strong>\n\n"
         else:
-            markdown_text += f"{emoji} <strong>{key_nice}</strong><br><br>\n\n"
+            markdown_text += f"{emoji} <strong>복수 PR 주제</strong><br><br>\n\n"
             for i, split in enumerate(value):
                 title = split.get('title', '')
                 relevant_files = split.get('relevant_files', [])
-                markdown_text += f"<details><summary>\nSub-PR theme: <b>{title}</b></summary>\n\n"
-                markdown_text += f"___\n\nRelevant files:\n\n"
+                markdown_text += f"<details><summary>\n하위 PR 주제: <b>{title}</summary>\n\n"
+                markdown_text += f"___\n\n관련 파일:\n\n"
                 for file in relevant_files:
                     markdown_text += f"- {file}\n"
                 markdown_text += f"___\n\n"
                 markdown_text += f"</details>\n\n"
 
                 # markdown_text += f"#### Sub-PR theme: {title}\n\n"
-                # markdown_text += f"Relevant files:\n\n"
+                # markdown_text += f"관련 파일:\n\n"
                 # for file in relevant_files:
                 #     markdown_text += f"- {file}\n"
                 # markdown_text += "\n"
             # number_of_splits = len(value)
-            # markdown_text += f"<tr><td rowspan={number_of_splits}> {emoji}&nbsp;<strong>{key_nice}</strong></td>\n"
+            # markdown_text += f"<tr><td rowspan={number_of_splits}> {emoji}&nbsp;<strong>복수 PR 주제</strong></td>\n"
             # for i, split in enumerate(value):
             #     title = split.get('title', '')
             #     relevant_files = split.get('relevant_files', [])
             #     if i == 0:
             #         markdown_text += f"<td><details><summary>\nSub-PR theme:<br><strong>{title}</strong></summary>\n\n"
             #         markdown_text += f"<hr>\n"
-            #         markdown_text += f"Relevant files:\n"
+            #         markdown_text += f"관련 파일:\n"
             #         markdown_text += f"<ul>\n"
             #         for file in relevant_files:
             #             markdown_text += f"<li>{file}</li>\n"
@@ -505,7 +505,7 @@ def process_can_be_split(emoji, value):
             #     else:
             #         markdown_text += f"<tr>\n<td><details><summary>\nSub-PR theme:<br><strong>{title}</strong></summary>\n\n"
             #         markdown_text += f"<hr>\n"
-            #         markdown_text += f"Relevant files:\n"
+            #         markdown_text += f"관련 파일:\n"
             #         markdown_text += f"<ul>\n"
             #         for file in relevant_files:
             #             markdown_text += f"<li>{file}</li>\n"
@@ -1275,8 +1275,8 @@ def show_relevant_configurations(relevant_section: str) -> str:
         skip_keys.extend(extra_skip_keys)
 
     markdown_text = ""
-    markdown_text += "\n<hr>\n<details> <summary><strong>🛠️ Relevant configurations:</strong></summary> \n\n"
-    markdown_text +="<br>These are the relevant [configurations](https://github.com/Codium-ai/pr-agent/blob/main/pr_agent/settings/configuration.toml) for this tool:\n\n"
+    markdown_text += "\n<hr>\n<details> <summary><strong>🛠️ 관련 구성:</strong></summary> \n\n"
+    markdown_text +="<br>이 도구의 [구성](https://github.com/Codium-ai/pr-agent/blob/main/pr_agent/settings/configuration.toml)에 대한 설명:\n\n"
     markdown_text += f"**[config**]\n```yaml\n\n"
     for key, value in get_settings().config.items():
         if key in skip_keys:
