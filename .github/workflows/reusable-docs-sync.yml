@@ -161,7 +161,7 @@ jobs:
                 `⚠️ API 관련 코드 변경이 있지만 API 문서 업데이트가 없습니다.\n\n` +
                 `변경된 파일:\n` +
                 changedFiles.filter(f => f.includes('route') || f.includes('api') || f.includes('endpoint')).map(f => `- \`${f}\``).join('\n') + '\n\n' +
-                `OpenAPI/Swagger 명세나 API 문서를 업데이트했는지 확인하세요.\n\n' +
+              `OpenAPI/Swagger 명세나 API 문서를 업데이트했는지 확인하세요.\n\n` +
                 `> 자동 생성됨 (Documentation Sync Workflow)`;
               
               await github.rest.issues.createComment({
