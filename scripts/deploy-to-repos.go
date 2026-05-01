@@ -35,8 +35,6 @@ var defaultRepos = []string{
 	"blacklist",
 	"opencode",
 	"terraform",
-	"slack-opencode-bridge",
-	"terraform-homelab",
 }
 
 type config struct {
