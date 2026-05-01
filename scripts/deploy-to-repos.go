@@ -294,8 +294,9 @@ func deployRepo(r runner, rootDir, repo, baseBranchOverride string) error {
 	if err := runLogged(r, workDir, "git", "commit", "-m", prTitle); err != nil {
 		return fmt.Errorf("git commit for %s: %w", repo, err)
 	}
-	if err := runLogged(r, workDir, "gh", "auth", "setup-git"); err != nil {
-		return fmt.Errorf("gh auth setup-git for %s: %w", repo, err)
+	remoteURL := fmt.Sprintf("https://x-access-token:%s@github.com/jclee941/%s.git", os.Getenv("GITHUB_TOKEN"), repo)
+	if err := runLogged(r, workDir, "git", "remote", "set-url", "origin", remoteURL); err != nil {
+		return fmt.Errorf("git remote set-url for %s: %w", repo, err)
 	}
 	if err := runLogged(r, workDir, "git", "push", "-u", "origin", branchName); err != nil {
 		return fmt.Errorf("git push for %s: %w", repo, err)
