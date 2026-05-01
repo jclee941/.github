@@ -10,5 +10,5 @@ permissions:
 
 jobs:
   pr-checks:
-    uses: jclee941/.github/.github/workflows/reusable-pr-checks.yml@master
+    uses: jclee941/.github/.github/workflows/reusable/reusable-pr-checks.yml@master
     secrets: inherit

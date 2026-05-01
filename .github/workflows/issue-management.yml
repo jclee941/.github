@@ -14,5 +14,5 @@ permissions:
 
 jobs:
   issue-management:
-    uses: jclee941/.github/.github/workflows/reusable-issue-management.yml@master
+    uses: jclee941/.github/.github/workflows/reusable/reusable-issue-management.yml@master
     secrets: inherit

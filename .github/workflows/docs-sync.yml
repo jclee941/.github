@@ -18,5 +18,5 @@ permissions:
 
 jobs:
   docs-sync:
-    uses: jclee941/.github/.github/workflows/reusable-docs-sync.yml@master
+    uses: jclee941/.github/.github/workflows/reusable/reusable-docs-sync.yml@master
     secrets: inherit

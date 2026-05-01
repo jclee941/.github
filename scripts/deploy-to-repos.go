@@ -19,13 +19,6 @@ const (
 	branchName = "chore/add-pr-review-bot-workflow"
 )
 
-var workflowFiles = []string{
-	".github/workflows/pr-checks.yml",
-	".github/workflows/issue-management.yml",
-	".github/workflows/docs-sync.yml",
-	".github/workflows/pr-review.yml",
-	".github/workflows/auto-hardcode-scan.yml",
-}
 
 var defaultRepos = []string{
 	"resume",
@@ -38,6 +31,8 @@ var defaultRepos = []string{
 	"terraform",
 	".github",
 }
+
+var workflowFiles = []string{}
 
 type config struct {
 	dryRun     bool
@@ -75,11 +70,12 @@ func run() error {
 		return err
 	}
 
-	for _, wf := range workflowFiles {
-		workflowSource := filepath.Join(rootDir, wf)
-		if _, err := os.Stat(workflowSource); err != nil {
-			return fmt.Errorf("workflow source %q not found: %w", workflowSource, err)
-		}
+	workflowFiles, err = getWorkflowFiles(rootDir)
+	if err != nil {
+		return fmt.Errorf("list workflow files: %w", err)
+	}
+	if len(workflowFiles) == 0 {
+		return errors.New("no workflow files found in .github/workflows/")
 	}
 
 	r := runner{dryRun: cfg.dryRun, out: os.Stdout, errOut: os.Stderr}
@@ -187,6 +183,28 @@ func findRepoRoot() (string, error) {
 	}
 
 	return "", fmt.Errorf("could not find repo root containing %s from %s", workflowFiles[0], wd)
+}
+
+func getWorkflowFiles(rootDir string) ([]string, error) {
+	var files []string
+	walkDir := filepath.Join(rootDir, ".github", "workflows")
+	err := filepath.Walk(walkDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && (strings.HasSuffix(path, ".yml") || strings.HasSuffix(path, ".yaml")) {
+			rel, err := filepath.Rel(rootDir, path)
+			if err != nil {
+				return err
+			}
+			files = append(files, rel)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return files, nil
 }
 
 func getDefaultBranch(repo string) (string, error) {
