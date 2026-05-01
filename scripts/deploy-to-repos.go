@@ -19,7 +19,6 @@ const (
 	branchName = "chore/add-pr-review-bot-workflow"
 )
 
-
 var defaultRepos = []string{
 	"resume",
 	"safetywallet",
@@ -285,6 +284,12 @@ func deployRepo(r runner, rootDir, repo, baseBranchOverride string) error {
 		if err := runLogged(r, workDir, "git", "add", wf); err != nil {
 			return fmt.Errorf("git add %s for %s: %w", wf, repo, err)
 		}
+	}
+	if err := runLogged(r, workDir, "git", "config", "user.email", "bot@jclee.me"); err != nil {
+		return fmt.Errorf("git config user.email for %s: %w", repo, err)
+	}
+	if err := runLogged(r, workDir, "git", "config", "user.name", "github-bot"); err != nil {
+		return fmt.Errorf("git config user.name for %s: %w", repo, err)
 	}
 	if err := runLogged(r, workDir, "git", "commit", "-m", prTitle); err != nil {
 		return fmt.Errorf("git commit for %s: %w", repo, err)
