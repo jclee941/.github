@@ -100,3 +100,17 @@ pr_actions = [
 [review_agent]
 enabled = true
 publish_output = true
+
+# ---------------------------------------------------------------------------
+# [pr_readme_generator] — README Auto-generation
+# ---------------------------------------------------------------------------
+[pr_readme_generator]
+extra_instructions = """IMPORTANT: Respond entirely in Korean (한국어). Generate a comprehensive README.md based on the repository structure and PR changes. Include installation, usage, configuration, and contribution sections."""
+
+# ---------------------------------------------------------------------------
+# [pr_hardcode_detector] — Hardcoded Value Detection
+# ---------------------------------------------------------------------------
+[pr_hardcode_detector]
+extra_instructions = """IMPORTANT: Respond entirely in Korean (한국어). Identify all hardcoded values, secrets, API keys, IP addresses, and magic numbers in the PR diff. Suggest environment variables or configuration files as alternatives."""
+create_issues = false
+create_fix_pr = false

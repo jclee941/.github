@@ -13,6 +13,8 @@ from pr_agent.tools.pr_code_suggestions import PRCodeSuggestions
 from pr_agent.tools.pr_config import PRConfig
 from pr_agent.tools.pr_description import PRDescription
 from pr_agent.tools.pr_generate_labels import PRGenerateLabels
+from pr_agent.tools.pr_hardcode_detector import PRHardcodeDetector
+from pr_agent.tools.pr_readme_generator import PRReadmeGenerator
 from pr_agent.tools.pr_help_docs import PRHelpDocs
 from pr_agent.tools.pr_help_message import PRHelpMessage
 from pr_agent.tools.pr_line_questions import PR_LineQuestions
@@ -40,11 +42,12 @@ command2class = {
     "similar_issue": PRSimilarIssue,
     "add_docs": PRAddDocs,
     "generate_labels": PRGenerateLabels,
+    "hardcode": PRHardcodeDetector,
+    "readme": PRReadmeGenerator,
     "help_docs": PRHelpDocs,
 }
 
 commands = list(command2class.keys())
-
 
 
 class PRAgent:
@@ -67,33 +70,33 @@ class PRAgent:
         # validate args
         is_valid, arg = CliArgs.validate_user_args(args)
         if not is_valid:
-            get_logger().error(
-                f"CLI argument for param '{arg}' is forbidden. Use instead a configuration file."
-            )
+            get_logger().error(f"CLI argument for param '{arg}' is forbidden. Use instead a configuration file.")
             return False
 
         # Update settings from args
         args = update_settings_from_args(args)
 
         # Append the response language in the extra instructions
-        response_language = get_settings().config.get('response_language', 'en-us')
-        if response_language.lower() != 'en-us':
-            get_logger().info(f'User has set the response language to: {response_language}')
+        response_language = get_settings().config.get("response_language", "en-us")
+        if response_language.lower() != "en-us":
+            get_logger().info(f"User has set the response language to: {response_language}")
             for key in get_settings():
                 setting = get_settings().get(key)
                 if str(type(setting)) == "<class 'dynaconf.utils.boxing.DynaBox'>":
-                    if hasattr(setting, 'extra_instructions'):
+                    if hasattr(setting, "extra_instructions"):
                         current_extra_instructions = setting.extra_instructions
-                        
+
                         # Define the language-specific instruction and the separator
                         lang_instruction_text = f"Your response MUST be written in the language corresponding to locale code: '{response_language}'. This is crucial."
                         separator_text = "\n======\n\nIn addition, "
 
                         # Check if the specific language instruction is already present to avoid duplication
                         if lang_instruction_text not in str(current_extra_instructions):
-                            if current_extra_instructions: # If there's existing text
-                                setting.extra_instructions = str(current_extra_instructions) + separator_text + lang_instruction_text
-                            else: # If extra_instructions was None or empty
+                            if current_extra_instructions:  # If there's existing text
+                                setting.extra_instructions = (
+                                    str(current_extra_instructions) + separator_text + lang_instruction_text
+                                )
+                            else:  # If extra_instructions was None or empty
                                 setting.extra_instructions = lang_instruction_text
                         # If lang_instruction_text is already present, do nothing.
 

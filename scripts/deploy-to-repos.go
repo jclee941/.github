@@ -23,6 +23,8 @@ var workflowFiles = []string{
 	".github/workflows/pr-checks.yml",
 	".github/workflows/issue-management.yml",
 	".github/workflows/docs-sync.yml",
+	".github/workflows/pr-review.yml",
+	".github/workflows/auto-hardcode-scan.yml",
 }
 
 var defaultRepos = []string{
