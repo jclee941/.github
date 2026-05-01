@@ -35,6 +35,7 @@ var defaultRepos = []string{
 	"blacklist",
 	"opencode",
 	"terraform",
+	".github",
 }
 
 type config struct {
