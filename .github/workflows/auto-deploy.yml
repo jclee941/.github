@@ -23,6 +23,7 @@ jobs:
       - name: Dry-run preview
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
           echo "Previewing deployment changes..."
           go run scripts/deploy-to-repos.go --dry-run
@@ -30,6 +31,7 @@ jobs:
       - name: Deploy to all repos
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
           echo "Deploying updated workflows to all jclee941/* repos..."
           go run scripts/deploy-to-repos.go
@@ -38,6 +40,7 @@ jobs:
         if: failure()
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
           gh issue create --repo ${{ github.repository }} \
             --title "chore: auto-deploy failed on ${{ github.sha }}" \

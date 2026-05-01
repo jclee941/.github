@@ -23,7 +23,7 @@ response_language = "ko"
 [openai]
 # FORK: CLIProxyAPI endpoint via Docker internal network
 # The api_key is NOT set here; use env var OPENAI_KEY from GitHub Secrets or .env
-api_base = "http://cliproxyapi:8317/v1"
+api_base = "https://cliproxy.jclee.me/v1"
 
 # ---------------------------------------------------------------------------
 # [litellm] — Parameter Handling
