@@ -35,9 +35,7 @@ var defaultRepos = []string{
 	"blacklist",
 	"opencode",
 	"terraform",
-	".github",
 	"slack-opencode-bridge",
-	"natively-cluely-ai-assistant",
 	"terraform-homelab",
 }
 
