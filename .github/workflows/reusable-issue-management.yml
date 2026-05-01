@@ -4,6 +4,7 @@ on:
     secrets:
       GITHUB_TOKEN:
         required: true
+  workflow_dispatch:
 
 jobs:
   stale-check:
