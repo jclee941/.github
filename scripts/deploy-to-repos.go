@@ -30,7 +30,6 @@ var workflowFiles = []string{
 var defaultRepos = []string{
 	"resume",
 	"safetywallet",
-	"youtube",
 	"tmux",
 	"hycu_fsds",
 	"splunk",

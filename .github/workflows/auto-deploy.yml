@@ -7,6 +7,10 @@ on:
       - '.github/workflows/**'
       - 'scripts/deploy-to-repos.go'
   workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
 
 jobs:
   deploy:
