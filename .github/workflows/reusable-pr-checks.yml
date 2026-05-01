@@ -8,6 +8,7 @@ on:
 
 jobs:
   check-size:
+    if: github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     name: Check PR Size
     steps:
@@ -27,6 +28,7 @@ jobs:
           fi
 
   check-title:
+    if: github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     name: Check PR Title
     steps:
@@ -51,6 +53,7 @@ jobs:
             }
 
   check-branch:
+    if: github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     name: Check Branch Name
     steps:
@@ -75,6 +78,7 @@ jobs:
             }
 
   check-description:
+    if: github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     name: Check PR Description
     steps:
@@ -107,6 +111,7 @@ jobs:
             }
 
   check-large-files:
+    if: github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     name: Check Large Files
     steps:
@@ -142,6 +147,7 @@ jobs:
             }
 
   check-sensitive-files:
+    if: github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     name: Check Sensitive Files
     steps:

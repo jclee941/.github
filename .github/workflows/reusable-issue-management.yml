@@ -8,6 +8,7 @@ on:
 
 jobs:
   stale-check:
+    if: github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     steps:
       - name: Stale Issue Detection
@@ -27,6 +28,7 @@ jobs:
           remove-stale-when-updated: true
 
   auto-label:
+    if: github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     if: github.event_name == 'issues' && github.event.action == 'opened'
     steps:
@@ -81,6 +83,7 @@ jobs:
             }
 
   stale-remove:
+    if: github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     if: github.event_name == 'issue_comment' || (github.event_name == 'issues' && contains(fromJson('["reopened", "edited"]'), github.event.action))
     steps:
@@ -103,6 +106,7 @@ jobs:
 
 
   issue-stats:
+    if: github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     steps:

@@ -8,6 +8,7 @@ on:
 
 jobs:
   link-check:
+    if: github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -48,6 +49,7 @@ jobs:
             });
 
   markdown-lint:
+    if: github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -70,6 +72,7 @@ jobs:
             || true
 
   readme-sync-check:
+    if: github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
@@ -126,6 +129,7 @@ jobs:
             }
 
   api-docs-check:
+    if: github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
