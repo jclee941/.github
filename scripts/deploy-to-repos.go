@@ -170,7 +170,7 @@ func findRepoRoot() (string, error) {
 
 	current := wd
 	for {
-		candidate := filepath.Join(current, workflowFiles[0])
+		candidate := filepath.Join(current, ".github/workflows/pr-checks.yml")
 		if _, err := os.Stat(candidate); err == nil {
 			return current, nil
 		}
@@ -182,7 +182,7 @@ func findRepoRoot() (string, error) {
 		current = parent
 	}
 
-	return "", fmt.Errorf("could not find repo root containing %s from %s", workflowFiles[0], wd)
+	return "", fmt.Errorf("could not find repo root containing .github/workflows/pr-checks.yml from %s", wd)
 }
 
 func getWorkflowFiles(rootDir string) ([]string, error) {
