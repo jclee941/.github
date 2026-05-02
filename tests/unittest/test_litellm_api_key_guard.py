@@ -79,6 +79,62 @@ def _make_anthropic_settings():
     })()
 
 
+def _make_openai_settings():
+    """Settings with OPENAI.KEY configured for OpenAI-compatible providers."""
+    openai_key = "test-openai-compatible-key-12345"
+    return type("Settings", (), {
+        "config": type("Config", (), {
+            "reasoning_effort": None,
+            "ai_timeout": 30,
+            "custom_reasoning_model": False,
+            "max_model_tokens": 32000,
+            "verbosity_level": 0,
+            "seed": -1,
+            "get": lambda self, key, default=None: default,
+        })(),
+        "litellm": type("LiteLLM", (), {
+            "get": lambda self, key, default=None: default,
+        })(),
+        "openai": type("OpenAI", (), {
+            "key": openai_key,
+        })(),
+        "get": lambda self, key, default=None: (
+            openai_key if key == "OPENAI.KEY" else default
+        ),
+    })()
+
+
+def _make_openai_and_anthropic_settings():
+    """Settings with both OpenAI-compatible and Anthropic keys configured."""
+    openai_key = "test-openai-compatible-key-12345"
+    anthropic_key = "test-anthropic-key-12345"
+    return type("Settings", (), {
+        "config": type("Config", (), {
+            "reasoning_effort": None,
+            "ai_timeout": 30,
+            "custom_reasoning_model": False,
+            "max_model_tokens": 32000,
+            "verbosity_level": 0,
+            "seed": -1,
+            "get": lambda self, key, default=None: default,
+        })(),
+        "litellm": type("LiteLLM", (), {
+            "get": lambda self, key, default=None: default,
+        })(),
+        "openai": type("OpenAI", (), {
+            "key": openai_key,
+        })(),
+        "anthropic": type("Anthropic", (), {
+            "key": anthropic_key,
+        })(),
+        "get": lambda self, key, default=None: (
+            openai_key if key == "OPENAI.KEY" else
+            anthropic_key if key == "ANTHROPIC.KEY" else
+            default
+        ),
+    })()
+
+
 class TestApiKeyGuard:
 
     @pytest.mark.asyncio
@@ -95,12 +151,13 @@ class TestApiKeyGuard:
         assert "api_key" not in mock_call.call_args[1]
 
     @pytest.mark.asyncio
-    async def test_none_api_key_not_forwarded(self, monkeypatch):
-        """api_key must NOT appear in kwargs when litellm.api_key is None.
+    async def test_openai_key_forwarded(self, monkeypatch):
+        """OPENAI.KEY must be forwarded for OpenAI-compatible providers.
 
-        This is the OpenAI-key path: OPENAI.KEY sets litellm.openai_key,
-        leaving litellm.api_key at None.
+        CLIProxyAPI uses the OpenAI-compatible protocol and expects the key in
+        the completion request, not only in litellm.openai_key global state.
         """
+        monkeypatch.setattr(litellm_handler, "get_settings", _make_openai_settings)
         monkeypatch.setattr(litellm, "api_key", None)
 
         with patch("pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion",
@@ -109,7 +166,7 @@ class TestApiKeyGuard:
             handler = LiteLLMAIHandler()
             await handler.chat_completion(model="gpt-4o", system="sys", user="usr")
 
-        assert "api_key" not in mock_call.call_args[1]
+        assert mock_call.call_args[1]["api_key"] == "test-openai-compatible-key-12345"
 
     @pytest.mark.asyncio
     async def test_real_key_forwarded(self, monkeypatch):
@@ -170,6 +227,24 @@ class TestApiKeyGuard:
             # Verify the dummy key was NOT passed to the call.
             # This allows litellm to use litellm.anthropic_key internally.
             assert "api_key" not in mock_call.call_args[1]
+
+    @pytest.mark.asyncio
+    async def test_openai_key_not_forwarded_to_anthropic_provider(self, monkeypatch):
+        """OPENAI.KEY must not leak into explicitly Anthropic-prefixed calls."""
+        monkeypatch.setattr(litellm_handler, "get_settings", _make_openai_and_anthropic_settings)
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.setattr(litellm, "api_key", None)
+
+        with patch("pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion",
+                   new_callable=AsyncMock) as mock_call:
+            mock_call.return_value = _mock_response()
+            handler = LiteLLMAIHandler()
+            assert litellm.api_key == "test-openai-compatible-key-12345"
+            assert litellm.anthropic_key == "test-anthropic-key-12345"
+
+            await handler.chat_completion(model="anthropic/claude-3-5-sonnet-20241022", system="sys", user="usr")
+
+        assert "api_key" not in mock_call.call_args[1]
 
     @pytest.mark.asyncio
     async def test_groq_key_forwarded_for_non_ollama_model(self, monkeypatch):

@@ -38,6 +38,7 @@ class LiteLLMAIHandler(BaseAiHandler):
             litellm.disable_aiohttp_transport = True
         if get_settings().get("OPENAI.KEY", None):
             openai.api_key = get_settings().openai.key
+            litellm.api_key = get_settings().openai.key
             litellm.openai_key = get_settings().openai.key
         elif 'OPENAI_API_KEY' not in os.environ:
             litellm.api_key = DUMMY_LITELLM_API_KEY
@@ -409,7 +410,11 @@ class LiteLLMAIHandler(BaseAiHandler):
 
             # Inject api_key to the call. This key is populated during init by providers
             # like Groq, XAI, Azure AD, and OpenRouter. Skip if None or placeholder.
-            if litellm.api_key and litellm.api_key != DUMMY_LITELLM_API_KEY:
+            if (
+                litellm.api_key
+                and litellm.api_key != DUMMY_LITELLM_API_KEY
+                and kwargs["model"].split("/", 1)[0] not in {"anthropic", "bedrock", "vertex_ai"}
+            ):
                 kwargs["api_key"] = litellm.api_key
 
             # Get completion with automatic streaming detection
