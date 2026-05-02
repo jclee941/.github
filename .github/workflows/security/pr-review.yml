@@ -66,7 +66,7 @@ jobs:
           OPENAI.API_BASE: https://cliproxy.jclee.me/v1
           CONFIG.MODEL: kimi-k2-thinking
           CONFIG.FALLBACK_MODELS: '["kimi-k2.6", "claude-opus-4-7"]'
-          CONFIG.RESPONSE_LANGUAGE: ko-KR
+          CONFIG.RESPONSE_LANGUAGE: ko
           CONFIG.AI_TIMEOUT: '300'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_REVIEWER.REQUIRE_SECURITY_REVIEW: 'true'

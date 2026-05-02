@@ -65,7 +65,7 @@ jobs:
           markdownlint '**/*.md' \
             --ignore node_modules \
             --ignore .venv \
-            --ignore '**/pr-agent-upstream-README.md' \
+            --ignore '**/pr-agent-upstream-README.md'
             || true
 
   readme-sync-check:
