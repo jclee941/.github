@@ -298,11 +298,18 @@ func deployRepo(r runner, rootDir, repo, baseBranchOverride string) error {
 	if err := runLogged(r, workDir, "git", "remote", "set-url", "origin", remoteURL); err != nil {
 		return fmt.Errorf("git remote set-url for %s: %w", repo, err)
 	}
-	if err := runLogged(r, workDir, "git", "push", "--force-with-lease", "-u", "origin", branchName); err != nil {
-		return fmt.Errorf("git push for %s: %w", repo, err)
-	}
 	if r.dryRun {
+		if err := runLogged(r, workDir, "git", "push", "-u", "origin", branchName); err != nil {
+			return fmt.Errorf("git push for %s: %w", repo, err)
+		}
 		return nil
+	}
+	pushArgs, err := pushArgsWithLease(workDir, branchName)
+	if err != nil {
+		return fmt.Errorf("prepare push lease for %s: %w", repo, err)
+	}
+	if err := runLogged(r, workDir, "git", pushArgs...); err != nil {
+		return fmt.Errorf("git push for %s: %w", repo, err)
 	}
 	if existing, err := existingPullRequest(workDir, branchName); err != nil {
 		return fmt.Errorf("check existing PR for %s: %w", repo, err)
@@ -315,6 +322,38 @@ func deployRepo(r runner, rootDir, repo, baseBranchOverride string) error {
 	}
 
 	return nil
+}
+
+func pushArgsWithLease(workDir, branch string) ([]string, error) {
+	args := []string{"push", "-u", "origin", branch}
+	remoteSHA, err := remoteBranchSHA(workDir, branch)
+	if err != nil {
+		return nil, err
+	}
+	if remoteSHA == "" {
+		return args, nil
+	}
+	return []string{"push", "--force-with-lease=refs/heads/" + branch + ":" + remoteSHA, "-u", "origin", branch}, nil
+}
+
+func remoteBranchSHA(workDir, branch string) (string, error) {
+	cmd := exec.Command("git", "ls-remote", "--heads", "origin", branch)
+	cmd.Dir = workDir
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		if stderr.Len() > 0 {
+			return "", fmt.Errorf("git ls-remote: %s", strings.TrimSpace(stderr.String()))
+		}
+		return "", fmt.Errorf("git ls-remote: %w", err)
+	}
+	fields := strings.Fields(stdout.String())
+	if len(fields) == 0 {
+		return "", nil
+	}
+	return fields[0], nil
 }
 
 func existingPullRequest(workDir, branch string) (string, error) {
