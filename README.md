@@ -124,6 +124,13 @@ python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -e .
 
+# Run tests
+pytest tests/unittest -v
+
+# Run a review locally
+source .venv/bin/activate
+pip install -e .
+
 # Run a review locally
 set -a; source .env; set +a
 python -m pr_agent.cli --pr_url https://github.com/jclee941/<repo>/pull/<N> review

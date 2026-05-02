@@ -12,7 +12,7 @@ permissions:
 jobs:
   pr_review:
     if: github.event.pull_request.user.login == 'jclee941'
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     name: PR review via CLIProxyAPI
     timeout-minutes: 15
 

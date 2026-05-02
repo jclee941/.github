@@ -32,7 +32,7 @@ services:
       OPENAI.KEY: "${CLIPROXY_API_KEY}"
       OPENAI.API_BASE: https://cliproxy.jclee.me/v1
       CONFIG.MODEL: kimi-k2.6
-      CONFIG.FALLBACK_MODELS: '["kimi-k2.5", "gpt-5.5"]'
+      CONFIG.FALLBACK_MODELS: '["kimi-k2.5", "claude-sonnet-4-6"]'
       CONFIG.CUSTOM_MODEL_MAX_TOKENS: "128000"
       CONFIG.AI_TIMEOUT: "180"
 
