@@ -34,7 +34,7 @@ jobs:
         with:
           script: |
             const title = context.payload.pull_request.title;
-            const allowed = /^(feat|fix|docs|refactor|test|chore|ci|perf|security|style|build|revert)(\(.+\))?!?: .+/;
+            const allowed = /^(feat|fix|hotfix|docs|refactor|test|chore|ci|perf|security|style|build|revert)(\(.+\))?!?: .+/;
             
             if (!allowed.test(title)) {
               const body = `## PR 제목 규칙 위반\n\n현재 제목: \`${title}\`\n\n**Conventional Commits** 형식을 따라주세요:\n\n` +
@@ -63,7 +63,7 @@ jobs:
             
             if (!allowed.test(branch)) {
               const body = `## 브랜치 이름 규칙 위반\n\n현재 브랜치: \`${branch}\`\n\n표준 prefix를 사용하세요:\n\n` +
-                `- \`feature/\` - 새 기능\n- \`fix/\` - 버그 수정\n- \`hotfix/\` - 긴급 수정\n- \`test/\` - 테스트\n- \`docs/\` - 문서\n- \`refactor/\` - 리팩토링\n- \`chore/\` - 잡무\n- \`ci/\` - CI/CD\n- \`perf/\` - 성능\n- \`security/\` - 보안\n\n> Automated by jclee-bot`;
+                `- \`feat/\` - 새 기능\n- \`fix/\` - 버그 수정\n- \`hotfix/\` - 긴급 수정\n- \`test/\` - 테스트\n- \`docs/\` - 문서\n- \`refactor/\` - 리팩토링\n- \`chore/\` - 잡무\n- \`ci/\` - CI/CD\n- \`perf/\` - 성능\n- \`security/\` - 보안\n- \`style/\` - 스타일\n- \`build/\` - 빌드\n- \`revert/\` - 롤백\n\n> Automated by jclee-bot`
               
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
