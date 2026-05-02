@@ -72,9 +72,8 @@ jobs:
             || true
 
   readme-sync-check:
-    if: github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'workflow_call' && github.event_name == 'pull_request'
     steps:
       - name: Checkout PR
         uses: actions/checkout@v4
@@ -129,9 +128,8 @@ jobs:
             }
 
   api-docs-check:
-    if: github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'workflow_call' && github.event_name == 'pull_request'
     steps:
       - name: Checkout PR
         uses: actions/checkout@v4
