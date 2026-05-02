@@ -1,5 +1,6 @@
 name: Reusable Issue Management
 on:
+  workflow_call:
   workflow_dispatch:
 
 jobs:
