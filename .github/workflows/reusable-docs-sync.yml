@@ -5,7 +5,7 @@ on:
 
 jobs:
   link-check:
-    if: github.event_name == 'workflow_call'
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -46,7 +46,7 @@ jobs:
             });
 
   markdown-lint:
-    if: github.event_name == 'workflow_call'
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -70,7 +70,7 @@ jobs:
 
   readme-sync-check:
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_call' && github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request'
     steps:
       - name: Checkout PR
         uses: actions/checkout@v4
@@ -126,7 +126,7 @@ jobs:
 
   api-docs-check:
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_call' && github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request'
     steps:
       - name: Checkout PR
         uses: actions/checkout@v4

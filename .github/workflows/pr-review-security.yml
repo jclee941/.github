@@ -38,12 +38,10 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - name: Check out PR head SHA
+      - name: Check out base branch (safe installation)
         uses: actions/checkout@v4
         with:
-          # Explicit head SHA checkout — pull_request_target defaults to base
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
+          # Checkout base branch — pull_request_target defaults to base branch for safe installation
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
