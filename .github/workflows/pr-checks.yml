@@ -11,5 +11,5 @@ permissions:
 jobs:
   pr-checks:
     if: github.event_name == 'pull_request'
-    uses: jclee941/.github/.github/workflows/reusable/reusable-pr-checks.yml@master
+    uses: jclee941/.github/.github/workflows/reusable-pr-checks.yml@master
     secrets: inherit
