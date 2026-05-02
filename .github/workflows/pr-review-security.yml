@@ -30,6 +30,7 @@ jobs:
   security_review:
     # Only run when the specific label is added AND the PR author is the repo owner
     if: |
+      github.event_name == 'pull_request_target' &&
       github.event.label.name == 'security-review' &&
       github.event.pull_request.user.login == 'jclee941'
 
