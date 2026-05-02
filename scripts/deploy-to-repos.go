@@ -33,6 +33,17 @@ var defaultRepos = []string{
 
 var workflowFiles = []string{}
 
+var downstreamWorkflowAllowlist = map[string]struct{}{
+	".github/workflows/docs-sync.yml":                 {},
+	".github/workflows/issue-management.yml":          {},
+	".github/workflows/pr-checks.yml":                 {},
+	".github/workflows/pr-review-security.yml":        {},
+	".github/workflows/pr-review.yml":                 {},
+	".github/workflows/reusable-docs-sync.yml":        {},
+	".github/workflows/reusable-issue-management.yml": {},
+	".github/workflows/reusable-pr-checks.yml":        {},
+}
+
 type config struct {
 	dryRun     bool
 	repos      []string
@@ -195,6 +206,9 @@ func getWorkflowFiles(rootDir string) ([]string, error) {
 			rel, err := filepath.Rel(rootDir, path)
 			if err != nil {
 				return err
+			}
+			if _, ok := downstreamWorkflowAllowlist[rel]; !ok {
+				return nil
 			}
 			files = append(files, rel)
 		}
