@@ -15,7 +15,7 @@
 #
 # See AGENTS.md for the full review-profile design.
 
-name: PR Security Review (CLIProxyAPI)
+name: PR Security Review v2 (CLIProxyAPI)
 
 on:
   pull_request_target:
