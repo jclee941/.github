@@ -37,11 +37,17 @@ var downstreamWorkflowAllowlist = map[string]struct{}{
 	".github/workflows/docs-sync.yml":                 {},
 	".github/workflows/issue-management.yml":          {},
 	".github/workflows/pr-checks.yml":                 {},
-	".github/workflows/pr-review-security.yml":        {},
 	".github/workflows/pr-review.yml":                 {},
 	".github/workflows/reusable-docs-sync.yml":        {},
 	".github/workflows/reusable-issue-management.yml": {},
 	".github/workflows/reusable-pr-checks.yml":        {},
+	".github/workflows/security/pr-review.yml":        {},
+}
+
+// removedWorkflows lists workflows that were previously deployed but are no longer
+// in the allowlist. They will be deleted from downstream repos during deployment.
+var removedWorkflows = []string{
+	".github/workflows/pr-review-security.yml",
 }
 
 type config struct {
@@ -289,6 +295,22 @@ func deployRepo(r runner, rootDir, repo, baseBranchOverride string) error {
 		}
 	}
 
+	// Remove workflows that are no longer in the allowlist
+	for _, wf := range removedWorkflows {
+		dst := filepath.Join(workDir, wf)
+		if _, err := os.Stat(dst); err == nil {
+			if r.dryRun {
+				fmt.Fprintf(r.out, "[dry-run] remove %s from %s\n", wf, repo)
+			} else {
+				if err := os.Remove(dst); err != nil {
+					return fmt.Errorf("remove old workflow %s for %s: %w", wf, repo, err)
+				}
+				fmt.Fprintf(r.out, "[%s] removed old workflow %s\n", repo, wf)
+			}
+			changed = true
+		}
+	}
+
 	if !changed {
 		fmt.Fprintf(r.out, "[%s] all workflows already match source; skipping PR creation\n", repo)
 		return nil
@@ -299,7 +321,11 @@ func deployRepo(r runner, rootDir, repo, baseBranchOverride string) error {
 			return fmt.Errorf("git add %s for %s: %w", wf, repo, err)
 		}
 	}
-	if err := runLogged(r, workDir, "git", "config", "user.email", "bot@jclee.me"); err != nil {
+	// Stage removal of old workflows
+	for _, wf := range removedWorkflows {
+		_ = runLogged(r, workDir, "git", "add", wf)
+	}
+if err := runLogged(r, workDir, "git", "config", "user.email", "bot@jclee.me"); err != nil {
 		return fmt.Errorf("git config user.email for %s: %w", repo, err)
 	}
 	if err := runLogged(r, workDir, "git", "config", "user.name", "github-bot"); err != nil {
