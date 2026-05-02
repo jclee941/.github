@@ -298,14 +298,39 @@ func deployRepo(r runner, rootDir, repo, baseBranchOverride string) error {
 	if err := runLogged(r, workDir, "git", "remote", "set-url", "origin", remoteURL); err != nil {
 		return fmt.Errorf("git remote set-url for %s: %w", repo, err)
 	}
-	if err := runLogged(r, workDir, "git", "push", "-u", "origin", branchName); err != nil {
+	if err := runLogged(r, workDir, "git", "push", "--force-with-lease", "-u", "origin", branchName); err != nil {
 		return fmt.Errorf("git push for %s: %w", repo, err)
+	}
+	if r.dryRun {
+		return nil
+	}
+	if existing, err := existingPullRequest(workDir, branchName); err != nil {
+		return fmt.Errorf("check existing PR for %s: %w", repo, err)
+	} else if existing != "" {
+		fmt.Fprintf(r.out, "[%s] existing PR %s already tracks %s; skipping PR creation\n", repo, existing, branchName)
+		return nil
 	}
 	if err := runLogged(r, workDir, "gh", "pr", "create", "--base", baseBranch, "--head", branchName, "--title", prTitle, "--body", prBody); err != nil {
 		return fmt.Errorf("gh pr create for %s: %w", repo, err)
 	}
 
 	return nil
+}
+
+func existingPullRequest(workDir, branch string) (string, error) {
+	cmd := exec.Command("gh", "pr", "list", "--head", branch, "--state", "open", "--json", "url", "--jq", ".[0].url // \"\"")
+	cmd.Dir = workDir
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		if stderr.Len() > 0 {
+			return "", fmt.Errorf("gh pr list: %s", strings.TrimSpace(stderr.String()))
+		}
+		return "", fmt.Errorf("gh pr list: %w", err)
+	}
+	return strings.TrimSpace(stdout.String()), nil
 }
 
 func copyWorkflow(r runner, src, dst string) error {
