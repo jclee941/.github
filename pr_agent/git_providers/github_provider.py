@@ -2,16 +2,16 @@ import copy
 import difflib
 import hashlib
 import itertools
+import json
 import re
 import time
 import traceback
-import json
 from datetime import datetime
 from typing import Optional, Tuple
 from urllib.parse import urlparse
 
-from github.Issue import Issue
 from github import AppAuthentication, Auth, Github, GithubException
+from github.Issue import Issue
 from retry import retry
 from starlette_context import context
 

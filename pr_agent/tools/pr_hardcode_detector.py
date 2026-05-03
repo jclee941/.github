@@ -14,7 +14,6 @@ from pr_agent.git_providers import get_git_provider_with_context
 from pr_agent.git_providers.git_provider import get_main_pr_language
 from pr_agent.log import get_logger
 
-
 # Regex patterns for common hardcoding issues
 HARDCODE_PATTERNS = {
     "api_key": re.compile(r'(?i)(api[_-]?key|apikey)\s*[:=]\s*["\'][a-zA-Z0-9\-_]{8,}["\']'),
