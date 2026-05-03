@@ -13,7 +13,7 @@ All upstream pr-agent features are preserved: `/review`, `/improve`, `/describe`
 
 | File | Change | Reason |
 |------|--------|--------|
-| `pr_agent/settings/configuration.toml` | `[config] model` → `openai/openai/gpt-5.4`, `fallback_models` → `["openai/openai/gpt-5.4-mini", "gpt-5-codex"]` | Default model via cli_proxy (double `openai/` prefix — litellm strips one) |
+| `pr_agent/settings/configuration.toml` | `[config] model` → `kimi-k2.6`, `fallback_models` → `["kimi-k2.5", "claude-sonnet-4-6"]` | Default model via cli_proxy/OpenAI-compatible routing |
 | `.pr_agent.toml` | Prepended `[config]`, `[openai]`, `[litellm]` sections | Pin fork-level model and `api_base` to cli_proxy |
 | `.github/workflows/pr-review.yml` | **NEW** | Self-hosted runner + cli_proxy env vars |
 | `.github/workflows/pr-review-security.yml` | **NEW** | Deep security review (Korean, `pull_request_target`) |
@@ -98,9 +98,9 @@ github-bot/
 
 | Task | Location | Notes |
 |------|----------|-------|
-| Change default model | `pr_agent/settings/configuration.toml` `[config].model` | Line 7, currently `openai/openai/gpt-5.4` (double `openai/` prefix — litellm strips one) |
+| Change default model | `pr_agent/settings/configuration.toml` `[config].model` | Line 7, currently `kimi-k2.6` |
 | Override model per-repo | `.pr_agent.toml` `[config].model` | Fork-level override, takes precedence |
-| Change cli_proxy endpoint | `.pr_agent.toml` `[openai].api_base` | Currently `http://192.168.50.114:8317/v1` |
+| Change cli_proxy endpoint | `.pr_agent.toml` `[openai].api_base` | Currently `https://cliproxy.jclee.me/v1` |
 | Edit review prompts | `pr_agent/settings/pr_reviewer_prompts.toml` | upstream TOML |
 | Edit improve prompts | `pr_agent/settings/code_suggestions/` | |
 | Workflow triggers | `.github/workflows/pr-review.yml` | PR events + slash commands |
@@ -129,8 +129,8 @@ github-bot/
 
 ### Available models (24 total as of 2026-04-10)
 
-> **Current default**: `openai/openai/gpt-5.4` with fallbacks `openai/openai/gpt-5.4-mini`, `gpt-5-codex`.
-> The double `openai/` prefix is intentional — litellm strips one during routing.
+> **Current default**: `kimi-k2.6` with fallbacks `kimi-k2.5`, `claude-sonnet-4-6`.
+> Prefix-less Kimi/Claude/GPT/Codex/Gemini model names are routed through the configured OpenAI-compatible cli_proxy endpoint.
 
 - **Codex (GPT)**: `openai/gpt-5.2`, `openai/gpt-5.1`, `openai/gpt-5`, `gpt-5-codex-mini`, `gpt-5.1-codex-max`, `gpt-4.1`, `gpt-4.1-mini`
 - **Antigravity (Gemini)**: `gemini-3-pro-preview`, `gemini-3-flash-preview`, `gemini-2.5-flash`
@@ -166,6 +166,7 @@ pip install -e .
 PYTHONPATH=. pytest tests/unittest -v
 
 # Local CLI review (requires .env populated)
+export LITELLM_LOCAL_MODEL_COST_MAP=True  # avoid import-time network fetch in offline homelab shells
 set -a; source .env; set +a
 python -m pr_agent.cli --pr_url https://github.com/jclee941/<repo>/pull/<N> review
 
@@ -176,7 +177,7 @@ source .env
 curl -sS http://192.168.50.114:8317/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $CLIPROXY_API_KEY" \
-  -d '{"model":"openai/openai/gpt-5.4","messages":[{"role":"user","content":"ping"}],"max_tokens":10}'
+  -d '{"model":"kimi-k2.6","messages":[{"role":"user","content":"ping"}],"max_tokens":10}'
 
 # ==================
 # Upstream sync
@@ -202,7 +203,7 @@ gh -R "$REPO" secret set CLIPROXY_API_KEY --body "$(cat /home/jclee/.cache/sisyp
 
 - **Python**: ≥ 3.12, ruff 120-char line length, isort imports, double quotes
 - **Commits**: Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`)
-- **Fork-specific commits**: tag with scope `fork:` (e.g. `feat(fork): pin model to openai/openai/gpt-5.4`)
+- **Fork-specific commits**: tag with scope `fork:` (e.g. `feat(fork): pin model to kimi-k2.6`)
 - **Upstream sync commits**: `chore(upstream): merge qodo-ai/pr-agent@<sha>`
 - **Secrets**: only in `.env`, `.secrets.toml`, or GitHub Actions secrets — never in TOML/YAML in git
 - **Type safety**: never suppress (`as any`, `@ts-ignore`, `# type: ignore[...]` without justification)

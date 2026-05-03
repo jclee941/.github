@@ -128,10 +128,7 @@ pip install -e .
 pytest tests/unittest -v
 
 # Run a review locally
-source .venv/bin/activate
-pip install -e .
-
-# Run a review locally
+export LITELLM_LOCAL_MODEL_COST_MAP=True  # avoid import-time network fetch in offline homelab shells
 set -a; source .env; set +a
 python -m pr_agent.cli --pr_url https://github.com/jclee941/<repo>/pull/<N> review
 ```

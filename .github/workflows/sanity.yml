@@ -20,6 +20,10 @@ jobs:
   import-check:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      # Avoid import-time network calls in firewalled/offline CI; LiteLLM will use
+      # its bundled model cost map instead of fetching from raw.githubusercontent.com.
+      LITELLM_LOCAL_MODEL_COST_MAP: "True"
     steps:
       - name: Check out repo
         uses: actions/checkout@v4

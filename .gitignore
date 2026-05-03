@@ -6,10 +6,12 @@
 venv/
 pr_agent/settings/.secrets.toml
 __pycache__
+.pytest_cache/
 dist/
 *.egg-info/
 build/
 .DS_Store
 docs/.cache/
 .qodo
+.sisyphus/
 poetry.lock
