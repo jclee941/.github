@@ -151,7 +151,7 @@ github-bot/
 | Component | File | Behavior |
 |-----------|------|----------|
 | Auto-merge enable | repo settings | `allow_auto_merge=true`, `delete_branch_on_merge=true` |
-| Branch protection | default branch | 6 required `pr-checks / *` status contexts (Size, Title, Branch Name, Description, Large Files, Sensitive Files) gate auto-merge; no force-push, no deletion, no admin enforcement |
+| Branch protection | default branch | 2 required `pr-checks / *` enforcing contexts (Check PR Title via Conventional Commits, Check Branch Name via standard prefixes) gate auto-merge; 4 advisory contexts (Size, Description, Large Files, Sensitive Files) post comments only and always pass. No force-push, no deletion, no admin enforcement. |
 | Dependency updates | `.github/dependabot.yml` | Weekly github-actions ecosystem PRs |
 | Auto-merge policy | `.github/workflows/dependabot-auto-merge.yml` | patch + minor + github_actions → squash auto-merge after required checks pass; major → manual review comment; null update-type → manual review comment |
 | PR validation | `.github/workflows/pr-checks.yml` | sanity gates before merge |
