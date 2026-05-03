@@ -63,7 +63,7 @@ var publicRepos = []string{
 //
 // Dependabot PRs satisfy both required contexts automatically:
 //   - PR titles use Conventional Commits (chore(deps): bump X)
-//   - Branch names use the chore/ prefix (dependabot/.../X)
+//   - Branch names use the dependabot/ prefix (allowlisted in reusable-pr-checks.yml)
 //
 // so auto-merge for Dependabot does not deadlock.
 const protectionPayload = `{
