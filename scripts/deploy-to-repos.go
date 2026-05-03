@@ -19,10 +19,11 @@ const (
 	branchName = "chore/add-pr-review-bot-workflow"
 )
 
-// defaultRepos lists target repos. Only public repos here — auto-merge is not
-// supported on personal-account private repos under GitHub Free.
+// defaultRepos lists DOWNSTREAM target repos. Only public repos here —
+// auto-merge is not supported on personal-account private repos under
+// GitHub Free. The source repo (.github) is intentionally excluded to
+// avoid recursive PRs against its own master.
 var defaultRepos = []string{
-	".github",
 	"resume",
 	"safetywallet",
 	"tmux",
