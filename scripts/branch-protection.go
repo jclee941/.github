@@ -54,9 +54,14 @@ var publicRepos = []string{
 }
 
 // protectionPayload is the JSON body for the branch protection PUT call.
-// All keys must be present per GitHub's API contract — null means "no rule".
+// Free-tier-safe: requires the "pr-checks" status check (the reusable
+// workflow's job name) so auto-merge cannot bypass validation. Other
+// rules are kept loose to avoid blocking legitimate work.
 const protectionPayload = `{
-  "required_status_checks": null,
+  "required_status_checks": {
+    "strict": false,
+    "contexts": ["pr-checks"]
+  },
   "enforce_admins": false,
   "required_pull_request_reviews": null,
   "restrictions": null,
