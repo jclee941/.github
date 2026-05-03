@@ -51,6 +51,7 @@ var downstreamWorkflowAllowlist = map[string]struct{}{
 	".github/workflows/reusable-docs-sync.yml":        {},
 	".github/workflows/reusable-issue-management.yml": {},
 	".github/workflows/reusable-pr-checks.yml":        {},
+	".github/workflows/security/pr-review.yml":      {},
 	// sanity.yml is fork-specific (imports pr_agent); not deployed downstream.
 }
 

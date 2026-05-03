@@ -52,6 +52,7 @@ func TestDownstreamAllowlistContainsRequired(t *testing.T) {
 		".github/workflows/gitleaks.yml",
 		".github/workflows/pr-checks.yml",
 		".github/workflows/pr-review.yml",
+		".github/workflows/security/pr-review.yml",
 	}
 
 	for _, w := range required {
