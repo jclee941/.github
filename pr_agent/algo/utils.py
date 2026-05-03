@@ -137,22 +137,20 @@ def convert_to_markdown_v2(output_data: dict,
     Returns:
         str: The markdown formatted text generated from the input dictionary.
     """
-
-    emojis = {
-        "분할 가능": "🔀",
-        "검토할 주요 이슈": "⚡",
-        "검토 권장 영역": "⚡",
-        "점수": "🏅",
-        "관련 테스트": "🧪",
-        "집중된 PR": "✨",
-        "관련 티켓": "🎫",
-        "보안 우려 사항": "🔒",
-        "TODO 섹션": "📝",
-        "사용자 답변에서 얻은 인사이트": "📝",
-        "코드 피드백": "🤖",
-        "검토 예상 소요 시간 [1-5]": "⏱️",
-        "기여 시간 비용 추정": "⏳",
-        "티켓 준수 확인": "🎫",
+    key_to_emoji = {
+        'estimated_effort_to_review_[1-5]': '⏱️',
+        'relevant_tests': '🧪',
+        'security_concerns': '🔒',
+        'key_issues_to_review': '⚡',
+        'ticket_compliance_check': '🎫',
+        'can_be_split': '🔀',
+        'contribution_time_cost_estimate': '⏳',
+        'todo_sections': '📝',
+        'score': '🏅',
+        'focused_pr': '✨',
+        'related_ticket': '🎫',
+        'insights_from_user_answer': '📝',
+        'code_feedback': '🤖',
     }
     markdown_text = ""
     if not incremental_review:
@@ -175,7 +173,7 @@ def convert_to_markdown_v2(output_data: dict,
             if key.lower() not in ['can_be_split', 'key_issues_to_review']:
                 continue
         key_nice = key.replace('_', ' ').capitalize()
-        emoji = emojis.get(key_nice, "")
+        emoji = key_to_emoji.get(key, "")
         if 'Estimated effort to review' in key_nice:
             key_nice = 'Estimated effort to review'
             value = str(value).strip()
@@ -191,7 +189,7 @@ def convert_to_markdown_v2(output_data: dict,
             value = f"{value_int} {blue_bars}{white_bars}"
             if gfm_supported:
                 markdown_text += f"<tr><td>"
-                markdown_text += f"{emoji}&nbsp;<strong>복수 PR 주제</strong>: {value}"
+                markdown_text += f"{emoji}&nbsp;<strong>{key_nice}</strong>: {value}"
                 markdown_text += f"</td></tr>\n"
             else:
                 markdown_text += f"### {emoji} {key_nice}: {value}\n\n"
@@ -314,7 +312,7 @@ def convert_to_markdown_v2(output_data: dict,
         else:
             if gfm_supported:
                 markdown_text += f"<tr><td>"
-                markdown_text += f"{emoji}&nbsp;<strong>복수 PR 주제</strong>: {value}"
+                markdown_text += f"{emoji}&nbsp;<strong>{key_nice}</strong>: {value}"
                 markdown_text += f"</td></tr>\n"
             else:
                 markdown_text += f"### {emoji} {key_nice}: {value}\n\n"
@@ -477,7 +475,7 @@ def process_can_be_split(emoji, value):
             for i, split in enumerate(value):
                 title = split.get('title', '')
                 relevant_files = split.get('relevant_files', [])
-                markdown_text += f"<details><summary>\n하위 PR 주제: <b>{title}</summary>\n\n"
+                markdown_text += f"<details><summary>\n하위 PR 주제: <b>{title}</b></summary>\n\n"
                 markdown_text += f"___\n\n관련 파일:\n\n"
                 for file in relevant_files:
                     markdown_text += f"- {file}\n"

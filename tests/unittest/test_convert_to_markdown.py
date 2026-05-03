@@ -55,14 +55,14 @@ class TestConvertToMarkdown:
         expected_output = textwrap.dedent(f"""\
             {PRReviewHeader.REGULAR.value} 🔍
 
-            Here are some key observations to aid the review process:
+            검토에 도움이 되는 주요 관찰 사항입니다:
 
             <table>
             <tr><td>⏱️&nbsp;<strong>Estimated effort to review</strong>: 1 🔵⚪⚪⚪⚪</td></tr>
-            <tr><td>🧪&nbsp;<strong>No relevant tests</strong></td></tr>
+            <tr><td>🧪&nbsp;<strong>관련 테스트 없음</strong></td></tr>
             <tr><td>&nbsp;<strong>Possible issues</strong>: No
             </td></tr>
-            <tr><td>🔒&nbsp;<strong>No security concerns identified</strong></td></tr>
+            <tr><td>🔒&nbsp;<strong>보안 우려 사항 없음</strong></td></tr>
             </table>
         """)
 
@@ -74,18 +74,18 @@ class TestConvertToMarkdown:
             'relevant_tests': 'No\n', 'possible_issues': 'No\n', 'security_concerns': 'No\n'}}
 
         expected_output = textwrap.dedent("""\
-            ## PR Reviewer Guide 🔍
+            ## PR 리뷰어 가이드 🔍
 
-            Here are some key observations to aid the review process:
+            검토에 도움이 되는 주요 관찰 사항입니다:
 
             ### ⏱️ Estimated effort to review: 1 🔵⚪⚪⚪⚪
 
-            ### 🧪 No relevant tests
+            ### 🧪 관련 테스트 없음
 
             ###  Possible issues: No
 
 
-            ### 🔒 No security concerns identified
+            ### 🔒 보안 우려 사항 없음
         """)
 
         assert convert_to_markdown_v2(input_data, gfm_supported=False).strip() == expected_output.strip()
@@ -107,12 +107,12 @@ class TestConvertToMarkdown:
         mock_git_provider.get_line_link.return_value = reference_link
 
         expected_output = textwrap.dedent(f"""\
-            ## PR Reviewer Guide 🔍
+            ## PR 리뷰어 가이드 🔍
 
-            Here are some key observations to aid the review process:
+            검토에 도움이 되는 주요 관찰 사항입니다:
 
             <table>
-            <tr><td>⚡&nbsp;<strong>Recommended focus areas for review</strong><br><br>
+            <tr><td>⚡&nbsp;<strong>검토 권장 영역</strong><br><br>
 
             <a href='{reference_link}'><strong>Code Smell</strong></a><br>The function is too long and complex.
 
@@ -137,20 +137,20 @@ class TestConvertToMarkdown:
         }}
 
         expected_output = textwrap.dedent("""\
-            ## PR Reviewer Guide 🔍
+            ## PR 리뷰어 가이드 🔍
 
-            Here are some key observations to aid the review process:
+            검토에 도움이 되는 주요 관찰 사항입니다:
 
             <table>
             <tr><td>
 
-            **🎫 Ticket compliance analysis ✅**
+            **🎫 티켓 준수 분석 ✅**
 
 
 
-            **[123](https://example.com/ticket/123) - Fully compliant**
+            **[123](https://example.com/ticket/123) - 완전히 준수**
 
-            Compliant requirements:
+            준수 요구 사항:
 
             - Requirement 1
             - Requirement 2
@@ -184,19 +184,19 @@ class TestConvertToMarkdown:
         }
 
         expected_output = textwrap.dedent("""\
-            ## PR Reviewer Guide 🔍
+            ## PR 리뷰어 가이드 🔍
 
-            Here are some key observations to aid the review process:
+            검토에 도움이 되는 주요 관찰 사항입니다:
 
             <table>
-            <tr><td>🔀 <strong>Multiple PR themes</strong><br><br>
+            <tr><td>🔀 <strong>복수 PR 주제</strong><br><br>
 
             <details><summary>
-            Sub-PR theme: <b>Refactoring</b></summary>
+            하위 PR 주제: <b>Refactoring</b></summary>
 
             ___
 
-            Relevant files:
+            관련 파일:
 
             - src/file1.py
             - src/file2.py
@@ -205,11 +205,11 @@ class TestConvertToMarkdown:
             </details>
 
             <details><summary>
-            Sub-PR theme: <b>Bug Fix</b></summary>
+            하위 PR 주제: <b>Bug Fix</b></summary>
 
             ___
 
-            Relevant files:
+            관련 파일:
 
             - src/file3.py
             ___
@@ -236,10 +236,10 @@ class TestConvertToMarkdown:
         expected_output = textwrap.dedent(f"""
             {PRReviewHeader.REGULAR.value} 🔍
 
-            Here are some key observations to aid the review process:
+            검토에 도움이 되는 주요 관찰 사항입니다:
 
             <table>
-            <tr><td>⏳&nbsp;<strong>Contribution time estimate</strong> (best, average, worst case): 1h | 2h | 30 minutes</td></tr>
+            <tr><td>⏳&nbsp;<strong>기여 시간 예상</strong> (최선, 평균, 최악의 경우): 1h | 2h | 30 minutes</td></tr>
             </table>
         """)
         assert convert_to_markdown_v2(input_data).strip() == expected_output.strip()
@@ -248,9 +248,9 @@ class TestConvertToMarkdown:
         expected_output_no_gfm = textwrap.dedent(f"""
         {PRReviewHeader.REGULAR.value} 🔍
 
-        Here are some key observations to aid the review process:
+        검토에 도움이 되는 주요 관찰 사항입니다:
 
-        ### ⏳ Contribution time estimate (best, average, worst case): 1h | 2h | 30 minutes
+        ### ⏳ 기여 시간 예상 (최선, 평균, 최악의 경우): 1h | 2h | 30 minutes
 
         """)
         assert convert_to_markdown_v2(input_data, gfm_supported=False).strip() == expected_output_no_gfm.strip()
