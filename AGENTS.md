@@ -175,11 +175,15 @@ go run scripts/deploy-to-repos.go                                 # apply to all
 # Re-apply branch protection + auto-merge settings:
 go run scripts/branch-protection.go --dry-run
 go run scripts/branch-protection.go
+
+# Sync CLIPROXY_API_KEY (and other shared secrets) to every public repo:
+CLIPROXY_API_KEY=$(grep '^CLIPROXY_API_KEY=' .env | cut -d= -f2-) \
+  go run scripts/sync-secrets.go
 ```
 
-### Why pr-agent is excluded
+### Why pr-agent is handled separately
 
-`jclee941/pr-agent` is a hard fork of `qodo-ai/pr-agent`. It carries upstream's own workflows (build-and-test.yaml, codeql.yml, release-drafter.yml, etc.) which would be overwritten by the deploy script. Its automation is managed manually via `git fetch upstream && git merge upstream/main`.
+`jclee941/pr-agent` is a hard fork of `qodo-ai/pr-agent`. It carries upstream's own workflows (build-and-test.yaml, codeql.yml, release-drafter.yml, etc.) which would be overwritten by the deploy script. The fork is therefore excluded from `deploy-to-repos.go`, but it has its own fork-local `.github/dependabot.yml` (github-actions + pip ecosystems) and `.github/workflows/dependabot-auto-merge.yml` that are maintained directly on a `fork/*` branch. Sync upstream via `git fetch upstream && git merge upstream/main`.
 
 ## CLI_PROXY INTEGRATION DETAILS
 
