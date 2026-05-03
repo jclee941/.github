@@ -1,0 +1,95 @@
+# release-drafter config — Conventional-Commits-aware
+# Docs: https://github.com/release-drafter/release-drafter
+
+name-template: "v$RESOLVED_VERSION"
+tag-template: "v$RESOLVED_VERSION"
+
+categories:
+  - title: "🚀 Features"
+    labels:
+      - "feature"
+      - "enhancement"
+    pattern: '^feat(\(.+\))?:'
+  - title: "🐛 Bug Fixes"
+    labels:
+      - "bug"
+      - "fix"
+    pattern: '^fix(\(.+\))?:'
+  - title: "🔒 Security"
+    labels:
+      - "security"
+    pattern: '^security(\(.+\))?:'
+  - title: "📚 Documentation"
+    labels:
+      - "documentation"
+    pattern: '^docs(\(.+\))?:'
+  - title: "🛠 Internal / Refactor"
+    labels:
+      - "refactor"
+      - "chore"
+    pattern: '^(refactor|chore)(\(.+\))?:'
+  - title: "🧪 Tests"
+    labels:
+      - "test"
+    pattern: '^test(\(.+\))?:'
+  - title: "📦 Dependencies"
+    labels:
+      - "dependencies"
+
+change-template: "- $TITLE (#$NUMBER) @$AUTHOR"
+change-title-escapes: '\<*_&'
+no-changes-template: "- No notable changes."
+
+version-resolver:
+  major:
+    labels:
+      - "breaking"
+      - "major"
+  minor:
+    labels:
+      - "feature"
+      - "enhancement"
+      - "minor"
+  patch:
+    labels:
+      - "bug"
+      - "fix"
+      - "security"
+      - "patch"
+  default: patch
+
+autolabeler:
+  - label: "feature"
+    title:
+      - '/^feat(\(.+\))?:/'
+  - label: "bug"
+    title:
+      - '/^fix(\(.+\))?:/'
+  - label: "security"
+    title:
+      - '/^security(\(.+\))?:/'
+  - label: "documentation"
+    title:
+      - '/^docs(\(.+\))?:/'
+  - label: "refactor"
+    title:
+      - '/^refactor(\(.+\))?:/'
+  - label: "chore"
+    title:
+      - '/^chore(\(.+\))?:/'
+  - label: "test"
+    title:
+      - '/^test(\(.+\))?:/'
+
+template: |
+  ## Changes
+
+  $CHANGES
+
+  ## Contributors
+
+  $CONTRIBUTORS
+
+  ## Full changelog
+
+  https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION

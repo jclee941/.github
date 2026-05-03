@@ -1,0 +1,36 @@
+name: Release Drafter
+
+# Drafts/updates a release whenever a PR is merged into the default branch.
+# Reads .github/release-drafter.yml for category + version-resolver rules.
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - edited
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-drafter-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  update_release_draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: release-drafter/release-drafter@v6
+        with:
+          config-name: release-drafter.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
