@@ -35,7 +35,23 @@ drop_params = true
 # [pr_reviewer] — Review Behavior & Templates
 # ---------------------------------------------------------------------------
 [pr_reviewer]
+# Maximize the number of output rows so trivial PRs still get useful coverage
+# rather than a 5-row checklist. See docs/git-workflow-gap-analysis.md and the
+# upstream pr_reviewer.py:85-94 for the full toggle-to-output mapping.
+require_score_review = true                       # 🏅 0-100 score row
+require_tests_review = true                       # 🧪 test coverage row
+require_estimate_effort_to_review = true          # ⏱️ 1-5 effort row
+require_estimate_contribution_time_cost = true   # ⏳ best/avg/worst row
+require_can_be_split_review = true               # 🔀 sub-PR split suggestions
+require_security_review = true                    # 🔒 vulnerability row
+require_todo_scan = true                          # 📝 TODO/FIXME row
+require_ticket_analysis_review = true             # 🎫 ticket compliance row
+num_max_findings = 5                              # ⚡ key issues (was 3)
+publish_output_no_suggestions = false             # always post a comment
 enable_review_labels_effort = true
+enable_review_labels_security = true
+enable_intro_text = true
+enable_help_text = false                          # avoid bloating PRs with help
 
 # Review templates are stored in docs/review-templates/
 # - code-review-template.md      : Master review format and priorities
