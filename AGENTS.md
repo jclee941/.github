@@ -139,11 +139,11 @@ github-bot/
 | `terraform` | public | master | ✅ fully automated | |
 | `tmux` | public | master | ✅ fully automated | |
 | `pr-agent` | public (fork) | main | ⚠️ excluded by design | upstream fork; carries qodo-ai/pr-agent workflows that must not be overwritten. Sync via `git fetch upstream && git merge upstream/main`. |
-| `hycu` | private | master | ⚠️ excluded by platform | personal-account private repo on GitHub Free cannot have branch protection or `allow_auto_merge`. Revisit after upgrading to GitHub Pro. |
-| `youtube` | private | master | ⚠️ excluded by platform | same as `hycu`. |
-| `propose` | private | master | ⚠️ excluded by platform | same as `hycu`. |
+| `hycu` | private | master | 🟡 partial (Dependabot only) | personal-account private repo on GitHub Free — has `.github/dependabot.yml` + `.github/workflows/dependabot-auto-merge.yml`, but `allow_auto_merge` and required-checks branch protection require GitHub Pro. Dependabot PRs auto-approve but await manual merge. |
+| `youtube` | private | master | 🟡 partial (Dependabot only) | same as `hycu`. Dependabot covers github-actions, npm, pip, gomod, docker. |
+| `propose` | private | master | 🟡 partial (Dependabot only) | same as `hycu`. Dependabot covers github-actions, npm. |
 
-**Scope**: 12 public jclee941 repos receive the full automation stack. The 3 private repos and the `pr-agent` fork are deliberately excluded — see Reason column.
+**Scope**: 12 public repos receive the full automation stack (auto-merge, branch protection, Dependabot, auto-review). The 3 private repos receive the platform-independent subset (Dependabot config + auto-merge approval workflow); branch protection and auto-merge button require GitHub Pro. The `pr-agent` fork has its own fork-local Dependabot setup.
 
 
 ### Per-repo automation guarantees
