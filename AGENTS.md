@@ -108,10 +108,56 @@ github-bot/
 | CI gate | `.github/workflows/sanity.yml` | TOML parse + pytest gate |
 | Slash command handling | `pr_agent/servers/github_app.py`, `github_action_runner.py` | |
 | Add a git provider | `pr_agent/git_providers/` | implement base class |
-| Deploy to another repo | `scripts/deploy-to-repos.go` | Automates workflow + secret setup |
+| Deploy to another repo | `scripts/deploy-to-repos.go` | Automates workflow + dependabot config sync to all 12 public repos |
+| Apply branch protection | `scripts/branch-protection.go` | Enables auto-merge + safe protection on default branches (12 public repos) |
+| Dependabot auto-merge config | `.github/workflows/dependabot-auto-merge.yml` | Auto-approves + merges patch/minor + github-actions PRs; majors flagged for review |
+| Dependabot updates schedule | `.github/dependabot.yml` | Weekly github-actions ecosystem PRs |
 || Upstream sync | `git fetch upstream && git merge upstream/main` | resolve conflicts in configuration.toml, .pr_agent.toml |
 || Edit review templates | `docs/review-templates/` | Korean-language review templates (code, docs, security) |
 || Configure documentation review | `.pr_agent.toml` `[pr_reviewer].extra_instructions` | Documentation checklist embedded in instructions |
+
+## GIT FLOW AUTOMATION
+
+**Scope**: 12 public jclee941 repos. Private repos (hycu, youtube, propose) are excluded — branch protection and auto-merge require GitHub Pro on personal-account private repos.
+
+**Public repos covered**: `.github`, `account`, `blacklist`, `bug`, `hycu_fsds`, `idle-outpost`, `opencode`, `resume`, `safetywallet`, `splunk`, `terraform`, `tmux`.
+
+**Excluded**: `pr-agent` (upstream fork — own workflow structure should not be overwritten).
+
+### Per-repo automation guarantees
+
+| Component | File | Behavior |
+|-----------|------|----------|
+| Auto-merge enable | repo settings | `allow_auto_merge=true`, `delete_branch_on_merge=true` |
+| Branch protection | default branch | `allow_force_pushes=false`, `allow_deletions=false`, no admin enforcement, no required contexts (initially) |
+| Dependency updates | `.github/dependabot.yml` | Weekly github-actions ecosystem PRs |
+| Auto-merge policy | `.github/workflows/dependabot-auto-merge.yml` | patch + minor + github_actions → squash auto-merge; major → manual review comment |
+| PR validation | `.github/workflows/pr-checks.yml` | sanity gates before merge |
+| Auto-review | `.github/workflows/pr-review.yml` | jclee-bot GitHub App responds to PR events |
+
+### Operations
+
+```bash
+# 1. Edit a workflow in .github/workflows/ or update .github/dependabot.yml
+# 2. Commit + push to master
+# 3. auto-deploy.yml runs deploy-to-repos.go on the self-hosted runner
+#    → opens/updates PR "chore: standardize automation workflows + dependabot config"
+#    in each downstream repo (force-push branch via --force-with-lease)
+# 4. Each downstream PR auto-merges once its sanity check passes
+
+# Manual deploy (local dev / CI bypass):
+go run scripts/deploy-to-repos.go --dry-run                       # preview all
+go run scripts/deploy-to-repos.go --repos=resume                  # canary one
+go run scripts/deploy-to-repos.go                                 # apply to all 12
+
+# Re-apply branch protection + auto-merge settings:
+go run scripts/branch-protection.go --dry-run
+go run scripts/branch-protection.go
+```
+
+### Why pr-agent is excluded
+
+`jclee941/pr-agent` is a hard fork of `qodo-ai/pr-agent`. It carries upstream's own workflows (build-and-test.yaml, codeql.yml, release-drafter.yml, etc.) which would be overwritten by the deploy script. Its automation is managed manually via `git fetch upstream && git merge upstream/main`.
 
 ## CLI_PROXY INTEGRATION DETAILS
 
