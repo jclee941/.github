@@ -26,7 +26,7 @@ jobs:
       LITELLM_LOCAL_MODEL_COST_MAP: "True"
     steps:
       - name: Check out repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
