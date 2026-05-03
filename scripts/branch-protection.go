@@ -54,13 +54,21 @@ var publicRepos = []string{
 }
 
 // protectionPayload is the JSON body for the branch protection PUT call.
-// Free-tier-safe: requires the "pr-checks" status check (the reusable
-// workflow's job name) so auto-merge cannot bypass validation. Other
-// rules are kept loose to avoid blocking legitimate work.
+// Free-tier-safe: requires the six pr-checks status contexts (the
+// reusable workflow's matrix job names rendered as 'pr-checks / X')
+// so auto-merge cannot bypass validation. Other rules are kept loose
+// to avoid blocking legitimate work.
 const protectionPayload = `{
   "required_status_checks": {
     "strict": false,
-    "contexts": ["pr-checks"]
+    "contexts": [
+      "pr-checks / Check PR Size",
+      "pr-checks / Check PR Title",
+      "pr-checks / Check Branch Name",
+      "pr-checks / Check PR Description",
+      "pr-checks / Check Large Files",
+      "pr-checks / Check Sensitive Files"
+    ]
   },
   "enforce_admins": false,
   "required_pull_request_reviews": null,
