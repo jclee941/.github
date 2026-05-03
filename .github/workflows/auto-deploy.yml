@@ -5,6 +5,7 @@ on:
     branches: [master]
     paths:
       - '.github/workflows/**'
+      - '.github/dependabot.yml'
       - 'scripts/deploy-to-repos.go'
   workflow_dispatch:
 permissions:

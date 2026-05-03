@@ -14,12 +14,15 @@ import (
 )
 
 const (
-	prTitle    = "chore: add standard automation workflows"
-	prBody     = "## Summary\n- add standardized automation workflows from github-bot\n- includes PR checks, issue management, and docs sync\n- targets the self-hosted homelab runner configuration"
+	prTitle    = "chore: standardize automation workflows + dependabot config"
+	prBody     = "## Summary\n- sync standard automation workflows from jclee941/.github\n- includes PR checks, issue management, docs sync, dependabot auto-merge\n- adds .github/dependabot.yml for weekly github-actions updates\n- targets the self-hosted homelab runner configuration"
 	branchName = "chore/add-pr-review-bot-workflow"
 )
 
+// defaultRepos lists target repos. Only public repos here — auto-merge is not
+// supported on personal-account private repos under GitHub Free.
 var defaultRepos = []string{
+	".github",
 	"resume",
 	"safetywallet",
 	"tmux",
@@ -28,12 +31,15 @@ var defaultRepos = []string{
 	"blacklist",
 	"opencode",
 	"terraform",
-	".github",
+	"account",
+	"idle-outpost",
+	"bug",
 }
 
 var workflowFiles = []string{}
 
 var downstreamWorkflowAllowlist = map[string]struct{}{
+	".github/workflows/dependabot-auto-merge.yml":     {},
 	".github/workflows/docs-sync.yml":                 {},
 	".github/workflows/issue-management.yml":          {},
 	".github/workflows/pr-checks.yml":                 {},
@@ -41,7 +47,11 @@ var downstreamWorkflowAllowlist = map[string]struct{}{
 	".github/workflows/reusable-docs-sync.yml":        {},
 	".github/workflows/reusable-issue-management.yml": {},
 	".github/workflows/reusable-pr-checks.yml":        {},
-	".github/workflows/security/pr-review.yml":        {},
+}
+
+// extraFiles lists non-workflow files (relative to repo root) to deploy alongside workflows.
+var extraFiles = []string{
+	".github/dependabot.yml",
 }
 
 // removedWorkflows lists workflows that were previously deployed but are no longer
@@ -280,15 +290,16 @@ func deployRepo(r runner, rootDir, repo, baseBranchOverride string) error {
 	}
 
 	changed := false
-	for _, wf := range workflowFiles {
-		src := filepath.Join(rootDir, wf)
-		dst := filepath.Join(workDir, wf)
+	managedFiles := append(append([]string(nil), workflowFiles...), extraFiles...)
+	for _, mf := range managedFiles {
+		src := filepath.Join(rootDir, mf)
+		dst := filepath.Join(workDir, mf)
 		if err := copyWorkflow(r, src, dst); err != nil {
-			return fmt.Errorf("copy workflow %s for %s: %w", wf, repo, err)
+			return fmt.Errorf("copy %s for %s: %w", mf, repo, err)
 		}
-		fileChanged, err := hasFileDiff(r, workDir, wf)
+		fileChanged, err := hasFileDiff(r, workDir, mf)
 		if err != nil {
-			return fmt.Errorf("check diff for %s in %s: %w", wf, repo, err)
+			return fmt.Errorf("check diff for %s in %s: %w", mf, repo, err)
 		}
 		if fileChanged {
 			changed = true
@@ -312,13 +323,13 @@ func deployRepo(r runner, rootDir, repo, baseBranchOverride string) error {
 	}
 
 	if !changed {
-		fmt.Fprintf(r.out, "[%s] all workflows already match source; skipping PR creation\n", repo)
+		fmt.Fprintf(r.out, "[%s] all managed files already match source; skipping PR creation\n", repo)
 		return nil
 	}
 
-	for _, wf := range workflowFiles {
-		if err := runLogged(r, workDir, "git", "add", wf); err != nil {
-			return fmt.Errorf("git add %s for %s: %w", wf, repo, err)
+	for _, mf := range managedFiles {
+		if err := runLogged(r, workDir, "git", "add", mf); err != nil {
+			return fmt.Errorf("git add %s for %s: %w", mf, repo, err)
 		}
 	}
 	// Stage removal of old workflows
