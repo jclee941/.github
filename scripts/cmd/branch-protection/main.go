@@ -4,9 +4,9 @@
 //
 // Usage:
 //
-//	go run scripts/branch-protection.go --dry-run
-//	go run scripts/branch-protection.go --repos=resume,terraform
-//	go run scripts/branch-protection.go         # apply to all
+//	go run ./scripts/cmd/branch-protection --dry-run
+//	go run ./scripts/cmd/branch-protection --repos=resume,terraform
+//	go run ./scripts/cmd/branch-protection         # apply to all
 //
 // Behavior per repo:
 //  1. PATCH /repos/{r}  allow_auto_merge=true, delete_branch_on_merge=true

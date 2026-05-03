@@ -4,9 +4,9 @@
 //
 // Usage:
 //
-//	CLIPROXY_API_KEY=xxx go run scripts/sync-secrets.go --dry-run
-//	CLIPROXY_API_KEY=xxx go run scripts/sync-secrets.go
-//	CLIPROXY_API_KEY=xxx go run scripts/sync-secrets.go --repos=resume
+//	CLIPROXY_API_KEY=xxx go run ./scripts/cmd/sync-secrets --dry-run
+//	CLIPROXY_API_KEY=xxx go run ./scripts/cmd/sync-secrets
+//	CLIPROXY_API_KEY=xxx go run ./scripts/cmd/sync-secrets --repos=resume
 //
 // Behavior per repo:
 //
