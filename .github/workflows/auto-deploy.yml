@@ -8,7 +8,7 @@ on:
       - '.github/dependabot.yml'
       - '.github/CODEOWNERS'
       - '.github/PULL_REQUEST_TEMPLATE.md'
-      - 'scripts/deploy-to-repos.go'
+      - 'scripts/cmd/deploy-to-repos/**'
   workflow_dispatch:
 permissions:
   contents: read
@@ -38,7 +38,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
         run: |
           echo "Previewing deployment changes..."
-          go run scripts/deploy-to-repos.go --dry-run
+          (cd scripts && go run ./cmd/deploy-to-repos --dry-run)
 
       - name: Deploy to all repos
         env:
@@ -46,7 +46,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
         run: |
           echo "Deploying updated workflows to all jclee941/* repos..."
-          go run scripts/deploy-to-repos.go
+          (cd scripts && go run ./cmd/deploy-to-repos)
 
       - name: Create failure issue
         if: failure()

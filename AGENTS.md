@@ -25,7 +25,14 @@ All upstream pr-agent features are preserved: `/review`, `/improve`, `/describe`
 | `.github/CODEOWNERS` | **NEW** | Auto-reviewer assignment |
 | `.github/PULL_REQUEST_TEMPLATE.md` | **NEW** | Standard PR template (Korean) |
 | `docs/git-workflow-gap-analysis.md` | **NEW** | Workflow automation gap analysis report |
-| `scripts/deploy-to-repos.go` | **NEW** | Deploy `pr-review.yml` to `jclee941/*` repos |
+| `.github/ISSUE_TEMPLATE/` | **NEW** | Bug / Feature / Security issue templates (replaces upstream) |
+| `CONTRIBUTING.md` | **NEW** | Fork-specific contributor guide (replaces upstream) |
+| `.github/release-drafter.yml` + `.github/workflows/release-drafter.yml` | **NEW** | Conventional-Commits-aware release draft automation |
+| `.markdownlint.json` | **NEW** | Local markdownlint overrides (line_length=120, tables/code blocks exempt) |
+| `.gitleaksignore` | **NEW** | Fingerprint allowlist for upstream pr-agent test fixtures |
+| `scripts/go.mod` + `scripts/cmd/{branch-protection,deploy-to-repos,sync-secrets}/main.go` | **NEW** | Module-restructured Go scripts to enable `go test`. Invoke via `(cd scripts && go run ./cmd/<name>)`. |
+| `scripts/cmd/branch-protection/main_test.go` + `scripts/cmd/deploy-to-repos/main_test.go` | **NEW** | Table-driven tests for pure-logic helpers (16 test cases) |
+| `scripts/cmd/deploy-to-repos/main.go` | **NEW** | Deploy `pr-review.yml` to `jclee941/*` repos |
 | `README.md` | **REPLACED** | Fork-specific readme (upstream moved to `docs/pr-agent-upstream-README.md`) |
 | `AGENTS.md` | **REPLACED** | This file |
 | `NOTICE` | **NEW** | AGPL-3.0 attribution to upstream |
@@ -34,7 +41,7 @@ All upstream pr-agent features are preserved: `/review`, `/improve`, `/describe`
 | `action.yaml` | **REMOVED** | Upstream GitHub Marketplace metadata (unused by fork) |
 | `Dockerfile.github_action_dockerhub` | **REMOVED** | Upstream Docker Hub image ref (unused by fork) |
 | `docker/` | **REMOVED** | Multi-provider Dockerfiles — GitHub App, Lambda (unused by fork) |
-| `.github/ISSUE_TEMPLATE/` | **REMOVED** | Upstream issue templates (fork uses Archon) |
+<!-- ISSUE_TEMPLATE / CONTRIBUTING / SECURITY / CODE_OF_CONDUCT removed in upstream then RE-ADDED with fork-specific content (see entries above) -->
 | `.github/workflows/pr-agent-review.yaml` | **REMOVED** | Upstream action template |
 | `.github/workflows/e2e_tests.yaml` | **REMOVED** | Upstream E2E tests (Docker-based) |
 | `.github/workflows/pre-commit.yml` | **REMOVED** | Disabled upstream pre-commit |
@@ -44,7 +51,6 @@ All upstream pr-agent features are preserved: `/review`, `/improve`, `/describe`
 | `tests/e2e_tests/` | **REMOVED** | Upstream E2E test suite |
 | `tests/health_test/` | **REMOVED** | Upstream health check |
 | `pr_compliance_checklist.yaml` | **REMOVED** | Upstream compliance artifact |
-| `CONTRIBUTING.md` | **REMOVED** | Upstream contributing guide (references Discord, qodo.ai) |
 | `SECURITY.md` | **REMOVED** | Upstream security policy (references qodo.ai) |
 | `CODE_OF_CONDUCT.md` | **REMOVED** | Upstream CoC (references qodo.ai contact) |
 | `CHANGELOG.md` | **REMOVED** | Upstream changelog (2023 only, no fork entries) |
@@ -116,8 +122,8 @@ github-bot/
 | Hardcode pattern scan | `.github/workflows/auto-hardcode-scan.yml` | Weekly cron + manual dispatch on `ubuntu-latest`, 15-minute timeout |
 | Slash command handling | `pr_agent/servers/github_app.py`, `github_action_runner.py` | |
 | Add a git provider | `pr_agent/git_providers/` | implement base class |
-| Deploy to another repo | `scripts/deploy-to-repos.go` | Automates workflow + dependabot config sync to 11 downstream public repos (excludes `.github` source) |
-| Apply branch protection | `scripts/branch-protection.go` | Enables auto-merge + safe protection on default branches of 12 public repos (includes `.github`) |
+| Deploy to another repo | `scripts/cmd/deploy-to-repos/main.go` | Automates workflow + dependabot config sync to 11 downstream public repos (excludes `.github` source) |
+| Apply branch protection | `scripts/cmd/branch-protection/main.go` | Enables auto-merge + safe protection on default branches of 12 public repos (includes `.github`) |
 | Dependabot auto-merge config | `.github/workflows/dependabot-auto-merge.yml` | Auto-approves + merges patch/minor + github-actions PRs; majors flagged for review |
 | Dependabot updates schedule | `.github/dependabot.yml` | Weekly `github-actions` + `pip` ecosystem PRs |
 || Upstream sync | `git fetch upstream && git merge upstream/main` | resolve conflicts in configuration.toml, .pr_agent.toml |
@@ -172,7 +178,7 @@ github-bot/
 
 ```bash
 # 1. Edit a workflow in .github/workflows/, or .github/dependabot.yml,
-#    or .github/CODEOWNERS, or .github/PULL_REQUEST_TEMPLATE.md, or scripts/deploy-to-repos.go
+#    or .github/CODEOWNERS, or .github/PULL_REQUEST_TEMPLATE.md, or scripts/cmd/deploy-to-repos/main.go
 # 2. Commit + push to master
 # 3. auto-deploy.yml runs deploy-to-repos.go on a GitHub-hosted ubuntu-latest runner
 #    → opens/updates PR "chore: standardize automation workflows + dependabot config"
@@ -180,17 +186,17 @@ github-bot/
 # 4. Each downstream PR auto-merges once its required branch-protection contexts pass (Title + Branch [+ Gitleaks after Phase 3])
 
 # Manual deploy (local dev / CI bypass):
-go run scripts/deploy-to-repos.go --dry-run                       # preview all
-go run scripts/deploy-to-repos.go --repos=resume                  # canary one
-go run scripts/deploy-to-repos.go                                 # apply to all 11 downstream
+(cd scripts && go run ./cmd/deploy-to-repos) --dry-run                       # preview all
+(cd scripts && go run ./cmd/deploy-to-repos) --repos=resume                  # canary one
+(cd scripts && go run ./cmd/deploy-to-repos)                                 # apply to all 11 downstream
 
 # Re-apply branch protection + auto-merge settings:
-go run scripts/branch-protection.go --dry-run
-go run scripts/branch-protection.go
+(cd scripts && go run ./cmd/branch-protection) --dry-run
+(cd scripts && go run ./cmd/branch-protection)
 
 # Sync CLIPROXY_API_KEY (and other shared secrets) to every public repo:
 CLIPROXY_API_KEY=$(grep '^CLIPROXY_API_KEY=' .env | cut -d= -f2-) \
-  go run scripts/sync-secrets.go
+  (cd scripts && go run ./cmd/sync-secrets)
 ```
 
 ### Why pr-agent is handled separately
@@ -238,6 +244,27 @@ Rotate: edit `/opt/cli-proxy-api/config.yaml` on LXC 100, restart the docker con
 ssh root@192.168.50.114 "docker restart cli-proxy-api"
 ```
 
+## PR-AGENT WORKFLOW ENV VAR CONVENTIONS
+
+pr-agent loads its settings via `Dynaconf(envvar_prefix=False, ...)` (see `pr_agent/config_loader.py:18`). With no prefix, **only specific env-var spellings reach the nested settings tree** — the bug-fix history is non-obvious. Memorise this table before adding any new env var to `pr-review.yml` or `security/pr-review.yml`:
+
+| Setting key (used in pr-agent code) | Wrong env name | Correct env name | Why |
+|------|----------------|------------------|-----|
+| `settings.github.user_token` | `GITHUB_TOKEN` (fork-broken) | **`GITHUB__USER_TOKEN`** (double underscore) | Single-underscore creates flat key `GITHUB_TOKEN`; dynaconf nested path requires `__` |
+| `settings.openai.key` | `OPENAI_KEY` (fork-broken) | **`OPENAI.KEY`** (literal dot) | Same reason. Dot syntax also works in GH Actions YAML `env:` blocks |
+| `settings.openai.api_base` | — | `OPENAI.API_BASE` | Literal dot |
+| `settings.config.model` | — | `CONFIG.MODEL` | Literal dot |
+| `settings.config.fallback_models` | — | `CONFIG.FALLBACK_MODELS` | Literal dot |
+| `settings.config.custom_model_max_tokens` | omit (forces MAX_TOKENS lookup) | **`CONFIG.CUSTOM_MODEL_MAX_TOKENS=128000`** | `kimi-k2.6` is NOT in `pr_agent/algo/__init__.py:MAX_TOKENS`; without this, prompt-trim refuses to call litellm |
+| `settings.pr_reviewer.require_*` | — | `PR_REVIEWER.REQUIRE_*` | Literal dot |
+
+**Special case — `security/pr-review.yml` only**: that workflow invokes `pr_agent.servers.github_action_runner` directly, which manually translates `GITHUB_TOKEN` → `settings.github.user_token` and `OPENAI_KEY` → `settings.openai.key` at `pr_agent/servers/github_action_runner.py:55-61`. Both env-var styles work there, but for consistency the fork uses the same `OPENAI.KEY` / `GITHUB__USER_TOKEN` everywhere.
+
+**Silent-failure guard** (`pr-review.yml:141`): pr-agent's CLI catches its own exceptions in `pr_reviewer.py:184` and **returns exit code 0 even on fatal failures**. The workflow `tee`s output to `/tmp/pr-agent.log` and `grep`s for known fatal patterns (`Failed to generate prediction with any model`, `Failed to review PR`, `AuthenticationError`, etc.) — known no-op patterns (`Empty diff for PR:`, `PR has no files:`, `Review output is not published`) are subtracted to avoid false positives. The full pattern list is in the workflow's run-step.
+
+**Phase 3 rollout completed (2026-05-03)**: Branch protection on all 12 public repos now enforces `Gitleaks / scan` as a third required status check. To re-apply after editing `branch-protection.go`, run `(cd scripts && go run ./cmd/branch-protection)` from this repo.
+
+
 ## COMMANDS
 
 ```bash
@@ -275,7 +302,7 @@ git push origin main
 # Deploy workflow to another jclee941 repo
 # ==================
 # Option 1: automated deploy script (opens PRs)
-go run scripts/deploy-to-repos.go
+(cd scripts && go run ./cmd/deploy-to-repos)
 
 # Option 2: manual deploy
 REPO=jclee941/<target-repo>

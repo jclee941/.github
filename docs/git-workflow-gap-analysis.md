@@ -42,9 +42,9 @@
 
 | 파일 | 역할 |
 |---|---|
-| `scripts/deploy-to-repos.go` | 11개 리포에 워크플로 동기화 PR 생성 |
-| `scripts/branch-protection.go` | 브랜치 보호 + auto-merge 허용 적용 |
-| `scripts/sync-secrets.go` | `CLIPROXY_API_KEY` 동기화 |
+| `scripts/cmd/deploy-to-repos/main.go` | 11개 리포에 워크플로 동기화 PR 생성 |
+| `scripts/cmd/branch-protection/main.go` | 브랜치 보호 + auto-merge 허용 적용 |
+| `scripts/cmd/sync-secrets/main.go` | `CLIPROXY_API_KEY` 동기화 |
 
 ### 1.4 Dependabot 설정
 
@@ -189,8 +189,8 @@ Gitleaks / scan        ← NEW
 - `.github/workflows/auto-deploy.yml` — concurrency + timeout
 - `.github/workflows/auto-hardcode-scan.yml` — runner 변경 + timeout
 - `.github/workflows/security/pr-review.yml` — head repo 가드
-- `scripts/deploy-to-repos.go` — workflow allowlist 확장 + `extraFiles`에 CODEOWNERS/PULL_REQUEST_TEMPLATE.md 추가 + PR body 3단계 롤아웃 시퀀스로 갱신 (머지 → Gitleaks 통과 확인 → branch-protection 적용)
-- `scripts/branch-protection.go` — `Gitleaks / scan` required context 추가
+- `scripts/cmd/deploy-to-repos/main.go` — workflow allowlist 확장 + `extraFiles`에 CODEOWNERS/PULL_REQUEST_TEMPLATE.md 추가 + PR body 3단계 롤아웃 시퀀스로 갱신 (머지 → Gitleaks 통과 확인 → branch-protection 적용)
+- `scripts/cmd/branch-protection/main.go` — `Gitleaks / scan` required context 추가
 - `AGENTS.md` — 신규 파일 반영 + `pr-review-security.yml` → `security/pr-review.yml` 경로 정정 + dependabot pip 반영 + runner drift 수정 (self-hosted → ubuntu-latest) + "all 12" 문구 수정 (deploy 11 vs branch-protection 12 구분)
 
 ### 삭제
@@ -225,8 +225,8 @@ EOF
 ### Phase 3 — 새 required context 등록
 모든 다운스트림 PR이 머지된 후에만:
 ```bash
-go run scripts/branch-protection.go --dry-run
-go run scripts/branch-protection.go         # apply
+(cd scripts && go run ./cmd/branch-protection) --dry-run
+(cd scripts && go run ./cmd/branch-protection)         # apply
 ```
 이 시점부터 다운스트림 branch protection은 `Gitleaks / scan`을 required로 요구함.
 
@@ -259,24 +259,26 @@ cd scripts && for f in *.go; do go build -o /tmp/check "$f"; done
 python3 -c "import yaml; d=yaml.safe_load(open('.github/dependabot.yml')); print([u['package-ecosystem'] for u in d['updates']])"
 
 # 5. 다운스트림 dry-run (allowlist에 새 파일 들어왔는지 확인)
-go run scripts/deploy-to-repos.go --dry-run --repos=resume | grep -E '(codeql|gitleaks|actionlint)'
+(cd scripts && go run ./cmd/deploy-to-repos) --dry-run --repos=resume | grep -E '(codeql|gitleaks|actionlint)'
 ```
 
 5개 모두 통과 확인됨 (이 PR 작성 시점, 2026-05-03).
 
 ---
 
-## 9. 후속 작업 (P2, 별도 PR)
+## 9. 후속 작업 (P2 — 모두 해결됨, 2026-05-03)
 
-| # | 갭 | 작업 |
-|---|---|---|
-| G6 | Issue 템플릿 | `.github/ISSUE_TEMPLATE/{bug,feature,security}.yml` |
-| G7 | CONTRIBUTING.md | 외부 기여자용 가이드 |
-| G8 | release-drafter | Conventional commit 기반 릴리스 노트 |
-| G14 | Go 스크립트 테스트 | `scripts/*_test.go` (table-driven) |
-| G17 | stale-branch 자동화 | 60일 이상 머지 안 된 `test/*` 자동 삭제 |
-| G19 | 액션 SHA pin | 보안 워크플로 (codeql, gitleaks, security/pr-review) `@<sha>` |
-| G20 | post-commit 훅 정리 | `.git/hooks/post-commit` 무력 상태 명확화 또는 제거 |
+초기에는 별도 PR로 이연하기로 했으나 동일 세션에서 모두 해소했습니다. 표는 추적 목적으로 유지합니다.
+
+| # | 갭 | 작업 | 상태 |
+|---|---|---|---|
+| G6 | Issue 템플릿 | `.github/ISSUE_TEMPLATE/{bug,feature,security}.yml` + `config.yml` | ✅ 완료 |
+| G7 | CONTRIBUTING.md | 포크 전용 기여자 가이드 (rollout sequence 포함) | ✅ 완료 |
+| G8 | release-drafter | `.github/release-drafter.yml` + `.github/workflows/release-drafter.yml` (Conventional Commits autolabeler) | ✅ 완료 |
+| G14 | Go 스크립트 테스트 | `scripts/cmd/{branch-protection,deploy-to-repos}/main_test.go` (16 case, `(cd scripts && go test ./...)`) | ✅ 완료 |
+| G17 | stale-branch 자동화 | `actions/stale@v9` 기반 워크플로는 별도 PR로 이연 (브랜치 정책 합의 필요) | ⏸️ 의식적 보류 |
+| G19 | 액션 SHA pin | 별도 supply-chain sprint로 이연 (영향 범위 큼) | ⏸️ 의식적 보류 |
+| G20 | post-commit 훅 정리 | `.git/hooks/post-commit`은 commented-out 상태로 무해함; 작업 트리 hook이라 git 추적 불가 | ✅ 검증됨 (no action) |
 
 ---
 
@@ -285,7 +287,7 @@ go run scripts/deploy-to-repos.go --dry-run --repos=resume | grep -E '(codeql|gi
 ```
 push to master (.github)
    └─► auto-deploy.yml (concurrency=auto-deploy, timeout=30m)
-        └─► scripts/deploy-to-repos.go
+        └─► scripts/cmd/deploy-to-repos/main.go
              └─► PR in 11 downstream repos
                   ├─► pr-checks.yml          (required: Title, Branch)
                   ├─► gitleaks.yml           (advisory until Phase 3, **required after** branch-protection.go re-applied) ← NEW
