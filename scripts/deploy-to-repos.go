@@ -15,7 +15,7 @@ import (
 
 const (
 	prTitle    = "chore: standardize automation workflows + dependabot config"
-	prBody     = "## Summary\n- sync standard automation workflows from jclee941/.github\n- includes PR checks, issue management, docs sync, dependabot auto-merge\n- adds .github/dependabot.yml for weekly github-actions updates\n- targets the self-hosted homelab runner configuration"
+	prBody     = "## Summary\n\nSync standard automation from `jclee941/.github`:\n\n- **PR checks** (size, title, branch name, description, large files, sensitive files) - the 6 contexts required by branch protection.\n- **Auto-review** via cli_proxy on every non-draft PR (Dependabot PRs are reviewed by `dependabot-auto-merge.yml` instead).\n- **Dependabot auto-merge** for patch + minor + github_actions updates; majors and unknown update-types are commented for manual review.\n- **`.github/dependabot.yml`** schedules weekly github-actions ecosystem updates.\n- **Issue management + docs sync** workflows.\n\nDeployed by `scripts/deploy-to-repos.go` from `jclee941/.github`. See [AGENTS.md § GIT FLOW AUTOMATION](https://github.com/jclee941/.github/blob/master/AGENTS.md#git-flow-automation) for the inventory and policy."
 	branchName = "chore/add-pr-review-bot-workflow"
 )
 
@@ -337,7 +337,7 @@ func deployRepo(r runner, rootDir, repo, baseBranchOverride string) error {
 	for _, wf := range removedWorkflows {
 		_ = runLogged(r, workDir, "git", "add", wf)
 	}
-if err := runLogged(r, workDir, "git", "config", "user.email", "bot@jclee.me"); err != nil {
+	if err := runLogged(r, workDir, "git", "config", "user.email", "bot@jclee.me"); err != nil {
 		return fmt.Errorf("git config user.email for %s: %w", repo, err)
 	}
 	if err := runLogged(r, workDir, "git", "config", "user.name", "github-bot"); err != nil {

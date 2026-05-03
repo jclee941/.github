@@ -118,11 +118,33 @@ github-bot/
 
 ## GIT FLOW AUTOMATION
 
-**Scope**: 12 public jclee941 repos. Private repos (hycu, youtube, propose) are excluded — branch protection and auto-merge require GitHub Pro on personal-account private repos.
+### Terminology disambiguation
 
-**Public repos covered**: `.github`, `account`, `blacklist`, `bug`, `hycu_fsds`, `idle-outpost`, `opencode`, `resume`, `safetywallet`, `splunk`, `terraform`, `tmux`.
+"Git flow" here means **GitHub PR-flow automation** (auto-merge, dependency updates, branch protection, automatic AI review on every PR). It does NOT refer to the classical Git Flow branching model (`develop` / `feature/*` / `release/*` / `hotfix/*`); that model is not in scope and not implemented across these repos.
 
-**Excluded**: `pr-agent` (upstream fork — own workflow structure should not be overwritten).
+### Repository inventory (16 jclee941 repos)
+
+| Repo | Visibility | Default branch | Status | Reason |
+|------|------------|----------------|--------|--------|
+| `.github` | public | master | ✅ fully automated | source of truth |
+| `account` | public | master | ✅ fully automated | |
+| `blacklist` | public | master | ✅ fully automated | |
+| `bug` | public | main | ✅ fully automated | |
+| `hycu_fsds` | public | master | ✅ fully automated | |
+| `idle-outpost` | public | main | ✅ fully automated | |
+| `opencode` | public | master | ✅ fully automated | |
+| `resume` | public | master | ✅ fully automated | |
+| `safetywallet` | public | master | ✅ fully automated | |
+| `splunk` | public | master | ✅ fully automated | |
+| `terraform` | public | master | ✅ fully automated | |
+| `tmux` | public | master | ✅ fully automated | |
+| `pr-agent` | public (fork) | main | ⚠️ excluded by design | upstream fork; carries qodo-ai/pr-agent workflows that must not be overwritten. Sync via `git fetch upstream && git merge upstream/main`. |
+| `hycu` | private | master | ⚠️ excluded by platform | personal-account private repo on GitHub Free cannot have branch protection or `allow_auto_merge`. Revisit after upgrading to GitHub Pro. |
+| `youtube` | private | master | ⚠️ excluded by platform | same as `hycu`. |
+| `propose` | private | master | ⚠️ excluded by platform | same as `hycu`. |
+
+**Scope**: 12 public jclee941 repos receive the full automation stack. The 3 private repos and the `pr-agent` fork are deliberately excluded — see Reason column.
+
 
 ### Per-repo automation guarantees
 
