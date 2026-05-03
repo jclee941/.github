@@ -12,7 +12,10 @@
 //  1. PATCH /repos/{r}  allow_auto_merge=true, delete_branch_on_merge=true
 //  2. GET   /repos/{r}  -> default_branch
 //  3. PUT   /repos/{r}/branches/{b}/protection  with safe defaults:
-//     - required_status_checks: null (no required contexts initially)
+//     - required_status_checks: 3 contexts (see protectionPayload below):
+//       "pr-checks / Check PR Title", "pr-checks / Check Branch Name",
+//       "Gitleaks / scan". Sanity is fork-only and excluded; CodeQL is
+//       advisory (Python-only) and excluded.
 //     - enforce_admins: false
 //     - required_pull_request_reviews: null
 //     - restrictions: null
@@ -54,24 +57,31 @@ var publicRepos = []string{
 }
 
 // protectionPayload is the JSON body for the branch protection PUT call.
-// Free-tier-safe. Required status checks are limited to the two
-// pr-checks contexts that actually call core.setFailed() on policy
-// violations (Title and Branch Name). The other four reusable jobs
-// (Size, Description, Large Files, Sensitive Files) are advisory:
-// they comment but always succeed, so they are NOT required - that
-// would create silent BLOCKED states without any signal of why.
+// Free-tier-safe. Required status checks (3 contexts):
+//   1. "pr-checks / Check PR Title"   - Conventional Commits enforcement
+//   2. "pr-checks / Check Branch Name" - branch prefix enforcement
+//   3. "Gitleaks / scan"              - secret-pattern detection
 //
-// Dependabot PRs satisfy both required contexts automatically:
-//   - PR titles use Conventional Commits (chore(deps): bump X)
-//   - Branch names use the dependabot/ prefix (allowlisted in reusable-pr-checks.yml)
+// Sanity ("Sanity / import-check") is fork-specific to .github (imports
+// pr_agent) and is NOT a required check on downstream repos.
 //
-// so auto-merge for Dependabot does not deadlock.
+// The other four pr-checks jobs (Size, Description, Large Files,
+// Sensitive Files) are advisory: they comment but always succeed.
+//
+// Dependabot PRs satisfy all three required contexts automatically:
+//   - Conventional Commits titles (chore(deps): bump X)
+//   - dependabot/ prefix (allowlisted in reusable-pr-checks.yml)
+//   - Gitleaks passes since dependabot doesn't introduce secrets
+//
+// CodeQL is intentionally NOT required: it only runs on .py changes and
+// would block non-Python PRs. Results surface via Security tab + PR comments.
 const protectionPayload = `{
   "required_status_checks": {
     "strict": false,
     "contexts": [
       "pr-checks / Check PR Title",
-      "pr-checks / Check Branch Name"
+      "pr-checks / Check Branch Name",
+      "Gitleaks / scan"
     ]
   },
   "enforce_admins": false,

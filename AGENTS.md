@@ -5,7 +5,7 @@
 
 ## OVERVIEW
 
-AI-powered PR reviewer for `jclee941/*` private repos. Hard fork of [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent) (AGPL-3.0), rewired to use the homelab `CLIProxyAPI` at `192.168.50.114:8317` as the LLM backend, deployed on self-hosted runners with the `homelab` label.
+AI-powered PR reviewer for `jclee941/*` private repos. Hard fork of [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent) (AGPL-3.0), rewired to use the homelab `CLIProxyAPI` at `192.168.50.114:8317` as the LLM backend. Workflows run on GitHub-hosted `ubuntu-latest` runners (the homelab is reached over the public internet via `https://cliproxy.jclee.me/v1`).
 
 All upstream pr-agent features are preserved: `/review`, `/improve`, `/describe`, `/ask`, `/update_changelog`, PR compression, dynamic context, multi-model fallback, slash commands.
 
@@ -15,9 +15,16 @@ All upstream pr-agent features are preserved: `/review`, `/improve`, `/describe`
 |------|--------|--------|
 | `pr_agent/settings/configuration.toml` | `[config] model` → `kimi-k2.6`, `fallback_models` → `["kimi-k2.5", "claude-sonnet-4-6"]` | Default model via cli_proxy/OpenAI-compatible routing |
 | `.pr_agent.toml` | Prepended `[config]`, `[openai]`, `[litellm]` sections | Pin fork-level model and `api_base` to cli_proxy |
-| `.github/workflows/pr-review.yml` | **NEW** | Self-hosted runner + cli_proxy env vars |
-| `.github/workflows/pr-review-security.yml` | **NEW** | Deep security review (Korean, `pull_request_target`) |
+| `.github/workflows/pr-review.yml` | **NEW** | ubuntu-latest runner + cli_proxy env vars |
+| `.github/workflows/security/pr-review.yml` | **NEW** | Deep security review (Korean, `pull_request_target`, label-triggered) |
 | `.github/workflows/sanity.yml` | **NEW** | Fork CI gate (replaces upstream CI) |
+| `.github/workflows/codeql.yml` | **NEW** | Python SAST (security-extended + quality queries) |
+| `.github/workflows/gitleaks.yml` | **NEW** | Secret-pattern scan on every PR/push |
+| `.github/workflows/actionlint.yml` | **NEW** | GitHub Actions YAML semantic linter |
+| `.github/workflows/auto-hardcode-scan.yml` | **NEW** | Weekly hardcode-pattern scan on `ubuntu-latest` (was self-hosted) |
+| `.github/CODEOWNERS` | **NEW** | Auto-reviewer assignment |
+| `.github/PULL_REQUEST_TEMPLATE.md` | **NEW** | Standard PR template (Korean) |
+| `docs/git-workflow-gap-analysis.md` | **NEW** | Workflow automation gap analysis report |
 | `scripts/deploy-to-repos.go` | **NEW** | Deploy `pr-review.yml` to `jclee941/*` repos |
 | `README.md` | **REPLACED** | Fork-specific readme (upstream moved to `docs/pr-agent-upstream-README.md`) |
 | `AGENTS.md` | **REPLACED** | This file |
@@ -71,8 +78,8 @@ github-bot/
 │       ├── pr_reviewer_prompts.toml
 │       └── ...                    # other prompt templates
 ├── .github/workflows/
-│   ├── pr-review.yml              # FORK: self-hosted + cli_proxy
-│   ├── pr-review-security.yml     # FORK: deep security review (Korean)
+│   ├── pr-review.yml              # FORK: ubuntu-latest + cli_proxy (kimi-k2.6)
+│   ├── security/pr-review.yml     # FORK: deep security review (Korean, label-gated)
 │   └── sanity.yml                 # FORK: CI gate (replaces upstream CI)
 ├── scripts/
 │   └── deploy-to-repos.go        # FORK: deploy workflow to jclee941/* repos
@@ -104,14 +111,15 @@ github-bot/
 | Edit review prompts | `pr_agent/settings/pr_reviewer_prompts.toml` | upstream TOML |
 | Edit improve prompts | `pr_agent/settings/code_suggestions/` | |
 | Workflow triggers | `.github/workflows/pr-review.yml` | PR events + slash commands |
-| Security review config | `.github/workflows/pr-review-security.yml` | Triggered by `security-review` label |
+| Security review config | `.github/workflows/security/pr-review.yml` | Triggered by `security-review` label |
 | CI gate | `.github/workflows/sanity.yml` | TOML parse + pytest gate |
+| Hardcode pattern scan | `.github/workflows/auto-hardcode-scan.yml` | Weekly cron + manual dispatch on `ubuntu-latest`, 15-minute timeout |
 | Slash command handling | `pr_agent/servers/github_app.py`, `github_action_runner.py` | |
 | Add a git provider | `pr_agent/git_providers/` | implement base class |
-| Deploy to another repo | `scripts/deploy-to-repos.go` | Automates workflow + dependabot config sync to all 12 public repos |
-| Apply branch protection | `scripts/branch-protection.go` | Enables auto-merge + safe protection on default branches (12 public repos) |
+| Deploy to another repo | `scripts/deploy-to-repos.go` | Automates workflow + dependabot config sync to 11 downstream public repos (excludes `.github` source) |
+| Apply branch protection | `scripts/branch-protection.go` | Enables auto-merge + safe protection on default branches of 12 public repos (includes `.github`) |
 | Dependabot auto-merge config | `.github/workflows/dependabot-auto-merge.yml` | Auto-approves + merges patch/minor + github-actions PRs; majors flagged for review |
-| Dependabot updates schedule | `.github/dependabot.yml` | Weekly github-actions ecosystem PRs |
+| Dependabot updates schedule | `.github/dependabot.yml` | Weekly `github-actions` + `pip` ecosystem PRs |
 || Upstream sync | `git fetch upstream && git merge upstream/main` | resolve conflicts in configuration.toml, .pr_agent.toml |
 || Edit review templates | `docs/review-templates/` | Korean-language review templates (code, docs, security) |
 || Configure documentation review | `.pr_agent.toml` `[pr_reviewer].extra_instructions` | Documentation checklist embedded in instructions |
@@ -151,26 +159,30 @@ github-bot/
 | Component | File | Behavior |
 |-----------|------|----------|
 | Auto-merge enable | repo settings | `allow_auto_merge=true`, `delete_branch_on_merge=true` |
-| Branch protection | default branch | 2 required `pr-checks / *` enforcing contexts (Check PR Title via Conventional Commits, Check Branch Name via standard prefixes) gate auto-merge; 4 advisory contexts (Size, Description, Large Files, Sensitive Files) post comments only and always pass. No force-push, no deletion, no admin enforcement. |
-| Dependency updates | `.github/dependabot.yml` | Weekly github-actions ecosystem PRs |
+| Branch protection | default branch | **3 required contexts**: `pr-checks / Check PR Title` (Conventional Commits), `pr-checks / Check Branch Name` (standard prefixes), `Gitleaks / scan` (secret-pattern detection). 4 advisory contexts (Size, Description, Large Files, Sensitive Files) comment-only. CodeQL surfaces results via Security tab, not as a required check. No force-push, no deletion, no admin enforcement. |
+| Dependency updates | `.github/dependabot.yml` | Weekly `github-actions` + `pip` ecosystem PRs (pip groups minor+patch) |
 | Auto-merge policy | `.github/workflows/dependabot-auto-merge.yml` | patch + minor + github_actions → squash auto-merge after required checks pass; major → manual review comment; null update-type → manual review comment |
 | PR validation | `.github/workflows/pr-checks.yml` | sanity gates before merge |
 | Auto-review | `.github/workflows/pr-review.yml` | Runs on every PR opened by anyone except `dependabot[bot]` and drafts (Dependabot has its own auto-merge path). Posts review via `pr-agent` against cli_proxy. |
+| Static analysis | `.github/workflows/codeql.yml` | Python SAST on PR + weekly schedule (security-extended + security-and-quality queries) |
+| Secret scanning | `.github/workflows/gitleaks.yml` | Required check on every PR/push; full-history scan on master |
+| Workflow lint | `.github/workflows/actionlint.yml` | Validates GHA YAML semantics on workflow changes |
 
 ### Operations
 
 ```bash
-# 1. Edit a workflow in .github/workflows/ or update .github/dependabot.yml
+# 1. Edit a workflow in .github/workflows/, or .github/dependabot.yml,
+#    or .github/CODEOWNERS, or .github/PULL_REQUEST_TEMPLATE.md, or scripts/deploy-to-repos.go
 # 2. Commit + push to master
-# 3. auto-deploy.yml runs deploy-to-repos.go on the self-hosted runner
+# 3. auto-deploy.yml runs deploy-to-repos.go on a GitHub-hosted ubuntu-latest runner
 #    → opens/updates PR "chore: standardize automation workflows + dependabot config"
 #    in each downstream repo (force-push branch via --force-with-lease)
-# 4. Each downstream PR auto-merges once its sanity check passes
+# 4. Each downstream PR auto-merges once its required branch-protection contexts pass (Title + Branch [+ Gitleaks after Phase 3])
 
 # Manual deploy (local dev / CI bypass):
 go run scripts/deploy-to-repos.go --dry-run                       # preview all
 go run scripts/deploy-to-repos.go --repos=resume                  # canary one
-go run scripts/deploy-to-repos.go                                 # apply to all 12
+go run scripts/deploy-to-repos.go                                 # apply to all 11 downstream
 
 # Re-apply branch protection + auto-merge settings:
 go run scripts/branch-protection.go --dry-run
@@ -285,14 +297,14 @@ gh -R "$REPO" secret set CLIPROXY_API_KEY --body "$(cat /home/jclee/.cache/sisyp
 - **Never** hardcode the cli_proxy API key in any tracked file
 - **Never** commit `.env`, `.secrets.toml`, `pr_agent/settings/.secrets.toml`, or anything under `.cache/`
 - **Never** edit `pr_agent/settings/configuration.toml` beyond the cli_proxy model line — it conflicts with every upstream merge
-- **Never** run PR review on PRs from untrusted forks using the self-hosted runner without a `pull_request_target` gate — code execution risk
+- **Never** run PR review on PRs from untrusted forks under `pull_request_target` without a head-repo guard — code execution / token-theft risk. The current guard in `.github/workflows/security/pr-review.yml` requires `head.repo.full_name == github.repository`.
 - **Never** push to `main` without running at least `pytest tests/unittest/test_fix_json_escape_char.py`
 - **Never** delete or rename upstream prompt TOML files (e.g. `pr_agent/settings/pr_reviewer_prompts.toml`) — they're the single source of truth for prompts
 
 ## SECURITY NOTES
 
 - `CLIPROXY_API_KEY` is stored as GitHub repo secret AND locally in `.env` (chmod 600)
-- Self-hosted runner at `.111`/`.200` must be trusted — it sees the key as env var during workflow runs
+- GitHub-hosted `ubuntu-latest` runners read `CLIPROXY_API_KEY` from repo secrets; the homelab cli_proxy is reached over the public internet at `https://cliproxy.jclee.me/v1`. Treat the secret as compromised if it is ever printed to a workflow log.
 - cli_proxy has no network ACL — any workstation on `192.168.50.0/24` with the key can call it
 - AGPL-3.0 compliance: this is a private deployment serving only jclee941; source access is provided via this repo itself to authorized users (which is just jclee941)
 

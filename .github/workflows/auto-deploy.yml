@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/**'
       - '.github/dependabot.yml'
+      - '.github/CODEOWNERS'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
       - 'scripts/deploy-to-repos.go'
   workflow_dispatch:
 permissions:
@@ -13,9 +15,14 @@ permissions:
   issues: write
   pull-requests: write
 
+concurrency:
+  group: auto-deploy
+  cancel-in-progress: false  # do NOT cancel mid-deploy; let it finish or fail loudly
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v6
