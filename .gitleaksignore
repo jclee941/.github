@@ -1,0 +1,32 @@
+# Gitleaks fingerprint allowlist for jclee941/.github (pr-agent fork).
+#
+# All entries below are PRE-EXISTING upstream qodo-ai/pr-agent test fixtures and
+# documentation examples (NOT real secrets). They live in:
+#   - pr_agent/settings/configuration.toml — placeholder defaults the user must override
+#   - tests/unittest/test_litellm_api_key_guard.py — fake keys used to drive guard tests
+#   - README.md / INSTALL.md — example credential strings
+#   - docker-compose.github_app.yml.lxc — example PEM for documentation
+#
+# Format: <commit-sha>:<path>:<rule-id>:<line>
+# Documented at https://github.com/gitleaks/gitleaks#configuration
+
+# pr-agent upstream config defaults (placeholder PAT and key)
+12bd9e8b42fff17d3bbaa498840e3be89f71f539:pr_agent/settings/configuration.toml:generic-api-key:112
+12bd9e8b42fff17d3bbaa498840e3be89f71f539:pr_agent/settings/configuration.toml:github-pat:53
+9bd5140ea4a1cb2ef6a92a16b69ed5c1653312a3:pr_agent/settings/configuration.toml:generic-api-key:112
+
+# pr-agent upstream test fixtures (deliberately fake keys)
+2ce9df25e437bc9ee3ddf0df0cceb15a200c073c:tests/unittest/test_litellm_api_key_guard.py:generic-api-key:110
+2ce9df25e437bc9ee3ddf0df0cceb15a200c073c:tests/unittest/test_litellm_api_key_guard.py:generic-api-key:243
+d82f7d3e696cd00822694aaa3096265d3889f3f1:tests/unittest/test_litellm_api_key_guard.py:generic-api-key:185
+d82f7d3e696cd00822694aaa3096265d3889f3f1:tests/unittest/test_litellm_api_key_guard.py:generic-api-key:239
+d82f7d3e696cd00822694aaa3096265d3889f3f1:tests/unittest/test_litellm_api_key_guard.py:generic-api-key:58
+
+# pr-agent upstream documentation examples
+1d784c60cbd662ad6033fd0f33f233cb22ff9c76:README.md:aws-access-token:58
+1d784c60cbd662ad6033fd0f33f233cb22ff9c76:README.md:jwt:58
+e343ce8468ca8a41ab31278d423a1986f1742a29:INSTALL.md:curl-auth-user:422
+
+# Fork-specific docker-compose example (placeholder PEM, not a real key)
+18193954a1f5bde659e9762840e099295100b146:docker-compose.github_app.yml.lxc:private-key:23
+af1228dd16cf2fe1afdb3151618c3f9586eaf665:docker-compose.github_app.yml.lxc:private-key:23
