@@ -1,0 +1,138 @@
+name: Repo Review Batch
+
+# Whole-repo automated review across the 12-repo inventory
+# (jclee941/.github + 11 downstream). Each repo is cloned to /tmp,
+# pr-agent's LocalGitProvider produces a review.md against a base
+# branch (root commit for tiny repos; HEAD~N for large), and the
+# resulting markdown is filed as a GitHub issue on the target repo
+# (or appended to an existing open [bot-review] issue).
+#
+# Manual dispatch only — never on push/cron, to keep token spend
+# explicit.
+
+on:
+  workflow_dispatch:
+    inputs:
+      repos:
+        description: Comma-separated repo names (no owner)
+        required: false
+        default: .github,resume,safetywallet,tmux,hycu_fsds,splunk,blacklist,opencode,terraform,account,idle-outpost,bug
+      dry_run:
+        description: If true, no issues are created/commented
+        required: false
+        type: boolean
+        default: true
+      since_commits:
+        description: Commits back from HEAD to use as review base
+        required: false
+        default: "30"
+      diff_size_limit:
+        description: Max diff char count before skipping a repo
+        required: false
+        default: "150000"
+      model:
+        description: Primary LLM model
+        required: false
+        default: kimi-k2.6
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: repo-review-batch
+  cancel-in-progress: false
+
+jobs:
+  batch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout jclee941/.github
+        uses: actions/checkout@v6
+        with:
+          repository: jclee941/.github
+          ref: master
+          path: pr-agent-src
+          fetch-depth: 1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-repo-review-${{ hashFiles('pr-agent-src/pyproject.toml', 'pr-agent-src/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-repo-review-
+
+      - name: Install pr-agent
+        working-directory: pr-agent-src
+        run: |
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -e .
+
+      - name: Verify cli_proxy connectivity
+        env:
+          CLIPROXY_API_KEY: ${{ secrets.CLIPROXY_API_KEY }}
+        run: |
+          set -e
+          if [ -z "$CLIPROXY_API_KEY" ]; then
+            echo "::error::CLIPROXY_API_KEY secret is not set on this repo."
+            exit 1
+          fi
+          HTTP_CODE=$(curl -sS -o /tmp/cli_proxy_test.json -w '%{http_code}' \
+            --max-time 15 \
+            https://cliproxy.jclee.me/v1/models \
+            -H "Authorization: Bearer $CLIPROXY_API_KEY")
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::cli_proxy returned HTTP $HTTP_CODE"
+            cat /tmp/cli_proxy_test.json
+            exit 1
+          fi
+          echo "cli_proxy OK"
+
+      - name: Run repo-review batch
+        working-directory: pr-agent-src
+        env:
+          # GH_PAT is a fine-grained PAT with Issues:write on every target
+          # repo. Falls back to GITHUB_TOKEN (which can't cross repos).
+          GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          PR_AGENT_PYTHON: ${{ github.workspace }}/pr-agent-src/.venv/bin/python
+          # pr-agent settings (mirrors pr-review.yml)
+          OPENAI__KEY: ${{ secrets.CLIPROXY_API_KEY }}
+          OPENAI__API_BASE: https://cliproxy.jclee.me/v1
+          CONFIG__MODEL: ${{ inputs.model }}
+          CONFIG__FALLBACK_MODELS: '["kimi-k2.5", "claude-sonnet-4-6"]'
+          CONFIG__RESPONSE_LANGUAGE: ko
+          CONFIG__AI_TIMEOUT: "180"
+          CONFIG__CUSTOM_MODEL_MAX_TOKENS: "128000"
+          LITELLM_LOCAL_MODEL_COST_MAP: "true"
+        run: |
+          DRY=""
+          if [ "${{ inputs.dry_run }}" = "true" ]; then DRY="--dry-run"; fi
+          ./scripts/repo_review_batch.sh \
+            --repos="${{ inputs.repos }}" \
+            --since-commits="${{ inputs.since_commits }}" \
+            --diff-size-limit="${{ inputs.diff_size_limit }}" \
+            --model="${{ inputs.model }}" \
+            $DRY
+
+      - name: Summary
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          echo "## Repo Review Batch Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Repo | Open bot-review issue |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|------|----------------------|" >> "$GITHUB_STEP_SUMMARY"
+          for repo in $(echo "${{ inputs.repos }}" | tr ',' ' '); do
+            issue=$(gh issue list --repo "jclee941/$repo" --state open --label bot-review --limit 1 --json number,url --jq '.[0] | "#\(.number) (\(.url))"' 2>/dev/null || echo "?")
+            echo "| $repo | ${issue:-none} |" >> "$GITHUB_STEP_SUMMARY"
+          done
