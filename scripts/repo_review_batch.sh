@@ -22,9 +22,9 @@ set -euo pipefail
 DEFAULT_REPOS=".github,resume,safetywallet,tmux,hycu_fsds,splunk,blacklist,opencode,terraform,account,idle-outpost,bug"
 REPOS="$DEFAULT_REPOS"
 DRY_RUN="false"
-SINCE_COMMITS="30"
+SINCE_COMMITS="50"
 DIFF_SIZE_LIMIT="150000"
-MODEL="claude-sonnet-4-6"
+MODEL="kimi-k2.6"
 WORK_DIR="${WORK_DIR:-/tmp/repo-review}"
 OWNER="jclee941"
 
@@ -103,7 +103,7 @@ review_one_repo() {
 		"https://x-access-token:${GITHUB_TOKEN}@github.com/$OWNER/$repo.git" \
 		"$repo_dir" 2>&1 | tail -5; then
 		echo "  ::warning::clone failed for $repo; skipping" >&2
-		return 0
+		return 1
 	fi
 	git -C "$repo_dir" config user.email "bot@jclee.me"
 	git -C "$repo_dir" config user.name "jclee-bot"
@@ -124,8 +124,10 @@ review_one_repo() {
 		echo "  ::warning::pr-agent exited rc=$rc for $repo" >&2
 	fi
 
+	local review_failed=0
 	if [ ! -s "$review_path" ]; then
 		echo "  ::warning::no review.md produced for $repo; filing warning issue" >&2
+		review_failed=1
 		cat >"$review_path" <<EOF
 ## Bot Review: failed
 
@@ -137,6 +139,9 @@ The repo-review batch could not produce a review for this repository.
 
 Inspect the workflow run log for details.
 EOF
+	elif head -1 "$review_path" | grep -qE 'Bot Review: (skipped|failed)'; then
+		echo "  ::warning::review.md is a stub for $repo" >&2
+		review_failed=1
 	fi
 
 	# Step 4: ensure labels exist
@@ -181,6 +186,12 @@ EOF
 		else
 			echo "  ::warning::failed to create issue for $repo" >&2
 		fi
+	fi
+
+	# Return non-zero so main()'s failure counter increments when the
+	# review itself failed (not when issue posting failed).
+	if [ "$review_failed" = "1" ]; then
+		return 1
 	fi
 }
 
