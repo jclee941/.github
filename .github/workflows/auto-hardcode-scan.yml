@@ -25,10 +25,27 @@ jobs:
           import subprocess
           from pathlib import Path
 
-          # Regex patterns matching pr_hardcode_detector.py
-          HARDCODE_PATTERNS = {
-              "api_key": re.compile(r'(?i)(api[_-]?key|apikey)\s*[:=]\s*["\'][a-z0-9]{16,}["\']'),
-              "secret": re.compile(r'(?i)(secret|password|passwd|pwd|token)\s*[:=]\s*["\'][^"\']{4,}["\']'),
+          # Regex patterns matching pr_hardcode_detector.py.
+          # Categorized so the noisy IP/URL detectors can use a documentation
+          # allowlist while the high-signal api_key/secret detectors run
+          # everywhere with no allowlist — a real key in any committed file
+          # MUST fail the scan.
+          HIGH_SIGNAL_PATTERNS = {
+              # Require the right-hand side to be a non-trivial literal:
+              # NOT a `${VAR}` env-var reference, NOT a `<placeholder>` doc,
+              # NOT an `{interpolation}` token — only an actual baked-in literal.
+              "api_key": re.compile(
+                  r'(?i)(api[_-]?key|apikey)\s*[:=]\s*["\']'
+                  r'(?![${<{])'
+                  r'[a-z0-9_\-]{16,}["\']'
+              ),
+              "secret": re.compile(
+                  r'(?i)(secret|password|passwd|pwd|token)\s*[:=]\s*["\']'
+                  r'(?![${<{])'
+                  r'[^"\']{4,}["\']'
+              ),
+          }
+          NOISY_PATTERNS = {
               "ip_address": re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?\b'),
               "url": re.compile(r'https?://[^\s"\']+(?<!\{)'),
           }
@@ -36,13 +53,12 @@ jobs:
           IGNORE_DIRS = {
               ".git", "node_modules", ".venv", "venv", "__pycache__",
               ".pytest_cache", ".mypy_cache", ".ruff_cache",
-              "tests", "docs",  # upstream test fixtures + upstream docs from the fork
               "pr_agent.egg-info",
-              ".github",  # workflow regex literals are not hardcoded values
           }
-          # Exclude documentation/config files known to legitimately contain
-          # IPs/URLs as part of homelab deployment narrative — these are not secrets.
-          ALLOWLIST_PATHS = {
+          # Files where IP/URL literals are legitimate documentation /
+          # configuration narrative, NOT secrets. high-signal patterns still
+          # run against these.
+          NOISY_ALLOWLIST_PATHS = {
               "README.md", "AGENTS.md", "NOTICE", "LICENSE",
               "setup.py", "requirements.txt", "requirements-dev.txt",
               ".gitleaksignore", ".pr_agent.toml", ".env.example",
@@ -51,11 +67,15 @@ jobs:
               "Dockerfile.github_app", "Dockerfile.github_action",
               "pyproject.toml", "MANIFEST.in", "CONTRIBUTING.md",
           }
-          # Allowlisted directory prefixes — entire upstream pr_agent runtime source.
-          # We're a hard fork; rewriting all of pr_agent/ to extract IP/URL
-          # constants is out of scope and would conflict with every upstream merge.
-          ALLOWLIST_PREFIXES = (
-              "pr_agent/", "scripts/", "github_action/",
+          NOISY_ALLOWLIST_PREFIXES = (
+              # upstream fork source — audited at fork time, not rewritten
+              "pr_agent/",
+              # upstream-style fixture/doc trees
+              "docs/", "tests/",
+              # workflow files contain regex literals matching the patterns themselves
+              ".github/",
+              # deployment scripts: legitimate hardcoded homelab references
+              "scripts/", "github_action/",
           )
 
           findings = []
@@ -65,25 +85,46 @@ jobs:
               if any(part in IGNORE_DIRS for part in p.parts):
                   continue
               path_str = str(p)
-              if path_str in ALLOWLIST_PATHS:
-                  continue
-              if path_str.startswith(ALLOWLIST_PREFIXES):
-                  continue
               try:
                   content = p.read_text(encoding="utf-8", errors="ignore")
-                  for name, pattern in HARDCODE_PATTERNS.items():
+              except Exception:
+                  continue
+
+              # 1) High-signal: scan EVERYWHERE except test fixture files,
+              # which legitimately embed throwaway placeholder tokens like
+              # 'token="token_v1"' as part of mock state.
+              # The auto-hardcode-scan workflow itself contains regex literals
+              # and inline doc-comment examples that match the patterns; skip it.
+              if not (path_str.startswith("tests/") or path_str == ".github/workflows/auto-hardcode-scan.yml"):
+                  for name, pattern in HIGH_SIGNAL_PATTERNS.items():
                       for m in pattern.finditer(content):
                           line_num = content[: m.start()].count("\n") + 1
                           findings.append(
                               {
-                                  "file": str(p),
+                                  "file": path_str,
                                   "category": name,
                                   "line": line_num,
                                   "match": m.group(),
                               }
                           )
-              except Exception:
-                  pass
+
+              # 2) Noisy IP/URL: skip if the file is on the documentation
+              # allowlist or under an allowlisted prefix.
+              if path_str in NOISY_ALLOWLIST_PATHS:
+                  continue
+              if path_str.startswith(NOISY_ALLOWLIST_PREFIXES):
+                  continue
+              for name, pattern in NOISY_PATTERNS.items():
+                  for m in pattern.finditer(content):
+                      line_num = content[: m.start()].count("\n") + 1
+                      findings.append(
+                          {
+                              "file": path_str,
+                              "category": name,
+                              "line": line_num,
+                              "match": m.group(),
+                          }
+                      )
 
           summary = os.environ.get("GITHUB_STEP_SUMMARY")
           if findings:
