@@ -13,18 +13,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -eu
+          set -u
           PR_NUM=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
           AUTHOR=${{ github.event.pull_request.user.login }}
-          LOC_DATA=$(gh pr view "$PR_NUM" --repo "$REPO" --json additions,deletions -q '.additions + .deletions')
-          echo "PR #$PR_NUM (author=$AUTHOR) total changed lines: $LOC_DATA"
           # Bots (dependabot, renovate) regularly produce large diffs from
-          # bumping vendored deps; surfacing them as 'oversized' issues just
-          # creates noise. Humans only.
-          case "$AUTHOR" in
-              *\[bot\]) echo "::notice::Skipping size-issue creation for bot PR"; exit 0 ;;
-          esac
+          # bumping vendored deps. Their oversized-PR issues are noise and
+          # the gh pr view call below has been hitting rate limits on
+          # bot-flooded repos. Skip the size check entirely for bots.
+          if [[ "$AUTHOR" == *"[bot]" ]]; then
+            echo "::notice::Skipping size check for bot author=$AUTHOR"
+            exit 0
+          fi
+          LOC_DATA=$(gh pr view "$PR_NUM" --repo "$REPO" --json additions,deletions -q '.additions + .deletions') \
+            || { echo "::warning::gh pr view failed (likely rate limit); skipping size check"; exit 0; }
+          echo "PR #$PR_NUM (author=$AUTHOR) total changed lines: $LOC_DATA"
           if [ "$LOC_DATA" -gt 500 ]; then
             gh issue create --repo "$REPO" \
               --title "[BOT] PR #$PR_NUM exceeds 500 LOC ($LOC_DATA lines)" \
