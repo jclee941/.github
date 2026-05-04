@@ -465,7 +465,18 @@ class LiteLLMAIHandler(BaseAiHandler):
             kwargs["custom_llm_provider"] = "openai"
         if model in self.streaming_required_models:
             kwargs["stream"] = True
-            get_logger().info(f"Using streaming mode for model {model}")
+            # Reasoning models served via cliproxy.jclee.me consume a large
+            # fraction of max_tokens on hidden reasoning_content. Without an
+            # explicit budget, the visible content channel returns empty and
+            # the streaming handler raises 'Empty streaming response'.
+            if "max_tokens" not in kwargs:
+                budget = get_settings().get("config.custom_model_max_tokens", 32000)
+                try:
+                    budget = int(budget)
+                except (TypeError, ValueError):
+                    budget = 32000
+                kwargs["max_tokens"] = max(32000, min(budget, 128000))
+            get_logger().info(f"Using streaming mode for model {model} (max_tokens={kwargs.get('max_tokens')})")
             response = await acompletion(**kwargs)
             resp, finish_reason = await _handle_streaming_response(response)
             # Create MockResponse for streaming since we don't have the full response object

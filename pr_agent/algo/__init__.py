@@ -281,5 +281,12 @@ CLAUDE_EXTENDED_THINKING_MODELS = [
 
 # Models that require streaming mode
 STREAMING_REQUIRED_MODELS = [
-    "openai/qwq-plus"
+    "openai/qwq-plus",
+    # Reasoning models served via cliproxy.jclee.me — Cloudflare Tunnel in
+    # front of cliproxy enforces a 100–120s edge timeout, which kimi-k2.6
+    # easily blows past while emitting reasoning_content. Streaming forces
+    # chunked-transfer so the connection stays alive throughout reasoning
+    # and we get HTTP 200 instead of 524.
+    "kimi-k2.6",
+    "openai/kimi-k2.6",
 ]
