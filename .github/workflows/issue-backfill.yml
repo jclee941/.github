@@ -57,7 +57,7 @@ jobs:
       - name: Pick and label candidates
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DRY_RUN: ${{ inputs.dry_run || 'true' }}
+          DRY_RUN: ${{ inputs.dry_run == false && 'false' || 'true' }}
           MIN_AGE_DAYS: ${{ inputs.min_age_days || '5' }}
           MAX_PICKS: ${{ inputs.max_picks || '3' }}
           LABEL: ${{ inputs.label || 'in-progress' }}
