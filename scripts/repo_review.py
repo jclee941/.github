@@ -33,29 +33,41 @@ def run(cmd: list[str], cwd: str | None = None) -> str:
     return proc.stdout.strip()
 
 
-def prepare_review_branch(repo_path: str, since_commits: int) -> tuple[str, str, int]:
-    """Create a local 'repo-review-base' branch at the appropriate base SHA.
+def prepare_review_branch(repo_path: str, since_commits: int, diff_size_limit: int) -> tuple[str, str, int, int]:
+    """Create a local 'repo-review-base' branch sized to fit diff_size_limit.
 
-    Returns (base_sha, base_branch_name, total_commits).
+    Starts at `since_commits` and halves down to 1 until the diff size
+    fits inside diff_size_limit. If HEAD~1 still exceeds the limit,
+    returns whatever scope=1 gives (caller writes 'oversized' marker).
+
+    Returns (base_sha, base_branch_name, total_commits, scope_used).
     """
     total = int(run(["git", "rev-list", "--count", "HEAD"], cwd=repo_path))
-    if total <= since_commits:
-        # Use root commit for tiny repos.
-        base_sha = run(["git", "rev-list", "--max-parents=0", "HEAD"], cwd=repo_path).split("\n")[-1].strip()
-    else:
-        base_sha = run(["git", "rev-parse", f"HEAD~{since_commits}"], cwd=repo_path)
-
     base_branch = "repo-review-base"
-    # Replace existing branch if it exists.
-    subprocess.run(
-        ["git", "branch", "-D", base_branch],
-        cwd=repo_path,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    run(["git", "branch", base_branch, base_sha], cwd=repo_path)
-    return base_sha, base_branch, total
+
+    def _set_base(scope: int) -> str:
+        if total <= scope:
+            sha = run(["git", "rev-list", "--max-parents=0", "HEAD"], cwd=repo_path).split("\n")[-1].strip()
+        else:
+            sha = run(["git", "rev-parse", f"HEAD~{scope}"], cwd=repo_path)
+        subprocess.run(
+            ["git", "branch", "-D", base_branch],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        run(["git", "branch", base_branch, sha], cwd=repo_path)
+        return sha
+
+    scope = max(1, since_commits)
+    base_sha = _set_base(scope)
+    while True:
+        size = diff_size_bytes(repo_path, base_branch)
+        if size <= diff_size_limit or scope <= 1:
+            return base_sha, base_branch, total, scope
+        scope = max(1, scope // 2)
+        base_sha = _set_base(scope)
 
 
 def diff_size_bytes(repo_path: str, base_branch: str) -> int:
@@ -136,11 +148,15 @@ def main() -> int:
 
     # Step 1: prepare review base branch
     try:
-        base_sha, base_branch, total = prepare_review_branch(str(repo_path), args.since_commits)
+        base_sha, base_branch, total, scope_used = prepare_review_branch(
+            str(repo_path), args.since_commits, args.diff_size_limit
+        )
     except subprocess.CalledProcessError as e:
         print(f"::error::failed to prepare base branch: {e.stderr}", file=sys.stderr)
         return 3
-    print(f"prepared base: {base_branch}={base_sha[:12]} total_commits={total} since={args.since_commits}")
+    print(
+        f"prepared base: {base_branch}={base_sha[:12]} total_commits={total} requested_since={args.since_commits} actual_scope={scope_used}"
+    )
 
     # Step 2: diff size guard
     size = diff_size_bytes(str(repo_path), base_branch)
@@ -193,7 +209,7 @@ def main() -> int:
         f"## Bot Review Metadata\n\n"
         f"- **Default branch:** {branch}\n"
         f"- **HEAD commit:** {head_sha}\n"
-        f"- **Base:** {base_sha} ({total} total commits, scope={args.since_commits})\n"
+        f"- **Base:** {base_sha} ({total} total commits, scope={scope_used} of requested {args.since_commits})\n"
         f"- **Diff size:** {size} chars\n"
         f"- **Model:** {args.model}\n"
         f"- **Workflow:** repo-review-batch.yml\n\n"
