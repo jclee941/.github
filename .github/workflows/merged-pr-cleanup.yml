@@ -46,10 +46,10 @@ jobs:
         run: |
           set -eu
           DATA=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
-            --json number,headRefName,headRepository,baseRefName,body,merged,title)
-          MERGED=$(echo "$DATA" | jq -r '.merged')
-          if [ "$MERGED" != "true" ]; then
-            echo "::notice::PR #$PR_NUMBER is not merged; skipping cleanup."
+            --json number,headRefName,headRepository,baseRefName,body,state,title)
+          STATE=$(echo "$DATA" | jq -r '.state')
+          if [ "$STATE" != "MERGED" ]; then
+            echo "::notice::PR #$PR_NUMBER is $STATE; skipping cleanup."
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
