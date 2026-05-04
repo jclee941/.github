@@ -74,17 +74,22 @@ jobs:
           summary = os.environ.get("GITHUB_STEP_SUMMARY")
           if findings:
               body = "## \U0001F50D Hardcoded Values Detected (Scheduled Scan)\n\n"
-              body += f"Total findings: {len(findings)} (showing first 50)\n\n"
+              body += f"Total findings: **{len(findings)}** (showing first 50)\n\n"
               body += "| Category | File | Line | Match |\n"
               body += "|----------|------|------|-------|\n"
               for f in findings[:50]:
                   match_escaped = f['match'].replace("|", "\\|").replace("\n", " ")
                   body += f"| {f['category']} | `{f['file']}` | {f['line']} | `{match_escaped}` |\n"
-              body += "\n**Recommendation:** Review these findings; many are legitimate documentation references and may belong in the workflow's ALLOWLIST_PATHS."
+              body += "\n**Action:** Either move the file to ALLOWLIST_PATHS in this workflow if it's legitimate documentation, or extract the value to an environment variable / secret."
               if summary:
                   with open(summary, "a") as fh:
                       fh.write(body)
+              print(f"::warning::Hardcode scan detected {len(findings)} potential findings; see job summary.")
               print(f"Reported {len(findings)} findings via step summary.")
+              # Fail the run so findings are visible in branch protection /
+              # Slack-style CI dashboards rather than vanishing into a green run.
+              import sys as _sys
+              _sys.exit(1)
           else:
               if summary:
                   with open(summary, "a") as fh:
