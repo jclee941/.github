@@ -56,7 +56,13 @@ jobs:
     steps:
       - name: Pick and label candidates
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Use a fine-grained PAT (secrets.GH_PAT) when available so the
+          # subsequent `labeled` event re-fires downstream workflows like
+          # issue-to-branch.yml. With the default GITHUB_TOKEN the event
+          # is suppressed to prevent recursive cascades, which here means
+          # the backfill silently completes without triggering branch
+          # creation.
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           DRY_RUN: ${{ inputs.dry_run == false && 'false' || 'true' }}
           MIN_AGE_DAYS: ${{ inputs.min_age_days || '5' }}
           MAX_PICKS: ${{ inputs.max_picks || '3' }}
