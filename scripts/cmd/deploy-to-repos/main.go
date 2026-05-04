@@ -47,6 +47,7 @@ var downstreamWorkflowAllowlist = map[string]struct{}{
 	".github/workflows/dependabot-auto-merge.yml":     {},
 	".github/workflows/docs-sync.yml":                 {},
 	".github/workflows/gitleaks.yml":                  {},
+	".github/workflows/issue-backfill.yml":            {},
 	".github/workflows/issue-management.yml":          {},
 	".github/workflows/issue-to-branch.yml":           {},
 	".github/workflows/merged-pr-cleanup.yml":         {},
