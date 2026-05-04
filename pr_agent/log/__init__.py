@@ -3,6 +3,7 @@ import os
 os.environ["AUTO_CAST_FOR_DYNACONF"] = "false"
 import json
 import logging
+import re
 import sys
 from enum import Enum
 
@@ -63,17 +64,57 @@ def setup_logger(level: str = "INFO", fmt: LoggingFormat = LoggingFormat.CONSOLE
     return logger
 
 
+# loguru's own non-format kwargs that decorate the record but never act as
+# str.format() arguments. We must not treat their presence as a hint that
+# the caller intended named-placeholder formatting.
+_LOGURU_RESERVED_KW = frozenset(
+    {
+        "exception",
+        "record",
+        "depth",
+        "level",
+        "colors",
+        "raw",
+        "capture",
+        "lazy",
+        "ansi",
+        "catch",
+        # pr_agent conventions — stuffed into ``record['extra']`` and never
+        # used as positional/named template substitutions.
+        "artifact",
+        "artifacts",
+        "extra",
+        "analytics",
+        "command",
+        "pr_url",
+        "event",
+        "description",
+        "suggestion",
+        "error",
+        "request_json",
+    }
+)
+
+_PLACEHOLDER_NAME_RE = re.compile(r"\{([a-zA-Z_][a-zA-Z_0-9]*)(?:[!:][^{}]*)?\}")
+
+
 class _SafeLogger:
     """Wraps loguru to defuse a foot-gun: when a caller passes a
     pre-rendered message containing literal '{' or '}' (e.g. an f-string
     whose interpolated value contains JSON like ``{"message": ...}``)
-    *together* with kwargs, loguru runs ``str.format(*args, **kwargs)``
-    on it and raises ``KeyError`` because the literal braces look like
-    placeholders.
+    *together* with extra kwargs (artifact=..., extra=...), loguru runs
+    ``str.format(*args, **kwargs)`` on it and raises ``KeyError`` because
+    the literal braces look like placeholders.
 
-    The wrapper escapes literal braces only when no positional template
-    args are passed, preserving the canonical ``logger.error('foo: {}', e,
-    artifact=...)`` pattern unchanged.
+    The wrapper escapes literal braces only when:
+      - no positional ``*args`` were supplied, AND
+      - no kwarg name matches any ``{name}`` placeholder actually present
+        in the message
+
+    This preserves the three legitimate loguru patterns unchanged:
+      logger.error('foo: {}', e, artifact={...})       # positional
+      logger.info('user {id}', id=42)                  # named-placeholder
+      logger.warning('plain message', artifact={...})  # decorative kwargs
     """
 
     __slots__ = ("_raw",)
@@ -81,12 +122,28 @@ class _SafeLogger:
     def __init__(self, raw):
         self._raw = raw
 
-    # Fall through to loguru for any non-emit attribute (level, add, opt, ...)
+    # Fall through to loguru for any non-emit attribute (level, add, opt, bind, contextualize, ...)
     def __getattr__(self, name):
         return getattr(self._raw, name)
 
+    @staticmethod
+    def _needs_escape(message, args, kwargs) -> bool:
+        if args:
+            return False
+        if not isinstance(message, str) or ("{" not in message and "}" not in message):
+            return False
+        # Identify which kwargs the caller might have intended as
+        # str.format() substitutions (i.e. not loguru's reserved record-decorating ones).
+        format_kwargs = {k for k in kwargs if k not in _LOGURU_RESERVED_KW}
+        if not format_kwargs:
+            return True
+        placeholders = set(_PLACEHOLDER_NAME_RE.findall(message))
+        # If any placeholder name corresponds to a non-reserved kwarg, the
+        # caller wants real formatting — leave the message alone.
+        return placeholders.isdisjoint(format_kwargs)
+
     def _emit(self, level: str, message, *args, **kwargs):
-        if not args and isinstance(message, str):
+        if self._needs_escape(message, args, kwargs):
             message = message.replace("{", "{{").replace("}", "}}")
         # depth=2 so the record's file/line still points at the caller of
         # error()/warning()/... rather than at this wrapper.
@@ -117,7 +174,7 @@ class _SafeLogger:
         self._emit("exception", message, *args, **kwargs)
 
     def log(self, lvl, message, *args, **kwargs):
-        if not args and isinstance(message, str):
+        if self._needs_escape(message, args, kwargs):
             message = message.replace("{", "{{").replace("}", "}}")
         self._raw.opt(depth=2).log(lvl, message, *args, **kwargs)
 

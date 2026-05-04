@@ -123,3 +123,37 @@ def test_brace_in_kwargs_value_safe(safe_logger):
     assert "Not Found" in rec["message"]
     # artifact survives in extra
     assert rec["extra"]["artifact"]["payload"] == '{"foo": "bar"}'
+
+
+def test_named_placeholder_with_kwargs_formats_correctly(safe_logger):
+    """Loguru's idiomatic named-placeholder pattern must NOT be escaped."""
+    logger, buf = safe_logger
+    logger.info("user {id}", id=42)
+    rec = _records(buf)[0]
+    assert rec["message"] == "user 42", f"named placeholder regression — expected 'user 42', got: {rec['message']!r}"
+
+
+def test_multiple_named_placeholders(safe_logger):
+    """Multiple named placeholders + matching kwargs all interpolate."""
+    logger, buf = safe_logger
+    logger.info("user {user_id} action {action}", user_id=42, action="login")
+    rec = _records(buf)[0]
+    assert rec["message"] == "user 42 action login", rec["message"]
+
+
+def test_plain_message_with_decorative_kwargs_only(safe_logger):
+    """Reserved kwargs (artifact, extra, ...) alone must not flip escape on
+    when the message has no braces."""
+    logger, buf = safe_logger
+    logger.warning("plain message", artifact={"data": "x"})
+    rec = _records(buf)[0]
+    assert rec["message"] == "plain message"
+    assert rec["extra"]["artifact"]["data"] == "x"
+
+
+def test_named_placeholder_with_format_spec(safe_logger):
+    """Named placeholder with format spec like {n:.2f}."""
+    logger, buf = safe_logger
+    logger.info("value {n:.2f}", n=3.14159)
+    rec = _records(buf)[0]
+    assert rec["message"] == "value 3.14", rec["message"]
