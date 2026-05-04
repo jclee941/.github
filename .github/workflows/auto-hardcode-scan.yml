@@ -12,6 +12,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Ensure required labels exist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for label in hardcode security automated; do
+            gh label create "$label" --color BFD4F2 --description "Auto-managed by hardcode scan" 2>/dev/null || true
+          done
+
       - name: Scan for hardcoded values
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -62,20 +70,34 @@ jobs:
                   body += f"| {f['category']} | `{f['file']}` | {f['line']} | `{match_escaped}` |\n"
               body += "\n**Recommendation:** Review these findings and consider extracting values into environment variables or configuration files."
 
-              subprocess.run(
+              # Use stdin for the body so giant findings tables don't blow the arg list
+              proc = subprocess.run(
                   [
                       "gh",
                       "issue",
                       "create",
                       "--title",
                       "[bot] Hardcoded values detected in scheduled scan",
-                      "--body",
-                      body,
+                      "--body-file",
+                      "-",
                       "--label",
                       "hardcode,security,automated",
                   ],
-                  check=True,
+                  input=body,
+                  text=True,
+                  capture_output=True,
+                  check=False,
               )
+              if proc.returncode != 0:
+                  # Fall back: open without labels rather than fail the whole workflow
+                  print(f"label-attached create failed: {proc.stderr.strip()}")
+                  proc = subprocess.run(
+                      ["gh", "issue", "create", "--title",
+                       "[bot] Hardcoded values detected in scheduled scan",
+                       "--body-file", "-"],
+                      input=body, text=True, capture_output=True, check=True,
+                  )
+              print(proc.stdout.strip())
               print(f"Created issue with {len(findings)} findings.")
           else:
               print("No hardcoded values detected.")
