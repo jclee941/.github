@@ -381,7 +381,7 @@ class GithubProvider(GitProvider):
             return diff_files
 
         except Exception as e:
-            get_logger().error(f"Failing to get diff files: {e}", artifact={"traceback": traceback.format_exc()})
+            get_logger().error("Failing to get diff files: {}", e, artifact={"traceback": traceback.format_exc()})
             raise RateLimitExceeded("Rate limit exceeded for GitHub API.") from e
 
     def publish_description(self, pr_title: str, pr_body: str):

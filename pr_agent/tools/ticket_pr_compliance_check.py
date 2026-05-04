@@ -59,7 +59,7 @@ def extract_ticket_links_from_pr_description(pr_description, repo_path, base_url
             # Limit the number of tickets to 3
             github_tickets = set(list(github_tickets)[:3])
     except Exception as e:
-        get_logger().error(f"Error extracting tickets error= {e}",
+        get_logger().error("Error extracting tickets error= {}", e,
                            artifact={"traceback": traceback.format_exc()})
 
     return list(github_tickets)
@@ -137,7 +137,7 @@ async def extract_tickets(git_provider):
                     try:
                         issue_main = git_provider.repo_obj.get_issue(original_issue_number)
                     except Exception as e:
-                        get_logger().error(f"Error getting main issue: {e}",
+                        get_logger().error("Error getting main issue: {}", e,
                                            artifact={"traceback": traceback.format_exc()})
                         continue
 
@@ -164,10 +164,10 @@ async def extract_tickets(git_provider):
                                     'body': sub_body
                                 })
                             except Exception as e:
-                                get_logger().warning(f"Failed to fetch sub-issue content for {sub_issue_url}: {e}")
+                                get_logger().warning("Failed to fetch sub-issue content for {}: {}", sub_issue_url, e)
 
                     except Exception as e:
-                        get_logger().warning(f"Failed to fetch sub-issues for {ticket}: {e}")
+                        get_logger().warning("Failed to fetch sub-issues for {}: {}", ticket, e)
 
                     # Extract labels
                     labels = []
@@ -175,7 +175,7 @@ async def extract_tickets(git_provider):
                         for label in issue_main.labels:
                             labels.append(label.name if hasattr(label, 'name') else label)
                     except Exception as e:
-                        get_logger().error(f"Error extracting labels error= {e}",
+                        get_logger().error("Error extracting labels error= {}", e,
                                            artifact={"traceback": traceback.format_exc()})
 
                     tickets_content.append({
@@ -210,13 +210,13 @@ async def extract_tickets(git_provider):
                     )
                 except Exception as e:
                     get_logger().error(
-                        f"Error processing Azure DevOps ticket: {e}",
+                        "Error processing Azure DevOps ticket: {}", e,
                         artifact={"traceback": traceback.format_exc()},
                     )
             return tickets_content
 
     except Exception as e:
-        get_logger().error(f"Error extracting tickets error= {e}",
+        get_logger().error("Error extracting tickets error= {}", e,
                            artifact={"traceback": traceback.format_exc()})
 
 

@@ -30,7 +30,7 @@ def extend_patch(original_file_str, patch_str, patch_extra_lines_before=0,
         extended_patch_str = process_patch_lines(patch_str, original_file_str,
                                                  patch_extra_lines_before, patch_extra_lines_after, new_file_str)
     except Exception as e:
-        get_logger().warning(f"Failed to extend patch: {e}", artifact={"traceback": traceback.format_exc()})
+        get_logger().warning("Failed to extend patch: {}", e, artifact={"traceback": traceback.format_exc()})
         return patch_str
 
     return extended_patch_str
@@ -174,7 +174,7 @@ def process_patch_lines(patch_str, original_file_str, patch_extra_lines_before, 
                     continue
             extended_patch_lines.append(line)
     except Exception as e:
-        get_logger().warning(f"Failed to extend patch: {e}", artifact={"traceback": traceback.format_exc()})
+        get_logger().warning("Failed to extend patch: {}", e, artifact={"traceback": traceback.format_exc()})
         return patch_str
 
     # finish processing last hunk
@@ -454,7 +454,7 @@ def extract_hunk_lines_from_patch(patch: str, file_name, line_start, line_end, s
                 if not line.startswith('-'): # currently we don't support /ask line for deleted lines
                     selected_lines_num += 1
     except Exception as e:
-        get_logger().error(f"Failed to extract hunk lines from patch: {e}", artifact={"traceback": traceback.format_exc()})
+        get_logger().error("Failed to extract hunk lines from patch: {}", e, artifact={"traceback": traceback.format_exc()})
         return "", ""
 
     if remove_trailing_chars:

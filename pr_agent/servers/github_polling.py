@@ -56,7 +56,7 @@ def process_comment_sync(pr_url, rest_of_comment, comment_id):
         git_provider = get_git_provider()(pr_url=pr_url)
         success = run_handle_request(pr_url, rest_of_comment, comment_id, git_provider)
     except Exception as e:
-        get_logger().error(f"Error processing comment: {e}", artifact={"traceback": traceback.format_exc()})
+        get_logger().error("Error processing comment: {}", e, artifact={"traceback": traceback.format_exc()})
 
 
 async def process_comment(pr_url, rest_of_comment, comment_id):
@@ -71,7 +71,7 @@ async def process_comment(pr_url, rest_of_comment, comment_id):
         )
         get_logger().info(f"Finished processing comment for PR: {pr_url}")
     except Exception as e:
-        get_logger().error(f"Error processing comment: {e}", artifact={"traceback": traceback.format_exc()})
+        get_logger().error("Error processing comment: {}", e, artifact={"traceback": traceback.format_exc()})
 
 async def is_valid_notification(notification, headers, handled_ids, session, user_id):
     try:

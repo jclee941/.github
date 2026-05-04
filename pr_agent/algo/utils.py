@@ -1408,7 +1408,7 @@ def process_description(description_full: str) -> Tuple[str, List]:
                         else:
                             get_logger().warning(f"Failed to parse description", artifact={'description': file_data})
                 except Exception as e:
-                    get_logger().exception(f"Failed to process description: {e}", artifact={'description': file_data})
+                    get_logger().exception("Failed to process description: {}", e, artifact={'description': file_data})
 
 
     except Exception as e:
