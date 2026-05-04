@@ -69,7 +69,7 @@ jobs:
           SKIP_LABELS="wontfix duplicate invalid bot-review ci-failure automated dependencies"
           # Pre-fetch open issues; up to 100 per page is fine for our repos.
           gh issue list --repo "$REPO" --state open --limit 100 \
-            --json number,title,updatedAt,labels,assignees,closedByPullRequestsReferences \
+            --json number,title,updatedAt,labels,assignees \
             > /tmp/issues.json
           PICKED=0
           {
@@ -106,11 +106,13 @@ jobs:
                 continue
                 ;;
             esac
-            # closedByPullRequestsReferences may exist on open issues if a PR
-            # references via 'Closes #N' but is itself still open; if any
-            # such reference exists, treat as 'has PR' and skip.
-            HAS_PR=$(echo "$ISSUE" | jq -r '.closedByPullRequestsReferences | length')
-            if [ "$HAS_PR" != "0" ]; then
+            # Skip if a PR already references this issue. gh issue list's
+            # JSON view does not expose closedByPullRequestsReferences, so
+            # query the timeline events for cross-referenced PRs instead.
+            HAS_PR=$(gh api "repos/$REPO/issues/$n/timeline" --paginate \
+                       --jq '[.[] | select(.event == "cross-referenced" and .source.type == "issue" and .source.issue.pull_request != null)] | length' \
+                       2>/dev/null || echo 0)
+            if [ "${HAS_PR:-0}" != "0" ]; then
               echo "| #$n | $TITLE | ${AGE_DAYS}d | skip: PR linked |" >> "$GITHUB_STEP_SUMMARY"
               continue
             fi
