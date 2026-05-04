@@ -1,5 +1,5 @@
 # Deploy on LXC 100 (192.168.50.114) alongside cliproxyapi.
-# Public URL via Cloudflare Tunnel: https://prbot.jclee.me
+# Public URL via Cloudflare Tunnel: https://bot.jclee.me
 #
 # Usage (on LXC 100 root):
 #   cd /opt/github-bot && docker compose -f docker-compose.github_app.yml up -d
