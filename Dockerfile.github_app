@@ -1,7 +1,7 @@
 # GitHub App webhook server (self-hosted on LXC 100)
 # Listens on port 3000, served by gunicorn with uvicorn workers.
 # Fork-specific: routes LLM via CLIProxyAPI at https://cliproxy.jclee.me/v1
-FROM python:3.12.10-slim AS base
+FROM python:3.12.13-slim AS base
 
 RUN apt-get update \
     && apt-get install --no-install-recommends -y git curl ca-certificates \
