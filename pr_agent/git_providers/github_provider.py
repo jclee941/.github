@@ -889,7 +889,22 @@ class GithubProvider(GitProvider):
                 ) from e
             self.auth = Auth.Token(token)
         if self.auth:
-            return Github(auth=self.auth, base_url=self.base_url)
+            # Retry only on connection-level failures (DNS hiccups, dropped TCP)
+            # — never on HTTP 4xx/5xx, which are real GitHub responses.
+            try:
+                from urllib3.util.retry import Retry
+                connection_retry = Retry(
+                    total=3, connect=3, read=0, redirect=0,
+                    status=0, other=0, backoff_factor=1.0,
+                    status_forcelist=frozenset(),
+                    raise_on_status=False,
+                )
+                return Github(auth=self.auth, base_url=self.base_url,
+                              retry=connection_retry, timeout=30)
+            except Exception:
+                # Defensive: if urllib3 import or Retry signature differs,
+                # fall back to default client rather than crash on startup.
+                return Github(auth=self.auth, base_url=self.base_url)
         else:
             raise ValueError("Could not authenticate to GitHub")
 
