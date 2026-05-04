@@ -41,18 +41,24 @@ var workflowFiles = []string{}
 
 var downstreamWorkflowAllowlist = map[string]struct{}{
 	".github/workflows/actionlint.yml":                {},
-	".github/workflows/codeql.yml":                   {},
+	".github/workflows/branch-to-pr.yml":              {},
+	".github/workflows/ci-failure-issues.yml":         {},
+	".github/workflows/codeql.yml":                    {},
 	".github/workflows/dependabot-auto-merge.yml":     {},
 	".github/workflows/docs-sync.yml":                 {},
 	".github/workflows/gitleaks.yml":                  {},
 	".github/workflows/issue-management.yml":          {},
+	".github/workflows/issue-to-branch.yml":           {},
+	".github/workflows/merged-pr-cleanup.yml":         {},
+	".github/workflows/pr-auto-merge.yml":             {},
 	".github/workflows/pr-checks.yml":                 {},
 	".github/workflows/pr-review.yml":                 {},
+	".github/workflows/release-publish.yml":           {},
 	".github/workflows/reusable-docs-sync.yml":        {},
 	".github/workflows/reusable-issue-management.yml": {},
 	".github/workflows/reusable-pr-checks.yml":        {},
-	".github/workflows/security/pr-review.yml":      {},
-	// sanity.yml is fork-specific (imports pr_agent); not deployed downstream.
+	".github/workflows/security/pr-review.yml":        {},
+	// sanity.yml + auto-hardcode-scan + auto-deploy + release-drafter are fork-specific.
 }
 
 // extraFiles lists non-workflow files (relative to repo root) to deploy alongside workflows.
