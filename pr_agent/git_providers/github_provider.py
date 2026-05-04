@@ -893,18 +893,29 @@ class GithubProvider(GitProvider):
             # — never on HTTP 4xx/5xx, which are real GitHub responses.
             try:
                 from urllib3.util.retry import Retry
+
                 connection_retry = Retry(
-                    total=3, connect=3, read=0, redirect=0,
-                    status=0, other=0, backoff_factor=1.0,
+                    total=3,
+                    connect=3,
+                    read=0,
+                    redirect=0,
+                    status=0,
+                    other=0,
+                    backoff_factor=1.0,
                     status_forcelist=frozenset(),
                     raise_on_status=False,
                 )
-                return Github(auth=self.auth, base_url=self.base_url,
-                              retry=connection_retry, timeout=30)
-            except Exception:
-                # Defensive: if urllib3 import or Retry signature differs,
-                # fall back to default client rather than crash on startup.
+            except (ImportError, TypeError) as exc:
+                # urllib3 layout changed or Retry rejected our kwargs.
+                # Fall back to the default PyGithub client and surface a
+                # warning so we don't silently drop retry coverage.
+                get_logger().warning(
+                    "GitHub provider: urllib3 Retry unavailable ({}); proceeding without"
+                    " connection-level retry. Transient DNS/TCP blips will fail fast.",
+                    type(exc).__name__,
+                )
                 return Github(auth=self.auth, base_url=self.base_url)
+            return Github(auth=self.auth, base_url=self.base_url, retry=connection_retry, timeout=30)
         else:
             raise ValueError("Could not authenticate to GitHub")
 
