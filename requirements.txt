@@ -31,7 +31,7 @@ uvicorn==0.46.0
 tenacity==8.2.3
 gunicorn==23.0.0
 pytest-cov==7.1.0
-pydantic==2.13.3
+pydantic==2.12.5  # pinned by litellm 1.83.14 transitive (==2.12.5)
 html2text==2024.2.26
 giteapy==1.0.8
 # Uncomment the following lines to enable the 'similar issue' tool
