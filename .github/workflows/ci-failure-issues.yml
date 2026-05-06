@@ -104,8 +104,31 @@ jobs:
               --comment "Resolved by a successful $WF_NAME run on $HEAD_SHA. Auto-closed by jclee-bot." \
               --reason completed \
               || echo "::warning::failed to close #$N; continuing"
-          done
 
+      - name: On success, close legacy auto-deploy failure issues
+        if: steps.ev.outputs.conclusion == 'success' && steps.ev.outputs.wf_name == 'Auto Deploy Workflows'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: |
+          set -eu
+          LEGACY_ISSUES=$(gh issue list --repo "$GITHUB_REPOSITORY" \
+            --state open --search "in:title \"chore: auto-deploy failed on\"" \
+            --json number,title --jq '.[] | .number' 2>/dev/null || true)
+          if [ -z "$LEGACY_ISSUES" ]; then
+            echo "::notice::No legacy auto-deploy failure issues to close"
+            exit 0
+          fi
+          for N in $LEGACY_ISSUES; do
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "::notice::DRY-RUN: would close legacy auto-deploy issue #$N"
+              continue
+            fi
+            gh issue close "$N" --repo "$GITHUB_REPOSITORY" \
+              --comment "Resolved by a successful Auto Deploy Workflows run. Auto-closed by jclee-bot." \
+              --reason completed \
+              || echo "::warning::failed to close legacy issue #$N; continuing"
+          done
       - name: Ensure label exists
         if: steps.ev.outputs.conclusion == 'failure'
         env:

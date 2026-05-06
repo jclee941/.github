@@ -102,6 +102,30 @@ jobs:
           fi
           echo "cli_proxy OK"
 
+      - name: Close stale bot-review issues
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          REPOS: ${{ inputs.repos }}
+        run: |
+          set -eu
+          CUTOFF=$(date -d '30 days ago' +%Y-%m-%d)
+          for repo in $(echo "$REPOS" | tr ',' ' '); do
+            STALE=$(gh issue list --repo "jclee941/$repo" \
+              --state open --label bot-review \
+              --search "created:<$CUTOFF" \
+              --json number --jq '.[] | .number' 2>/dev/null || true)
+            if [ -z "$STALE" ]; then
+              echo "::notice::No stale bot-review issues in $repo"
+              continue
+            fi
+            for N in $STALE; do
+              gh issue close "$N" --repo "jclee941/$repo" \
+                --comment "Closed automatically: bot-review issue older than 30 days. New review will create a fresh issue if needed." \
+                --reason completed \
+                || echo "::warning::failed to close stale issue #$N in $repo; continuing"
+            done
+          done
+
       - name: Run repo-review batch
         working-directory: pr-agent-src
         env:

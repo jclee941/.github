@@ -48,12 +48,3 @@ jobs:
           echo "Deploying updated workflows to all jclee941/* repos..."
           (cd scripts && go run ./cmd/deploy-to-repos)
 
-      - name: Create failure issue
-        if: failure()
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT || github.token }}
-          GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
-        run: |
-          gh issue create --repo ${{ github.repository }} \
-            --title "chore: auto-deploy failed on ${{ github.sha }}" \
-            --body "Workflow auto-deployment failed.\n\n- Commit: ${{ github.sha }}\n- Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\n\nPlease investigate and re-run if needed."
