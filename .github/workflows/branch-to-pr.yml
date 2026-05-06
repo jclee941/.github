@@ -48,7 +48,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  open-draft-pr:
+  open-ready-pr:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # Skip pushes from jclee-bot itself or from automated branch creation.
@@ -119,7 +119,7 @@ jobs:
           BODY="${BODY}$(cat /tmp/commits.txt)"
           BODY="${BODY}"$'\n\n'"> Automated by jclee-bot (branch-to-pr.yml)"
           if [ "$DRY_RUN" = "true" ]; then
-            echo "::notice::DRY-RUN: would open draft PR $BRANCH -> $BASE"
+          echo "::notice::DRY-RUN: would open ready PR $BRANCH -> $BASE"
             echo "title: $TITLE"
             echo "body: $BODY"
             exit 0

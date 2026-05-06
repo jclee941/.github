@@ -33,11 +33,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # Trigger only when the label is `in-progress` OR the issue gets assigned to a human (not the bot itself).
-if: >-
+    if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.action == 'opened') ||
-(github.event.action == 'labeled' && github.event.label.name == 'in-progress') ||
-(github.event.action == 'assigned' && github.event.assignee.login != 'jclee-bot')
+      (github.event.action == 'labeled' && github.event.label.name == 'in-progress') ||
+      (github.event.action == 'assigned' && github.event.assignee.login != 'jclee-bot')
     steps:
       - name: Checkout
         uses: actions/checkout@v6
