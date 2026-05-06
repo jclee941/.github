@@ -6,6 +6,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  issues: write
 
 jobs:
   check-size:
@@ -35,7 +36,7 @@ jobs:
           echo "PR #$PR_NUM (author=$AUTHOR) total changed lines: $LOC_DATA"
           if [ "$LOC_DATA" -gt 500 ]; then
             # Dedup: if an open issue already exists for this PR, skip creating a new one.
-            EXISTING=$(gh issue list --repo "$REPO" --state open --search "\"PR #$PR_NUM exceeds 500 LOC\" in:title" --json number -q '.[0].number' 2>/dev/null || true)
+            EXISTING=$(gh issue list --repo "$REPO" --state open --search "\"PR #$PR_NUM exceeds 500 LOC\" in:title" --json number -q '.[] | .number' 2>/dev/null || true)
             if [ -n "$EXISTING" ]; then
               echo "::notice::Oversized-PR issue already exists (#$EXISTING); skipping create"
               exit 0
