@@ -54,9 +54,6 @@ services:
       options:
         max-size: "10m"
         max-file: "5"
-        labels: "service"
-      labels:
-        service: "github-bot"
 
     networks:
       - cliproxy_net
@@ -80,22 +77,6 @@ services:
       - github-bot-app
 
   # Auto-update: poll registry every 60s and restart app when image changes
-      test: ["CMD", "curl", "-fsS", "http://localhost:3000/"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
-
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "5"
-
-    networks:
-      - cliproxy_net
-
-  # Auto-update: poll registry every 60s and restart app when image changes
   watchtower:
     image: containrrr/watchtower:latest
     container_name: watchtower
@@ -116,7 +97,6 @@ networks:
   cliproxy_net:
     external: true
     name: cliproxyapi_backend   # piggyback on existing cliproxy network on LXC 100
-
 
 volumes:
   filebeat-data:
