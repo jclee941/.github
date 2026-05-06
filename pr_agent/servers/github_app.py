@@ -500,23 +500,6 @@ async def _perform_auto_commands_github(
             record_review_end(command, review_start)
 
 
-@router.get("/health")
-async def health_check():
-    from pr_agent.servers.monitoring import health_check as _health_check
-    return await _health_check()
-
-
-@router.get("/ready")
-async def readiness_check():
-    from pr_agent.servers.monitoring import readiness_check as _ready
-    return await _ready()
-
-
-@router.get("/metrics")
-async def metrics():
-    from pr_agent.servers.monitoring import metrics as _metrics
-    return await _metrics()
-
 
 @router.get("/")
 async def root():
