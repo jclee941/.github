@@ -206,6 +206,26 @@ CLIPROXY_API_KEY=$(grep '^CLIPROXY_API_KEY=' .env | cut -d= -f2-) \
 
 `jclee941/pr-agent` is a hard fork of `qodo-ai/pr-agent`. It carries upstream's own workflows (build-and-test.yaml, codeql.yml, release-drafter.yml, etc.) which would be overwritten by the deploy script. The fork is therefore excluded from `deploy-to-repos.go`, but it has its own fork-local `.github/dependabot.yml` (github-actions + pip ecosystems) and `.github/workflows/dependabot-auto-merge.yml` that are maintained directly on a `fork/*` branch. Sync upstream via `git fetch upstream && git merge upstream/main`.
 
+## PR REVIEW WORKFLOW BEHAVIOR
+
+### Source Repo vs Production Path
+
+`.github/workflows/pr-review.yml` in this repo is a **local development/CI tool**. It only runs on PRs opened against the `.github` repository itself.
+
+The actual production PR review path:
+1. `jclee-bot` GitHub App receives webhooks for all `jclee941/*` repos
+2. App server on LXC 114 (`bot.jclee.me`) runs pr-agent directly
+3. Reviews are posted via the GitHub App installation token
+
+Therefore, high skip counts in the `pr-review.yml` workflow are **expected and by design** — most PRs occur in downstream repos where this workflow file does not exist.
+
+### Monitoring Bot Health
+
+To check if the bot is actually reviewing PRs:
+- Check GitHub App webhook delivery logs: `https://github.com/settings/apps/jclee-bot/advanced`
+- Check container logs on LXC 114: `ssh root@192.168.50.114 "docker logs github-bot-app"`
+- Check PR comments by `jclee-bot[bot]` in downstream repos
+
 ## CLI_PROXY INTEGRATION DETAILS
 
 | Item | Value |
