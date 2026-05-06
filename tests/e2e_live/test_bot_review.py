@@ -7,6 +7,7 @@ import time
 import zipfile
 from collections.abc import Mapping
 from typing import cast
+from uuid import uuid4
 
 import pytest
 import requests
@@ -25,8 +26,16 @@ from .conftest import (
 pytestmark = [pytest.mark.canary, pytest.mark.bot_review]
 
 BOT_LOGIN = "jclee-bot[bot]"
-SMOKE_BRANCH = "feat/e2e-bot-review-smoke"
-DRAFT_BRANCH = "feat/e2e-bot-review-draft-smoke"
+
+
+def _smoke_branch() -> str:
+    return f"feat/e2e-bot-review-smoke-{_run_id()}"
+
+
+def _draft_branch() -> str:
+    return f"feat/e2e-bot-review-draft-{_run_id()}"
+
+
 WORKFLOW_NAME = "PR Review (CLIProxyAPI)"
 WORKFLOW_FILE = "pr-review.yml"
 FATAL_PATTERNS = (
@@ -35,6 +44,9 @@ FATAL_PATTERNS = (
     "Failed to review PR",
     "Resource not accessible by integration",
 )
+
+def _run_id() -> str:
+    return f"{int(time.time())}-{uuid4().hex[:8]}"
 
 
 def github_json(response: requests.Response) -> JsonObject:
@@ -245,12 +257,13 @@ def test_bot_reviews_canary_pr(
     assert cliproxy_api_key
     repo = canary_public_repo
     pr_number: int | None = None
+    smoke_branch = _smoke_branch()
 
     try:
         base_branch = create_smoke_branch_with_file(
             github_client,
             repo,
-            branch=SMOKE_BRANCH,
+            branch=smoke_branch,
             path="bot_review_smoke.py",
             content='def smoke_review_target():\n    unused_value = "minor issue"\n    return "ok"\n',
         )
@@ -258,7 +271,7 @@ def test_bot_reviews_canary_pr(
             github_client,
             repo,
             title="test: e2e bot review smoke test",
-            head=SMOKE_BRANCH,
+            head=smoke_branch,
             base=base_branch,
             body="Live canary smoke test for jclee-bot review. Do not merge.",
         )
@@ -277,25 +290,26 @@ def test_bot_reviews_canary_pr(
         assert comments, f"{repo}#{pr_number}: no {BOT_LOGIN} comment after /review"
         assert any("Preparing review" in body or body.strip() for body in comment_bodies)
 
-        run = wait_for_workflow_run_if_started(github_client, repo, SMOKE_BRANCH, timeout=180)
+        run = wait_for_workflow_run_if_started(github_client, repo, smoke_branch, timeout=180)
         if run is not None and run.get("status") == "completed":
             assert_no_fatal_patterns_in_run(github_client, repo, run)
     finally:
         if pr_number is not None:
             close_pr(github_client, repo, pr_number)
-        delete_mutation_branch(repo, SMOKE_BRANCH, github_client)
+        delete_mutation_branch(repo, smoke_branch, github_client)
 
 
 def test_bot_skips_draft_pr(github_client: requests.Session, canary_public_repo: str) -> None:
     """Draft canary PRs should not receive jclee-bot review comments."""
     repo = canary_public_repo
     pr_number: int | None = None
+    draft_branch = _draft_branch()
 
     try:
         base_branch = create_smoke_branch_with_file(
             github_client,
             repo,
-            branch=DRAFT_BRANCH,
+            branch=draft_branch,
             path="bot_review_draft_smoke.py",
             content='def draft_smoke_target():\n    unused_value = "draft issue"\n    return "ok"\n',
         )
@@ -303,7 +317,7 @@ def test_bot_skips_draft_pr(github_client: requests.Session, canary_public_repo:
             github_client,
             repo,
             title="test: e2e bot review draft smoke test",
-            head=DRAFT_BRANCH,
+            head=draft_branch,
             base=base_branch,
             body="Draft canary smoke test for jclee-bot skip behavior. Do not merge.",
             draft=True,
@@ -316,13 +330,13 @@ def test_bot_skips_draft_pr(github_client: requests.Session, canary_public_repo:
         time.sleep(60)
         assert not bot_comments(repo, pr_number), f"{repo}#{pr_number}: bot commented on draft PR"
 
-        runs = recent_pr_review_runs(github_client, repo, branch=DRAFT_BRANCH, limit=3)
+        runs = recent_pr_review_runs(github_client, repo, branch=draft_branch, limit=3)
         completed_bad_runs = [run for run in runs if run.get("conclusion") not in {None, "skipped", "neutral", "success"}]
         assert not completed_bad_runs, f"{repo}#{pr_number}: draft PR review workflow failed: {completed_bad_runs!r}"
     finally:
         if pr_number is not None:
             close_pr(github_client, repo, pr_number)
-        delete_mutation_branch(repo, DRAFT_BRANCH, github_client)
+        delete_mutation_branch(repo, draft_branch, github_client)
 
 
 def test_bot_fatal_error_detection(github_client: requests.Session, canary_public_repo: str) -> None:

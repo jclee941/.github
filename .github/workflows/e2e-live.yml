@@ -1,8 +1,8 @@
 name: Live E2E Tests
 
 # Runs the live E2E test suite against real GitHub repos.
-# This workflow is workflow_dispatch only because it requires live credentials
-# and may mutate canary repositories.
+# Read-only fleet health checks run on schedule (weekly).
+# Canary mutation tests require workflow_dispatch because they mutate repositories.
 #
 # Required secrets:
 #   - E2E_GITHUB_TOKEN (or GH_TOKEN): GitHub PAT with repo access
@@ -46,7 +46,7 @@ jobs:
         env:
           E2E_GITHUB_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN || secrets.GH_TOKEN }}
         run: |
-          pytest tests/e2e_live/test_fleet_health.py tests/e2e_live/test_go_cli.py -v --tb=short
+          pytest tests/e2e_live/test_fleet_health.py tests/e2e_live/test_go_cli.py -v --tb=short --junitxml=readonly-pytest-report.xml
 
       - name: Upload test report on failure
         if: failure()
@@ -54,7 +54,7 @@ jobs:
         with:
           name: readonly-health-report
           path: |
-            pytest-report.xml
+            readonly-pytest-report.xml
 
   canary:
     name: Canary PR Lifecycle + Bot Review
@@ -87,7 +87,7 @@ jobs:
           E2E_GITHUB_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN || secrets.GH_TOKEN }}
           E2E_CLIPROXY_API_KEY: ${{ secrets.E2E_CLIPROXY_API_KEY || secrets.CLIPROXY_API_KEY }}
         run: |
-          pytest tests/e2e_live/test_canary_pr.py tests/e2e_live/test_bot_review.py -v --tb=short
+          pytest tests/e2e_live/test_canary_pr.py tests/e2e_live/test_bot_review.py -v --tb=short --junitxml=canary-pytest-report.xml
 
       - name: Upload test report on failure
         if: failure()
@@ -95,4 +95,4 @@ jobs:
         with:
           name: canary-mutation-report
           path: |
-            pytest-report.xml
+            canary-pytest-report.xml
