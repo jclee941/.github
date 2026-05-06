@@ -5,7 +5,7 @@
 [config]
 # models — FORK: Kimi via CLIProxyAPI (Cloudflare Tunnel: cliproxy.jclee.me)
 model="kimi-k2.6"
-fallback_models=["kimi-k2.5", "claude-sonnet-4-6"]
+fallback_models=["kimi-k2.5", "minimax-m2.7"]
 #model_reasoning="o4-mini" # dedicated reasoning model for self-reflection
 #model_weak="gpt-4o" # optional, a weaker model to use for some easier tasks
 # CLI
