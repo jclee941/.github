@@ -717,13 +717,30 @@ class PRCodeSuggestions:
                 prediction_list = await asyncio.gather(
                     *[self._get_prediction(model, patches_diff, patches_diff_no_line_numbers) for
                       patches_diff, patches_diff_no_line_numbers in
-                      zip(self.patches_diff_list, self.patches_diff_list_no_line_numbers)])
-                self.prediction_list = prediction_list
+                      zip(self.patches_diff_list, self.patches_diff_list_no_line_numbers)],
+                    return_exceptions=True)
             else:
                 prediction_list = []
                 for patches_diff, patches_diff_no_line_numbers in zip(self.patches_diff_list, self.patches_diff_list_no_line_numbers):
-                    prediction = await self._get_prediction(model, patches_diff, patches_diff_no_line_numbers)
-                    prediction_list.append(prediction)
+                    try:
+                        prediction = await self._get_prediction(model, patches_diff, patches_diff_no_line_numbers)
+                        prediction_list.append(prediction)
+                    except Exception as e:
+                        get_logger().error(f"Failed to generate prediction for chunk, error: {e}")
+                        prediction_list.append(None)
+
+            # Filter out failed chunks (exceptions or None) while preserving successful predictions
+            valid_predictions = []
+            for j, pred in enumerate(prediction_list):
+                if isinstance(pred, Exception):
+                    get_logger().error(f"Chunk {j} failed during code suggestion generation: {pred}")
+                    continue
+                if pred is None:
+                    get_logger().warning(f"Chunk {j} returned None, skipping")
+                    continue
+                valid_predictions.append(pred)
+            prediction_list = valid_predictions
+            self.prediction_list = prediction_list
 
             data = {"code_suggestions": []}
             for j, predictions in enumerate(prediction_list):  # each call adds an element to the list

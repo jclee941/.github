@@ -20,6 +20,8 @@ MAX_TOKENS = {
     'gpt-4o-mini-2024-07-18': 128000,  # 128K, but may be limited by config.max_model_tokens
     'gpt-4o-2024-08-06': 128000,  # 128K, but may be limited by config.max_model_tokens
     'gpt-4o-2024-11-20': 128000,  # 128K, but may be limited by config.max_model_tokens
+    'kimi-k2.6': 128000,
+    'openai/kimi-k2.6': 128000,
     'gpt-4.5-preview': 128000,  # 128K, but may be limited by config.max_model_tokens
     'gpt-4.5-preview-2025-02-27': 128000,  # 128K, but may be limited by config.max_model_tokens
     'gpt-4.1': 1047576,

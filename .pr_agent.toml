@@ -13,6 +13,7 @@
 model = "kimi-k2.6"
 fallback_models = ["kimi-k2.5", "minimax-m2.7"]
 custom_model_max_tokens = 128000
+max_model_tokens = 128000
 
 # Language: all bot responses in Korean
 response_language = "ko"
@@ -137,3 +138,11 @@ extra_instructions = """IMPORTANT: Respond entirely in Korean (한국어). Gener
 extra_instructions = """IMPORTANT: Respond entirely in Korean (한국어). Identify all hardcoded values, secrets, API keys, IP addresses, and magic numbers in the PR diff. Suggest environment variables or configuration files as alternatives."""
 create_issues = false
 create_fix_pr = false
+
+# ---------------------------------------------------------------------------
+# [pr_code_suggestions] — Code Suggestions (/improve)
+# ---------------------------------------------------------------------------
+[pr_code_suggestions]
+# FORK: disable parallel calls to reduce intermittent failures
+# caused by streaming empty responses on kimi-k2.6 reasoning model
+parallel_calls = false
