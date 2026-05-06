@@ -174,7 +174,7 @@ async def handle_push_trigger_for_new_commits(
     if not get_settings().github_app.handle_push_trigger:
         return {}
 
-    # TODO: do we still want to get the list of commits to filter bot/merge commits?
+    # Merge commits are filtered by SHA comparison; bot commits by push_trigger_ignore_bot_commits.
     before_sha = body.get("before")
     after_sha = body.get("after")
     merge_commit_sha = pull_request.get("merge_commit_sha")
@@ -216,10 +216,11 @@ async def handle_push_trigger_for_new_commits(
             get_logger().info(f"Performing incremental review for {api_url=} because of {event=} and {action=}")
             await _perform_auto_commands_github("push_commands", agent, body, api_url, log_context)
 
-            # SECOND-REVIEW: run minimax-m2.7 for push triggers (2-review policy: kimi on open, minimax on push)
-            get_logger().info(f"Performing second review with minimax-m2.7 for {api_url=}")
+            # SECOND-REVIEW: run minimax for push triggers (2-review policy: kimi on open, minimax on push)
+            second_review_model = get_settings().get("github_app.push_trigger_second_review_model", "minimax-m2.7")
+            get_logger().info(f"Performing second review with {second_review_model} for {api_url=}")
             env = os.environ.copy()
-            env["CONFIG.MODEL"] = "minimax-m2.7"
+            env["CONFIG.MODEL"] = second_review_model
             env["CONFIG.FALLBACK_MODELS"] = "[]"
             env["CONFIG.CUSTOM_MODEL_MAX_TOKENS"] = "128000"
             try:
@@ -236,11 +237,11 @@ async def handle_push_trigger_for_new_commits(
                 )
                 stdout, stderr = await proc.communicate()
                 if proc.returncode != 0:
-                    get_logger().warning(f"Minimax second review failed for {api_url=}: {stderr.decode()[:500]}")
+                    get_logger().warning(f"Second review failed for {api_url=}: {stderr.decode()[:500]}")
                 else:
-                    get_logger().info(f"Minimax second review completed for {api_url=}")
+                    get_logger().info(f"Second review completed for {api_url=}")
             except Exception as e:
-                get_logger().exception(f"Error running minimax second review for {api_url=}: {e}")
+                get_logger().exception(f"Error running second review for {api_url=}: {e}")
 
     finally:
         # release the waiting task block
