@@ -17,32 +17,13 @@ permissions:
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Check registry reachability
-        id: registry_check
-        run: |
-          if curl -sS --max-time 5 -o /dev/null https://registry.jclee.me/v2/; then
-            echo "reachable=true" >> "$GITHUB_OUTPUT"
-            echo "Registry is reachable"
-          else
-            echo "reachable=false" >> "$GITHUB_OUTPUT"
-            echo "Registry is unreachable from this runner (expected on GitHub-hosted runners)"
-          fi
-
-      - name: Fail if registry unreachable
-        if: steps.registry_check.outputs.reachable == 'false'
-        run: |
-          echo "::error::Private registry registry.jclee.me is unreachable from this runner."
-          echo "::error::This workflow requires a self-hosted runner on the homelab network."
-          echo "::error::Build and push was skipped. No image was produced."
-          exit 1
       - name: Login to private registry
-        if: steps.registry_check.outputs.reachable == 'true'
         id: login
         uses: docker/login-action@v3
         with:
@@ -51,7 +32,6 @@ jobs:
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
       - name: Build and push
-        if: steps.registry_check.outputs.reachable == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
