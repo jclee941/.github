@@ -25,9 +25,9 @@ services:
       GITHUB.PRIVATE_KEY: "${GITHUB_PRIVATE_KEY}"
       GITHUB.WEBHOOK_SECRET: "${GITHUB_WEBHOOK_SECRET}"
 
-      # CLIProxyAPI backend (same as workflow path)
+      # CLIProxyAPI backend (internal Docker network)
       OPENAI.KEY: "${CLIPROXY_API_KEY}"
-      OPENAI.API_BASE: https://cliproxy.jclee.me/v1
+      OPENAI.API_BASE: http://cliproxyapi:8317/v1
       CONFIG.MODEL: kimi-k2.6
       CONFIG.CUSTOM_MODEL_MAX_TOKENS: "128000"
       CONFIG.AI_TIMEOUT: "180"
