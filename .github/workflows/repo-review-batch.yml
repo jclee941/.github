@@ -128,11 +128,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
-          echo "## Repo Review Batch Summary" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Repo | Open bot-review issue |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|------|----------------------|" >> "$GITHUB_STEP_SUMMARY"
-          for repo in $(echo "${{ inputs.repos }}" | tr ',' ' '); do
-            issue=$(gh issue list --repo "jclee941/$repo" --state open --label bot-review --limit 1 --json number,url --jq '.[0] | "#\(.number) (\(.url))"' 2>/dev/null || echo "?")
-            echo "| $repo | ${issue:-none} |" >> "$GITHUB_STEP_SUMMARY"
-          done
+          {
+            echo "## Repo Review Batch Summary"
+            echo ""
+            echo "| Repo | Open bot-review issue |"
+            echo "|------|----------------------|"
+            for repo in $(echo "${{ inputs.repos }}" | tr ',' ' '); do
+              issue=$(gh issue list --repo "jclee941/$repo" --state open --label bot-review --limit 1 --json number,url --jq '.[0] | "#\(.number) (\(.url))"' 2>/dev/null || echo "?")
+              echo "| $repo | ${issue:-none} |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
