@@ -97,6 +97,13 @@ minimal_minutes_for_incremental_review=0
 enable_intro_text=true
 enable_help_text=false # Determines whether to include help text in the PR review. Enabled by default.
 
+# auto-create issues for critical review findings
+auto_create_issues=false
+auto_create_issue_min_severity="critical"
+auto_create_issue_labels=["jclee-bot", "review-finding"]
+auto_create_issue_security_labels=["security", "critical"]
+auto_create_issue_bug_labels=["bug", "critical"]
+
 [pr_description] # /describe #
 publish_labels=false
 add_original_user_description=true

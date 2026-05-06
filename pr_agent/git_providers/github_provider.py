@@ -966,6 +966,36 @@ class GithubProvider(GitProvider):
     def create_pull(self, title: str, body: str, head: str, base: str):
         return self._get_repo().create_pull(title=title, body=body, head=head, base=base)
 
+    def create_issue(self, title: str, body: str, labels: list = None):
+        try:
+            return self._get_repo().create_issue(title=title, body=body, labels=labels or [])
+        except Exception as e:
+            get_logger().warning(f"Failed to create issue: {e}")
+            return None
+
+    def find_open_issue_by_marker(self, marker: str, labels: list = None):
+        try:
+            issues = self._get_repo().get_issues(state="open", labels=labels or [])
+            for issue in issues:
+                if issue.pull_request:
+                    continue
+                if marker in (issue.body or ""):
+                    return issue
+            return None
+        except Exception as e:
+            get_logger().warning(f"Failed to search issues: {e}")
+            return None
+
+    def ensure_labels(self, labels: list):
+        try:
+            repo = self._get_repo()
+            existing = {label.name for label in repo.get_labels()}
+            for label in labels:
+                if label not in existing:
+                    repo.create_label(name=label, color="ededed")
+        except Exception as e:
+            get_logger().warning(f"Failed to ensure labels: {e}")
+
     def _get_pr_file_content(self, file: FilePatchInfo, sha: str) -> str:
         return self.get_pr_file_content(file.filename, sha)
 

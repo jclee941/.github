@@ -1,9 +1,9 @@
-name: Branch to Draft PR
+name: Branch to PR
 
 # When a feat/* fix/* hotfix/* docs/* refactor/* perf/* test/* chore/*
 # ci/* security/* build/* style/* revert/* branch is pushed and no
-# open PR exists targeting the default branch, open a draft PR.
-# Skip if author is jclee-bot itself (avoids recursion).
+# open PR exists targeting the default branch, open a ready-for-review PR
+# with auto-merge label. Skip if author is jclee-bot itself.
 
 on:
   push:
@@ -105,7 +105,7 @@ jobs:
         run: |
           set -eu
           # Build PR body.
-          BODY="## 변경사항"$'\n\n'"<!-- 자동으로 생성된 draft PR입니다. 마크다운으로 변경 내용을 설명해주세요. -->"$'\n\n'
+          BODY="## 변경사항"$'\n\n'"<!-- 자동으로 생성된 PR입니다. 마크다운으로 변경 내용을 설명해주세요. -->"$'\n\n'
           if [ -n "$ISSUE_NUM" ]; then
             BODY="${BODY}Closes #${ISSUE_NUM}"$'\n\n'
           fi
@@ -124,10 +124,10 @@ jobs:
             echo "body: $BODY"
             exit 0
           fi
-          # Create the draft PR.
+          # Create the PR.
           gh pr create --repo "$GITHUB_REPOSITORY" \
             --head "$BRANCH" --base "$BASE" \
             --title "$TITLE" \
             --body "$BODY" \
-            --draft \
+            --label "auto-merge" \
             || echo "::warning::PR creation failed (likely already exists or no diff yet)"

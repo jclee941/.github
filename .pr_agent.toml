@@ -53,6 +53,13 @@ enable_review_labels_security = true
 enable_intro_text = true
 enable_help_text = false                       # avoid bloating PRs with help
 
+# auto-create issues for critical/security/bug review findings
+auto_create_issues = true
+auto_create_issue_min_severity = "critical"
+auto_create_issue_labels = ["jclee-bot", "review-finding"]
+auto_create_issue_security_labels = ["security", "critical"]
+auto_create_issue_bug_labels = ["bug", "critical"]
+
 # Review templates are stored in docs/review-templates/
 # - code-review-template.md      : Master review format and priorities
 # - documentation-checklist.md   : Documentation review checklist
