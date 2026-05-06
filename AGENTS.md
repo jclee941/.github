@@ -13,7 +13,7 @@ All upstream pr-agent features are preserved: `/review`, `/improve`, `/describe`
 
 | File | Change | Reason |
 |------|--------|--------|
-| `pr_agent/settings/configuration.toml` | `[config] model` → `kimi-k2.6`, `fallback_models` → `["kimi-k2.5", "claude-sonnet-4-6"]` | Default model via cli_proxy/OpenAI-compatible routing |
+| `pr_agent/settings/configuration.toml` | `[config] model` → `kimi-k2.6`, `fallback_models` → `["kimi-k2.5", "minimax-m2.7"]` | Default model via cli_proxy/OpenAI-compatible routing |
 | `.pr_agent.toml` | Prepended `[config]`, `[openai]`, `[litellm]` sections | Pin fork-level model and `api_base` to cli_proxy |
 | `.github/workflows/pr-review.yml` | **NEW** | ubuntu-latest runner + cli_proxy env vars |
 | `.github/workflows/security/pr-review.yml` | **NEW** | Deep security review (Korean, `pull_request_target`, label-triggered) |
@@ -30,7 +30,7 @@ All upstream pr-agent features are preserved: `/review`, `/improve`, `/describe`
 | `.github/release-drafter.yml` + `.github/workflows/release-drafter.yml` | **NEW** | Conventional-Commits-aware release draft automation |
 | `.markdownlint.json` | **NEW** | Local markdownlint overrides (line_length=120, tables/code blocks exempt) |
 | `.gitleaksignore` | **NEW** | Fingerprint allowlist for upstream pr-agent test fixtures |
-| `scripts/go.mod` + `scripts/cmd/{branch-protection,deploy-to-repos,sync-secrets}/main.go` | **NEW** | Module-restructured Go scripts to enable `go test`. Invoke via `(cd scripts && go run ./cmd/<name>)`. |
+| `scripts/go.mod` + `scripts/cmd/{branch-protection,deploy-to-repos,sync-secrets,repo-review}/main.go` | **NEW** | Module-restructured Go scripts to enable `go test`. Invoke via `(cd scripts && go run ./cmd/<name>)`. |
 | `scripts/cmd/branch-protection/main_test.go` + `scripts/cmd/deploy-to-repos/main_test.go` | **NEW** | Table-driven tests for pure-logic helpers (16 test cases) |
 | `scripts/cmd/deploy-to-repos/main.go` | **NEW** | Deploy `pr-review.yml` to `jclee941/*` repos |
 | `README.md` | **REPLACED** | Fork-specific readme (upstream moved to `docs/pr-agent-upstream-README.md`) |
@@ -219,12 +219,12 @@ CLIPROXY_API_KEY=$(grep '^CLIPROXY_API_KEY=' .env | cut -d= -f2-) \
 
 ### Available models (24 total as of 2026-04-10)
 
-> **Current default**: `kimi-k2.6` with fallbacks `kimi-k2.5`, `claude-sonnet-4-6`.
+> **Current default**: `kimi-k2.6` with fallbacks `kimi-k2.5`, `minimax-m2.7`.
 > Prefix-less Kimi/Claude/GPT/Codex/Gemini model names are routed through the configured OpenAI-compatible cli_proxy endpoint.
 
 - **Codex (GPT)**: `openai/gpt-5.2`, `openai/gpt-5.1`, `openai/gpt-5`, `gpt-5-codex-mini`, `gpt-5.1-codex-max`, `gpt-4.1`, `gpt-4.1-mini`
 - **Antigravity (Gemini)**: `gemini-3-pro-preview`, `gemini-3-flash-preview`, `gemini-2.5-flash`
-- **Antigravity (Claude)**: `claude-sonnet-4-6`, `ag-claude-sonnet-4-5`, `ag-claude-sonnet-4-5-thinking`
+- **Antigravity (Claude)**: `ag-claude-sonnet-4-5`, `ag-claude-sonnet-4-5-thinking`
 
 Get the full list:
 ```bash

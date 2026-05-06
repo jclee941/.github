@@ -38,10 +38,3 @@ jobs:
       - name: Run actionlint
         run: ./actionlint -color
         shell: bash
-        id: get_actionlint
-        run: bash <(curl -sSf https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
-        shell: bash
-
-      - name: Run actionlint
-        run: ${{ steps.get_actionlint.outputs.executable }} -color
-        shell: bash

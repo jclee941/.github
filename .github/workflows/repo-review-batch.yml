@@ -76,6 +76,12 @@ jobs:
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -e .
 
+      - name: Install Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.21'
+
+
       - name: Verify cli_proxy connectivity
         env:
           CLIPROXY_API_KEY: ${{ secrets.CLIPROXY_API_KEY }}
@@ -108,7 +114,7 @@ jobs:
           OPENAI__KEY: ${{ secrets.CLIPROXY_API_KEY }}
           OPENAI__API_BASE: https://cliproxy.jclee.me/v1
           CONFIG__MODEL: ${{ inputs.model }}
-          CONFIG__FALLBACK_MODELS: '["kimi-k2.5", "claude-sonnet-4-6"]'
+          CONFIG__FALLBACK_MODELS: '["kimi-k2.5", "minimax-m2.7"]'
           CONFIG__RESPONSE_LANGUAGE: ko
           CONFIG__AI_TIMEOUT: "180"
           CONFIG__CUSTOM_MODEL_MAX_TOKENS: "128000"
@@ -116,7 +122,7 @@ jobs:
         run: |
           DRY=""
           if [ "${{ inputs.dry_run }}" = "true" ]; then DRY="--dry-run"; fi
-          ./scripts/repo_review_batch.sh \
+          cd scripts && go run ./cmd/repo-review \
             --repos="${{ inputs.repos }}" \
             --since-commits="${{ inputs.since_commits }}" \
             --diff-size-limit="${{ inputs.diff_size_limit }}" \

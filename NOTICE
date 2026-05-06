@@ -35,7 +35,7 @@ Fork-specific modifications in this repository include:
 
   * pr_agent/settings/configuration.toml
       - Default LLM model pointed at internal CLIProxyAPI (`openai/gpt-5.2`)
-      - Fallback model set to `claude-sonnet-4-6`
+      - Fallback model set to `minimax-m2.7`
 
   * .pr_agent.toml
       - Added [config] section with fork model/fallback pinned

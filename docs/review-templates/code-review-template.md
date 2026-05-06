@@ -1,7 +1,7 @@
 # 코드 리뷰 마스터 템플릿
 
 > PR-Agent `jclee-bot`용 코드 리뷰 기준 및 응답 형식
-> 적용 모델: `kimi-k2.6` (fallback: `kimi-k2.5`, `claude-sonnet-4-6`)
+> 적용 모델: `kimi-k2.6` (fallback: `kimi-k2.5`, `minimax-m2.7`)
 > 응답 언어: **한국어 (ko)**
 
 ---

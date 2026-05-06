@@ -90,7 +90,7 @@ def configure_pr_agent(model: str, response_language: str, review_path: str) -> 
     s.set("CONFIG.git_provider", "local")
     s.set("CONFIG.publish_output", True)
     s.set("CONFIG.model", model)
-    s.set("CONFIG.fallback_models", ["kimi-k2.5", "claude-sonnet-4-6"])
+    s.set("CONFIG.fallback_models", ["kimi-k2.5", "minimax-m2.7"])
     s.set("CONFIG.response_language", response_language)
     s.set("CONFIG.ai_timeout", 180)
     s.set("CONFIG.custom_model_max_tokens", 128000)

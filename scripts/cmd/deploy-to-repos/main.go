@@ -77,9 +77,7 @@ var extraFiles = []string{
 
 // removedWorkflows lists workflows that were previously deployed but are no longer
 // in the allowlist. They will be deleted from downstream repos during deployment.
-var removedWorkflows = []string{
-	".github/workflows/pr-review-security.yml",
-}
+var removedWorkflows = []string{}
 
 type config struct {
 	dryRun     bool

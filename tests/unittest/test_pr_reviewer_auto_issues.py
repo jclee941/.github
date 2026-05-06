@@ -324,3 +324,297 @@ class TestCreateIssuesForReviewFindings:
 
         # Should not raise
         reviewer._create_issues_for_review_findings()
+
+
+class TestParseIncremental:
+    """Test suite for parse_incremental argument parsing."""
+
+    def make_reviewer(self, review_data=None):
+        reviewer = object.__new__(PRReviewer)
+        reviewer.review_data = review_data or {}
+        reviewer.git_provider = MagicMock()
+        reviewer.git_provider.repo = "jclee941/test-repo"
+        reviewer.git_provider.get_pr_url.return_value = "https://github.com/jclee941/test-repo/pull/123"
+        return reviewer
+
+    def test_no_args_returns_false(self):
+        reviewer = self.make_reviewer()
+        result = reviewer.parse_incremental([])
+        assert result.is_incremental is False
+
+    def test_empty_args_returns_false(self):
+        reviewer = self.make_reviewer()
+        result = reviewer.parse_incremental([""])
+        assert result.is_incremental is False
+
+    def test_minus_i_flag_returns_true(self):
+        reviewer = self.make_reviewer()
+        result = reviewer.parse_incremental(["-i"])
+        assert result.is_incremental is True
+
+    def test_multiple_args_with_minus_i_still_true(self):
+        reviewer = self.make_reviewer()
+        result = reviewer.parse_incremental(["-i", "--pr_url=https://github.com/..."])
+        assert result.is_incremental is True
+
+    def test_non_minus_i_arg_returns_false(self):
+        reviewer = self.make_reviewer()
+        result = reviewer.parse_incremental(["--pr_url=https://github.com/..."])
+        assert result.is_incremental is False
+
+    def test_returns_incremental_pr_object(self):
+        reviewer = self.make_reviewer()
+        result = reviewer.parse_incremental(["-i"])
+        assert result.__class__.__name__ == "IncrementalPR"
+
+
+def _make_incremental_settings(minimal_commits=1, minimal_minutes=5, require_all=False):
+    """Factory for incremental review settings."""
+    class S:
+        class pr_reviewer:
+            minimal_commits_for_incremental_review = minimal_commits
+            minimal_minutes_for_incremental_review = minimal_minutes
+            require_all_thresholds_for_incremental_review = require_all
+        class config:
+            git_provider = "github"
+    return S
+
+
+class TestCanRunIncrementalReview:
+    """Test suite for _can_run_incremental_review gatekeeping."""
+
+    def make_reviewer(self):
+        reviewer = object.__new__(PRReviewer)
+        reviewer.review_data = {}
+        reviewer.git_provider = MagicMock()
+        reviewer.git_provider.repo = "jclee941/test-repo"
+        reviewer.git_provider.get_pr_url.return_value = "https://github.com/jclee941/test-repo/pull/123"
+        reviewer.is_auto = True
+        reviewer.pr_url = "https://github.com/jclee941/test-repo/pull/123"
+        return reviewer
+
+    def test_returns_false_if_auto_and_no_new_commits(self):
+        reviewer = self.make_reviewer()
+        reviewer.incremental = MagicMock()
+        reviewer.incremental.first_new_commit_sha = None
+        reviewer.incremental.commits_range = []
+        reviewer.incremental.last_seen_commit = None
+
+        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+            mock_settings.return_value = _make_incremental_settings()
+            result = reviewer._can_run_incremental_review()
+        assert result is False
+
+    def test_returns_false_if_git_provider_lacks_incremental_commits(self):
+        reviewer = self.make_reviewer()
+        reviewer.incremental = MagicMock()
+        reviewer.incremental.first_new_commit_sha = "abc123"
+        reviewer.incremental.commits_range = ["abc123"]
+        reviewer.incremental.last_seen_commit = None
+
+        del reviewer.git_provider.get_incremental_commits  # method not present
+
+        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+            mock_settings.return_value = _make_incremental_settings()
+            result = reviewer._can_run_incremental_review()
+        assert result is False
+
+    def test_returns_false_if_not_enough_commits(self):
+        reviewer = self.make_reviewer()
+        reviewer.incremental = MagicMock()
+        reviewer.incremental.first_new_commit_sha = "abc123"
+        reviewer.incremental.commits_range = ["abc123"]  # 1 commit, threshold is 2
+        reviewer.incremental.last_seen_commit = None
+
+        reviewer.git_provider.get_incremental_commits = MagicMock()
+
+        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+            mock_settings.return_value = _make_incremental_settings(minimal_commits=2, require_all=True)
+            result = reviewer._can_run_incremental_review()
+        assert result is False
+
+    def test_returns_true_when_thresholds_pass(self):
+        import datetime as dt_module
+        reviewer = self.make_reviewer()
+        reviewer.incremental = MagicMock()
+        reviewer.incremental.first_new_commit_sha = "abc123"
+        reviewer.incremental.commits_range = ["abc123", "def456"]  # 2 commits, threshold is 1
+        reviewer.incremental.last_seen_commit = MagicMock()
+        reviewer.incremental.last_seen_commit.commit.author.date = dt_module.datetime(2020, 1, 1)  # very old
+
+        reviewer.git_provider.get_incremental_commits = MagicMock()
+
+        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+            mock_settings.return_value = _make_incremental_settings()
+            result = reviewer._can_run_incremental_review()
+        assert result is True
+
+
+class TestSetReviewLabels:
+    """Test suite for set_review_labels parsing."""
+
+    def make_reviewer(self):
+        reviewer = object.__new__(PRReviewer)
+        reviewer.review_data = {}
+        reviewer.git_provider = MagicMock()
+        reviewer.git_provider.repo = "jclee941/test-repo"
+        reviewer.git_provider.get_pr_url.return_value = "https://github.com/jclee941/test-repo/pull/123"
+        return reviewer
+
+    def test_disabled_publish_output_noops(self):
+        reviewer = self.make_reviewer()
+        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+            mock_settings.return_value.config.publish_output = False
+            reviewer.set_review_labels({})
+
+    def test_effort_label_extracted_from_string(self):
+        reviewer = self.make_reviewer()
+        reviewer.git_provider.get_pr_labels.return_value = []
+
+        data = {"review": {"estimated_effort_to_review_[1-5]": "3, 4, or 5"}}
+
+        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+            mock_settings.return_value.config.publish_output = True
+            mock_settings.return_value.pr_reviewer.require_estimate_effort_to_review = True
+            mock_settings.return_value.pr_reviewer.enable_review_labels_effort = True
+            mock_settings.return_value.pr_reviewer.require_security_review = False
+            mock_settings.return_value.pr_reviewer.enable_review_labels_security = False
+
+            reviewer.set_review_labels(data)
+
+        # Verify publish_labels was called with effort label
+        call_args = reviewer.git_provider.publish_labels.call_args
+        assert call_args is not None
+        labels = call_args[0][0]
+        assert "Review effort 3/5" in labels
+
+    def test_effort_label_extracted_from_int(self):
+        reviewer = self.make_reviewer()
+        reviewer.git_provider.get_pr_labels.return_value = []
+
+        data = {"review": {"estimated_effort_to_review_[1-5]": 2}}
+
+        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+            mock_settings.return_value.config.publish_output = True
+            mock_settings.return_value.pr_reviewer.require_estimate_effort_to_review = True
+            mock_settings.return_value.pr_reviewer.enable_review_labels_effort = True
+            mock_settings.return_value.pr_reviewer.require_security_review = False
+            mock_settings.return_value.pr_reviewer.enable_review_labels_security = False
+
+            reviewer.set_review_labels(data)
+
+        call_args = reviewer.git_provider.publish_labels.call_args
+        labels = call_args[0][0]
+        assert "Review effort 2/5" in labels
+
+    def test_security_concern_label_added(self):
+        reviewer = self.make_reviewer()
+        reviewer.git_provider.get_pr_labels.return_value = []
+
+        data = {"review": {"estimated_effort_to_review_[1-5]": "1", "security_concerns": "yes there are security concerns"}}
+
+        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+            mock_settings.return_value.config.publish_output = True
+            mock_settings.return_value.pr_reviewer.require_estimate_effort_to_review = True
+            mock_settings.return_value.pr_reviewer.enable_review_labels_effort = True
+            mock_settings.return_value.pr_reviewer.require_security_review = True
+            mock_settings.return_value.pr_reviewer.enable_review_labels_security = True
+
+            reviewer.set_review_labels(data)
+
+        call_args = reviewer.git_provider.publish_labels.call_args
+        labels = call_args[0][0]
+        assert "Possible security concern" in labels
+
+    def test_invalid_effort_value_noops(self):
+        reviewer = self.make_reviewer()
+        reviewer.git_provider.get_pr_labels.return_value = []
+
+        data = {"review": {"estimated_effort_to_review_[1-5]": "not-a-number"}}
+
+        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+            mock_settings.return_value.config.publish_output = True
+            mock_settings.return_value.pr_reviewer.require_estimate_effort_to_review = True
+            mock_settings.return_value.pr_reviewer.enable_review_labels_effort = True
+            mock_settings.return_value.pr_reviewer.require_security_review = False
+            mock_settings.return_value.pr_reviewer.enable_review_labels_security = False
+
+            reviewer.set_review_labels(data)
+
+        reviewer.git_provider.publish_labels.assert_not_called()
+
+    def test_effort_out_of_range_noops(self):
+        reviewer = self.make_reviewer()
+        reviewer.git_provider.get_pr_labels.return_value = []
+
+        data = {"review": {"estimated_effort_to_review_[1-5]": 99}}
+
+        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+            mock_settings.return_value.config.publish_output = True
+            mock_settings.return_value.pr_reviewer.require_estimate_effort_to_review = True
+            mock_settings.return_value.pr_reviewer.enable_review_labels_effort = True
+            mock_settings.return_value.pr_reviewer.require_security_review = False
+            mock_settings.return_value.pr_reviewer.enable_review_labels_security = False
+
+            reviewer.set_review_labels(data)
+
+        reviewer.git_provider.publish_labels.assert_not_called()
+
+    def test_existing_labels_preserved(self):
+        reviewer = self.make_reviewer()
+        reviewer.git_provider.get_pr_labels.return_value = ["wip", "Review effort 2/5"]
+
+        data = {"review": {"estimated_effort_to_review_[1-5]": "3"}}
+
+        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+            mock_settings.return_value.config.publish_output = True
+            mock_settings.return_value.pr_reviewer.require_estimate_effort_to_review = True
+            mock_settings.return_value.pr_reviewer.enable_review_labels_effort = True
+            mock_settings.return_value.pr_reviewer.require_security_review = False
+            mock_settings.return_value.pr_reviewer.enable_review_labels_security = False
+
+            reviewer.set_review_labels(data)
+
+        call_args = reviewer.git_provider.publish_labels.call_args
+        labels = call_args[0][0]
+        # wip is preserved, new effort replaces old effort
+        assert "wip" in labels
+        assert "Review effort 3/5" in labels
+
+
+class TestAutoApproveLogic:
+    """Test suite for auto_approve_logic."""
+
+    def make_reviewer(self):
+        reviewer = object.__new__(PRReviewer)
+        reviewer.review_data = {}
+        reviewer.git_provider = MagicMock()
+        reviewer.git_provider.repo = "jclee941/test-repo"
+        reviewer.git_provider.get_pr_url.return_value = "https://github.com/jclee941/test-repo/pull/123"
+        return reviewer
+
+    def test_enabled_calls_auto_approve(self):
+        reviewer = self.make_reviewer()
+        reviewer.git_provider.auto_approve.return_value = True
+
+        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+            mock_settings.return_value.config.enable_auto_approval = True
+
+            reviewer.auto_approve_logic()
+
+        reviewer.git_provider.auto_approve.assert_called_once()
+        reviewer.git_provider.publish_comment.assert_called()
+
+    def test_disabled_posts_disabled_message(self):
+        reviewer = self.make_reviewer()
+
+        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+            mock_settings.return_value.config.enable_auto_approval = False
+
+            reviewer.auto_approve_logic()
+
+        reviewer.git_provider.auto_approve.assert_not_called()
+        # Should post a comment about disabled option
+        reviewer.git_provider.publish_comment.assert_called_once()
+        call_args = reviewer.git_provider.publish_comment.call_args[0][0]
+        assert "disabled" in call_args.lower()

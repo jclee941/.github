@@ -14,7 +14,7 @@ A hard fork of PR-Agent wired to run entirely inside the jclee941 homelab as a *
 
 - **LLM backend**: [`router-for-me/CLIProxyAPI`](https://github.com/router-for-me/CLIProxyAPI) on LXC 100 (`192.168.50.114:8317`), wrapping Claude Code CLI / Codex CLI / Gemini CLI as an OpenAI-compatible API
 - **Deployment**: GitHub App `jclee-bot` (ID: 3540327) running on LXC 100 via Cloudflare Tunnel
-- **Default model**: `kimi-k2.6` (via cli_proxy), fallback `kimi-k2.5`, `claude-sonnet-4-6`
+- **Default model**: `kimi-k2.6` (via cli_proxy), fallback `kimi-k2.5`, `minimax-m2.7`
 - **Scope**: Private — for `jclee941/*` repositories only
 - **Webhook**: `https://bot.jclee.me/api/v1/github_webhooks`
 

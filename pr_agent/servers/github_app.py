@@ -297,7 +297,7 @@ def is_bot_user(sender, sender_type):
         if get_settings().get("GITHUB_APP.IGNORE_BOT_PR", False) and sender_type == "Bot":
             if "pr-agent" not in sender:
                 get_logger().info(f"Ignoring PR from '{sender=}' because it is a bot")
-            return True
+                return True
     except Exception as e:
         get_logger().error(f"Failed 'is_bot_user' logic: {e}")
     return False
