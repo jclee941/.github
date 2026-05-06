@@ -407,6 +407,9 @@ class GithubProvider(GitProvider):
             get_logger().debug(f"Skipping publish_comment for temporary comment: {pr_comment}")
             return None
         pr_comment = self.limit_output_characters(pr_comment, self.max_comment_chars)
+        if not pr_comment or not pr_comment.strip():
+            get_logger().warning("Skipping publish_comment with empty body")
+            return None
 
         # In case this is an issue, can publish the comment on the issue.
         if self.issue_main:
@@ -638,6 +641,9 @@ class GithubProvider(GitProvider):
     def edit_comment(self, comment, body: str):
         try:
             body = self.limit_output_characters(body, self.max_comment_chars)
+            if not body or not body.strip():
+                get_logger().warning("Skipping edit_comment with empty body")
+                return
             comment.edit(body=body)
         except GithubException as e:
             if hasattr(e, "status") and e.status == 403:
@@ -652,6 +658,9 @@ class GithubProvider(GitProvider):
         try:
             # self.pr.get_issue_comment(comment_id).edit(body)
             body = self.limit_output_characters(body, self.max_comment_chars)
+            if not body or not body.strip():
+                get_logger().warning("Skipping edit_comment_from_comment_id with empty body")
+                return
             headers, data_patch = self.pr._requester.requestJsonAndCheck(
                 "PATCH", f"{self.base_url}/repos/{self.repo}/issues/comments/{comment_id}", input={"body": body}
             )
