@@ -43,6 +43,43 @@ services:
       GITHUB_APP.HANDLE_PUSH_TRIGGER: "true"
 
     healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+        labels: "service"
+      labels:
+        service: "github-bot"
+
+    networks:
+      - cliproxy_net
+
+  # Filebeat: ship logs to Elasticsearch
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.17.0
+    container_name: filebeat-github-bot
+    restart: unless-stopped
+    user: root
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - filebeat-data:/usr/share/filebeat/data
+    environment:
+      - ELASTICSEARCH_HOSTS=http://192.168.50.102:9200
+    networks:
+      - cliproxy_net
+    depends_on:
+      - github-bot-app
+
+  # Auto-update: poll registry every 60s and restart app when image changes
       test: ["CMD", "curl", "-fsS", "http://localhost:3000/"]
       interval: 30s
       timeout: 5s
@@ -79,3 +116,7 @@ networks:
   cliproxy_net:
     external: true
     name: cliproxyapi_backend   # piggyback on existing cliproxy network on LXC 100
+
+
+volumes:
+  filebeat-data:

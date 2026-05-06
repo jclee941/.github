@@ -1,0 +1,49 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest-asyncio responses
+
+      - name: Run E2E tests
+        env:
+          LITELLM_LOCAL_MODEL_COST_MAP: "true"
+          GITHUB.WEBHOOK_SECRET: "false"
+          OPENAI.KEY: "test-key"
+          OPENAI.API_BASE: "http://localhost:8317/v1"
+        run: |
+          PYTHONPATH=. pytest tests/e2e/ -v --tb=short
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pytest-e2e-results
+          path: |
+            test-results.xml
+            .coverage

@@ -1,0 +1,68 @@
+# Filebeat configuration for GitHub App log shipping to Elasticsearch
+# Deployed alongside github-bot-app in docker-compose.github_app.yml
+
+filebeat.inputs:
+  - type: container
+    paths:
+      - /var/lib/docker/containers/*/*.log
+    processors:
+      - add_docker_metadata:
+          host: "unix:///var/run/docker.sock"
+      - decode_json_fields:
+          fields: ["message"]
+          target: ""
+          overwrite_keys: true
+          when:
+            contains:
+              message: '{"time"'
+      - drop_fields:
+          fields: ["agent", "ecs", "input", "log.file", "log.offset"]
+          ignore_missing: true
+
+# Only collect logs from github-bot-app container
+  - type: log
+    paths:
+      - /var/log/github-bot/*.log
+    fields:
+      service: github-bot
+    fields_under_root: true
+    processors:
+      - decode_json_fields:
+          fields: ["message"]
+          target: ""
+          overwrite_keys: true
+          when:
+            contains:
+              message: '{"time"'
+
+output.elasticsearch:
+  hosts: ["http://192.168.50.102:9200"]
+  index: "github-bot-logs-%{+yyyy.MM.dd}"
+  template:
+    name: "github-bot-logs"
+    pattern: "github-bot-logs-*"
+    enabled: true
+
+# Index lifecycle management
+setup.ilm:
+  enabled: true
+  policy_name: "github-bot-logs"
+  pattern: "{now/d}-000001"
+  rollover_alias: "github-bot-logs"
+
+setup.template:
+  name: "github-bot-logs"
+  pattern: "github-bot-logs-*"
+  enabled: true
+  settings:
+    index.number_of_shards: 1
+    index.number_of_replicas: 0
+    index.refresh_interval: "5s"
+
+# General settings
+logging.level: warning
+logging.to_files: false
+logging.to_stderr: true
+
+# Avoid duplicate log shipping
+filebeat.registry.flush: 5s

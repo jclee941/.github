@@ -42,4 +42,5 @@ giteapy==1.0.8
 # uncomment this to support language LangChainOpenAIHandler
 # langchain==0.2.0
 # langchain-core==0.2.28
-# langchain-openai==0.1.20
+prometheus-client==0.24.1
+httpx==0.28.1

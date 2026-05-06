@@ -23,6 +23,13 @@ from pr_agent.identity_providers import get_identity_provider
 from pr_agent.identity_providers.identity_provider import Eligibility
 from pr_agent.log import LoggingFormat, get_logger, setup_logger
 from pr_agent.servers.utils import DefaultDictWithTimeout, verify_signature
+from pr_agent.servers.monitoring import (
+    monitoring_router,
+    record_webhook_start,
+    record_webhook_end,
+    record_review_start,
+    record_review_end,
+)
 
 setup_logger(fmt=LoggingFormat.JSON, level=get_settings().get("CONFIG.LOG_LEVEL", "DEBUG"))
 base_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
@@ -50,7 +57,7 @@ async def handle_github_webhooks(background_tasks: BackgroundTasks, request: Req
     context["installation_id"] = installation_id
     context["settings"] = copy.deepcopy(global_settings)
     context["git_provider"] = {}
-    background_tasks.add_task(handle_request, body, event=request.headers.get("X-GitHub-Event", None))
+    background_tasks.add_task(_handle_request_with_metrics, body, event=request.headers.get("X-GitHub-Event", None))
     return {}
 
 
@@ -72,6 +79,16 @@ async def get_body(request):
         signature_header = request.headers.get("x-hub-signature-256", None)
         verify_signature(body_bytes, webhook_secret, signature_header)
     return body
+
+
+async def _handle_request_with_metrics(body: Dict[str, Any], event: str):
+    """Wrapper to record webhook metrics."""
+    action = body.get("action", "unknown")
+    start_time = record_webhook_start(event, action)
+    try:
+        return await handle_request(body, event)
+    finally:
+        record_webhook_end(event, start_time)
 
 
 _duplicate_push_triggers = DefaultDictWithTimeout(ttl=get_settings().github_app.push_trigger_pending_tasks_ttl)
@@ -476,7 +493,29 @@ async def _perform_auto_commands_github(
         other_args = update_settings_from_args(args)
         new_command = " ".join([command] + other_args)
         get_logger().info(f"{commands_conf}. Performing auto command '{new_command}', for {api_url=}")
-        await agent.handle_request(api_url, new_command)
+        review_start = record_review_start(command)
+        try:
+            await agent.handle_request(api_url, new_command)
+        finally:
+            record_review_end(command, review_start)
+
+
+@router.get("/health")
+async def health_check():
+    from pr_agent.servers.monitoring import health_check as _health_check
+    return await _health_check()
+
+
+@router.get("/ready")
+async def readiness_check():
+    from pr_agent.servers.monitoring import readiness_check as _ready
+    return await _ready()
+
+
+@router.get("/metrics")
+async def metrics():
+    from pr_agent.servers.monitoring import metrics as _metrics
+    return await _metrics()
 
 
 @router.get("/")
@@ -491,6 +530,7 @@ if get_settings().github_app.override_deployment_type:
 middleware = [Middleware(RawContextMiddleware)]
 app = FastAPI(middleware=middleware)
 app.include_router(router)
+app.include_router(monitoring_router)
 
 
 def start():
