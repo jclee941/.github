@@ -5,6 +5,7 @@
 package main
 
 import (
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -20,6 +21,12 @@ var allowedDeployExtensions = map[string]struct{}{
 }
 
 func TestDefaultReposIsDownstreamOnly(t *testing.T) {
+	for _, r := range canaryRepos {
+		if slices.Contains(defaultRepos, r) {
+			t.Errorf("defaultRepos must NOT include canary repo %q; use --canary-repos for live e2e validation", r)
+		}
+	}
+
 	for _, r := range defaultRepos {
 		if r == ".github" {
 			t.Errorf("defaultRepos must NOT include source repo %q (would create recursive sync PRs against itself)", r)
@@ -40,6 +47,20 @@ func TestDefaultReposIsDownstreamOnly(t *testing.T) {
 			t.Errorf("defaultRepos duplicate entry: %q", r)
 		}
 		seen[r] = struct{}{}
+	}
+}
+
+func TestNormalizeReposAllowsExplicitCanaryOnly(t *testing.T) {
+	repos, err := normalizeRepos("automation-e2e-public", canaryRepos)
+	if err != nil {
+		t.Fatalf("normalize canary repo: %v", err)
+	}
+	if len(repos) != 1 || repos[0] != "automation-e2e-public" {
+		t.Fatalf("unexpected canary repos: %#v", repos)
+	}
+
+	if _, err := normalizeRepos("automation-e2e-public", defaultRepos); err == nil {
+		t.Fatal("default repo selection must reject canary repositories")
 	}
 }
 

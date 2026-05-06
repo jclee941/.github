@@ -52,6 +52,30 @@ def guard_mutation(repo: str):
         raise RuntimeError(f"Mutation guard: {repo} not in allowlist. Aborting.")
 
 
+def github_mutation_post(github_client: requests.Session, repo: str, url: str, **kwargs) -> requests.Response:
+    """POST with mutation guard."""
+    guard_mutation(repo)
+    return github_client.post(url, **kwargs)
+
+
+def github_mutation_patch(github_client: requests.Session, repo: str, url: str, **kwargs) -> requests.Response:
+    """PATCH with mutation guard."""
+    guard_mutation(repo)
+    return github_client.patch(url, **kwargs)
+
+
+def github_mutation_put(github_client: requests.Session, repo: str, url: str, **kwargs) -> requests.Response:
+    """PUT with mutation guard."""
+    guard_mutation(repo)
+    return github_client.put(url, **kwargs)
+
+
+def github_mutation_delete(github_client: requests.Session, repo: str, url: str, **kwargs) -> requests.Response:
+    """DELETE with mutation guard."""
+    guard_mutation(repo)
+    return github_client.delete(url, **kwargs)
+
+
 def _github_token_from_env() -> str | None:
     return os.getenv("E2E_GITHUB_TOKEN") or os.getenv("GH_TOKEN")
 

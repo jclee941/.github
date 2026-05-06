@@ -52,7 +52,60 @@ Never hardcode real secrets in tests, fixtures, docs, or workflow files.
 
 ## Test categories
 
-The live suite is designed around these categories:
+The live suite is designed around these categories (30 tests total):
+
+### v1 — Foundation (18 tests)
+
+1. **Repository inventory checks** (`readonly`) — verify every managed repository is reachable and report its visibility and default
+   branch.
+2. **Workflow deployment checks** (`readonly`) — verify required workflows exist, including `pr-review.yml`, `pr-checks.yml`,
+   `gitleaks.yml`, and `actionlint.yml`.
+3. **Required file checks** (`readonly`) — verify automation support files exist: `.github/dependabot.yml`, `.github/CODEOWNERS`, and
+   `.github/PULL_REQUEST_TEMPLATE.md`.
+4. **Branch protection checks** (`readonly`) — verify required status contexts are configured: `pr-checks / Check PR Title`,
+   `pr-checks / Check Branch Name`, and `Gitleaks / scan`.
+5. **Recent activity checks** (`readonly`) — inspect recent PRs, workflow conclusions, and bot comments without modifying production
+   repositories.
+6. **Canary mutation checks** (`canary`) — exercise branch, file, PR, and workflow behavior only in the allowlisted public canary
+   repository.
+7. **Go CLI dry-run checks** (`readonly`) — verify `deploy-to-repos`, `branch-protection`, and `repo-review` Go scripts run in
+   dry-run mode without errors.
+8. **Bot review smoke tests** (`bot_review`) — verify jclee-bot responds to `/review` triggers, skips drafts, and reports
+   fatal errors.
+
+### v2 — Oracle Hardening (12 tests)
+
+9. **Security review workflow guards** (`security_review`) — live label-trigger test + static YAML analysis of
+   `pull_request_target` fork/head-repo guards.
+10. **Mergeability API checks** (`mergeability`) — assert valid PRs are `mergeable=True` and invalid PRs are `blocked`.
+11. **Live deployment-path validation** (`deploy_path`) — run `deploy-to-repos --canary-repos` for real, verify PR creation and
+    cleanup.
+12. **Private canary coverage** (`private_canary`) — mutation test against `automation-e2e-private`, skips on missing `repo`
+    scope.
+13. **GitHub App health checks** (`app_health`) — bot recent activity, webhook reachability, app installation, CLIProxy
+    endpoint probes.
+14. **Bot review quality assertions** (`bot_review`) — Korean output, final review marker, absence of fatal strings,
+    markdown structure.
+15. **CLIProxy health** (`cliproxy_health`) — query `/v1/models`, verify `kimi-k2.6` availability.
+
+### Running by marker
+
+```bash
+# Read-only fleet health (no mutations)
+pytest tests/e2e_live -m readonly -v
+
+# All canary mutations (public + private + bot review + mergeability + deploy + security)
+pytest tests/e2e_live -m "canary or private_canary or bot_review or mergeability or deploy_path or security_review" -v
+
+# Infrastructure health only
+pytest tests/e2e_live -m "app_health or cliproxy_health" -v
+
+# Full suite (requires all env vars)
+pytest tests/e2e_live -v
+```
+
+Keep production checks read-only. If a new helper mutates GitHub state, it must call `guard_mutation()` before making the
+API request.
 
 1. **Repository inventory checks** — verify every managed repository is reachable and report its visibility and default
    branch.

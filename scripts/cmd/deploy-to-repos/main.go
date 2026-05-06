@@ -37,6 +37,13 @@ var defaultRepos = []string{
 	"bug",
 }
 
+// canaryRepos lists dedicated live-test repositories that may be mutated only
+// when explicitly selected with --canary-repos. Keep these out of defaultRepos
+// so normal deploy runs cannot create PRs in test canaries by accident.
+var canaryRepos = []string{
+	"automation-e2e-public",
+}
+
 var workflowFiles = []string{}
 
 var downstreamWorkflowAllowlist = map[string]struct{}{
@@ -160,13 +167,26 @@ func run() error {
 func parseFlags() (config, error) {
 	var cfg config
 	var reposFlag string
+	var canaryReposFlag string
 
 	flag.BoolVar(&cfg.dryRun, "dry-run", false, "preview deployment steps without making changes")
 	flag.StringVar(&cfg.baseBranch, "base-branch", "", "target base branch override (auto-detected if empty)")
 	flag.StringVar(&reposFlag, "repos", strings.Join(defaultRepos, ","), "comma-separated repo names: resume,safetywallet,youtube")
+	flag.StringVar(&canaryReposFlag, "canary-repos", "", "comma-separated canary repo names for live deployment-path validation; excludes production defaults")
 	flag.Parse()
 
-	repos, err := normalizeRepos(reposFlag)
+	if canaryReposFlag != "" && reposFlag != strings.Join(defaultRepos, ",") {
+		return config{}, errors.New("--canary-repos cannot be combined with --repos")
+	}
+
+	allowedRepos := defaultRepos
+	selectedRepos := reposFlag
+	if canaryReposFlag != "" {
+		allowedRepos = canaryRepos
+		selectedRepos = canaryReposFlag
+	}
+
+	repos, err := normalizeRepos(selectedRepos, allowedRepos)
 	if err != nil {
 		return config{}, err
 	}
@@ -174,9 +194,9 @@ func parseFlags() (config, error) {
 	return cfg, nil
 }
 
-func normalizeRepos(raw string) ([]string, error) {
-	allowed := make(map[string]struct{}, len(defaultRepos))
-	for _, repo := range defaultRepos {
+func normalizeRepos(raw string, allowedRepoNames []string) ([]string, error) {
+	allowed := make(map[string]struct{}, len(allowedRepoNames))
+	for _, repo := range allowedRepoNames {
 		allowed[repo] = struct{}{}
 	}
 
@@ -190,7 +210,7 @@ func normalizeRepos(raw string) ([]string, error) {
 			continue
 		}
 		if _, ok := allowed[repo]; !ok {
-			valid := append([]string(nil), defaultRepos...)
+			valid := append([]string(nil), allowedRepoNames...)
 			sort.Strings(valid)
 			return nil, fmt.Errorf("unsupported repo %q (allowed: %s)", repo, strings.Join(valid, ", "))
 		}

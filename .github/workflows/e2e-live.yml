@@ -46,6 +46,10 @@ jobs:
         env:
           E2E_GITHUB_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN || secrets.GH_TOKEN }}
         run: |
+          pytest tests/e2e_live/test_fleet_health.py tests/e2e_live/test_go_cli.py tests/e2e_live/test_cliproxy_health.py tests/e2e_live/test_app_health.py -v --tb=short --junitxml=readonly-pytest-report.xml
+        env:
+          E2E_GITHUB_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN || secrets.GH_TOKEN }}
+        run: |
           pytest tests/e2e_live/test_fleet_health.py tests/e2e_live/test_go_cli.py -v --tb=short --junitxml=readonly-pytest-report.xml
 
       - name: Upload test report on failure
@@ -83,6 +87,11 @@ jobs:
           pip install pytest requests
 
       - name: Run canary mutation tests
+        env:
+          E2E_GITHUB_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN || secrets.GH_TOKEN }}
+          E2E_CLIPROXY_API_KEY: ${{ secrets.E2E_CLIPROXY_API_KEY || secrets.CLIPROXY_API_KEY }}
+        run: |
+          pytest tests/e2e_live/test_canary_pr.py tests/e2e_live/test_bot_review.py tests/e2e_live/test_security_review.py tests/e2e_live/test_mergeability.py tests/e2e_live/test_deploy_path.py tests/e2e_live/test_private_canary.py -v --tb=short --junitxml=canary-pytest-report.xml
         env:
           E2E_GITHUB_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN || secrets.GH_TOKEN }}
           E2E_CLIPROXY_API_KEY: ${{ secrets.E2E_CLIPROXY_API_KEY || secrets.CLIPROXY_API_KEY }}

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import re
 import time
 import zipfile
 from collections.abc import Mapping
@@ -19,6 +20,8 @@ from .conftest import (
     create_mutation_pr,
     delete_mutation_branch,
     get_pr_comments,
+    github_mutation_patch,
+    github_mutation_post,
     guard_mutation,
     upsert_mutation_file,
 )
@@ -85,8 +88,7 @@ def branch_head_sha(github_client: requests.Session, repo: str, branch: str) -> 
 
 def close_pr(github_client: requests.Session, repo: str, pr_number: int) -> None:
     """Close a canary pull request."""
-    guard_mutation(repo)
-    response = github_client.patch(f"{GITHUB_API_URL}/repos/{repo}/pulls/{pr_number}", json={"state": "closed"})
+    response = github_mutation_patch(github_client, repo, f"{GITHUB_API_URL}/repos/{repo}/pulls/{pr_number}", json={"state": "closed"})
     assert response.status_code < 400, f"Failed to close PR #{pr_number}: {response.status_code}: {response.text[:500]}"
 
 
@@ -114,11 +116,12 @@ def create_canary_pr(
     draft: bool = False,
 ) -> JsonObject:
     """Create a canary PR, using the shared helper for normal PRs and REST directly for draft PRs."""
-    guard_mutation(repo)
     if not draft:
         return create_mutation_pr(repo, title, head, base, body, github_client)
 
-    response = github_client.post(
+    response = github_mutation_post(
+        github_client,
+        repo,
         f"{GITHUB_API_URL}/repos/{repo}/pulls",
         json={"base": base, "body": body, "draft": True, "head": head, "title": title},
     )
@@ -248,6 +251,41 @@ def assert_no_fatal_patterns_in_run(github_client: requests.Session, repo: str, 
     assert conclusion not in {"failure", "timed_out", "cancelled"}, f"{repo}: workflow run failed: {html_url}"
 
 
+def _assert_bot_review_quality(comments: list[JsonObject]) -> None:
+    """Assert bot review comments meet quality standards."""
+    bodies = [body for body in (c.get("body") for c in comments) if isinstance(body, str)]
+
+    # Assertion 1 — Korean output
+    hangul = re.compile(r"[\uac00-\ud7af]")
+    assert any(hangul.search(body) for body in bodies), \
+        "Bot review output should contain Korean text"
+
+    # Assertion 2 — Final review marker
+    marker_patterns = ["최종 리뷰", "리뷰 완료", "Final review", "📝"]
+    assert any(
+        any(marker in body for marker in marker_patterns) for body in bodies
+    ), "Bot review should contain a final review marker"
+
+    # Assertion 3 — Absence of failure strings
+    failure_strings = [
+        "Failed to generate prediction",
+        "Failed to review PR",
+        "AuthenticationError",
+        "RateLimitError",
+        "ConnectionError",
+        "Timeout",
+        "Internal Server Error",
+    ]
+    for body in bodies:
+        for failure in failure_strings:
+            assert failure not in body, f"Bot review should not contain error/failure messages: {failure}"
+
+    # Assertion 4 — Review structure (markdown formatting)
+    md_patterns = [re.compile(pattern) for pattern in [r"## ", r"\| ", r"```"]]
+    assert any(pattern.search(body) for pattern in md_patterns for body in bodies), \
+        "Bot review should use structured markdown formatting"
+
+
 def test_bot_reviews_canary_pr(
     github_client: requests.Session,
     canary_public_repo: str,
@@ -278,8 +316,9 @@ def test_bot_reviews_canary_pr(
         number = pr.get("number")
         assert isinstance(number, int), f"Malformed PR payload: {pr!r}"
         pr_number = number
-
-        response = github_client.post(
+        response = github_mutation_post(
+            github_client,
+            repo,
             f"{GITHUB_API_URL}/repos/{repo}/issues/{pr_number}/comments",
             json={"body": "/review"},
         )
@@ -289,6 +328,8 @@ def test_bot_reviews_canary_pr(
         comment_bodies = [body for body in (comment.get("body") for comment in comments) if isinstance(body, str)]
         assert comments, f"{repo}#{pr_number}: no {BOT_LOGIN} comment after /review"
         assert any("Preparing review" in body or body.strip() for body in comment_bodies)
+
+        _assert_bot_review_quality(comments)
 
         run = wait_for_workflow_run_if_started(github_client, repo, smoke_branch, timeout=180)
         if run is not None and run.get("status") == "completed":
