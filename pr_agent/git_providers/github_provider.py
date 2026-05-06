@@ -886,7 +886,7 @@ class GithubProvider(GitProvider):
                 raise ValueError("GitHub app ID and private key are required when using GitHub app deployment") from e
             if not self.installation_id:
                 raise ValueError("GitHub app installation ID is required when using GitHub app deployment")
-            auth = AppAuthentication(app_id=app_id, private_key=private_key, installation_id=self.installation_id)
+            auth = AppAuthentication(app_id=str(app_id), private_key=private_key, installation_id=self.installation_id)
             self.auth = auth
         elif self.deployment_type == "user":
             try:
