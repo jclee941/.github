@@ -50,7 +50,7 @@ jobs:
           [ -f package.json ] && has_node=true
           { [ -f pyproject.toml ] || [ -f requirements.txt ] || [ -f setup.py ]; } && has_py=true
           [ -f go.mod ] && has_go=true
-          ls *.tf >/dev/null 2>&1 && has_tf=true
+          ls -- *.tf >/dev/null 2>&1 && has_tf=true
           if [ -f pnpm-lock.yaml ]; then pm=pnpm
           elif [ -f yarn.lock ]; then pm=yarn
           elif [ -f bun.lockb ] || [ -f bun.lock ]; then pm=bun
