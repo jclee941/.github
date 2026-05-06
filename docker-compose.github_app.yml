@@ -29,9 +29,13 @@ services:
       OPENAI.KEY: "${CLIPROXY_API_KEY}"
       OPENAI.API_BASE: https://cliproxy.jclee.me/v1
       CONFIG.MODEL: kimi-k2.6
-      CONFIG.FALLBACK_MODELS: '["kimi-k2.5", "claude-sonnet-4-6"]'
       CONFIG.CUSTOM_MODEL_MAX_TOKENS: "128000"
       CONFIG.AI_TIMEOUT: "180"
+      PR_REVIEWER.AUTO_CREATE_ISSUES: "true"
+      PR_REVIEWER.AUTO_CREATE_ISSUE_LABELS: '["jclee-bot", "review-finding"]'
+      PR_REVIEWER.AUTO_CREATE_ISSUE_SECURITY_LABELS: '["security", "critical"]'
+      PR_REVIEWER.AUTO_CREATE_ISSUE_BUG_LABELS: '["bug", "critical"]'
+
 
       # github_app commands fired automatically per event
       GITHUB_APP.PR_COMMANDS: '["/describe", "/review", "/improve"]'
