@@ -142,6 +142,8 @@ github-bot/
 | View architecture diagrams | `docs/architecture.md` | Mermaid-based system & automation flow diagrams |
 | View gap analysis | `docs/git-workflow-gap-analysis.md` | Workflow automation gap analysis (20 gaps, P0-P2) |
 | Batch repo review | `scripts/repo_review.py`, `scripts/cmd/repo-review/main.go` | Python helper / Go CLI for repo-review-batch workflow |
+| Run live E2E tests | `tests/e2e_live/` | Live GitHub API e2e tests (fleet health, canary PR lifecycle, bot review) |
+| Configure documentation review | `.pr_agent.toml` `[pr_reviewer].extra_instructions` | Documentation checklist embedded in instructions |
 | Configure documentation review | `.pr_agent.toml` `[pr_reviewer].extra_instructions` | Documentation checklist embedded in instructions |
 
 ## GIT FLOW AUTOMATION

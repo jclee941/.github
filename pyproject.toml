@@ -87,3 +87,7 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "--color=yes"
 console_output_style = "progress"
+markers = [
+  "bot_review: live jclee-bot PR review smoke tests",
+  "canary: tests that mutate allowlisted canary repositories only",
+]
