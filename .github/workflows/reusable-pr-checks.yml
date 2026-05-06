@@ -3,10 +3,15 @@ on:
   workflow_call:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   check-size:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     name: Check PR Size
     steps:
       - name: 500 LOC limit check
@@ -44,6 +49,7 @@ jobs:
   check-title:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     name: Check PR Title
     steps:
       - name: Conventional Commits validation
@@ -69,6 +75,7 @@ jobs:
   check-branch:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     name: Check Branch Name
     steps:
       - name: Branch naming validation
@@ -94,6 +101,7 @@ jobs:
   check-description:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     name: Check PR Description
     steps:
       - name: Description validation
@@ -136,6 +144,7 @@ jobs:
   check-large-files:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     name: Check Large Files
     steps:
       - name: Checkout
@@ -172,6 +181,7 @@ jobs:
   check-sensitive-files:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     name: Check Sensitive Files
     steps:
       - name: Checkout
