@@ -127,8 +127,11 @@ github-bot/
 | Dependabot auto-merge config | `.github/workflows/dependabot-auto-merge.yml` | Auto-approves + merges patch/minor + github-actions PRs; majors flagged for review |
 | Dependabot updates schedule | `.github/dependabot.yml` | Weekly `github-actions` + `pip` ecosystem PRs |
 || Upstream sync | `git fetch upstream && git merge upstream/main` | resolve conflicts in configuration.toml, .pr_agent.toml |
-|| Edit review templates | `docs/review-templates/` | Korean-language review templates (code, docs, security) |
-|| Configure documentation review | `.pr_agent.toml` `[pr_reviewer].extra_instructions` | Documentation checklist embedded in instructions |
+| Edit review templates | `docs/review-templates/` | Korean-language review templates (code, docs, security) |
+| View architecture diagrams | `docs/architecture.md` | Mermaid-based system & automation flow diagrams |
+| View gap analysis | `docs/git-workflow-gap-analysis.md` | Workflow automation gap analysis (20 gaps, P0-P2) |
+| Batch repo review | `scripts/repo_review.py` | Python helper for repo-review-batch workflow |
+| Configure documentation review | `.pr_agent.toml` `[pr_reviewer].extra_instructions` | Documentation checklist embedded in instructions |
 
 ## GIT FLOW AUTOMATION
 
