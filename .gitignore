@@ -16,3 +16,9 @@ docs/.cache/
 .qodo
 .sisyphus/
 poetry.lock
+
+# Go binaries (compiled from scripts/cmd/*/)
+scripts/branch-protection
+scripts/repo-review
+scripts/sync-secrets
+scripts/deploy-to-repos
