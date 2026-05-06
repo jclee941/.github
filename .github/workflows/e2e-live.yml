@@ -1,0 +1,98 @@
+name: Live E2E Tests
+
+# Runs the live E2E test suite against real GitHub repos.
+# This workflow is workflow_dispatch only because it requires live credentials
+# and may mutate canary repositories.
+#
+# Required secrets:
+#   - E2E_GITHUB_TOKEN (or GH_TOKEN): GitHub PAT with repo access
+#   - E2E_CLIPROXY_API_KEY (or CLIPROXY_API_KEY): CLIProxyAPI key for bot review tests
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Sunday 06:00 KST (Saturday 21:00 UTC)
+    - cron: '0 21 * * 6'
+
+permissions:
+  contents: read
+
+jobs:
+  readonly:
+    name: Read-Only Fleet Health
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-e2e-${{ hashFiles('pyproject.toml', 'requirements.txt') }}
+
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install pytest requests
+
+      - name: Run read-only fleet health checks
+        env:
+          E2E_GITHUB_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN || secrets.GH_TOKEN }}
+        run: |
+          pytest tests/e2e_live/test_fleet_health.py tests/e2e_live/test_go_cli.py -v --tb=short
+
+      - name: Upload test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: readonly-health-report
+          path: |
+            pytest-report.xml
+
+  canary:
+    name: Canary PR Lifecycle + Bot Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: readonly
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 21 * * 6'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-e2e-${{ hashFiles('pyproject.toml', 'requirements.txt') }}
+
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install pytest requests
+
+      - name: Run canary mutation tests
+        env:
+          E2E_GITHUB_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN || secrets.GH_TOKEN }}
+          E2E_CLIPROXY_API_KEY: ${{ secrets.E2E_CLIPROXY_API_KEY || secrets.CLIPROXY_API_KEY }}
+        run: |
+          pytest tests/e2e_live/test_canary_pr.py tests/e2e_live/test_bot_review.py -v --tb=short
+
+      - name: Upload test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canary-mutation-report
+          path: |
+            pytest-report.xml
