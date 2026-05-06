@@ -11,12 +11,7 @@
 # Public endpoint: https://cliproxy.jclee.me/v1 (origin: 192.168.50.114:8317 LXC 100)
 # Available Kimi models: kimi-k2, kimi-k2-thinking, kimi-k2.5, kimi-k2.6
 model = "kimi-k2.6"
-fallback_models = [
-  "kimi-k2.5",
-  "claude-sonnet-4-6",
-  "minimax-m2.5",
-  "minimax-m2.7",
-]
+fallback_models = ["kimi-k2.5", "minimax-m2.7"]
 custom_model_max_tokens = 128000
 
 # Language: all bot responses in Korean

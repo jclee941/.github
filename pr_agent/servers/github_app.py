@@ -2,6 +2,7 @@ import asyncio.locks
 import copy
 import os
 import re
+import sys
 import uuid
 from typing import Any, Dict, Tuple
 
@@ -214,6 +215,32 @@ async def handle_push_trigger_for_new_commits(
         if get_identity_provider().verify_eligibility("github", sender_id, api_url) is not Eligibility.NOT_ELIGIBLE:
             get_logger().info(f"Performing incremental review for {api_url=} because of {event=} and {action=}")
             await _perform_auto_commands_github("push_commands", agent, body, api_url, log_context)
+
+            # SECOND-REVIEW: run minimax-m2.7 for push triggers (2-review policy: kimi on open, minimax on push)
+            get_logger().info(f"Performing second review with minimax-m2.7 for {api_url=}")
+            env = os.environ.copy()
+            env["CONFIG.MODEL"] = "minimax-m2.7"
+            env["CONFIG.FALLBACK_MODELS"] = "[]"
+            env["CONFIG.CUSTOM_MODEL_MAX_TOKENS"] = "128000"
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    sys.executable,
+                    "-m",
+                    "pr_agent.cli",
+                    "--pr_url",
+                    api_url,
+                    "review",
+                    env=env,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                stdout, stderr = await proc.communicate()
+                if proc.returncode != 0:
+                    get_logger().warning(f"Minimax second review failed for {api_url=}: {stderr.decode()[:500]}")
+                else:
+                    get_logger().info(f"Minimax second review completed for {api_url=}")
+            except Exception as e:
+                get_logger().exception(f"Error running minimax second review for {api_url=}: {e}")
 
     finally:
         # release the waiting task block
