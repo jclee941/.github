@@ -104,6 +104,7 @@ jobs:
               --comment "Resolved by a successful $WF_NAME run on $HEAD_SHA. Auto-closed by jclee-bot." \
               --reason completed \
               || echo "::warning::failed to close #$N; continuing"
+          done
 
       - name: On success, close legacy auto-deploy failure issues
         if: steps.ev.outputs.conclusion == 'success' && steps.ev.outputs.wf_name == 'Auto Deploy Workflows'
