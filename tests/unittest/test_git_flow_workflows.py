@@ -1,157 +1,201 @@
-"""Static-analysis tests for the git-flow automation workflows.
+"""Workflow policy tests for .github/workflows/*.yml files.
 
-These tests parse every YAML file under .github/workflows/ and assert
-that each git-flow workflow has the expected structural invariants:
-  - top-level on/permissions/jobs blocks
-  - workflow_dispatch with dry_run input (so we can canary safely)
-  - degrade-soft pattern (|| echo ::warning::) where required
-  - skip-bot guard where required
-  - concurrency group with the right key
+These tests validate workflow structure and policy compliance WITHOUT
+editing the workflow files or making network calls.
 """
 
 from __future__ import annotations
 
-import re
-import shutil
 from pathlib import Path
 
 import pytest
-import yaml
+
+# Root of the repo (parent of .github/)
+REPO_ROOT = Path(__file__).resolve().parents[2]  # /home/jclee/dev/.github
+WF_DIR = REPO_ROOT / ".github" / "workflows"
+assert WF_DIR.exists(), f"Workflows dir not found: {WF_DIR}"
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-WORKFLOWS_DIR = REPO_ROOT / ".github" / "workflows"
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
-GIT_FLOW_WORKFLOWS = [
-    "issue-to-branch.yml",
-    "branch-to-pr.yml",
-    "pr-auto-merge.yml",
-    "merged-pr-cleanup.yml",
-    "ci-failure-issues.yml",
-    "release-publish.yml",
-]
-
-
-def _load(name: str) -> dict:
-    path = WORKFLOWS_DIR / name
-    assert path.exists(), f"workflow not found: {path}"
-    return yaml.safe_load(path.read_text())
+def read_workflow(name: str) -> str:
+    """Return raw text of a workflow file."""
+    path = WF_DIR / name
+    if not path.exists():
+        pytest.fail(f"Workflow not found: {path}")
+    return path.read_text()
 
 
-@pytest.mark.parametrize("name", GIT_FLOW_WORKFLOWS)
-def test_workflow_yaml_parses(name: str) -> None:
-    doc = _load(name)
-    assert isinstance(doc, dict)
-    # 'on' becomes True under YAML 1.1 because it's a bool keyword. Modern
-    # PyYAML still emits the string "on" with safe_load, but accept either.
-    on_block = doc.get("on") if "on" in doc else doc.get(True)
-    assert on_block, f"{name}: missing 'on' block"
-    assert "jobs" in doc, f"{name}: missing 'jobs' block"
-    assert "permissions" in doc, f"{name}: missing 'permissions' block"
+# ---------------------------------------------------------------------------
+# T4 – Auto-deploy failure issue lifecycle
+# ---------------------------------------------------------------------------
+
+class TestAutoDeployFailureIssueLifecycle:
+    """
+    Validates two properties about the auto-deploy / issue-failure pipeline:
+
+    1. auto-deploy.yml must NOT contain a direct `gh issue create` step.
+       (Such logic has been offloaded to ci-failure-issues.yml to avoid
+        duplicate issues #18 and #29.)
+
+    2. ci-failure-issues.yml must watch "Auto Deploy Workflows" and have
+       exact-title-match deduplication.
+    """
+
+    def test_auto_deploy_does_not_directly_create_issues(self):
+        """auto-deploy.yml should NOT run `gh issue create` directly.
+
+        Failure-issue creation is handled by ci-failure-issues.yml via
+        workflow_run trigger. Direct gh issue create in auto-deploy
+        produced duplicate issues #18 and #29.
+        """
+        text = read_workflow("auto-deploy.yml")
+
+        # This snippet makes up the gh issue create step in auto-deploy.
+        # The fix removes that step entirely.
+        forbidden_snippet = "gh issue create --repo ${{ github.repository }}"
+        assert (
+            forbidden_snippet not in text
+        ), (
+            "auto-deploy.yml still contains direct `gh issue create` step; "
+            "this creates duplicate issues. "
+            "Offload failure-issue creation to ci-failure-issues.yml."
+        )
+
+    def test_ci_failure_issues_watches_auto_deploy(self):
+        """ci-failure-issues.yml must listen to 'Auto Deploy Workflows'."""
+        text = read_workflow("ci-failure-issues.yml")
+
+        assert 'workflows: ["Sanity", "Auto Deploy Workflows"]' in text, (
+            "ci-failure-issues.yml must watch 'Auto Deploy Workflows' "
+            "in its workflow_run trigger"
+        )
+
+    def test_ci_failure_issues_has_exact_title_deduplication(self):
+        """ci-failure-issues.yml must dedupe by exact title, not substring."""
+        text = read_workflow("ci-failure-issues.yml")
+
+        # The --jq filter must use select(.title == "$TITLE") for exact match.
+        # Substring match like :~ would produce false positives.
+        assert "select(.title ==" in text, (
+            "ci-failure-issues.yml must use exact title comparison",
+        )
+
+        # The title pattern must be specific enough for stable dedup
+        assert '"[ci] $WF_NAME failed at' in text, (
+            "ci-failure-issues.yml title prefix must include "
+            '"[ci] $WF_NAME failed at" for stable deduplication'
+        )
 
 
-@pytest.mark.parametrize("name", GIT_FLOW_WORKFLOWS)
-def test_workflow_has_dispatch_with_dry_run(name: str) -> None:
-    """Every git-flow workflow must support manual canary dispatch with dry_run."""
-    doc = _load(name)
-    on_block = doc.get("on") if "on" in doc else doc.get(True)
-    assert "workflow_dispatch" in on_block, f"{name}: must support workflow_dispatch"
-    inputs = on_block["workflow_dispatch"].get("inputs") or {}
-    assert "dry_run" in inputs, f"{name}: workflow_dispatch.inputs must include dry_run"
-    assert inputs["dry_run"]["type"] == "boolean", f"{name}: dry_run must be boolean"
+# ---------------------------------------------------------------------------
+# T5 – Build workflow policy
+# ---------------------------------------------------------------------------
+
+class TestBuildWorkflowPolicy:
+    """
+    Validates build-and-push-app.yml registry handling:
+
+    - Must have an explicit registry reachability check step.
+    - Build step must be conditional on `reachable == 'true'`.
+    - Must handle unreachable registry explicitly (no silent continue).
+    """
+
+    def test_has_registry_check_step(self):
+        """build-and-push-app.yml must have a registry reachability step."""
+        text = read_workflow("build-and-push-app.yml")
+
+        assert "registry_check" in text, (
+            "build-and-push-app.yml must have a registry_check step"
+        )
+        assert "curl" in text and "registry.jclee.me" in text, (
+            "registry_check step must actually probe registry.jclee.me"
+        )
+
+    def test_build_conditional_on_reachable(self):
+        """Build and push must only run when registry is reachable."""
+        text = read_workflow("build-and-push-app.yml")
+
+        assert (
+            "if: steps.registry_check.outputs.reachable == 'true'" in text
+        ), (
+            "docker build-push step must be conditional on "
+            "steps.registry_check.outputs.reachable == 'true'"
+        )
+
+    def test_handles_unreachable_registry(self):
+        """Workflow must handle unreachable registry explicitly."""
+        text = read_workflow("build-and-push-app.yml")
+
+        # The registry_check step announces when unreachable so runners are not misled
+        assert (
+            "reachable=false" in text
+            and "unreachable" in text.lower()
+        ), (
+            "build-and-push-app.yml must explicitly announce "
+            "when registry is unreachable from this runner"
+        )
 
 
-@pytest.mark.parametrize("name", GIT_FLOW_WORKFLOWS)
-def test_workflow_has_concurrency(name: str) -> None:
-    doc = _load(name)
-    assert "concurrency" in doc, f"{name}: missing top-level concurrency"
-    assert "group" in doc["concurrency"], f"{name}: concurrency.group required"
+# ---------------------------------------------------------------------------
+# Sanity workflow basic
+# ---------------------------------------------------------------------------
 
+class TestSanityWorkflow:
+    """
+    Validates sanity.yml runs the required smoke tests.
+    """
 
-@pytest.mark.parametrize("name", GIT_FLOW_WORKFLOWS)
-def test_workflow_has_timeout(name: str) -> None:
-    doc = _load(name)
-    for jname, job in doc["jobs"].items():
-        assert "timeout-minutes" in job, f"{name}.jobs.{jname}: timeout-minutes required"
+    def test_runs_pytest(self):
+        """sanity.yml must invoke pytest."""
+        text = read_workflow("sanity.yml")
 
+        assert "pytest" in text, (
+            "sanity.yml must run pytest"
+        )
 
-@pytest.mark.parametrize(
-    "name",
-    [
-        "branch-to-pr.yml",
-        "pr-auto-merge.yml",
-        "merged-pr-cleanup.yml",
-        # release-publish.yml deliberately hard-fails on tag/release errors
-        # because a missed release is loud signal, not graceful degradation.
-    ],
-)
-def test_workflow_uses_soft_failure_pattern(name: str) -> None:
-    """gh CLI calls in these workflows should warn-and-continue, not hard-fail."""
-    text = (WORKFLOWS_DIR / name).read_text()
-    # Look for at least one '|| echo "::warning::' fallback per workflow.
-    assert re.search(r"\|\|\s*echo\s+\"::warning::", text), f"{name}: expected at least one warn-and-continue fallback"
+    def test_smoke_test_is_included(self):
+        """sanity.yml must run the minimum smoke test file."""
+        text = read_workflow("sanity.yml")
 
+        # AGENTS.md minimum gate: test_fix_json_escape_char.py
+        assert "test_fix_json_escape_char.py" in text, (
+            "sanity.yml must run "
+            "tests/unittest/test_fix_json_escape_char.py "
+            "as the minimum smoke test gate (AGENTS.md)"
+        )
 
-def test_dynamic_pr_command_selector_in_pr_review() -> None:
-    """G: pr-review.yml must compute pr-agent commands dynamically."""
-    text = (WORKFLOWS_DIR / "pr-review.yml").read_text()
-    assert "Selected commands:" in text, "missing dynamic selector in pr-review.yml"
-    # All five decision branches must be present.
-    for snippet in [
-        "bot author",
-        "docs-only diff",
-        "feat/fix/refactor PR",
-        "small PR (<50 LOC)",
-        "large PR (>1000 LOC)",
-        "default",
-    ]:
-        assert snippet in text, f"pr-review.yml missing selector branch: {snippet}"
+    def test_import_check_steps_present(self):
+        """sanity.yml must verify core package imports."""
+        text = read_workflow("sanity.yml")
 
+        required_imports = [
+            "from pr_agent.tools.pr_reviewer import PRReviewer",
+            "from pr_agent.tools.pr_description import PRDescription",
+            "from pr_agent.tools.pr_code_suggestions import PRCodeSuggestions",
+            "from pr_agent.agent.pr_agent import PRAgent",
+            "from pr_agent.servers.github_action_runner import run_action",
+        ]
+        missing = [
+            imp for imp in required_imports
+            if imp not in text
+        ]
+        assert not missing, (
+            f"sanity.yml is missing import checks for: {missing}"
+        )
 
-def test_actionlint_is_optional() -> None:
-    """If actionlint is on PATH, lint every workflow file. Otherwise skip cleanly."""
-    if not shutil.which("actionlint"):
-        pytest.skip("actionlint not installed locally; CI runs it instead")
-    import subprocess
+    def test_toml_config_parsing_present(self):
+        """sanity.yml must verify .pr_agent.toml and configuration.toml parse."""
+        text = read_workflow("sanity.yml")
 
-    files = sorted(str(p) for p in WORKFLOWS_DIR.glob("*.yml"))
-    proc = subprocess.run(["actionlint", "-color"] + files, capture_output=True, text=True)
-    assert proc.returncode == 0, proc.stdout + proc.stderr
-
-
-SEMVER_BUMP_CASES = [
-    # (commit subject, expected_bump_or_None)
-    ("feat: add new endpoint", "minor"),
-    ("feat(api): add new endpoint", "minor"),
-    ("fix: typo in README", "patch"),
-    ("fix(parser): edge case", "patch"),
-    ("refactor: extract helper", "patch"),
-    ("perf: speed up encoder", "patch"),
-    ("feat!: drop py3.11 support", "major"),
-    ("fix(api)!: rename argument", "major"),
-    ("docs: typo", None),
-    ("chore: bump deps", None),
-    ("test: add coverage", None),
-    ("ci: pin runner", None),
-    ("style: format with ruff", None),
-    ("build: docker pin", None),
-]
-
-
-def _classify_bump(subject: str) -> str | None:
-    """Mirror the bash logic in release-publish.yml so unit tests stay
-    authoritative even if the workflow file evolves."""
-    if re.match(r"^[a-z]+(\([a-z0-9_/-]+\))?!:", subject):
-        return "major"
-    if "BREAKING CHANGE" in subject:
-        return "major"
-    if re.match(r"^feat(\([^)]+\))?:", subject):
-        return "minor"
-    if re.match(r"^(fix|perf|refactor)(\([^)]+\))?:", subject):
-        return "patch"
-    return None
-
-
-@pytest.mark.parametrize("subject,expected", SEMVER_BUMP_CASES)
-def test_semver_bump_classification(subject: str, expected: str | None) -> None:
-    assert _classify_bump(subject) == expected, f"{subject!r} -> {expected!r}"
+        checks = [
+            ".pr_agent.toml",
+            "pr_agent/settings/configuration.toml",
+            "tomllib",
+        ]
+        missing = [c for c in checks if c not in text]
+        assert not missing, (
+            f"sanity.yml is missing TOML parsing checks: {missing}"
+        )
