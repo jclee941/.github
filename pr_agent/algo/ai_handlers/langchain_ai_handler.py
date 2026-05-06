@@ -1,14 +1,3 @@
-_LANGCHAIN_INSTALLED = False
-
-try:
-    from langchain_core.messages import HumanMessage, SystemMessage
-    from langchain_openai import AzureChatOpenAI, ChatOpenAI
-    _LANGCHAIN_INSTALLED = True
-except:  # we don't enforce langchain as a dependency, so if it's not installed, just move on
-    pass
-
-import functools
-
 import openai
 from langchain_core.runnables import Runnable
 from tenacity import retry, retry_if_exception_type, retry_if_not_exception_type, stop_after_attempt
@@ -16,6 +5,15 @@ from tenacity import retry, retry_if_exception_type, retry_if_not_exception_type
 from pr_agent.algo.ai_handlers.base_ai_handler import BaseAiHandler
 from pr_agent.config_loader import get_settings
 from pr_agent.log import get_logger
+
+_LANGCHAIN_INSTALLED = False
+try:
+    from langchain_core.messages import HumanMessage, SystemMessage
+    from langchain_openai import AzureChatOpenAI, ChatOpenAI
+
+    _LANGCHAIN_INSTALLED = True
+except ImportError:  # we don't enforce langchain as a dependency, so if it's not installed, just move on
+    pass
 
 OPENAI_RETRIES = 5
 
@@ -26,7 +24,7 @@ class LangChainOpenAIHandler(BaseAiHandler):
             error_msg = "LangChain is not installed. Please install it with `pip install langchain`."
             get_logger().error(error_msg)
             raise ImportError(error_msg)
-        
+
         super().__init__()
         self.azure = get_settings().get("OPENAI.API_TYPE", "").lower() == "azure"
 
@@ -53,13 +51,10 @@ class LangChainOpenAIHandler(BaseAiHandler):
                 if openai_api_base is None or len(openai_api_base) == 0:
                     return ChatOpenAI(openai_api_key=get_settings().openai.key)
                 else:
-                    return ChatOpenAI(
-                        openai_api_key=get_settings().openai.key, 
-                        openai_api_base=openai_api_base
-                    )
+                    return ChatOpenAI(openai_api_key=get_settings().openai.key, openai_api_base=openai_api_base)
         except AttributeError as e:
             # Handle configuration errors
-            error_msg = f"OpenAI {e.name} is required" if getattr(e, "name") else str(e)
+            error_msg = f"OpenAI {e.name} is required" if e.name else str(e)
             get_logger().error(error_msg)
             raise ValueError(error_msg) from e
 
@@ -69,11 +64,13 @@ class LangChainOpenAIHandler(BaseAiHandler):
     )
     async def chat_completion(self, model: str, system: str, user: str, temperature: float = 0.2, img_path: str = None):
         if img_path:
-            get_logger().warning(f"Image path is not supported for LangChainOpenAIHandler. Ignoring image path: {img_path}")
+            get_logger().warning(
+                f"Image path is not supported for LangChainOpenAIHandler. Ignoring image path: {img_path}"
+            )
         try:
             messages = [SystemMessage(content=system), HumanMessage(content=user)]
             llm = await self._create_chat_async(deployment_id=self.deployment_id)
-            
+
             if not isinstance(llm, Runnable):
                 error_message = (
                     f"The Langchain LLM object ({type(llm)}) does not implement the Runnable interface. "
@@ -87,11 +84,7 @@ class LangChainOpenAIHandler(BaseAiHandler):
             # Handle parameters based on LLM type
             if isinstance(llm, (ChatOpenAI, AzureChatOpenAI)):
                 # OpenAI models support all parameters
-                resp = await llm.ainvoke(
-                    input=messages,
-                    model=model,
-                    temperature=temperature
-                )
+                resp = await llm.ainvoke(input=messages, model=model, temperature=temperature)
             else:
                 # Other LLMs (like Gemini) only support input parameter
                 get_logger().info(f"Using simplified ainvoke for {type(llm)}")

@@ -87,7 +87,11 @@ class PRAgent:
                         current_extra_instructions = setting.extra_instructions
 
                         # Define the language-specific instruction and the separator
-                        lang_instruction_text = f"Your response MUST be written in the language corresponding to locale code: '{response_language}'. This is crucial."
+                        lang_instruction_text = (
+                            f"Your response MUST be written in the language"
+                            f" corresponding to locale code: '{response_language}'."
+                            " This is crucial."
+                        )
                         separator_text = "\n======\n\nIn addition, "
 
                         # Check if the specific language instruction is already present to avoid duplication
@@ -124,6 +128,6 @@ class PRAgent:
     async def handle_request(self, pr_url, request, notify=None) -> bool:
         try:
             return await self._handle_request(pr_url, request, notify)
-        except:
+        except Exception:
             get_logger().exception("Failed to process the command.")
             return False
