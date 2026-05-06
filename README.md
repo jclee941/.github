@@ -30,13 +30,13 @@
 `jclee-bot` is a hard fork of [PR-Agent](https://github.com/qodo-ai/pr-agent) wired to run entirely inside the jclee941 homelab as a **GitHub App**:
 
 - **LLM backend**: [`router-for-me/CLIProxyAPI`](https://github.com/router-for-me/CLIProxyAPI) on LXC 100 (`192.168.50.114:8317`), wrapping Claude Code CLI / Codex CLI / Gemini CLI as an OpenAI-compatible API
-- **Deployment**: GitHub App `jclee-bot` (ID: 3540327) running on LXC 100 via Cloudflare Tunnel
+- **Deployment**: GitHub App `jclee-bot` (ID: 3540327) running on LXC 114 via Cloudflare Tunnel
 - **Default model**: `kimi-k2.6` (via cli_proxy), fallback `kimi-k2.5`, `minimax-m2.7`
 - **Scope**: Private — for `jclee941/*` repositories only
 - **Webhook**: `https://bot.jclee.me/api/v1/github_webhooks`
-- **Response language**: Korean (`ko`)
+- **Response language**: Korean (`ko`) — bot review output in Korean; PR/issue templates are bilingual (Korean + English)
 
-No data leaves the homelab LAN. PR reviews go straight from GitHub webhook → Cloudflare Tunnel → LXC 100 → internal cli_proxy → back to GitHub.
+No data leaves the homelab LAN. PR reviews go straight from GitHub webhook → Cloudflare Tunnel → LXC 114 (github-bot-app) → LXC 100 (cli_proxy) → back to GitHub.
 
 ---
 
@@ -75,7 +75,14 @@ flowchart TB
         CF["Cloudflare Tunnel<br/>(bot.jclee.me)"]
     end
 
-    subgraph 홈랩["🏠 홈랩 LXC 100"]
+    subgraph 홈랩_LXC114["🏠 홈랩 LXC 114"]
+        WEB["github-bot-app<br/>(localhost:3001)"]
+    end
+
+    subgraph 홈랩_LXC100["🏠 홈랩 LXC 100"]
+        PROXY["CLIProxyAPI<br/>(localhost:8317)"]
+        LLM["Claude / Codex / Gemini<br/>CLI"]
+    end
         WEB["github-bot-app<br/>(localhost:3001)"]
         PROXY["CLIProxyAPI<br/>(localhost:8317)"]
         LLM["Claude / Codex / Gemini<br/>CLI"]
@@ -121,7 +128,7 @@ flowchart LR
 
 ### Downstream Deploy
 
-Push to `master` on `.github` repo triggers `auto-deploy.yml`, which propagates workflow updates to **11 downstream repos** via `scripts/cmd/deploy-to-repos/main.go`.
+Push to `master` on `.github` repo triggers `auto-deploy.yml`, which propagates workflow updates to **11 downstream public repos** (excludes `pr-agent` fork) via `scripts/cmd/deploy-to-repos/main.go`.
 
 See [docs/architecture.md](docs/architecture.md) for the complete workflow trigger map, issue lifecycle, security review flow, and release automation diagrams.
 
@@ -150,7 +157,7 @@ The bot will respond via the GitHub App installation.
 
 ### 3. Review Templates
 
-Structured Korean-language review templates:
+Structured Korean-language review output (PR/issue templates are bilingual):
 
 | Template | File | Purpose |
 |----------|------|---------|

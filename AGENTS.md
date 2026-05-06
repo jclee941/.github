@@ -1,11 +1,11 @@
 # github-bot — PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-04-14
+**Generated:** 2026-05-07
 **Upstream base:** qodo-ai/pr-agent @ `d82f7d3e`
 
 ## OVERVIEW
 
-AI-powered PR reviewer for `jclee941/*` private repos. Hard fork of [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent) (AGPL-3.0), rewired to use the homelab `CLIProxyAPI` at `192.168.50.114:8317` as the LLM backend. Workflows run on GitHub-hosted `ubuntu-latest` runners (the homelab is reached over the public internet via `https://cliproxy.jclee.me/v1`).
+AI-powered PR reviewer for `jclee941/*` repos. Hard fork of [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent) (AGPL-3.0), rewired to use the homelab `CLIProxyAPI` at `192.168.50.114:8317` as the LLM backend. Workflows run on GitHub-hosted `ubuntu-latest` runners (the homelab is reached over the public internet via `https://cliproxy.jclee.me/v1`).
 
 All upstream pr-agent features are preserved: `/review`, `/improve`, `/describe`, `/ask`, `/update_changelog`, PR compression, dynamic context, multi-model fallback, slash commands.
 
@@ -23,7 +23,7 @@ All upstream pr-agent features are preserved: `/review`, `/improve`, `/describe`
 | `.github/workflows/actionlint.yml` | **NEW** | GitHub Actions YAML semantic linter |
 | `.github/workflows/auto-hardcode-scan.yml` | **NEW** | Weekly hardcode-pattern scan on `ubuntu-latest` (was self-hosted) |
 | `.github/CODEOWNERS` | **NEW** | Auto-reviewer assignment |
-| `.github/PULL_REQUEST_TEMPLATE.md` | **NEW** | Standard PR template (Korean) |
+| `.github/PULL_REQUEST_TEMPLATE.md` | **NEW** | Bilingual PR template (Korean + English) |
 | `docs/git-workflow-gap-analysis.md` | **NEW** | Workflow automation gap analysis report |
 | `.github/ISSUE_TEMPLATE/` | **NEW** | Bug / Feature / Security issue templates (replaces upstream) |
 | `CONTRIBUTING.md` | **NEW** | Fork-specific contributor guide (replaces upstream) |
@@ -86,9 +86,20 @@ github-bot/
 ├── .github/workflows/
 │   ├── pr-review.yml              # FORK: ubuntu-latest + cli_proxy (kimi-k2.6)
 │   ├── security/pr-review.yml     # FORK: deep security review (Korean, label-gated)
-│   └── sanity.yml                 # FORK: CI gate (replaces upstream CI)
+│   ├── sanity.yml                 # FORK: CI gate (replaces upstream CI)
+│   ├── pr-checks.yml              # PR validation (size, title, branch, description)
+│   ├── gitleaks.yml               # Secret scanning
+│   ├── codeql.yml                 # Python SAST
+│   ├── actionlint.yml             # Workflow YAML linter
+│   ├── dependabot-auto-merge.yml  # Auto-merge patch/minor updates
+│   ├── auto-deploy.yml            # Deploy workflows to downstream repos
+│   └── ...                        # 17 more workflows (see .github/workflows/)
 ├── scripts/
-│   └── deploy-to-repos.go        # FORK: deploy workflow to jclee941/* repos
+│   └── cmd/                        # Module-restructured Go scripts
+│       ├── branch-protection/main.go
+│       ├── deploy-to-repos/main.go
+│       ├── sync-secrets/main.go
+│       └── repo-review/main.go
 ├── github_action/
 │   └── entrypoint.sh             # Docker entrypoint for GitHub Action
 ├── .pr_agent.toml                 # FORK: cli_proxy config + existing pr-agent overrides
@@ -99,7 +110,7 @@ github-bot/
 ├── AGENTS.md                      # THIS FILE
 ├── README.md                      # fork-specific readme
 ├── docs/
-│   ├── review-templates/              # FORK: review templates (Korean)
+│   ├── review-templates/              # FORK: review templates (Korean output, bilingual PR template)
 │   │   ├── code-review-template.md      # Master review format and priorities
 │   │   ├── documentation-checklist.md   # Documentation review checklist
 │   │   └── security-review-template.md  # Security-focused review checklist
@@ -122,15 +133,15 @@ github-bot/
 | Hardcode pattern scan | `.github/workflows/auto-hardcode-scan.yml` | Weekly cron + manual dispatch on `ubuntu-latest`, 15-minute timeout |
 | Slash command handling | `pr_agent/servers/github_app.py`, `github_action_runner.py` | |
 | Add a git provider | `pr_agent/git_providers/` | implement base class |
-| Deploy to another repo | `scripts/cmd/deploy-to-repos/main.go` | Automates workflow + dependabot config sync to 11 downstream public repos (excludes `.github` source) |
+| Deploy to another repo | `scripts/cmd/deploy-to-repos/main.go` | Automates workflow + dependabot config sync to 11 downstream public repos (excludes `.github` source and `pr-agent` fork) |
 | Apply branch protection | `scripts/cmd/branch-protection/main.go` | Enables auto-merge + safe protection on default branches of 12 public repos (includes `.github`) |
 | Dependabot auto-merge config | `.github/workflows/dependabot-auto-merge.yml` | Auto-approves + merges patch/minor + github-actions PRs; majors flagged for review |
 | Dependabot updates schedule | `.github/dependabot.yml` | Weekly `github-actions` + `pip` ecosystem PRs |
 || Upstream sync | `git fetch upstream && git merge upstream/main` | resolve conflicts in configuration.toml, .pr_agent.toml |
-| Edit review templates | `docs/review-templates/` | Korean-language review templates (code, docs, security) |
+| Edit review templates | `docs/review-templates/` | Review output in Korean. PR/issue templates are bilingual (Korean + English) |
 | View architecture diagrams | `docs/architecture.md` | Mermaid-based system & automation flow diagrams |
 | View gap analysis | `docs/git-workflow-gap-analysis.md` | Workflow automation gap analysis (20 gaps, P0-P2) |
-| Batch repo review | `scripts/repo_review.py` | Python helper for repo-review-batch workflow |
+| Batch repo review | `scripts/repo_review.py`, `scripts/cmd/repo-review/main.go` | Python helper / Go CLI for repo-review-batch workflow |
 | Configure documentation review | `.pr_agent.toml` `[pr_reviewer].extra_instructions` | Documentation checklist embedded in instructions |
 
 ## GIT FLOW AUTOMATION
@@ -156,11 +167,11 @@ github-bot/
 | `terraform` | public | master | ✅ fully automated | |
 | `tmux` | public | master | ✅ fully automated | |
 | `pr-agent` | public (fork) | main | ⚠️ excluded by design | upstream fork; carries qodo-ai/pr-agent workflows that must not be overwritten. Sync via `git fetch upstream && git merge upstream/main`. |
-| `hycu` | private | master | 🟡 partial (Dependabot only) | personal-account private repo on GitHub Free — has `.github/dependabot.yml` + `.github/workflows/dependabot-auto-merge.yml`, but `allow_auto_merge` and required-checks branch protection require GitHub Pro. Dependabot PRs auto-approve but await manual merge. |
-| `youtube` | private | master | 🟡 partial (Dependabot only) | same as `hycu`. Dependabot covers github-actions, npm, pip, gomod, docker. |
-| `propose` | private | master | 🟡 partial (Dependabot only) | same as `hycu`. Dependabot covers github-actions, npm. |
+| `hycu` | private | master | ✅ fully automated (GitHub Pro) | Previously limited by GitHub Free. Upgraded to Pro 2026-05-07. Now has full automation: branch protection, auto-merge, bot review. |
+| `youtube` | private | master | ✅ fully automated (GitHub Pro) | Previously limited by GitHub Free. Upgraded to Pro 2026-05-07. Now has full automation: branch protection, auto-merge, bot review. |
+| `propose` | private | master | ✅ fully automated (GitHub Pro) | Previously limited by GitHub Free. Upgraded to Pro 2026-05-07. Now has full automation: branch protection, auto-merge, bot review. |
 
-**Scope**: 12 public repos receive the full automation stack (auto-merge, branch protection, Dependabot, auto-review). The 3 private repos receive the platform-independent subset (Dependabot config + auto-merge approval workflow); branch protection and auto-merge button require GitHub Pro. The `pr-agent` fork has its own fork-local Dependabot setup.
+**Scope**: 16 repos (12 public + 3 private + 1 source) receive the full automation stack. The 3 private repos were upgraded to GitHub Pro on 2026-05-07 and now have complete automation (auto-merge, branch protection, Dependabot, auto-review). The `pr-agent` fork is excluded by design. |
 
 
 ### Per-repo automation guarantees
@@ -183,7 +194,7 @@ github-bot/
 # 1. Edit a workflow in .github/workflows/, or .github/dependabot.yml,
 #    or .github/CODEOWNERS, or .github/PULL_REQUEST_TEMPLATE.md, or scripts/cmd/deploy-to-repos/main.go
 # 2. Commit + push to master
-# 3. auto-deploy.yml runs deploy-to-repos.go on a GitHub-hosted ubuntu-latest runner
+# 3. auto-deploy.yml runs deploy-to-repos.go (→ scripts/cmd/deploy-to-repos/main.go) on a GitHub-hosted ubuntu-latest runner
 #    → opens/updates PR "chore: standardize automation workflows + dependabot config"
 #    in each downstream repo (force-push branch via --force-with-lease)
 # 4. Each downstream PR auto-merges once its required branch-protection contexts pass (Title + Branch [+ Gitleaks after Phase 3])
@@ -191,7 +202,7 @@ github-bot/
 # Manual deploy (local dev / CI bypass):
 (cd scripts && go run ./cmd/deploy-to-repos) --dry-run                       # preview all
 (cd scripts && go run ./cmd/deploy-to-repos) --repos=resume                  # canary one
-(cd scripts && go run ./cmd/deploy-to-repos)                                 # apply to all 11 downstream
+(cd scripts && go run ./cmd/deploy-to-repos)                                 # apply to all 11 downstream public repos (excludes pr-agent fork)
 
 # Re-apply branch protection + auto-merge settings:
 (cd scripts && go run ./cmd/branch-protection) --dry-run
@@ -204,7 +215,7 @@ CLIPROXY_API_KEY=$(grep '^CLIPROXY_API_KEY=' .env | cut -d= -f2-) \
 
 ### Why pr-agent is handled separately
 
-`jclee941/pr-agent` is a hard fork of `qodo-ai/pr-agent`. It carries upstream's own workflows (build-and-test.yaml, codeql.yml, release-drafter.yml, etc.) which would be overwritten by the deploy script. The fork is therefore excluded from `deploy-to-repos.go`, but it has its own fork-local `.github/dependabot.yml` (github-actions + pip ecosystems) and `.github/workflows/dependabot-auto-merge.yml` that are maintained directly on a `fork/*` branch. Sync upstream via `git fetch upstream && git merge upstream/main`.
+`jclee941/pr-agent` is a hard fork of `qodo-ai/pr-agent`. It carries upstream's own workflows (build-and-test.yaml, codeql.yml, release-drafter.yml, etc.) which would be overwritten by the deploy script. The fork is therefore excluded from `deploy-to-repos.go` (→ `scripts/cmd/deploy-to-repos/main.go`), but it has its own fork-local `.github/dependabot.yml` (github-actions + pip ecosystems) and `.github/workflows/dependabot-auto-merge.yml` that are maintained directly on a `fork/*` branch. Sync upstream via `git fetch upstream && git merge upstream/main`.
 
 ## PR REVIEW WORKFLOW BEHAVIOR
 
@@ -240,7 +251,7 @@ To check if the bot is actually reviewing PRs:
 | **Auth method** | Bearer token in `Authorization` header |
 | **API format** | OpenAI-compatible: `/v1/chat/completions`, `/v1/completions`, `/v1/models` |
 
-### Available models (24 total as of 2026-04-10)
+### Available models (24 total as of 2026-05-07)
 
 > **Current default**: `kimi-k2.6` with fallbacks `kimi-k2.5`, `minimax-m2.7`.
 > Prefix-less Kimi/Claude/GPT/Codex/Gemini model names are routed through the configured OpenAI-compatible cli_proxy endpoint.
@@ -362,7 +373,7 @@ gh -R "$REPO" secret set CLIPROXY_API_KEY --body "$(cat /home/jclee/.cache/sisyp
 
 ## REVIEW TEMPLATES
 
-> Korean-language review templates for the `jclee-bot` GitHub App.
+> Korean-language review output for the `jclee-bot` GitHub App. PR and issue templates are bilingual (Korean + English).
 Located in `docs/review-templates/` and referenced from `.pr_agent.toml`.
 
 | Template | Purpose | Trigger |
