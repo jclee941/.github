@@ -65,8 +65,10 @@ jobs:
         env:
           OPENAI.KEY: ${{ secrets.CLIPROXY_API_KEY }}
           OPENAI.API_BASE: https://cliproxy.jclee.me/v1
-          CONFIG.MODEL: kimi-k2-thinking
-          CONFIG.FALLBACK_MODELS: '["kimi-k2.6", "claude-opus-4-7"]'
+          OPENAI_API_KEY: ${{ secrets.CLIPROXY_API_KEY }}
+          LITELLM_LOCAL_MODEL_COST_MAP: "True"
+          CONFIG.MODEL: gpt-5.5
+          CONFIG.FALLBACK_MODELS: '["minimax-m2.7"]'
           CONFIG.RESPONSE_LANGUAGE: ko
           CONFIG.AI_TIMEOUT: '300'
           CONFIG.CUSTOM_MODEL_MAX_TOKENS: "128000"
