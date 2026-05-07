@@ -33,7 +33,14 @@ JsonObject = dict[str, object]
 
 
 class GithubMutationPatch(Protocol):
-    def __call__(self, github_client: requests.Session, repo: str, url: str, *, json: JsonObject) -> requests.Response: ...
+    def __call__(
+        self,
+        github_client: requests.Session,
+        repo: str,
+        url: str,
+        *,
+        json: JsonObject,
+    ) -> requests.Response: ...
 
 
 class GithubMutationDelete(Protocol):
@@ -161,7 +168,10 @@ def test_deploy_creates_pr_in_canary_repo(
 
         changed_files = _pr_changed_files(canary_public_repo, pr_number, github_client)
         missing = EXPECTED_DEPLOYED_FILES - changed_files
-        assert not missing, f"{canary_public_repo}#{pr_number}: missing expected files {sorted(missing)}; got {sorted(changed_files)}"
+        assert not missing, (
+            f"{canary_public_repo}#{pr_number}: missing expected files "
+            f"{sorted(missing)}; got {sorted(changed_files)}"
+        )
     finally:
         if pr_number is not None:
             _close_deploy_pr(canary_public_repo, pr_number, github_client)

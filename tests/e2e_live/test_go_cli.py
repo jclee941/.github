@@ -9,7 +9,6 @@ from typing import cast
 
 import pytest
 
-
 pytestmark = pytest.mark.readonly
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -119,4 +118,8 @@ def test_repo_review_output(dry_run_env: Mapping[str, str]) -> None:
     result = run_go_cli(["./cmd/repo-review", "--dry-run", "--repos=resume"], dry_run_env)
     combined_output = f"{result.stdout}\n{result.stderr}".lower()
 
-    assert "github_token/gh_token not set" in combined_output or "usage" in combined_output or result.returncode in [0, 1]
+    assert (
+        "github_token/gh_token not set" in combined_output
+        or "usage" in combined_output
+        or result.returncode in [0, 1]
+    )

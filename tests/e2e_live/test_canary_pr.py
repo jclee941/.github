@@ -188,7 +188,12 @@ def _assert_comment_contains(
 
 
 def _close_mutation_pr(repo: str, pr_number: int, github_client: requests.Session) -> None:
-    response = github_mutation_patch(github_client, repo, f"{GITHUB_API_URL}/repos/{repo}/pulls/{pr_number}", json={"state": "closed"})
+    response = github_mutation_patch(
+        github_client,
+        repo,
+        f"{GITHUB_API_URL}/repos/{repo}/pulls/{pr_number}",
+        json={"state": "closed"},
+    )
     if response.status_code == 404:
         return
     _raise_for_response(response, f"close PR {repo}#{pr_number}")
@@ -228,7 +233,12 @@ def _wait_for_oversized_issue(
 
 
 def _close_mutation_issue(repo: str, issue_number: int, github_client: requests.Session) -> None:
-    response = github_mutation_patch(github_client, repo, f"{GITHUB_API_URL}/repos/{repo}/issues/{issue_number}", json={"state": "closed"})
+    response = github_mutation_patch(
+        github_client,
+        repo,
+        f"{GITHUB_API_URL}/repos/{repo}/issues/{issue_number}",
+        json={"state": "closed"},
+    )
     if response.status_code == 404:
         return
     _raise_for_response(response, f"close issue {repo}#{issue_number}")

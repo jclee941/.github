@@ -17,7 +17,6 @@ from .conftest import (
     upsert_mutation_file,
 )
 
-
 pytestmark = pytest.mark.private_canary
 
 

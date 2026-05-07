@@ -186,7 +186,11 @@ def test_branch_protection(github_client: requests.Session, repo_inventory: Mapp
         protection = gh_json_object(github_client, f"{GITHUB_API_URL}/repos/{full_repo}/branches/{branch}/protection")
         checks = nested_object(protection, "required_status_checks")
         contexts_value = checks.get("contexts")
-        contexts = {context for context in contexts_value if isinstance(context, str)} if isinstance(contexts_value, list) else set()
+        contexts = (
+            {context for context in contexts_value if isinstance(context, str)}
+            if isinstance(contexts_value, list)
+            else set()
+        )
         app_checks = checks.get("checks")
         if isinstance(app_checks, list):
             for check in app_checks:

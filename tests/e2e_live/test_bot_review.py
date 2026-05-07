@@ -88,7 +88,12 @@ def branch_head_sha(github_client: requests.Session, repo: str, branch: str) -> 
 
 def close_pr(github_client: requests.Session, repo: str, pr_number: int) -> None:
     """Close a canary pull request."""
-    response = github_mutation_patch(github_client, repo, f"{GITHUB_API_URL}/repos/{repo}/pulls/{pr_number}", json={"state": "closed"})
+    response = github_mutation_patch(
+        github_client,
+        repo,
+        f"{GITHUB_API_URL}/repos/{repo}/pulls/{pr_number}",
+        json={"state": "closed"},
+    )
     assert response.status_code < 400, f"Failed to close PR #{pr_number}: {response.status_code}: {response.text[:500]}"
 
 
@@ -227,7 +232,10 @@ def workflow_log_text(github_client: requests.Session, repo: str, run_id: int) -
     response = github_client.get(f"{GITHUB_API_URL}/repos/{repo}/actions/runs/{run_id}/logs")
     if response.status_code in {403, 404, 410}:
         return ""
-    assert response.status_code < 400, f"Failed to download workflow logs: {response.status_code}: {response.text[:500]}"
+    assert response.status_code < 400, (
+        f"Failed to download workflow logs: {response.status_code}: "
+        f"{response.text[:500]}"
+    )
 
     with zipfile.ZipFile(io.BytesIO(response.content)) as log_zip:
         chunks: list[str] = []
@@ -372,7 +380,8 @@ def test_bot_skips_draft_pr(github_client: requests.Session, canary_public_repo:
         assert not bot_comments(repo, pr_number), f"{repo}#{pr_number}: bot commented on draft PR"
 
         runs = recent_pr_review_runs(github_client, repo, branch=draft_branch, limit=3)
-        completed_bad_runs = [run for run in runs if run.get("conclusion") not in {None, "skipped", "neutral", "success"}]
+        good = {None, "skipped", "neutral", "success"}
+        completed_bad_runs = [run for run in runs if run.get("conclusion") not in good]
         assert not completed_bad_runs, f"{repo}#{pr_number}: draft PR review workflow failed: {completed_bad_runs!r}"
     finally:
         if pr_number is not None:
