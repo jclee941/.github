@@ -171,6 +171,44 @@ jobs:
           asyncio.run(_test())
           PY
 
+          # DEBUG: run comprehensive handler debug to isolate streaming failure
+          .venv/bin/python - <<'PY'
+          import asyncio
+          import os
+          import sys
+          import traceback
+          sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+          from pr_agent.config_loader import get_settings
+          from pr_agent.algo.ai_handlers.litellm_ai_handler import LiteLLMAIHandler
+
+          async def debug():
+              print('=== Debug: LiteLLMAIHandler initialization ===')
+              try:
+                  handler = LiteLLMAIHandler()
+                  print(f'handler.api_base = {handler.api_base!r}')
+                  print(f'config.model = {get_settings().config.model!r}')
+                  print(f'config.ai_timeout = {get_settings().config.ai_timeout!r}')
+              except Exception as e:
+                  print(f'Handler init FAILED: {type(e).__name__}: {e}')
+                  traceback.print_exc()
+                  return
+
+              print('\n=== Debug: Handler chat_completion with kimi-k2.6 (streaming) ===')
+              try:
+                  resp, finish_reason = await handler.chat_completion(
+                      model='kimi-k2.6',
+                      system='You are a helpful assistant.',
+                      user='Say hello.',
+                      temperature=0.2,
+                  )
+                  print(f'Handler OK: resp={resp[:100]!r}, finish_reason={finish_reason}')
+              except Exception as e:
+                  print(f'Handler FAILED: {type(e).__name__}: {e}')
+                  traceback.print_exc()
+
+          asyncio.run(debug())
+          PY
+
           # Dynamic command selection, execution, and silent-failure detection
           # are handled by pr_review_runner.py (tested in scripts/pr_review_runner_test.py).
           .venv/bin/python scripts/pr_review_runner.py "$PR_URL"

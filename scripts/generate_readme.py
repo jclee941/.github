@@ -23,8 +23,8 @@ from pathlib import Path
 
 API_BASE = os.environ.get("OPENAI_BASE_URL", "https://cliproxy.jclee.me/v1")
 API_KEY = os.environ.get("CLIPROXY_API_KEY", "")
-MODEL = "kimi-k2.6"
-MAX_TOKENS = 8000
+MODEL = "gpt-4.1-mini"
+MAX_TOKENS = 4000
 
 
 def run_tree(repo_root: Path) -> str:
@@ -42,7 +42,7 @@ def run_tree(repo_root: Path) -> str:
             if f.startswith(".") or f.endswith((".pyc", ".log")):
                 continue
             lines.append(f"{subindent}{f}")
-    return "\n".join(lines[:200])  # cap size
+    return "\n".join(lines[:100])  # cap size
 
 
 def read_key_files(repo_root: Path) -> dict[str, str]:
@@ -64,7 +64,7 @@ def read_key_files(repo_root: Path) -> dict[str, str]:
         path = repo_root / name
         if path.exists():
             text = path.read_text(encoding="utf-8", errors="ignore")
-            result[name] = text[:4000]  # cap each file
+            result[name] = text[:2000]  # cap each file
     return result
 
 

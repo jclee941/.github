@@ -39,7 +39,9 @@ def sort_files_by_main_languages(languages: Dict, files: list):
     Sort files by their main language, put the files that are in the main language first and the rest files after
     """
     # sort languages by their size
-    languages_sorted_list = [k for k, v in sorted(languages.items(), key=lambda item: item[1], reverse=True)]
+    languages_sorted_list = [k for k, v in sorted(
+        ((k, v) for k, v in languages.items() if isinstance(v, int)),
+        key=lambda item: item[1], reverse=True)]
     # languages_sorted = sorted(languages, key=lambda x: x[1], reverse=True)
     # get all extensions for the languages
     main_extensions = []
