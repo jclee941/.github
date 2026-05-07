@@ -1,0 +1,151 @@
+# Canonical repository inventory for jclee941 automation
+# Single source of truth — all scripts/workflows consume this file
+
+repositories:
+  # Source of truth (this repo)
+  - name: .github
+    visibility: public
+    default_branch: master
+    automation:
+      deploy_workflows: false  # source repo, don't self-deploy
+      branch_protection: true
+      health_check: true
+      auto_merge: true
+
+  # Public repos (12 total including .github)
+  - name: account
+    visibility: public
+    default_branch: master
+    automation:
+      deploy_workflows: true
+      branch_protection: true
+      health_check: true
+      auto_merge: true
+
+  - name: blacklist
+    visibility: public
+    default_branch: master
+    automation:
+      deploy_workflows: true
+      branch_protection: true
+      health_check: true
+      auto_merge: true
+
+  - name: bug
+    visibility: public
+    default_branch: main
+    automation:
+      deploy_workflows: true
+      branch_protection: true
+      health_check: true
+      auto_merge: true
+
+  - name: hycu_fsds
+    visibility: public
+    default_branch: master
+    automation:
+      deploy_workflows: true
+      branch_protection: true
+      health_check: true
+      auto_merge: true
+
+  - name: idle-outpost
+    visibility: public
+    default_branch: main
+    automation:
+      deploy_workflows: true
+      branch_protection: true
+      health_check: true
+      auto_merge: true
+
+  - name: opencode
+    visibility: public
+    default_branch: master
+    automation:
+      deploy_workflows: true
+      branch_protection: true
+      health_check: true
+      auto_merge: true
+
+  - name: resume
+    visibility: public
+    default_branch: master
+    automation:
+      deploy_workflows: true
+      branch_protection: true
+      health_check: true
+      auto_merge: true
+
+  - name: safetywallet
+    visibility: public
+    default_branch: master
+    automation:
+      deploy_workflows: true
+      branch_protection: true
+      health_check: true
+      auto_merge: true
+
+  - name: splunk
+    visibility: public
+    default_branch: master
+    automation:
+      deploy_workflows: true
+      branch_protection: true
+      health_check: true
+      auto_merge: true
+
+  - name: terraform
+    visibility: public
+    default_branch: master
+    automation:
+      deploy_workflows: true
+      branch_protection: true
+      health_check: true
+      auto_merge: true
+
+  - name: tmux
+    visibility: public
+    default_branch: master
+    automation:
+      deploy_workflows: true
+      branch_protection: true
+      health_check: true
+      auto_merge: true
+
+  # Private repos (3)
+  - name: hycu
+    visibility: private
+    default_branch: master
+    automation:
+      deploy_workflows: true
+      branch_protection: true
+      health_check: true
+      auto_merge: true
+
+  - name: youtube
+    visibility: private
+    default_branch: master
+    automation:
+      deploy_workflows: true
+      branch_protection: true
+      health_check: true
+      auto_merge: true
+
+  - name: propose
+    visibility: private
+    default_branch: master
+    automation:
+      deploy_workflows: true
+      branch_protection: true
+      health_check: true
+      auto_merge: true
+
+  # Fork (excluded from deploy but included in protection)
+  - name: pr-agent
+    visibility: public
+    default_branch: main
+    automation:
+      deploy_workflows: false  # upstream fork, don't overwrite
+      branch_protection: false # uses upstream workflows
+      health_check: true
+      auto_merge: false
