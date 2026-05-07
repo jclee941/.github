@@ -102,6 +102,7 @@ jobs:
           PR_REVIEWER.NUM_MAX_FINDINGS: "5"
           PR_REVIEWER.PUBLISH_OUTPUT_NO_SUGGESTIONS: "false"
           GITHUB__USER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # NOTE: Dynaconf maps `GITHUB__USER_TOKEN` (double underscore) to the nested setting
           # `settings.github.user_token` because pr-agent's config_loader uses `envvar_prefix=False`
           # with the standard env_loader. Dot-notation names (e.g. `GITHUB.USER_TOKEN`) are NOT

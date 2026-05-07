@@ -418,7 +418,7 @@ def get_main_pr_language(languages, files) -> str:
         return main_language_str
 
     try:
-        top_language = max(languages, key=languages.get).lower()
+        top_language = max((k for k, v in languages.items() if isinstance(v, (int, float))), key=languages.get).lower()
 
         # validate that the specific commit uses the main language
         extension_list = []
