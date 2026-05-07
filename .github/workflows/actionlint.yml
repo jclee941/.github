@@ -40,6 +40,15 @@ jobs:
           mkdir -p .github
           cat > .github/actionlint.yaml << 'EOF'
           self-hosted-runner:
+            labels:
+              - ".*"
+          EOF
+          ./actionlint -color -config-file .github/actionlint.yaml
+        shell: bash
+        run: |
+          mkdir -p .github
+          cat > .github/actionlint.yaml << 'EOF'
+          self-hosted-runner:
             labels: []
           EOF
           ./actionlint -color
