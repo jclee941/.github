@@ -88,7 +88,6 @@ jobs:
           OPENAI_BASE_URL: https://cliproxy.jclee.me/v1
           LITELLM_LOG: 'DEBUG'
           LITELLM_LOCAL_MODEL_COST_MAP: "True"
-          LITELLM_LOCAL_MODEL_COST_MAP: "True"
           CONFIG.MODEL: kimi-k2.6
           CONFIG.FALLBACK_MODELS: '["minimax-m2.7"]'
           CONFIG.RESPONSE_LANGUAGE: ko
