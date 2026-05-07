@@ -44,4 +44,3 @@ jobs:
           EOF
           ./actionlint -color
         shell: bash
-        shell: bash
