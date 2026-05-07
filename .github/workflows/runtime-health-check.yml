@@ -24,7 +24,7 @@ jobs:
     steps:
       - name: Check bot webhook endpoint
         env:
-          GH_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_TITLE: 🚨 Bot webhook endpoint unreachable
           ENDPOINT: https://bot.jclee.me/api/v1/github_webhooks
         run: |
@@ -74,7 +74,7 @@ jobs:
     steps:
       - name: Check CLIProxyAPI models endpoint
         env:
-          GH_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_TITLE: 🚨 CLIProxyAPI unreachable
           ENDPOINT: https://cliproxy.jclee.me/v1/models
         run: |
@@ -121,7 +121,7 @@ jobs:
     steps:
       - name: Create canary PR and verify bot response
         env:
-          GH_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_TITLE: 🚨 jclee-bot not responding to reviews
           CANARY_REPO: jclee941/automation-e2e-public
           BOT_LOGIN: jclee-bot[bot]
