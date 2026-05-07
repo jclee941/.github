@@ -139,7 +139,8 @@ def _delete_deploy_branch(repo: str, github_client: requests.Session) -> None:
         repo,
         f"{GITHUB_API_URL}/repos/{repo}/git/refs/heads/{DEPLOY_BRANCH}",
     )
-    if response.status_code == 404:
+    if response.status_code in {404, 422}:
+        return
         return
     _raise_for_response(response, f"delete deploy branch {repo}:{DEPLOY_BRANCH}")
 

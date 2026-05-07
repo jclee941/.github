@@ -348,7 +348,8 @@ def delete_mutation_branch(repo: str, branch: str, github_client: requests.Sessi
     """Delete a branch in an allowlisted canary repository."""
     guard_mutation(repo)
     response = github_client.delete(f"{GITHUB_API_URL}/repos/{repo}/git/refs/heads/{branch}")
-    if response.status_code == 404:
+    if response.status_code in {404, 422}:
+        return
         return
     _raise_for_github_error(response)
 
