@@ -393,6 +393,7 @@ func deployRepo(r runner, rootDir, repo, baseBranchOverride string) error {
 	} else if existing != "" {
 		fmt.Fprintf(r.out, "[%s] existing PR %s already tracks %s; skipping PR creation\n", repo, existing, branchName)
 		// Enable auto-merge on existing PR in case it was disabled
+		_ = runLogged(r, workDir, "gh", "pr", "ready", existing)
 		_ = runLogged(r, workDir, "gh", "pr", "merge", existing, "--auto", "--squash")
 		return nil
 	}
