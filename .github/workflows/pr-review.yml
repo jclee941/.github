@@ -130,7 +130,7 @@ jobs:
         run: |
           set -eo pipefail
 
-          # Preflight: confirm dynaconf actually loaded the GitHub token
+          # Preflight: confirm dynaconf actually loaded the GitHub token and OpenAI config
           .venv/bin/python - <<'PY'
           from pr_agent.config_loader import get_settings
           tok = get_settings().get("github.user_token")
@@ -138,6 +138,35 @@ jobs:
               raise SystemExit("ERROR: settings.github.user_token is empty. "
                                "Confirm GITHUB__USER_TOKEN env var is exported.")
           print("preflight ok: github.user_token configured")
+
+          # DEBUG: verify OpenAI settings that litellm will use
+          api_key = get_settings().get("openai.key")
+          api_base = get_settings().get("openai.api_base")
+          print(f"DEBUG: openai.key present={bool(api_key)}, openai.api_base={api_base}")
+          if not api_key:
+              raise SystemExit("ERROR: openai.key is empty. Confirm OPENAI.KEY env var is exported.")
+          if not api_base:
+              raise SystemExit("ERROR: openai.api_base is empty. Confirm OPENAI.API_BASE env var is exported.")
+
+          # DEBUG: test a minimal litellm completion to isolate failure
+          import asyncio
+          import litellm
+          litellm.set_verbose = True
+          async def _test():
+              try:
+                  resp = await litellm.acompletion(
+                      model="openai/kimi-k2.6",
+                      messages=[{"role": "user", "content": "say pong"}],
+                      api_key=api_key,
+                      api_base=api_base,
+                      timeout=30,
+                      max_tokens=10,
+                  )
+                  print(f"DEBUG: litellm test OK: {resp}")
+              except Exception as e:
+                  print(f"DEBUG: litellm test FAILED: {type(e).__name__}: {e}")
+                  raise SystemExit(1)
+          asyncio.run(_test())
           PY
 
           # Dynamic command selection, execution, and silent-failure detection

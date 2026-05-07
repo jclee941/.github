@@ -27,7 +27,7 @@ import (
 	"strings"
 )
 
-// publicRepos covers all jclee941/* public repos that receive the
+// publicRepos covers all jclee941/* repos that receive the
 // shared automation stack and therefore need the cli_proxy API key.
 // Kept in sync with branch-protection.go.
 var publicRepos = []string{
@@ -43,6 +43,9 @@ var publicRepos = []string{
 	"splunk",
 	"terraform",
 	"tmux",
+	"hycu",
+	"youtube",
+	"propose",
 }
 
 // secretsToSync names the env vars to sync. Each must be present in the
