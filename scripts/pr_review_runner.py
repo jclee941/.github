@@ -132,7 +132,7 @@ def decide_commands(meta: PRMeta) -> tuple[list[str], str]:
         return ["describe", "review"], "large PR (>1000 LOC)"
 
     # 6. Default
-        return ["describe", "review", "improve"], "default"
+    return ["describe", "review", "improve"], "default"
 
 
 def run_commands(pr_url: str, commands: list[str], log_path: Path) -> int:
