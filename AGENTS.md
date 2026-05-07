@@ -419,3 +419,11 @@ Review posted as PR comment (markdown tables + code blocks)
 - **Forked by**: `jclee941`
 - **Fork date**: 2026-04-10
 - **This fork**: AGPL-3.0 (inherited), see [LICENSE](LICENSE) and [NOTICE](NOTICE)
+
+## SUB-AGENTS
+
+| Directory | Purpose | Lines |
+|-----------|---------|-------|
+| `pr_agent/AGENTS.md` | Upstream code — read-only guidance | 47 |
+| `scripts/AGENTS.md` | Go automation tools reference | 58 |
+| `tests/e2e_live/AGENTS.md` | Live E2E test suite guide | 50 |
