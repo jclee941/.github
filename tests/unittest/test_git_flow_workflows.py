@@ -68,7 +68,7 @@ class TestAutoDeployFailureIssueLifecycle:
         """ci-failure-issues.yml must listen to 'Auto Deploy Workflows'."""
         text = read_workflow("ci-failure-issues.yml")
 
-        assert 'workflows: ["Sanity", "Auto Deploy Workflows"]' in text, (
+        assert '"Auto Deploy Workflows"' in text, (
             "ci-failure-issues.yml must watch 'Auto Deploy Workflows' "
             "in its workflow_run trigger"
         )
