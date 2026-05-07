@@ -44,5 +44,4 @@ jobs:
           EOF
           ./actionlint -color
         shell: bash
-        run: ./actionlint -color -ignore 'runner-label'
         shell: bash
