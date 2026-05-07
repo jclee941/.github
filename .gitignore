@@ -5,7 +5,7 @@
 .venv/
 venv/
 pr_agent/settings/.secrets.toml
-__pycache__
+__pycache__/
 .pytest_cache/
 .coverage
 dist/
@@ -22,3 +22,4 @@ scripts/branch-protection
 scripts/repo-review
 scripts/sync-secrets
 scripts/deploy-to-repos
+*.pyc
