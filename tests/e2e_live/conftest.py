@@ -350,7 +350,6 @@ def delete_mutation_branch(repo: str, branch: str, github_client: requests.Sessi
     response = github_client.delete(f"{GITHUB_API_URL}/repos/{repo}/git/refs/heads/{branch}")
     if response.status_code in {404, 422}:
         return
-        return
     _raise_for_github_error(response)
 
 

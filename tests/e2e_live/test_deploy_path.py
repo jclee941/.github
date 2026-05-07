@@ -133,6 +133,25 @@ def _close_deploy_pr(repo: str, pr_number: int, github_client: requests.Session)
 
 
 def _delete_deploy_branch(repo: str, github_client: requests.Session) -> None:
+    guard_mutation(repo)
+    # Close any existing deploy PRs first
+    prs = github_client.get(
+        f"{GITHUB_API_URL}/repos/{repo}/pulls",
+        params={"state": "open", "head": f"jclee941:{DEPLOY_BRANCH}", "per_page": 20},
+    ).json()
+    for pr in prs:
+        if isinstance(pr, dict) and DEPLOY_PR_TITLE in str(pr.get("title", "")):
+            pr_number = pr["number"]
+            response = mutation_patch(
+                github_client,
+                repo,
+                f"{GITHUB_API_URL}/repos/{repo}/pulls/{pr_number}",
+                json={"state": "closed"}
+            )
+            if response.status_code in {200, 201}:
+                print(f"Closed stale deploy PR #{pr_number} in {repo}")
+            elif response.status_code != 404:
+                print(f"Warning: failed to close stale deploy PR #{pr_number} in {repo}: {response.status_code}")
     # Close any existing deploy PRs first
     prs = github_client.get(
         f"{GITHUB_API_URL}/repos/{repo}/pulls",
@@ -177,7 +196,6 @@ def test_deploy_creates_pr_in_canary_repo(
         if "skipping PR creation" in result.stdout:
             pytest.skip(f"{canary_public_repo}: deploy skipped PR creation — files already up to date")
 
-        pr = _wait_for_deploy_pr(canary_public_repo, github_client)
         pr = _wait_for_deploy_pr(canary_public_repo, github_client)
         number = pr.get("number")
         assert isinstance(number, int), f"Malformed deploy PR payload without number: {pr!r}"

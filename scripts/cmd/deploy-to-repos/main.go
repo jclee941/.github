@@ -371,7 +371,11 @@ func deployRepo(r runner, rootDir, repo, baseBranchOverride string) error {
 	if err := runLogged(r, workDir, "git", "commit", "-m", prTitle); err != nil {
 		return fmt.Errorf("git commit for %s: %w", repo, err)
 	}
-	remoteURL := fmt.Sprintf("https://x-access-token:%s@github.com/jclee941/%s.git", os.Getenv("GITHUB_TOKEN"), repo)
+	// Configure gh as git credential helper so GH_TOKEN is used without embedding in URL
+	if err := runLogged(r, workDir, "gh", "auth", "setup-git"); err != nil {
+		return fmt.Errorf("gh auth setup-git for %s: %w", repo, err)
+	}
+	remoteURL := fmt.Sprintf("https://github.com/jclee941/%s.git", repo)
 	if err := runLogged(r, workDir, "git", "remote", "set-url", "origin", remoteURL); err != nil {
 		return fmt.Errorf("git remote set-url for %s: %w", repo, err)
 	}
@@ -393,8 +397,12 @@ func deployRepo(r runner, rootDir, repo, baseBranchOverride string) error {
 	} else if existing != "" {
 		fmt.Fprintf(r.out, "[%s] existing PR %s already tracks %s; skipping PR creation\n", repo, existing, branchName)
 		// Enable auto-merge on existing PR in case it was disabled
-		_ = runLogged(r, workDir, "gh", "pr", "ready", existing)
-		_ = runLogged(r, workDir, "gh", "pr", "merge", existing, "--auto", "--squash")
+		if err := runLogged(r, workDir, "gh", "pr", "ready", existing); err != nil {
+			fmt.Fprintf(r.out, "[%s] warning: failed to mark PR %s as ready: %v\n", repo, existing, err)
+		}
+		if err := runLogged(r, workDir, "gh", "pr", "merge", existing, "--auto", "--squash"); err != nil {
+			return fmt.Errorf("enable auto-merge on existing PR %s for %s: %w", existing, repo, err)
+		}
 		return nil
 	}
 	if err := runLogged(r, workDir, "gh", "pr", "create", "--base", baseBranch, "--head", branchName, "--title", prTitle, "--body", prBody); err != nil {
@@ -403,7 +411,9 @@ func deployRepo(r runner, rootDir, repo, baseBranchOverride string) error {
 	// Enable auto-merge on newly created PR
 	prNum, _ := existingPullRequest(workDir, branchName)
 	if prNum != "" {
-		_ = runLogged(r, workDir, "gh", "pr", "merge", prNum, "--auto", "--squash")
+		if err := runLogged(r, workDir, "gh", "pr", "merge", prNum, "--auto", "--squash"); err != nil {
+			return fmt.Errorf("enable auto-merge on new PR %s for %s: %w", prNum, repo, err)
+		}
 	}
 
 	return nil
