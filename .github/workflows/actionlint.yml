@@ -36,5 +36,13 @@ jobs:
         shell: bash
 
       - name: Run actionlint
+        run: |
+          mkdir -p .github
+          cat > .github/actionlint.yaml << 'EOF'
+          self-hosted-runner:
+            labels: []
+          EOF
+          ./actionlint -color
+        shell: bash
         run: ./actionlint -color -ignore 'runner-label'
         shell: bash
