@@ -36,5 +36,6 @@ jobs:
         shell: bash
 
       - name: Run actionlint
+        run: ./actionlint -color -ignore 'runner-label'
         run: ./actionlint -color
         shell: bash
