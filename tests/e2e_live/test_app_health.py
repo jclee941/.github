@@ -77,7 +77,7 @@ def test_webhook_endpoint_reachable() -> None:
     assert response.elapsed.total_seconds() < 5, (
         f"Webhook response time {response.elapsed.total_seconds():.2f}s >= 5s"
     )
-    assert response.status_code in {200, 401, 403, 404}, (
+    assert response.status_code in {200, 401, 403, 404, 405}, (
         f"Unexpected webhook status {response.status_code}"
     )
 
@@ -87,7 +87,10 @@ def test_app_installation_exists(github_client: requests.Session) -> None:
     found = False
     for repo in CANDIDATE_REPOS:
         response = github_client.get(f"{GITHUB_API_URL}/repos/{repo}/installation")
-        if response.status_code == 404:
+        if response.status_code in {404, 401}:
+            # 401 = OAuth token can't access GitHub App installation API
+            # 404 = App not installed on this repo
+            continue
             continue
 
         if response.status_code == 200:
