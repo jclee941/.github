@@ -14,26 +14,6 @@ permissions:
   contents: read
   issues: write
 
-env:
-  # 12 public + 3 private + .github source = 16 total
-  # Excludes pr-agent fork (managed separately via upstream sync)
-  REPOS: >
-    .github
-    account
-    blacklist
-    bug
-    hycu_fsds
-    idle-outpost
-    opencode
-    resume
-    safetywallet
-    splunk
-    terraform
-    tmux
-    hycu
-    youtube
-    propose
-
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -41,6 +21,9 @@ jobs:
     name: Check downstream workflow health
 
     steps:
+      - name: Checkout repository inventory
+        uses: actions/checkout@v4
+
       - name: Check latest workflow runs across all repos
         id: health
         env:
@@ -48,6 +31,7 @@ jobs:
         run: |
           set -u
 
+          REPOS=$(ruby -ryaml -e 'puts YAML.load_file("config/repos.yaml").fetch("repositories").select { |repo| repo.fetch("automation").fetch("health_check") }.map { |repo| repo.fetch("name") }.join(" ")')
           WORKFLOWS=("actionlint" "pr-checks" "gitleaks")
           FAILURES=()
 

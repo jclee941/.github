@@ -4,39 +4,25 @@ from __future__ import annotations
 
 import time
 from collections.abc import Mapping
-from typing import cast
+from typing import Any, cast
 
 import pytest
 import requests
 
-from .conftest import GITHUB_API_URL, GITHUB_OWNER, REQUIRED_CONTEXTS, REQUIRED_FILES, REQUIRED_WORKFLOWS
+from .conftest import (
+    GITHUB_API_URL,
+    GITHUB_OWNER,
+    REQUIRED_CONTEXTS,
+    REQUIRED_FILES,
+    REQUIRED_WORKFLOWS,
+    configured_repo_names,
+)
 
 pytestmark = pytest.mark.readonly
 
 SOURCE_REPO = f"{GITHUB_OWNER}/.github"
 BOT_LOGIN = "jclee-bot[bot]"
 APP_SLUG = "jclee-bot"
-
-# Keep pr-agent explicit so fleet reports show that it is excluded by design.
-EXCLUDED_REPOS = {"pr-agent"}
-MANAGED_REPOS = (
-    ".github",
-    "account",
-    "blacklist",
-    "bug",
-    "hycu_fsds",
-    "idle-outpost",
-    "opencode",
-    "resume",
-    "safetywallet",
-    "splunk",
-    "terraform",
-    "tmux",
-    "hycu",
-    "youtube",
-    "propose",
-    "pr-agent",
-)
 
 DRIFT_FILES = tuple(f".github/workflows/{workflow}" for workflow in REQUIRED_WORKFLOWS) + tuple(REQUIRED_FILES)
 WORKFLOW_HEALTH_CANDIDATES = {
@@ -49,12 +35,15 @@ SUCCESS_CONCLUSIONS = {"success", "skipped", "neutral"}
 JsonObject = dict[str, object]
 
 
-def repo_names(repo_inventory: Mapping[str, object]) -> tuple[str, ...]:
-    """Return explicit managed repos, failing if fixture inventory forgot a required repo."""
-    required_repos = {repo for repo in MANAGED_REPOS if repo not in EXCLUDED_REPOS}
+def repo_names(repo_inventory: Mapping[str, object], automation_flag: str) -> tuple[str, ...]:
+    """Return configured repos for an automation flag, failing if fixture inventory forgot one."""
+    configured = configured_repo_names(automation_flag)
+    required_repos = set(configured)
     missing_from_inventory = sorted(required_repos.difference(repo_inventory.keys()))
-    assert not missing_from_inventory, "repo_inventory is missing managed repos: " + ", ".join(missing_from_inventory)
-    return tuple(repo for repo in MANAGED_REPOS if repo not in EXCLUDED_REPOS)
+    assert not missing_from_inventory, f"repo_inventory is missing {automation_flag} repos: " + ", ".join(
+        missing_from_inventory
+    )
+    return tuple(configured)
 
 
 def gh_get(github_client: requests.Session, url: str, **params: object) -> requests.Response:
@@ -86,18 +75,18 @@ def gh_json_object(github_client: requests.Session, url: str, **params: object) 
     """Return an object JSON response with endpoint context in failures."""
     response = gh_get(github_client, url, **params)
     assert response.status_code == 200, f"GitHub API GET failed: {url} -> {response.status_code}: {response.text[:500]}"
-    payload = response.json()
+    payload = cast(object, response.json())
     assert isinstance(payload, dict), f"GitHub API GET expected object: {url}"
-    return cast(JsonObject, dict(payload))
+    return cast(JsonObject, payload)
 
 
 def gh_json_list(github_client: requests.Session, url: str, **params: object) -> list[JsonObject]:
     """Return a list JSON response with endpoint context in failures."""
     response = gh_get(github_client, url, **params)
     assert response.status_code == 200, f"GitHub API GET failed: {url} -> {response.status_code}: {response.text[:500]}"
-    payload = response.json()
+    payload = cast(object, response.json())
     assert isinstance(payload, list), f"GitHub API GET expected list: {url}"
-    return cast(list[JsonObject], list(payload))
+    return cast(list[JsonObject], payload)
 
 
 def nested_object(payload: Mapping[str, object], key: str) -> JsonObject:
@@ -114,9 +103,9 @@ def content_sha(github_client: requests.Session, full_repo: str, path: str) -> s
     assert response.status_code == 200, (
         f"{full_repo}: failed to read {path}: {response.status_code}: {response.text[:500]}"
     )
-    payload = response.json()
+    payload = cast(object, response.json())
     assert isinstance(payload, dict), f"{full_repo}: unexpected content response for {path}"
-    content_payload = cast(JsonObject, dict(payload))
+    content_payload = cast(JsonObject, payload)
     sha = content_payload.get("sha")
     assert sha is None or isinstance(sha, str), f"{full_repo}: unexpected SHA value for {path}"
     return sha
@@ -138,7 +127,7 @@ def pr_number(payload: Mapping[str, object]) -> int:
 def test_workflow_presence(github_client: requests.Session, repo_inventory: Mapping[str, object]) -> None:
     """Every managed repo has required automation workflows and config files."""
     failures: list[str] = []
-    for repo in repo_names(repo_inventory):
+    for repo in repo_names(repo_inventory, "deploy_workflows"):
         full_repo = f"{GITHUB_OWNER}/{repo}"
         for workflow in REQUIRED_WORKFLOWS:
             path = f".github/workflows/{workflow}"
@@ -160,7 +149,7 @@ def test_workflow_drift(github_client: requests.Session, repo_inventory: Mapping
     drift: list[str] = []
     source_shas = {path: content_sha(github_client, SOURCE_REPO, path) for path in DRIFT_FILES}
 
-    for repo in repo_names(repo_inventory):
+    for repo in repo_names(repo_inventory, "deploy_workflows"):
         full_repo = f"{GITHUB_OWNER}/{repo}"
         for path, source_sha in source_shas.items():
             target_sha = content_sha(github_client, full_repo, path)
@@ -174,7 +163,7 @@ def test_workflow_drift(github_client: requests.Session, repo_inventory: Mapping
 def test_branch_protection(github_client: requests.Session, repo_inventory: Mapping[str, JsonObject]) -> None:
     """Managed repos enforce required branch-protection contexts and safe settings."""
     failures: list[str] = []
-    for repo in repo_names(repo_inventory):
+    for repo in repo_names(repo_inventory, "branch_protection"):
         full_repo = f"{GITHUB_OWNER}/{repo}"
         branch = repo_inventory.get(repo, {}).get("default_branch")
         assert isinstance(branch, str), f"{repo}: repo_inventory missing default_branch"
@@ -186,16 +175,15 @@ def test_branch_protection(github_client: requests.Session, repo_inventory: Mapp
         protection = gh_json_object(github_client, f"{GITHUB_API_URL}/repos/{full_repo}/branches/{branch}/protection")
         checks = nested_object(protection, "required_status_checks")
         contexts_value = checks.get("contexts")
-        contexts = (
-            {context for context in contexts_value if isinstance(context, str)}
-            if isinstance(contexts_value, list)
-            else set()
-        )
+        contexts: set[str] = set()
+        if isinstance(contexts_value, list):
+            contexts.update(context for context in contexts_value if isinstance(context, str))
         app_checks = checks.get("checks")
         if isinstance(app_checks, list):
             for check in app_checks:
-                if isinstance(check, dict):
-                    context = check.get("context")
+                check_obj = cast(dict[str, Any], check) if isinstance(check, dict) else {}
+                if check_obj:
+                    context = check_obj.get("context")
                     if isinstance(context, str):
                         contexts.add(context)
         missing_contexts = set(REQUIRED_CONTEXTS) - contexts
@@ -214,7 +202,7 @@ def test_branch_protection(github_client: requests.Session, repo_inventory: Mapp
 def test_recent_workflow_health(github_client: requests.Session, repo_inventory: Mapping[str, object]) -> None:
     """Latest required workflow runs should have successful conclusions."""
     failures: list[str] = []
-    for repo in repo_names(repo_inventory):
+    for repo in repo_names(repo_inventory, "health_check"):
         full_repo = f"{GITHUB_OWNER}/{repo}"
         for label, candidates in WORKFLOW_HEALTH_CANDIDATES.items():
             latest_run: JsonObject | None = None
@@ -231,9 +219,9 @@ def test_recent_workflow_health(github_client: requests.Session, repo_inventory:
                     failures.append(f"{repo}: cannot read {workflow} runs (status {response.status_code})")
                     continue
 
-                payload = response.json()
+                payload = cast(object, response.json())
                 assert isinstance(payload, dict), f"{repo}: malformed workflow runs response for {workflow}"
-                runs = cast(JsonObject, dict(payload)).get("workflow_runs")
+                runs = cast(JsonObject, payload).get("workflow_runs")
                 if isinstance(runs, list) and runs and isinstance(runs[0], dict):
                     latest_run = cast(JsonObject, runs[0])
                     chosen_workflow = workflow
@@ -258,7 +246,7 @@ def test_recent_workflow_health(github_client: requests.Session, repo_inventory:
 def test_bot_review_activity(github_client: requests.Session, repo_inventory: Mapping[str, object]) -> None:
     """Recent human PRs should have bot comments or reviews."""
     failures: list[str] = []
-    for repo in repo_names(repo_inventory):
+    for repo in repo_names(repo_inventory, "health_check"):
         full_repo = f"{GITHUB_OWNER}/{repo}"
         pulls = gh_json_list(
             github_client,
@@ -306,14 +294,14 @@ def test_bot_review_activity(github_client: requests.Session, repo_inventory: Ma
 def test_github_app_installation(github_client: requests.Session, repo_inventory: Mapping[str, object]) -> None:
     """The jclee-bot GitHub App should be installed on every managed repo."""
     failures: list[str] = []
-    for repo in repo_names(repo_inventory):
+    for repo in repo_names(repo_inventory, "health_check"):
         full_repo = f"{GITHUB_OWNER}/{repo}"
         response = gh_get(github_client, f"{GITHUB_API_URL}/repos/{full_repo}/installation")
         if response.status_code != 200:
             failures.append(f"{repo}: missing GitHub App installation endpoint (status {response.status_code})")
             continue
 
-        payload = response.json()
+        payload = cast(object, response.json())
         assert isinstance(payload, dict), f"{repo}: malformed installation response"
         app = nested_object(cast(JsonObject, payload), "app")
         if app.get("slug") != APP_SLUG:

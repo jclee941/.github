@@ -7,10 +7,12 @@ import os
 import subprocess
 import time
 from collections.abc import Callable
-from typing import TypeAlias, cast
+from pathlib import Path
+from typing import Any, TypeAlias, cast
 
 import pytest
 import requests
+import yaml
 
 JsonValue: TypeAlias = None | bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"]
 JsonObject: TypeAlias = dict[str, JsonValue]
@@ -19,24 +21,8 @@ GITHUB_API_URL = "https://api.github.com"
 GITHUB_OWNER = "jclee941"
 
 MUTATION_ALLOWED_REPOS = {"jclee941/automation-e2e-public", "jclee941/automation-e2e-private"}
-MANAGED_REPOS = [
-    ".github",
-    "account",
-    "blacklist",
-    "bug",
-    "hycu_fsds",
-    "idle-outpost",
-    "opencode",
-    "resume",
-    "safetywallet",
-    "splunk",
-    "terraform",
-    "tmux",
-    "hycu",
-    "youtube",
-    "propose",
-]
-EXCLUDED_REPOS = ["pr-agent"]
+REPO_ROOT = Path(__file__).resolve().parents[2]
+REPOS_CONFIG = REPO_ROOT / "config" / "repos.yaml"
 REQUIRED_WORKFLOWS = ["pr-review.yml", "pr-checks.yml", "gitleaks.yml", "actionlint.yml"]
 REQUIRED_FILES = [".github/dependabot.yml", ".github/CODEOWNERS", ".github/PULL_REQUEST_TEMPLATE.md"]
 REQUIRED_CONTEXTS = ["pr-checks / Check PR Title", "pr-checks / Check Branch Name", "Gitleaks / scan"]
@@ -44,6 +30,27 @@ REQUIRED_CONTEXTS = ["pr-checks / Check PR Title", "pr-checks / Check Branch Nam
 E2E_CANARY_PUBLIC_REPO = os.getenv("E2E_CANARY_PUBLIC_REPO", "jclee941/automation-e2e-public")
 E2E_CANARY_PRIVATE_REPO = os.getenv("E2E_CANARY_PRIVATE_REPO", "jclee941/automation-e2e-private")
 E2E_CLIPROXY_API_KEY = os.getenv("E2E_CLIPROXY_API_KEY") or os.getenv("CLIPROXY_API_KEY")
+
+
+def _load_repos_config() -> list[JsonObject]:
+    payload = cast(dict[str, Any], yaml.safe_load(REPOS_CONFIG.read_text(encoding="utf-8")))
+    assert isinstance(payload, dict), "config/repos.yaml must contain a mapping"
+    repositories = payload.get("repositories")
+    assert isinstance(repositories, list), "config/repos.yaml must contain repositories list"
+    return cast(list[JsonObject], repositories)
+
+
+def configured_repo_names(flag: str | None = None) -> list[str]:
+    names: list[str] = []
+    for repo in _load_repos_config():
+        if flag is not None:
+            automation = repo.get("automation")
+            if not isinstance(automation, dict) or automation.get(flag) is not True:
+                continue
+        name = repo.get("name")
+        assert isinstance(name, str), "repository entry missing string name"
+        names.append(name)
+    return names
 
 
 def guard_mutation(repo: str):
@@ -140,9 +147,9 @@ def github_client(github_token: str) -> requests.Session:
 
 @pytest.fixture(scope="session")
 def repo_inventory(github_client: requests.Session) -> dict[str, JsonObject]:
-    """Return visibility and default-branch metadata for every managed repository."""
+    """Return visibility and default-branch metadata for every configured repository."""
     inventory: dict[str, JsonObject] = {}
-    for repo_name in MANAGED_REPOS:
+    for repo_name in configured_repo_names():
         full_name = f"{GITHUB_OWNER}/{repo_name}"
         response = github_client.get(f"{GITHUB_API_URL}/repos/{full_name}")
         _raise_for_github_error(response)
