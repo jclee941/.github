@@ -26,7 +26,7 @@ jobs:
     if: github.event.pull_request.draft == false && github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     name: PR review via CLIProxyAPI
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     steps:
       - name: Check out pr-agent source from jclee941/.github
