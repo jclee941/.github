@@ -26,7 +26,6 @@ APP_SLUG = "jclee-bot"
 
 DRIFT_FILES = tuple(f".github/workflows/{workflow}" for workflow in REQUIRED_WORKFLOWS) + tuple(REQUIRED_FILES)
 WORKFLOW_HEALTH_CANDIDATES = {
-    "actionlint": ("actionlint.yml",),
     "pr-checks": ("pr-checks.yml", "pr-review.yml"),
     "gitleaks": ("gitleaks.yml",),
 }

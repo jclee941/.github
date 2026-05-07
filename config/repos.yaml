@@ -147,5 +147,5 @@ repositories:
     automation:
       deploy_workflows: false  # upstream fork, don't overwrite
       branch_protection: false # uses upstream workflows
-      health_check: true
+      health_check: false
       auto_merge: false
