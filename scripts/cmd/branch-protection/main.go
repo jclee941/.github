@@ -1,6 +1,5 @@
-// branch-protection.go enables auto-merge and applies a Free-tier-safe
-// branch protection rule on the default branch of every public repo
-// listed in publicRepos.
+// branch-protection.go enables auto-merge and applies branch protection rules
+// on repositories marked automation.branch_protection=true in config/repos.yaml.
 //
 // Usage:
 //
@@ -13,9 +12,9 @@
 //  2. GET   /repos/{r}  -> default_branch
 //  3. PUT   /repos/{r}/branches/{b}/protection  with safe defaults:
 //     - required_status_checks: 3 contexts (see protectionPayload below):
-//       "pr-checks / Check PR Title", "pr-checks / Check Branch Name",
-//       "Gitleaks / scan". Sanity is fork-only and excluded; CodeQL is
-//       advisory (Python-only) and excluded.
+//     "pr-checks / Check PR Title", "pr-checks / Check Branch Name",
+//     "Gitleaks / scan". Sanity is fork-only and excluded; CodeQL is
+//     advisory (Python-only) and excluded.
 //     - enforce_admins: false
 //     - required_pull_request_reviews: null
 //     - restrictions: null
@@ -24,9 +23,6 @@
 //     - lock_branch: false
 //     - required_linear_history: false
 //     - required_conversation_resolution: false
-//
-// Private repos are deliberately excluded — branch protection on personal
-// private repos requires GitHub Pro.
 package main
 
 import (
@@ -38,29 +34,15 @@ import (
 	"os/exec"
 	"sort"
 	"strings"
-)
 
-// publicRepos covers all jclee941/* public repos eligible for auto-merge.
-var publicRepos = []string{
-	".github",
-	"account",
-	"blacklist",
-	"bug",
-	"hycu_fsds",
-	"idle-outpost",
-	"opencode",
-	"resume",
-	"safetywallet",
-	"splunk",
-	"terraform",
-	"tmux",
-}
+	"github.com/jclee941/dotgithub-scripts/internal/repos"
+)
 
 // protectionPayload is the JSON body for the branch protection PUT call.
 // Free-tier-safe. Required status checks (3 contexts):
-//   1. "pr-checks / Check PR Title"   - Conventional Commits enforcement
-//   2. "pr-checks / Check Branch Name" - branch prefix enforcement
-//   3. "Gitleaks / scan"              - secret-pattern detection
+//  1. "pr-checks / Check PR Title"   - Conventional Commits enforcement
+//  2. "pr-checks / Check Branch Name" - branch prefix enforcement
+//  3. "Gitleaks / scan"              - secret-pattern detection
 //
 // Sanity ("Sanity / import-check") is fork-specific to .github (imports
 // pr_agent) and is NOT a required check on downstream repos.
@@ -103,11 +85,12 @@ type result struct {
 }
 
 func main() {
+	protectedRepos := repos.Names(repos.ProtectedRepos())
 	dryRun := flag.Bool("dry-run", false, "preview API calls without making changes")
-	reposFlag := flag.String("repos", strings.Join(publicRepos, ","), "comma-separated repo names")
+	reposFlag := flag.String("repos", strings.Join(protectedRepos, ","), "comma-separated repo names")
 	flag.Parse()
 
-	repos, err := normalizeRepos(*reposFlag)
+	repos, err := normalizeRepos(*reposFlag, protectedRepos)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
@@ -148,9 +131,9 @@ func main() {
 	}
 }
 
-func normalizeRepos(raw string) ([]string, error) {
-	allowed := make(map[string]struct{}, len(publicRepos))
-	for _, repo := range publicRepos {
+func normalizeRepos(raw string, allowedRepoNames []string) ([]string, error) {
+	allowed := make(map[string]struct{}, len(allowedRepoNames))
+	for _, repo := range allowedRepoNames {
 		allowed[repo] = struct{}{}
 	}
 	parts := strings.Split(raw, ",")
@@ -162,7 +145,7 @@ func normalizeRepos(raw string) ([]string, error) {
 			continue
 		}
 		if _, ok := allowed[repo]; !ok {
-			valid := append([]string(nil), publicRepos...)
+			valid := append([]string(nil), allowedRepoNames...)
 			sort.Strings(valid)
 			return nil, fmt.Errorf("unsupported repo %q (allowed: %s)", repo, strings.Join(valid, ", "))
 		}

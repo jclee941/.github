@@ -9,7 +9,11 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/jclee941/dotgithub-scripts/internal/repos"
 )
+
+var protectedRepoNames = repos.Names(repos.ProtectedRepos())
 
 func TestNormalizeRepos(t *testing.T) {
 	cases := []struct {
@@ -20,8 +24,8 @@ func TestNormalizeRepos(t *testing.T) {
 	}{
 		{
 			name: "all default repos",
-			raw:  strings.Join(publicRepos, ","),
-			want: publicRepos,
+			raw:  strings.Join(protectedRepoNames, ","),
+			want: protectedRepoNames,
 		},
 		{
 			name: "single repo",
@@ -67,7 +71,7 @@ func TestNormalizeRepos(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := normalizeRepos(tc.raw)
+			got, err := normalizeRepos(tc.raw, protectedRepoNames)
 
 			if tc.wantErr != "" {
 				if err == nil {
@@ -94,35 +98,35 @@ func TestNormalizeRepos(t *testing.T) {
 	}
 }
 
-func TestPublicReposInvariants(t *testing.T) {
-	if len(publicRepos) == 0 {
-		t.Fatal("publicRepos must not be empty")
+func TestProtectedReposInvariants(t *testing.T) {
+	if len(protectedRepoNames) == 0 {
+		t.Fatal("protected repo list must not be empty")
 	}
 
-	seen := make(map[string]struct{}, len(publicRepos))
-	for _, r := range publicRepos {
+	seen := make(map[string]struct{}, len(protectedRepoNames))
+	for _, r := range protectedRepoNames {
 		if r == "" {
-			t.Errorf("publicRepos contains an empty entry")
+			t.Errorf("protected repo list contains an empty entry")
 		}
 		if strings.ContainsAny(r, "/ \t") {
-			t.Errorf("publicRepos entry %q must not contain '/' or whitespace (org prefix is added later)", r)
+			t.Errorf("protected repo entry %q must not contain '/' or whitespace (org prefix is added later)", r)
 		}
 		if _, dup := seen[r]; dup {
-			t.Errorf("publicRepos duplicate entry: %q", r)
+			t.Errorf("protected repo duplicate entry: %q", r)
 		}
 		seen[r] = struct{}{}
 	}
 
 	want := ".github"
 	found := false
-	for _, r := range publicRepos {
+	for _, r := range protectedRepoNames {
 		if r == want {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Errorf("publicRepos missing source repo %q (branch-protection.go expects to protect itself)", want)
+		t.Errorf("protected repo list missing source repo %q (branch-protection.go expects to protect itself)", want)
 	}
 }
 
@@ -180,11 +184,10 @@ func TestProtectionPayloadIsValidJSON(t *testing.T) {
 	}
 }
 
-func TestPublicReposCount(t *testing.T) {
-	const expected = 12
-	if got := len(publicRepos); got != expected {
-		t.Fatalf("publicRepos has %d entries; expected %d (1 source + 11 downstream).\n"+
-			"If this is intentional, update AGENTS.md and this test.\nCurrent entries: %v",
-			got, expected, publicRepos)
+func TestProtectedReposCount(t *testing.T) {
+	const expected = 15
+	if got := len(protectedRepoNames); got != expected {
+		t.Fatalf("protected repo list has %d entries; expected %d from config/repos.yaml.\nCurrent entries: %v",
+			got, expected, protectedRepoNames)
 	}
 }

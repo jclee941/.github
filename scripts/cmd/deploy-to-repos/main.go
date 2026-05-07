@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/jclee941/dotgithub-scripts/internal/repos"
 )
 
 const (
@@ -19,26 +21,8 @@ const (
 	branchName = "chore/add-pr-review-bot-workflow"
 )
 
-// defaultRepos lists DOWNSTREAM target repos. Only public repos here —
-// auto-merge is not supported on personal-account private repos under
-// GitHub Free. The source repo (.github) is intentionally excluded to
-// avoid recursive PRs against its own master.
-var defaultRepos = []string{
-	"resume",
-	"safetywallet",
-	"tmux",
-	"hycu_fsds",
-	"splunk",
-	"blacklist",
-	"opencode",
-	"terraform",
-	"account",
-	"idle-outpost",
-	"bug",
-}
-
 // canaryRepos lists dedicated live-test repositories that may be mutated only
-// when explicitly selected with --canary-repos. Keep these out of defaultRepos
+// when explicitly selected with --canary-repos. Keep these out of deployableRepos
 // so normal deploy runs cannot create PRs in test canaries by accident.
 var canaryRepos = []string{
 	"automation-e2e-public",
@@ -168,14 +152,16 @@ func parseFlags() (config, error) {
 	var cfg config
 	var reposFlag string
 	var canaryReposFlag string
+	defaultRepos := repos.Names(repos.DeployableRepos())
+	defaultReposCSV := strings.Join(defaultRepos, ",")
 
 	flag.BoolVar(&cfg.dryRun, "dry-run", false, "preview deployment steps without making changes")
 	flag.StringVar(&cfg.baseBranch, "base-branch", "", "target base branch override (auto-detected if empty)")
-	flag.StringVar(&reposFlag, "repos", strings.Join(defaultRepos, ","), "comma-separated repo names: resume,safetywallet,youtube")
+	flag.StringVar(&reposFlag, "repos", defaultReposCSV, "comma-separated repo names: resume,safetywallet,youtube")
 	flag.StringVar(&canaryReposFlag, "canary-repos", "", "comma-separated canary repo names for live deployment-path validation; excludes production defaults")
 	flag.Parse()
 
-	if canaryReposFlag != "" && reposFlag != strings.Join(defaultRepos, ",") {
+	if canaryReposFlag != "" && reposFlag != defaultReposCSV {
 		return config{}, errors.New("--canary-repos cannot be combined with --repos")
 	}
 

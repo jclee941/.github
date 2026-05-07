@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/jclee941/dotgithub-scripts/internal/repos"
 )
 
 // allowed extensions for deployable files. Anything outside this set
@@ -21,6 +23,7 @@ var allowedDeployExtensions = map[string]struct{}{
 }
 
 func TestDefaultReposIsDownstreamOnly(t *testing.T) {
+	defaultRepos := repos.Names(repos.DeployableRepos())
 	for _, r := range canaryRepos {
 		if slices.Contains(defaultRepos, r) {
 			t.Errorf("defaultRepos must NOT include canary repo %q; use --canary-repos for live e2e validation", r)
@@ -36,9 +39,9 @@ func TestDefaultReposIsDownstreamOnly(t *testing.T) {
 		}
 	}
 
-	const expected = 11
+	const expected = 14
 	if got := len(defaultRepos); got != expected {
-		t.Errorf("defaultRepos has %d entries; expected %d (downstream public repos)", got, expected)
+		t.Errorf("defaultRepos has %d entries; expected %d (deployable repos from config/repos.yaml)", got, expected)
 	}
 
 	seen := make(map[string]struct{}, len(defaultRepos))
@@ -51,6 +54,7 @@ func TestDefaultReposIsDownstreamOnly(t *testing.T) {
 }
 
 func TestNormalizeReposAllowsExplicitCanaryOnly(t *testing.T) {
+	defaultRepos := repos.Names(repos.DeployableRepos())
 	repos, err := normalizeRepos("automation-e2e-public", canaryRepos)
 	if err != nil {
 		t.Fatalf("normalize canary repo: %v", err)
