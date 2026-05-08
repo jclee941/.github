@@ -25,9 +25,9 @@ ENV PYTHONPATH=/app \
 
 EXPOSE 3000
 
-# Healthcheck: hit "/" (returns 200 with build info)
+# Healthcheck: hit "/health" (returns app + dependency status)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD curl -fsS http://localhost:3000/ || exit 1
+    CMD curl -fsS http://localhost:3000/health || exit 1
 
 # Gunicorn + uvicorn workers (production WSGI/ASGI bridge)
 CMD ["python", "-m", "gunicorn", \
