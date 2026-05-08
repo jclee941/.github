@@ -8,8 +8,6 @@ on:
     secrets:
       CLIPROXY_API_KEY:
         required: true
-      GITHUB_TOKEN:
-        required: true
 
 permissions:
   contents: read

@@ -6,9 +6,6 @@ name: _PR Normalize
 
 on:
   workflow_call:
-    secrets:
-      GITHUB_TOKEN:
-        required: true
 
 permissions:
   contents: read
