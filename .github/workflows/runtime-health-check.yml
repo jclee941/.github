@@ -6,7 +6,7 @@ on:
     - cron: '0 */6 * * *'
 
 permissions:
-  contents: read
+  contents: write
   issues: write
 
 concurrency:
