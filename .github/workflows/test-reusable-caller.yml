@@ -1,0 +1,6 @@
+name: Test Reusable Caller
+on:
+  workflow_dispatch:
+jobs:
+  call:
+    uses: jclee941/.github/.github/workflows/_test-reusable.yml@master
