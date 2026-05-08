@@ -79,7 +79,7 @@ jobs:
           node-version: ${{ inputs.node-version }}
           cache: ${{ needs.detect.outputs.pkg-manager == 'pnpm' && 'pnpm' || (needs.detect.outputs.pkg-manager == 'yarn' && 'yarn' || 'npm') }}
       - if: needs.detect.outputs.pkg-manager == 'pnpm'
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 9
       - if: needs.detect.outputs.pkg-manager == 'bun'
