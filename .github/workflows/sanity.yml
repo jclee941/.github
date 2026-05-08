@@ -45,7 +45,7 @@ jobs:
       - name: Install pr-agent
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
+          pip install --no-cache-dir -e .
           pip install pytest
 
       - name: Verify core package imports
@@ -65,7 +65,7 @@ jobs:
           print('.pr_agent.toml sections:', sorted(c.keys()))
           assert 'config' in c
           assert 'openai' in c
-          assert c['config']['model'] == 'gpt-5.5', 'model override lost'
+          assert c['config']['model'] == 'kimi-k2.6', 'model override lost'
           assert c['openai']['api_base'] == 'https://cliproxy.jclee.me/v1', 'api_base lost'
           print('.pr_agent.toml OK')
           "
