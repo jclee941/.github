@@ -1,4 +1,4 @@
-aiohttp==3.13.5  # pinned by litellm 1.83.14 transitive (==3.13.4)
+aiohttp==3.13.4  # pinned by litellm 1.83.14 transitive
 anthropic>=0.100.0
 #anthropic[vertex]==0.47.1
 atlassian-python-api==3.41.4
@@ -31,7 +31,7 @@ uvicorn==0.46.0
 tenacity==9.1.4
 gunicorn==26.0.0
 pytest-cov==7.1.0
-pydantic==2.13.4  # pinned by litellm 1.83.14 transitive (==2.12.5)
+pydantic==2.12.5  # pinned by litellm 1.83.14 transitive
 html2text==2024.2.26
 giteapy==1.0.8
 # Uncomment the following lines to enable the 'similar issue' tool
