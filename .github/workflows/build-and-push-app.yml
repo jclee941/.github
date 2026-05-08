@@ -45,7 +45,7 @@ jobs:
 
       - name: Build and push
         if: steps.registry_check.outputs.reachable == 'true'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile.github_app
@@ -68,7 +68,7 @@ jobs:
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
       - name: Build and push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile.github_app
