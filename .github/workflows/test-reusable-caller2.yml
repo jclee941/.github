@@ -1,0 +1,7 @@
+name: Test Reusable Caller 2
+on:
+  workflow_dispatch:
+jobs:
+  call:
+    uses: jclee941/.github/.github/workflows/_test-reusable2.yml@master
+    secrets: inherit
