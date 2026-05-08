@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 import pytest
-from starlette.testclient import TestClient
+from fastapi.testclient import TestClient
 from unittest.mock import MagicMock, patch
 
 # Ensure we use test settings
@@ -44,22 +44,6 @@ def mock_git_provider():
 
 @pytest.fixture(scope="session")
 def test_client(mock_git_provider):
-    """Create a TestClient for the FastAPI app."""
-    from pr_agent.servers.github_app import app
-
-    with TestClient(app) as client:
-        yield client
-from starlette.testclient import TestClient
-
-# Ensure we use test settings
-os.environ.setdefault("CONFIG.LOG_LEVEL", "DEBUG")
-os.environ.setdefault("GITHUB.WEBHOOK_SECRET", "false")
-os.environ.setdefault("OPENAI.KEY", "test-key")
-os.environ.setdefault("OPENAI.API_BASE", "http://localhost:8317/v1")
-
-
-@pytest.fixture(scope="session")
-def test_client():
     """Create a TestClient for the FastAPI app."""
     from pr_agent.servers.github_app import app
 

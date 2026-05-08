@@ -86,7 +86,7 @@ The live suite is designed around these categories (30 tests total):
     endpoint probes.
 14. **Bot review quality assertions** (`bot_review`) — Korean output, final review marker, absence of fatal strings,
     markdown structure.
-15. **CLIProxy health** (`cliproxy_health`) — query `/v1/models`, verify `kimi-k2.6` availability.
+15. **CLIProxy health** (`cliproxy_health`) — query `/v1/models`, verify `gpt-5.5` availability.
 
 ### Running by marker
 
@@ -106,19 +106,4 @@ pytest tests/e2e_live -v
 
 Keep production checks read-only. If a new helper mutates GitHub state, it must call `guard_mutation()` before making the
 API request.
-
-1. **Repository inventory checks** — verify every managed repository is reachable and report its visibility and default
-   branch.
-2. **Workflow deployment checks** — verify required workflows exist, including `pr-review.yml`, `pr-checks.yml`,
-   `gitleaks.yml`, and `actionlint.yml`.
-3. **Required file checks** — verify automation support files exist: `.github/dependabot.yml`, `.github/CODEOWNERS`, and
-   `.github/PULL_REQUEST_TEMPLATE.md`.
-4. **Branch protection checks** — verify required status contexts are configured: `pr-checks / Check PR Title`,
-   `pr-checks / Check Branch Name`, and `Gitleaks / scan`.
-5. **Recent activity checks** — inspect recent PRs, workflow conclusions, and bot comments without modifying production
-   repositories.
-6. **Canary mutation checks** — exercise branch, file, PR, and workflow behavior only in the allowlisted public/private
-   canary repositories.
-
-Keep production checks read-only. If a new helper mutates GitHub state, it must call `guard_mutation()` before making the
-API request.
+Keep production checks read-only. If a new helper mutates GitHub state, it must call `guard_mutation()` before making the API request.

@@ -65,7 +65,7 @@ jobs:
           print('.pr_agent.toml sections:', sorted(c.keys()))
           assert 'config' in c
           assert 'openai' in c
-          assert c['config']['model'] in ['kimi-k2.6', 'kimi-k2.5', 'kimi-k2-thinking'], 'model override lost'
+          assert c['config']['model'] == 'gpt-5.5', 'model override lost'
           assert c['openai']['api_base'] == 'https://cliproxy.jclee.me/v1', 'api_base lost'
           print('.pr_agent.toml OK')
           "
@@ -92,4 +92,4 @@ jobs:
 
       - name: Fast unittest smoke (AGENTS.md minimum gate)
         run: |
-          PYTHONPATH=. pytest tests/unittest/test_fix_json_escape_char.py -v
+          python -m pytest tests/unittest/test_fix_json_escape_char.py -v
