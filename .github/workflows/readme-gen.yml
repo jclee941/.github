@@ -24,7 +24,7 @@ concurrency:
 jobs:
   generate_readme:
     if: github.repository != 'jclee941/.github'  # skip source repo
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     name: Generate README.md via CLIProxyAPI
     timeout-minutes: 10
 

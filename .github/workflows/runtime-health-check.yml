@@ -19,7 +19,7 @@ env:
 jobs:
   app_endpoint:
     name: GitHub App webhook endpoint
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 3
     steps:
       - name: Check bot webhook endpoint
@@ -69,7 +69,7 @@ jobs:
 
   cliproxy_health:
     name: CLIProxyAPI unauthenticated health
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 3
     steps:
       - name: Check CLIProxyAPI models endpoint
@@ -116,7 +116,7 @@ jobs:
 
   bot_canary:
     name: jclee-bot canary review
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
       - name: Create canary PR and verify bot response

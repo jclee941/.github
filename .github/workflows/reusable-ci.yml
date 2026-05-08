@@ -33,7 +33,7 @@ permissions:
 jobs:
   detect:
     name: Detect Project Type
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     outputs:
       has-node: ${{ steps.d.outputs.has-node }}
       has-python: ${{ steps.d.outputs.has-python }}
@@ -67,7 +67,7 @@ jobs:
     name: Node
     needs: detect
     if: needs.detect.outputs.has-node == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 15
     defaults:
       run:
@@ -134,7 +134,7 @@ jobs:
     name: Python
     needs: detect
     if: needs.detect.outputs.has-python == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 15
     defaults:
       run:
@@ -172,7 +172,7 @@ jobs:
     name: Go
     needs: detect
     if: needs.detect.outputs.has-go == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 15
     defaults:
       run:
@@ -199,7 +199,7 @@ jobs:
     name: Terraform
     needs: detect
     if: needs.detect.outputs.has-terraform == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 10
     defaults:
       run:
