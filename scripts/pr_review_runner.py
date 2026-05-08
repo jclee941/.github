@@ -121,7 +121,7 @@ def decide_commands(meta: PRMeta) -> tuple[list[str], str]:
 
     # 3. feat/fix/refactor title
     if re.match(r"^(feat|fix|refactor)(\([a-z0-9_/-]+\))?!?:", meta.title):
-        return ["describe", "review", "improve"], "feat/fix/refactor PR"
+        return ["describe", "review"], "feat/fix/refactor PR"
 
     # 4. Small PR
     if meta.loc < 50:
@@ -132,7 +132,7 @@ def decide_commands(meta: PRMeta) -> tuple[list[str], str]:
         return ["describe", "review"], "large PR (>1000 LOC)"
 
     # 6. Default
-    return ["describe", "review", "improve"], "default"
+    return ["describe", "review"], "default"
 
 
 def run_commands(pr_url: str, commands: list[str], log_path: Path) -> int:
