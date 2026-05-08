@@ -206,7 +206,7 @@ jobs:
         working-directory: ${{ inputs.working-directory }}
     steps:
       - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
       - name: fmt
         continue-on-error: true
         run: terraform fmt -check -recursive
