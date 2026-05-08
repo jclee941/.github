@@ -1,0 +1,41 @@
+name: _Auto Merge
+
+# Reusable workflow: enables auto-merge on approved human-authored PRs.
+# Called by downstream repos' auto-merge.yml.
+
+on:
+  workflow_call:
+    secrets:
+      GITHUB_TOKEN:
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+jobs:
+  auto-merge:
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          set -e
+          # Only proceed if PR is from the same repo (no forks) and not draft
+          if [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
+            echo "::notice::Skipping auto-merge for fork PR"
+            exit 0
+          fi
+          if [ "${{ github.event.pull_request.draft }}" = "true" ]; then
+            echo "::notice::Skipping auto-merge for draft PR"
+            exit 0
+          fi
+          # Enable auto-merge with squash
+          gh pr merge --auto --squash "$PR_URL" || echo "::notice::Auto-merge may already be enabled"

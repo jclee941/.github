@@ -1,0 +1,33 @@
+name: _Issue Lifecycle
+
+# Reusable workflow: manage issue lifecycle (stale/close).
+# Called by downstream repos' issue-lifecycle.yml.
+
+on:
+  workflow_call:
+    secrets:
+      GITHUB_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  lifecycle:
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    steps:
+      - name: Mark stale issues
+        uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          stale-issue-message: "This issue has been automatically marked as stale because it has not had recent activity. It will be closed in 7 days if no further activity occurs."
+          close-issue-message: "This issue was automatically closed due to inactivity."
+          days-before-stale: 60
+          days-before-close: 7
+          stale-issue-label: "stale"
+          exempt-issue-labels: "pinned,security"
+          only-issue-labels: ""
+          only-pr-labels: ""
+          remove-stale-when-updated: true
