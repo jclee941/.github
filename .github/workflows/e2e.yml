@@ -43,7 +43,7 @@ jobs:
           PYTHONPATH=. pytest tests/e2e/ -v --tb=short
 
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: pytest-e2e-results
