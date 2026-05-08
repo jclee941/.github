@@ -42,7 +42,7 @@ import (
 // Free-tier-safe. Required status checks (3 contexts):
 //  1. "pr-checks / Check PR Title"   - Conventional Commits enforcement
 //  2. "pr-checks / Check Branch Name" - branch prefix enforcement
-//  3. "Gitleaks / scan"              - secret-pattern detection
+//  3. "scan"                        - secret-pattern detection
 //
 // Sanity ("Sanity / import-check") is fork-specific to .github (imports
 // pr_agent) and is NOT a required check on downstream repos.
@@ -63,7 +63,7 @@ const protectionPayload = `{
     "contexts": [
       "pr-checks / Check PR Title",
       "pr-checks / Check Branch Name",
-      "Gitleaks / scan"
+      "scan"
     ]
   },
   "enforce_admins": false,

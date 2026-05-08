@@ -158,7 +158,7 @@ func TestProtectionPayloadIsValidJSON(t *testing.T) {
 	want := []string{
 		"pr-checks / Check PR Title",
 		"pr-checks / Check Branch Name",
-		"Gitleaks / scan",
+		"scan",
 	}
 	if len(contexts) != len(want) {
 		t.Fatalf("contexts count: want %d, got %d (%v)", len(want), len(contexts), contexts)
