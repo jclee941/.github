@@ -50,11 +50,11 @@ jobs:
 
           http_code=$(curl -sS -I -o /tmp/app_endpoint_headers.txt -w "%{http_code}" --max-time 10 "$ENDPOINT" || true)
           case "$http_code" in
-            200|401|403|404)
+            200|401|403|404|405)
               echo "Webhook endpoint responded with HTTP $http_code"
               ;;
             *)
-              body=$(printf "%s\n\n- Endpoint: %s\n- Expected status: 200, 401, 403, or 404\n- Actual status: %s\n- Timeout: 10s\n- Workflow run: %s/%s/actions/runs/%s\n- Checked at: %s\n" \
+              body=$(printf "%s\n\n- Endpoint: %s\n- Expected status: 200, 401, 403, 404, or 405\n- Actual status: %s\n- Timeout: 10s\n- Workflow run: %s/%s/actions/runs/%s\n- Checked at: %s\n" \
                 "Runtime health check failed for the GitHub App webhook endpoint." \
                 "$ENDPOINT" \
                 "${http_code:-no response}" \

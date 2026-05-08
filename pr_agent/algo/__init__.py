@@ -51,6 +51,7 @@ MAX_TOKENS = {
     'gpt-5.4-mini-2026-03-17': 400000,  # 400K, but may be limited by config.max_model_tokens
     'gpt-5.4-nano': 400000,  # 400K, but may be limited by config.max_model_tokens
     'gpt-5.4-nano-2026-03-17': 400000,  # 400K, but may be limited by config.max_model_tokens
+    'gpt-5.5': 400000,  # 400K, but may be limited by config.max_model_tokens
     'o1-mini': 128000,  # 128K, but may be limited by config.max_model_tokens
     'o1-mini-2024-09-12': 128000,  # 128K, but may be limited by config.max_model_tokens
     'o1-preview': 128000,  # 128K, but may be limited by config.max_model_tokens

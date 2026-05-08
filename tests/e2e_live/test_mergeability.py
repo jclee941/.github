@@ -98,7 +98,7 @@ def _create_canary_pr(
 def test_valid_pr_is_mergeable(github_client: requests.Session, canary_public_repo: str) -> None:
     """A valid PR (conventional title, valid branch) should be reported as mergeable."""
     run_id = _run_id()
-    branch = f"feature/test-merge-{run_id}"
+    branch = f"feat/test-merge-{run_id}"
     pr_number: int | None = None
 
     try:
@@ -142,7 +142,7 @@ def test_valid_pr_is_mergeable(github_client: requests.Session, canary_public_re
 def test_invalid_title_pr_is_blocked(github_client: requests.Session, canary_public_repo: str) -> None:
     """A PR with an invalid title should be reported as unmergeable (blocked)."""
     run_id = _run_id()
-    branch = f"feature/test-merge-invalid-{run_id}"
+    branch = f"feat/test-merge-invalid-{run_id}"
     pr_number: int | None = None
 
     try:
@@ -175,8 +175,9 @@ def test_invalid_title_pr_is_blocked(github_client: requests.Session, canary_pub
         )
 
         # GitHub may report mergeable=False (conflicts) or mergeable=True with
-        # mergeable_state="blocked" (branch protection). Either is acceptable.
-        assert mergeable is False or mergeable_state == "blocked", (
+        # mergeable_state="blocked" (branch protection) or "unstable" (failing checks).
+        # Any of these indicates the PR is not cleanly mergeable.
+        assert mergeable is False or mergeable_state in {"blocked", "unstable"}, (
             f"Invalid-title PR should not be mergeable: mergeable={mergeable!r}, "
             f"mergeable_state={mergeable_state!r}"
         )

@@ -138,6 +138,7 @@ def wait_for_checks(
     timeout: int = 120,
 ) -> dict[str, JsonObject]:
     """Poll PR check runs until expected checks complete or timeout."""
+    deadline = time.time() + timeout
     empty_poll_count = 0
     while time.time() < deadline:
         last_checks = _current_checks(repo, pr_number, github_client)
@@ -149,14 +150,6 @@ def wait_for_checks(
             time.sleep(5)
             continue
         empty_poll_count = 0
-        if all(_check_status(last_checks.get(check, {})) == "completed" for check in expected_checks):
-            return last_checks
-        time.sleep(5)
-    last_checks: dict[str, JsonObject] = {}
-    while time.time() < deadline:
-        last_checks = _current_checks(repo, pr_number, github_client)
-        if not last_checks:
-            pytest.skip(f"{repo}#{pr_number}: no checks found — workflows not deployed to canary")
         if all(_check_status(last_checks.get(check, {})) == "completed" for check in expected_checks):
             return last_checks
         time.sleep(5)

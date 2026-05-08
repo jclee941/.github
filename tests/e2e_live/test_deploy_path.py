@@ -152,19 +152,6 @@ def _delete_deploy_branch(repo: str, github_client: requests.Session) -> None:
                 print(f"Closed stale deploy PR #{pr_number} in {repo}")
             elif response.status_code != 404:
                 print(f"Warning: failed to close stale deploy PR #{pr_number} in {repo}: {response.status_code}")
-    # Close any existing deploy PRs first
-    prs = github_client.get(
-        f"{GITHUB_API_URL}/repos/{repo}/pulls",
-        params={"state": "open", "head": f"jclee941:{DEPLOY_BRANCH}", "per_page": 20},
-    ).json()
-    for pr in prs:
-        if isinstance(pr, dict) and DEPLOY_PR_TITLE in str(pr.get("title", "")):
-            pr_number = pr["number"]
-            github_client.patch(
-                f"{GITHUB_API_URL}/repos/{repo}/pulls/{pr_number}",
-                json={"state": "closed"}
-            )
-            print(f"Closed stale deploy PR #{pr_number} in {repo}")
 
     response = mutation_delete(
         github_client,

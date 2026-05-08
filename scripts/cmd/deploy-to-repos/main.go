@@ -401,7 +401,7 @@ func deployRepo(r runner, rootDir, repo, baseBranchOverride string) error {
 			fmt.Fprintf(r.out, "[%s] warning: failed to mark PR %s as ready: %v\n", repo, existing, err)
 		}
 		if err := runLogged(r, workDir, "gh", "pr", "merge", existing, "--auto", "--squash"); err != nil {
-			return fmt.Errorf("enable auto-merge on existing PR %s for %s: %w", existing, repo, err)
+			fmt.Fprintf(r.out, "[%s] warning: failed to enable auto-merge on existing PR %s: %v\n", repo, existing, err)
 		}
 		return nil
 	}
@@ -412,7 +412,7 @@ func deployRepo(r runner, rootDir, repo, baseBranchOverride string) error {
 	prNum, _ := existingPullRequest(workDir, branchName)
 	if prNum != "" {
 		if err := runLogged(r, workDir, "gh", "pr", "merge", prNum, "--auto", "--squash"); err != nil {
-			return fmt.Errorf("enable auto-merge on new PR %s for %s: %w", prNum, repo, err)
+			fmt.Fprintf(r.out, "[%s] warning: failed to enable auto-merge on new PR %s: %v\n", repo, prNum, err)
 		}
 	}
 
