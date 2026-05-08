@@ -40,6 +40,14 @@ tests/e2e_live/
 
 `guard_mutation()` in `conftest.py` aborts any write operation outside `automation-e2e-public` and `automation-e2e-private`. Tests that mutate repos skip if the target is not a designated canary.
 
+## ENVIRONMENT VARIABLES
+
+| Variable | Fallback | Purpose |
+| --- | --- | --- |
+| `E2E_GITHUB_TOKEN` | `GH_TOKEN` | GitHub API and `gh` CLI authentication |
+| `E2E_CANARY_PUBLIC_REPO` | `jclee941/automation-e2e-public` | Public canary for mutation tests |
+| `E2E_CANARY_PRIVATE_REPO` | `jclee941/automation-e2e-private` | Private canary for mutation tests |
+| `E2E_CLIPROXY_API_KEY` | `CLIPROXY_API_KEY` | Optional CLIProxyAPI connectivity checks |
 ## COMMANDS
 
 ```bash

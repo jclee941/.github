@@ -1,6 +1,8 @@
 # github-bot — PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-05-07
+**Generated:** 2026-05-08
+**Commit:** `152aeabf`
+**Branch:** `master`
 **Upstream base:** qodo-ai/pr-agent @ `d82f7d3e`
 
 ## OVERVIEW
@@ -109,6 +111,8 @@ github-bot/
 ├── LICENSE                        # AGPL-3.0 (unchanged)
 ├── AGENTS.md                      # THIS FILE
 ├── README.md                      # fork-specific readme
+├── config/                        # OpenCode settings (base.jsonc, providers.jsonc, lsp.jsonc)
+├── templates/                     # PR/issue templates (bilingual KO/EN)
 ├── docs/
 │   ├── review-templates/              # FORK: review templates (Korean output, bilingual PR template)
 │   │   ├── code-review-template.md      # Master review format and priorities
@@ -144,7 +148,12 @@ github-bot/
 | Batch repo review | `scripts/repo_review.py`, `scripts/cmd/repo-review/main.go` | Python helper / Go CLI for repo-review-batch workflow |
 | Run live E2E tests | `tests/e2e_live/` | Live GitHub API e2e tests (fleet health, canary PR lifecycle, bot review) |
 | Configure documentation review | `.pr_agent.toml` `[pr_reviewer].extra_instructions` | Documentation checklist embedded in instructions |
-| Configure documentation review | `.pr_agent.toml` `[pr_reviewer].extra_instructions` | Documentation checklist embedded in instructions |
+| Run make targets | `Makefile` | `make test`, `make lint`, `make clean` |
+| Edit OpenCode config | `config/` | `base.jsonc`, `providers.jsonc`, `lsp.jsonc` |
+| Edit PR templates | `templates/` | Bilingual KO/EN PR/issue templates |
+| View contributor guide | `CONTRIBUTING.md` | Fork scope, commit conventions, rollout phases |
+| Run mocked E2E tests | `tests/e2e/` | FastAPI TestClient webhook tests |
+| Configure Docker App | `docker-compose.github_app.yml` | LXC 114 deployment compose |
 
 ## GIT FLOW AUTOMATION
 
@@ -305,6 +314,16 @@ pr-agent loads its settings via `Dynaconf(envvar_prefix=False, ...)` (see `pr_ag
 
 ```bash
 # ==================
+# Make targets
+# ==================
+make install                    # python3.12 venv + pip install -e .
+make test-unit                  # pytest tests/unittest -v
+make test-e2e                   # pytest tests/e2e -v --tb=short
+make test-live                  # pytest tests/e2e_live -v --tb=short
+make lint                       # ruff check .
+make clean                      # rm -rf .pytest_cache __pycache__
+
+# ==================
 # Local development
 # ==================
 python3.12 -m venv .venv
@@ -363,6 +382,7 @@ gh -R "$REPO" secret set CLIPROXY_API_KEY --body "$(cat /home/jclee/.cache/sisyp
 - **Never** run PR review on PRs from untrusted forks under `pull_request_target` without a head-repo guard — code execution / token-theft risk. The current guard in `.github/workflows/security/pr-review.yml` requires `head.repo.full_name == github.repository`.
 - **Never** push to `main` without running at least `pytest tests/unittest/test_fix_json_escape_char.py`
 - **Never** delete or rename upstream prompt TOML files (e.g. `pr_agent/settings/pr_reviewer_prompts.toml`) — they're the single source of truth for prompts
+- **Never** run the legacy root-level binaries in `scripts/` (`./branch-protection`, `./deploy-to-repos`, `./repo-review`, `./sync-secrets`). Use `(cd scripts && go run ./cmd/<name>)` instead.
 
 ## SECURITY NOTES
 
@@ -425,5 +445,5 @@ Review posted as PR comment (markdown tables + code blocks)
 | Directory | Purpose | Lines |
 |-----------|---------|-------|
 | `pr_agent/AGENTS.md` | Upstream code — read-only guidance | 47 |
-| `scripts/AGENTS.md` | Go automation tools reference | 58 |
-| `tests/e2e_live/AGENTS.md` | Live E2E test suite guide | 50 |
+| `scripts/AGENTS.md` | Go automation tools reference | 63 |
+| `tests/e2e_live/AGENTS.md` | Live E2E test suite guide | 58 |

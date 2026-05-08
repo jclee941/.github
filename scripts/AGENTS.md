@@ -14,11 +14,16 @@ scripts/
 │   ├── deploy-to-repos/main.go          # push workflows to downstream repos
 │   ├── repo-review/main.go              # batch repo review
 │   └── sync-secrets/main.go             # sync CLIPROXY_API_KEY across repos
+├── internal/
+│   └── repos/
+│       └── repos.go                     # shared repo inventory and filtering logic
 ├── cmd/deploy-to-repos/main_test.go
 ├── cmd/branch-protection/main_test.go
 ├── repo_review.py                       # legacy Python helper
-└── branch-protection, repo-review,      # legacy binaries (do not use)
-    sync-secrets
+├── pr_review_runner.py                  # Python PR review invocation helper
+├── generate_readme.py                   # README auto-generation helper
+└── branch-protection, deploy-to-repos,  # legacy binaries (do not use)
+    repo-review, sync-secrets
 ```
 
 ## WHERE TO LOOK
