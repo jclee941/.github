@@ -30,7 +30,7 @@ jobs:
 
       - name: Run labeler
         if: steps.check.outputs.has-config == 'true'
-        uses: actions/labeler@v5
+        uses: actions/labeler@v6
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           configuration-path: .github/labeler.yml
