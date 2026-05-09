@@ -41,7 +41,7 @@ jobs:
       has-terraform: ${{ steps.d.outputs.has-terraform }}
       pkg-manager: ${{ steps.d.outputs.pkg-manager }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - id: d
         working-directory: ${{ inputs.working-directory }}
         run: |
@@ -73,7 +73,7 @@ jobs:
       run:
         working-directory: ${{ inputs.working-directory }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ inputs.node-version }}
@@ -140,7 +140,7 @@ jobs:
       run:
         working-directory: ${{ inputs.working-directory }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ inputs.python-version }}
@@ -178,7 +178,7 @@ jobs:
       run:
         working-directory: ${{ inputs.working-directory }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version: ${{ inputs.go-version }}
@@ -205,7 +205,7 @@ jobs:
       run:
         working-directory: ${{ inputs.working-directory }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: hashicorp/setup-terraform@v4
       - name: fmt
         continue-on-error: true
