@@ -5,6 +5,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -171,6 +173,32 @@ func TestAllowlistAndRemovedDisjoint(t *testing.T) {
 			if r == a {
 				t.Errorf("workflow %q in both lists", r)
 			}
+		}
+	}
+}
+
+
+func TestDependabotAutoMergeDoesNotSwallowErrors(t *testing.T) {
+	workflowPath := filepath.Join("..", "..", "..", ".github", "workflows", "dependabot-auto-merge.yml")
+	content, err := os.ReadFile(workflowPath)
+	if err != nil {
+		t.Fatalf("read dependabot-auto-merge workflow: %v", err)
+	}
+
+	text := string(content)
+	if strings.Contains(text, "|| echo") {
+		t.Fatal("dependabot-auto-merge.yml must not use `|| echo` error swallowing")
+	}
+
+	for _, want := range []string{
+		"set -euo pipefail",
+		"autoMergeRequest",
+		"repos/$REPO/pulls/$PR_NUMBER/reviews",
+		"dependabot-auto-merge:manual-review:major",
+		"dependabot-auto-merge:manual-review:unknown-update-type",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("dependabot-auto-merge.yml missing expected safety pattern %q", want)
 		}
 	}
 }
