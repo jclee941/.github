@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Check private registry reachability
         id: registry_check
         shell: bash
@@ -37,7 +37,7 @@ jobs:
       - name: Login to private registry
         if: steps.registry_check.outputs.reachable == 'true'
         id: login
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: registry.jclee.me
           username: ${{ secrets.REGISTRY_USERNAME }}
