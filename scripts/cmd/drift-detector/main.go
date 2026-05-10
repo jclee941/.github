@@ -18,9 +18,9 @@ type config struct {
 }
 
 type driftResult struct {
-	repo   string
-	file   string
-	status string // missing, modified, extra
+	Repo   string `json:"repo"`
+	File   string `json:"file"`
+	Status string `json:"status"` // missing, modified, extra
 }
 
 func main() {
@@ -182,7 +182,7 @@ func checkRepoDrift(rootDir, repo string, managedFiles []string) ([]driftResult,
 func printText(drifts []driftResult) {
 	fmt.Println("=== DRIFT DETECTED ===")
 	for _, d := range drifts {
-		fmt.Printf("[%s] %s: %s\n", d.repo, d.file, d.status)
+		fmt.Printf("[%s] %s: %s\n", d.Repo, d.File, d.Status)
 	}
 }
 
@@ -192,7 +192,7 @@ func printMarkdown(drifts []driftResult) {
 	fmt.Println("| Repo | File | Status |")
 	fmt.Println("|------|------|--------|")
 	for _, d := range drifts {
-		fmt.Printf("| %s | %s | %s |\n", d.repo, d.file, d.status)
+		fmt.Printf("| %s | %s | %s |\n", d.Repo, d.File, d.Status)
 	}
 	fmt.Println()
 	fmt.Println("**Action required**: Run `(cd scripts && go run ./cmd/deploy-to-repos)` to sync.")
@@ -202,9 +202,9 @@ func uniqueDriftRepos(drifts []driftResult) []string {
 	seen := make(map[string]bool)
 	var result []string
 	for _, d := range drifts {
-		if !seen[d.repo] {
-			seen[d.repo] = true
-			result = append(result, d.repo)
+		if !seen[d.Repo] {
+			seen[d.Repo] = true
+			result = append(result, d.Repo)
 		}
 	}
 	return result
