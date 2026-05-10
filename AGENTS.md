@@ -200,14 +200,16 @@ github-bot/
 | Auto-merge policy | `.github/workflows/dependabot-auto-merge.yml` | patch + minor + github_actions → squash auto-merge after required checks pass; major → manual review comment; null update-type → manual review comment |
 | PR validation | `.github/workflows/pr-checks.yml` | sanity gates before merge |
 | Auto-review | `.github/workflows/pr-review.yml` | Runs on every PR opened by anyone except `dependabot[bot]` and drafts (Dependabot has its own auto-merge path). Posts review via `pr-agent` against cli_proxy. |
-| **README generator** (`readme-gen.yml`) — auto-generates README.md via CLIProxyAPI (minimax-m2.7 → gpt-5.5 fallback). |
 | Secret scanning | `.github/workflows/gitleaks.yml` | Required check on every PR/push; full-history scan on master |
 | Workflow lint | `.github/workflows/actionlint.yml` | Validates GHA YAML semantics on workflow changes |
 | Dependency Review | `.github/workflows/dependency-review.yml` | PR open/edit | Scans PR dependencies for known vulnerabilities (moderate+) |
 | Release Notes | `.github/workflows/release-notes.yml` | Tag push | Auto-generates categorized release notes from conventional commits |
 | Documentation sync | `.github/workflows/docs-sync.yml` | PR open/edit/push | Markdown lint, link check, README sync validation, API docs check |
-| README generator | `.github/workflows/readme-gen.yml` | Weekly (Sundays) + manual | Auto-generates README.md via CLIProxyAPI (kimi-k2.6 → minimax-m2.7 → gpt-5.5 fallback) |
+| README generator | `.github/workflows/readme-gen.yml` | Weekly (Sundays) + manual | Auto-generates README.md via CLIProxyAPI (minimax-m2.7 → gpt-5.5 fallback). |
 | Template sync | `.github/workflows/template-sync.yml` | Weekly (Sundays) + manual | Deploys standard `README.md`, `CONTRIBUTING.md`, `LICENSE` templates to downstream repos |
+| Security scoring | `.github/workflows/scorecard.yml` | PR open/push | OpenSSF Scorecard security scoring with harden-runner |
+| Semantic PR validation | `.github/workflows/semantic-pr.yml` | PR open/edit/synchronize | Enforces Conventional Commits format via amannn/action-semantic-pull-request |
+| Runtime security | all workflows | every run | step-security/harden-runner@v2 with egress-policy: audit |
 
 ### Autonomous Bot Workflows
 

@@ -55,3 +55,14 @@ jobs:
           echo "Deploying updated workflows to all jclee941/* repos..."
           (cd scripts && go run ./cmd/deploy-to-repos)
 
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 Auto-deploy failed: ${context.runId}`, 
+
+              body: `Auto-deploy workflow failed. See [run logs](${context.payload.repository.html_url}/actions/runs/${context.runId}).`,
