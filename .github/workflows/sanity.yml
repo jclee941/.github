@@ -93,3 +93,9 @@ jobs:
       - name: Fast unittest smoke (AGENTS.md minimum gate)
         run: |
           python -m pytest tests/unittest/test_fix_json_escape_char.py -v
+
+      - name: Verify automation naming conventions
+        run: |
+          echo "Validating cross-file deployment invariants..."
+          (cd scripts && go run ./cmd/validate-naming)
+          echo "Naming conventions validated."
