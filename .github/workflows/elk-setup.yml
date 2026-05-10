@@ -13,7 +13,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  elk-setup:
+    # Homelab-only: requires access to internal Elasticsearch (192.168.50.102)
+    runs-on: self-hosted
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -36,7 +37,9 @@ jobs:
                 "settings": {
                   "number_of_shards": 1,
                   "number_of_replicas": 0,
-                  "refresh_interval": "5s"
+                  "refresh_interval": "5s",
+                  "index.lifecycle.name": "github-bot-logs",
+                  "index.lifecycle.rollover_alias": "github-bot-logs"
                 },
                 "mappings": {
                   "dynamic_templates": [

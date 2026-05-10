@@ -32,10 +32,10 @@ var canaryRepos = []string{
 var workflowFiles = []string{}
 
 var downstreamWorkflowAllowlist = map[string]struct{}{
-    ".github/workflows/readme-gen.yml":                     {},
-    ".github/workflows/scorecard.yml":                   {},
-    ".github/workflows/release-notes.yml":               {},
-	".github/workflows/dependency-review.yml":          {},
+	".github/workflows/readme-gen.yml":                {},
+	".github/workflows/scorecard.yml":                 {},
+	".github/workflows/release-notes.yml":             {},
+	".github/workflows/dependency-review.yml":         {},
 	".github/workflows/actionlint.yml":                {},
 	".github/workflows/branch-to-pr.yml":              {},
 	".github/workflows/ci-failure-issues.yml":         {},
@@ -50,15 +50,13 @@ var downstreamWorkflowAllowlist = map[string]struct{}{
 	".github/workflows/merged-pr-cleanup.yml":         {},
 	".github/workflows/pr-auto-merge.yml":             {},
 	".github/workflows/pr-checks.yml":                 {},
-    ".github/workflows/pr-review.yml":                     {},
-    ".github/workflows/semantic-pr.yml":                  {},
+	".github/workflows/pr-review.yml":                 {},
+	".github/workflows/semantic-pr.yml":               {},
 	".github/workflows/release-publish.yml":           {},
 	".github/workflows/reusable-docs-sync.yml":        {},
 	".github/workflows/reusable-issue-management.yml": {},
 	".github/workflows/reusable-pr-checks.yml":        {},
 	".github/workflows/security/pr-review.yml":        {},
-    ".github/workflows/elk-health-check.yml":            {},
-    ".github/workflows/elk-setup.yml":                   {},
 	// sanity.yml + auto-hardcode-scan + auto-deploy + release-drafter are fork-specific.
 }
 
@@ -70,14 +68,14 @@ var downstreamWorkflowAllowlist = map[string]struct{}{
 //   - PULL_REQUEST_TEMPLATE.md: per-repo template (the org-level template
 //     applies to repos that lack their own, but per-repo wins).
 var extraFiles = []string{
-    ".github/dependabot.yml",
-    ".github/CODEOWNERS",
-    ".github/PULL_REQUEST_TEMPLATE.md",
-    ".github/ISSUE_TEMPLATE/1-bug-report.yml",
-    ".github/ISSUE_TEMPLATE/2-feature-request.yml",
-    ".github/ISSUE_TEMPLATE/3-security-vulnerability.yml",
-    ".github/ISSUE_TEMPLATE/config.yml",
-    ".github/renovate.json",
+	".github/dependabot.yml",
+	".github/CODEOWNERS",
+	".github/PULL_REQUEST_TEMPLATE.md",
+	".github/ISSUE_TEMPLATE/1-bug-report.yml",
+	".github/ISSUE_TEMPLATE/2-feature-request.yml",
+	".github/ISSUE_TEMPLATE/3-security-vulnerability.yml",
+	".github/ISSUE_TEMPLATE/config.yml",
+	".github/renovate.json",
 }
 
 // removedWorkflows lists workflows that were previously deployed but are no longer

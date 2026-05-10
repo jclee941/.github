@@ -18,11 +18,11 @@ import (
 // allowed extensions for deployable files. Anything outside this set
 // (e.g. .env, .secrets.toml, raw secrets) MUST never be deployed.
 var allowedDeployExtensions = map[string]struct{}{
-    ".yml":  {},
-    ".yaml": {},
-    ".md":   {},
-    ".json": {},
-    "":      {}, // CODEOWNERS has no extension
+	".yml":  {},
+	".yaml": {},
+	".md":   {},
+	".json": {},
+	"":      {}, // CODEOWNERS has no extension
 }
 
 func TestDefaultReposIsDownstreamOnly(t *testing.T) {
@@ -121,13 +121,13 @@ func TestExtraFilesAreSafePaths(t *testing.T) {
 	}
 
 	required := map[string]struct{}{
-		".github/dependabot.yml":           {},
-		".github/CODEOWNERS":               {},
-		".github/PULL_REQUEST_TEMPLATE.md": {},
-		".github/ISSUE_TEMPLATE/1-bug-report.yml":           {},
-		".github/ISSUE_TEMPLATE/2-feature-request.yml":      {},
+		".github/dependabot.yml":                              {},
+		".github/CODEOWNERS":                                  {},
+		".github/PULL_REQUEST_TEMPLATE.md":                    {},
+		".github/ISSUE_TEMPLATE/1-bug-report.yml":             {},
+		".github/ISSUE_TEMPLATE/2-feature-request.yml":        {},
 		".github/ISSUE_TEMPLATE/3-security-vulnerability.yml": {},
-		".github/ISSUE_TEMPLATE/config.yml":               {},
+		".github/ISSUE_TEMPLATE/config.yml":                   {},
 	}
 
 	seen := make(map[string]struct{}, len(extraFiles))
@@ -181,7 +181,6 @@ func TestAllowlistAndRemovedDisjoint(t *testing.T) {
 		}
 	}
 }
-
 
 func TestDependabotAutoMergeDoesNotSwallowErrors(t *testing.T) {
 	workflowPath := filepath.Join("..", "..", "..", ".github", "workflows", "dependabot-auto-merge.yml")
