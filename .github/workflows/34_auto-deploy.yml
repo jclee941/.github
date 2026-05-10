@@ -11,7 +11,8 @@ on:
       - 'scripts/cmd/deploy-to-repos/**'
       - '.github/ISSUE_TEMPLATE/**'
       - '.ls-lint.yml'
-      - '.github/renovate.json'
+      - 'requirements.txt'
+      - 'pyproject.toml'
   workflow_dispatch:
 permissions:
   contents: read
