@@ -65,9 +65,9 @@ var extraFiles = []string{
 	".github/dependabot.yml",
 	".github/CODEOWNERS",
 	".github/PULL_REQUEST_TEMPLATE.md",
-	".github/ISSUE_TEMPLATE/bug-report.yml",
-	".github/ISSUE_TEMPLATE/feature-request.yml",
-	".github/ISSUE_TEMPLATE/security-vulnerability.yml",
+	".github/ISSUE_TEMPLATE/1-bug-report.yml",
+	".github/ISSUE_TEMPLATE/2-feature-request.yml",
+	".github/ISSUE_TEMPLATE/3-security-vulnerability.yml",
 	".github/ISSUE_TEMPLATE/config.yml",
 }
 

@@ -10,6 +10,7 @@ on:
       - '.github/PULL_REQUEST_TEMPLATE.md'
       - 'scripts/cmd/deploy-to-repos/**'
       - '.github/ISSUE_TEMPLATE/**'
+      - '.ls-lint.yml'
   workflow_dispatch:
 permissions:
   contents: read

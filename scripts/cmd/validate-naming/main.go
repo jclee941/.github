@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -9,15 +10,20 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"unicode"
 )
 
 // validation checks cross-file invariants for the deployment system.
 type validation struct {
-	name   string
-	check  func() error
+	name string
+	check func() error
+	fix  func() error
 }
 
 func main() {
+	fixMode := flag.Bool("fix", false, "automatically fix detected issues where possible")
+	flag.Parse()
+
 	rootDir, err := findRepoRoot()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
@@ -27,24 +33,37 @@ func main() {
 	v := &validator{rootDir: rootDir}
 
 	validations := []validation{
-		{"deploy constants match E2E test", v.deployConstantsMatchE2E},
-		{"auto-deploy paths cover extraFiles", v.autoDeployPathsCoverExtraFiles},
-		{"CODEOWNERS covers extraFiles directories", v.codeownersCoversExtraFiles},
-		{"issue templates follow kebab-case", v.issueTemplatesKebabCase},
-		{"workflows follow naming convention", v.workflowsNamingConvention},
-		{"extraFiles have allowed extensions", v.extraFilesExtensions},
+		{"deploy constants match E2E test", v.deployConstantsMatchE2E, v.fixDeployConstantsMatchE2E},
+		{"auto-deploy paths cover extraFiles", v.autoDeployPathsCoverExtraFiles, v.fixAutoDeployPaths},
+		{"CODEOWNERS covers extraFiles directories", v.codeownersCoversExtraFiles, v.fixCodeowners},
+		{"issue templates follow kebab-case", v.issueTemplatesKebabCase, nil},
+		{"workflows follow naming convention", v.workflowsNamingConvention, nil},
+		{"extraFiles have allowed extensions", v.extraFilesExtensions, nil},
 	}
 
 	failed := 0
+	fixed := 0
 	for _, val := range validations {
 		if err := val.check(); err != nil {
 			fmt.Fprintf(os.Stderr, "FAIL: %s: %v\n", val.name, err)
+			if *fixMode && val.fix != nil {
+				if fixErr := val.fix(); fixErr != nil {
+					fmt.Fprintf(os.Stderr, "  -> auto-fix failed: %v\n", fixErr)
+				} else {
+					fmt.Printf("  -> auto-fixed\n")
+					fixed++
+					continue
+				}
+			}
 			failed++
 		} else {
 			fmt.Printf("PASS: %s\n", val.name)
 		}
 	}
 
+	if fixed > 0 {
+		fmt.Printf("\n%d issue(s) auto-fixed. Re-run without --fix to verify.\n", fixed)
+	}
 	if failed > 0 {
 		fmt.Fprintf(os.Stderr, "\n%d validation(s) failed\n", failed)
 		os.Exit(1)
@@ -153,20 +172,17 @@ func extractGoSlice(filePath, varName string) ([]string, error) {
 }
 
 func (v *validator) deployConstantsMatchE2E() error {
-	deployFile := filepath.Join(v.rootDir, "scripts", "cmd", "deploy-to-repos", "main.go")
-	goConsts, err := extractGoConst(deployFile, []string{"branchName", "prTitle"})
+	goConsts, err := extractGoConst(v.deployFile(), []string{"branchName", "prTitle"})
 	if err != nil {
 		return err
 	}
 
-	e2eFile := filepath.Join(v.rootDir, "tests", "e2e_live", "test_deploy_path.py")
-	content, err := os.ReadFile(e2eFile)
+	content, err := os.ReadFile(v.e2eFile())
 	if err != nil {
 		return fmt.Errorf("read E2E test: %w", err)
 	}
 	text := string(content)
 
-	// Extract Python constants via regex
 	branchRe := regexp.MustCompile(`DEPLOY_BRANCH\s*=\s*"([^"]+)"`)
 	titleRe := regexp.MustCompile(`DEPLOY_PR_TITLE\s*=\s*"([^"]+)"`)
 
@@ -193,57 +209,138 @@ func (v *validator) deployConstantsMatchE2E() error {
 	return nil
 }
 
-func (v *validator) autoDeployPathsCoverExtraFiles() error {
-	deployFile := filepath.Join(v.rootDir, "scripts", "cmd", "deploy-to-repos", "main.go")
-	extraFiles, err := extractGoSlice(deployFile, "extraFiles")
+func (v *validator) fixDeployConstantsMatchE2E() error {
+	goConsts, err := extractGoConst(v.deployFile(), []string{"branchName", "prTitle"})
 	if err != nil {
 		return err
 	}
 
-	// Read auto-deploy.yml trigger paths
-	autoDeployPath := filepath.Join(v.rootDir, ".github", "workflows", "auto-deploy.yml")
-	content, err := os.ReadFile(autoDeployPath)
+	content, err := os.ReadFile(v.e2eFile())
 	if err != nil {
-		return fmt.Errorf("read auto-deploy.yml: %w", err)
+		return err
+	}
+	text := string(content)
+
+	branchRe := regexp.MustCompile(`DEPLOY_BRANCH\s*=\s*"([^"]+)"`)
+	titleRe := regexp.MustCompile(`DEPLOY_PR_TITLE\s*=\s*"([^"]+)"`)
+
+	text = branchRe.ReplaceAllString(text, `DEPLOY_BRANCH = "`+goConsts["branchName"]+`"`)
+	text = titleRe.ReplaceAllString(text, `DEPLOY_PR_TITLE = "`+goConsts["prTitle"]+`"`)
+
+	return os.WriteFile(v.e2eFile(), []byte(text), 0o644)
+}
+
+func (v *validator) autoDeployPathsCoverExtraFiles() error {
+	extraFiles, err := extractGoSlice(v.deployFile(), "extraFiles")
+	if err != nil {
+		return err
 	}
 
-	// Extract paths from YAML
-	paths := extractYamlPaths(string(content))
+	paths, err := v.extractAutoDeployPaths()
+	if err != nil {
+		return err
+	}
 
-	// Check that each extraFiles directory is covered by a trigger path
 	for _, ef := range extraFiles {
-		dir := filepath.Dir(ef)
 		covered := false
 		for _, tp := range paths {
-			// Handle exact file match
 			if ef == tp {
 				covered = true
 				break
 			}
-			// Handle glob patterns like '.github/ISSUE_TEMPLATE/**'
 			tpClean := strings.TrimSuffix(tp, "/**")
-			if strings.HasPrefix(dir, tpClean) || dir == tpClean {
+			if strings.HasPrefix(filepath.Dir(ef), tpClean) || filepath.Dir(ef) == tpClean {
 				covered = true
 				break
 			}
 		}
 		if !covered {
-			return fmt.Errorf("extraFile %q directory %q not covered by auto-deploy.yml paths %v", ef, dir, paths)
+			return fmt.Errorf("extraFile %q not covered by auto-deploy.yml paths", ef)
 		}
 	}
 
 	return nil
 }
 
-func (v *validator) codeownersCoversExtraFiles() error {
-	deployFile := filepath.Join(v.rootDir, "scripts", "cmd", "deploy-to-repos", "main.go")
-	extraFiles, err := extractGoSlice(deployFile, "extraFiles")
+func (v *validator) fixAutoDeployPaths() error {
+	extraFiles, err := extractGoSlice(v.deployFile(), "extraFiles")
 	if err != nil {
 		return err
 	}
 
-	codeownersPath := filepath.Join(v.rootDir, ".github", "CODEOWNERS")
-	content, err := os.ReadFile(codeownersPath)
+	paths, err := v.extractAutoDeployPaths()
+	if err != nil {
+		return err
+	}
+
+	pathSet := make(map[string]bool)
+	for _, p := range paths {
+		pathSet[p] = true
+	}
+
+	var missing []string
+	for _, ef := range extraFiles {
+		covered := false
+		for _, tp := range paths {
+			if ef == tp {
+				covered = true
+				break
+			}
+			tpClean := strings.TrimSuffix(tp, "/**")
+			if strings.HasPrefix(filepath.Dir(ef), tpClean) || filepath.Dir(ef) == tpClean {
+				covered = true
+				break
+			}
+		}
+		if !covered {
+			dir := filepath.Dir(ef)
+			glob := dir + "/**"
+			if !pathSet[glob] {
+				missing = append(missing, glob)
+				pathSet[glob] = true
+			}
+		}
+	}
+
+	if len(missing) == 0 {
+		return nil
+	}
+
+	content, err := os.ReadFile(v.autoDeployFile())
+	if err != nil {
+		return err
+	}
+
+	text := string(content)
+	// Insert missing paths before the first non-path, non-comment line after paths section
+	lines := strings.Split(text, "\n")
+	insertIdx := -1
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "- '") || strings.HasPrefix(trimmed, "-\"") {
+			insertIdx = i + 1
+		}
+	}
+	if insertIdx == -1 {
+		return fmt.Errorf("could not find insertion point in auto-deploy.yml")
+	}
+
+	var newLines []string
+	for _, m := range missing {
+		newLines = append(newLines, fmt.Sprintf("      - '%s'", m))
+	}
+
+	lines = append(lines[:insertIdx], append(newLines, lines[insertIdx:]...)...)
+	return os.WriteFile(v.autoDeployFile(), []byte(strings.Join(lines, "\n")), 0o644)
+}
+
+func (v *validator) codeownersCoversExtraFiles() error {
+	extraFiles, err := extractGoSlice(v.deployFile(), "extraFiles")
+	if err != nil {
+		return err
+	}
+
+	content, err := os.ReadFile(v.codeownersFile())
 	if err != nil {
 		return fmt.Errorf("read CODEOWNERS: %w", err)
 	}
@@ -265,7 +362,6 @@ func (v *validator) codeownersCoversExtraFiles() error {
 		dir := "/" + filepath.Dir(ef) + "/"
 		covered := false
 		for _, pattern := range patterns {
-			// Simple matching: check if directory starts with pattern
 			patDir := filepath.Dir(pattern)
 			if patDir == "." {
 				patDir = pattern
@@ -287,6 +383,75 @@ func (v *validator) codeownersCoversExtraFiles() error {
 	return nil
 }
 
+func (v *validator) fixCodeowners() error {
+	extraFiles, err := extractGoSlice(v.deployFile(), "extraFiles")
+	if err != nil {
+		return err
+	}
+
+	content, err := os.ReadFile(v.codeownersFile())
+	if err != nil {
+		return err
+	}
+
+	lines := strings.Split(string(content), "\n")
+	var patterns []string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.Fields(line)
+		if len(parts) >= 2 {
+			patterns = append(patterns, parts[0])
+		}
+	}
+
+	var missing []string
+	for _, ef := range extraFiles {
+		dir := "/" + filepath.Dir(ef) + "/"
+		covered := false
+		for _, pattern := range patterns {
+			patDir := filepath.Dir(pattern)
+			if patDir == "." {
+				patDir = pattern
+			}
+			if strings.HasSuffix(patDir, "/") {
+				patDir = strings.TrimSuffix(patDir, "/")
+			}
+			checkDir := strings.TrimSuffix(dir, "/")
+			if strings.HasPrefix(checkDir, patDir) || checkDir == patDir {
+				covered = true
+				break
+			}
+		}
+		if !covered && !contains(missing, dir) {
+			missing = append(missing, dir)
+		}
+	}
+
+	if len(missing) == 0 {
+		return nil
+	}
+
+	// Append missing entries before the last blank line or at end
+	insertIdx := len(lines)
+	for i := len(lines) - 1; i >= 0; i-- {
+		if strings.TrimSpace(lines[i]) != "" {
+			insertIdx = i + 1
+			break
+		}
+	}
+
+	var newLines []string
+	for _, m := range missing {
+		newLines = append(newLines, fmt.Sprintf("%s\t@jclee941", m))
+	}
+
+	lines = append(lines[:insertIdx], append(newLines, lines[insertIdx:]...)...)
+	return os.WriteFile(v.codeownersFile(), []byte(strings.Join(lines, "\n")), 0o644)
+}
+
 func (v *validator) issueTemplatesKebabCase() error {
 	templateDir := filepath.Join(v.rootDir, ".github", "ISSUE_TEMPLATE")
 	entries, err := os.ReadDir(templateDir)
@@ -294,11 +459,11 @@ func (v *validator) issueTemplatesKebabCase() error {
 		return fmt.Errorf("read ISSUE_TEMPLATE dir: %w", err)
 	}
 
-	kebabRe := regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*\.yml$`)
+	kebabRe := regexp.MustCompile(`^[0-9]+-[a-z0-9]+(-[a-z0-9]+)*\.yml$`)
 	for _, entry := range entries {
 		name := entry.Name()
 		if name == "config.yml" {
-			continue // GitHub standard, exempt from kebab-case
+			continue
 		}
 		if !kebabRe.MatchString(name) {
 			return fmt.Errorf("issue template %q does not follow kebab-case.yml convention", name)
@@ -324,7 +489,7 @@ func (v *validator) workflowsNamingConvention() error {
 		}
 		name := entry.Name()
 		if strings.HasPrefix(name, "_") {
-			continue // local-only workflows exempt
+			continue
 		}
 		if reusableRe.MatchString(name) {
 			continue
@@ -338,17 +503,16 @@ func (v *validator) workflowsNamingConvention() error {
 }
 
 func (v *validator) extraFilesExtensions() error {
-	deployFile := filepath.Join(v.rootDir, "scripts", "cmd", "deploy-to-repos", "main.go")
-	extraFiles, err := extractGoSlice(deployFile, "extraFiles")
+	extraFiles, err := extractGoSlice(v.deployFile(), "extraFiles")
 	if err != nil {
 		return err
 	}
 
 	allowed := map[string]bool{
-		".yml": true,
+		".yml":  true,
 		".yaml": true,
-		".md":  true,
-		"":     true, // no extension (CODEOWNERS)
+		".md":   true,
+		"":      true,
 	}
 
 	for _, ef := range extraFiles {
@@ -361,11 +525,16 @@ func (v *validator) extraFilesExtensions() error {
 	return nil
 }
 
-// extractYamlPaths extracts trigger paths from auto-deploy.yml content.
-func extractYamlPaths(content string) []string {
+// extractAutoDeployPaths extracts trigger paths from auto-deploy.yml content.
+func (v *validator) extractAutoDeployPaths() ([]string, error) {
+	content, err := os.ReadFile(v.autoDeployFile())
+	if err != nil {
+		return nil, fmt.Errorf("read auto-deploy.yml: %w", err)
+	}
+
 	var paths []string
 	inPaths := false
-	for _, line := range strings.Split(content, "\n") {
+	for _, line := range strings.Split(string(content), "\n") {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "paths:" {
 			inPaths = true
@@ -376,12 +545,28 @@ func extractYamlPaths(content string) []string {
 				path := strings.TrimSpace(strings.TrimPrefix(trimmed, "-"))
 				paths = append(paths, strings.Trim(path, `"'`))
 			} else if trimmed != "" && !strings.HasPrefix(trimmed, "#") {
-				// End of paths section
 				break
 			}
 		}
 	}
-	return paths
+	return paths, nil
+}
+
+// Helper methods for file paths
+func (v *validator) deployFile() string {
+	return filepath.Join(v.rootDir, "scripts", "cmd", "deploy-to-repos", "main.go")
+}
+
+func (v *validator) e2eFile() string {
+	return filepath.Join(v.rootDir, "tests", "e2e_live", "test_deploy_path.py")
+}
+
+func (v *validator) autoDeployFile() string {
+	return filepath.Join(v.rootDir, ".github", "workflows", "auto-deploy.yml")
+}
+
+func (v *validator) codeownersFile() string {
+	return filepath.Join(v.rootDir, ".github", "CODEOWNERS")
 }
 
 func contains(slice []string, item string) bool {
@@ -391,4 +576,84 @@ func contains(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+// toKebabCase converts a string to kebab-case.
+func toKebabCase(s string) string {
+	var result []rune
+	for i, r := range s {
+		if unicode.IsUpper(r) && i > 0 {
+			result = append(result, '-')
+		}
+		result = append(result, unicode.ToLower(r))
+	}
+	return string(result)
+}
+
+// isKebabCase checks if a string is already kebab-case.
+func isKebabCase(s string) bool {
+	for _, r := range s {
+		if !unicode.IsLower(r) && !unicode.IsDigit(r) && r != '-' && r != '_' {
+			return false
+		}
+	}
+	return true
+}
+
+// sanitizeFilename removes/replaces invalid characters for a filename.
+func sanitizeFilename(name string) string {
+	var result []rune
+	for _, r := range name {
+		switch {
+		case unicode.IsLetter(r), unicode.IsDigit(r), r == '-', r == '_':
+			result = append(result, r)
+		case r == ' ':
+			result = append(result, '-')
+		default:
+			// skip other characters
+		}
+	}
+	return string(result)
+}
+
+// countLines counts non-empty lines in a string.
+func countLines(s string) int {
+	count := 0
+	for _, line := range strings.Split(s, "\n") {
+		if strings.TrimSpace(line) != "" {
+			count++
+		}
+	}
+	return count
+}
+
+// max returns the maximum of two integers.
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// min returns the minimum of two integers.
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// stringPtr returns a pointer to a string.
+func stringPtr(s string) *string {
+	return &s
+}
+
+// intPtr returns a pointer to an int.
+func intPtr(i int) *int {
+	return &i
+}
+
+// boolPtr returns a pointer to a bool.
+func boolPtr(b bool) *bool {
+	return &b
 }

@@ -1,11 +1,15 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
 func TestExtractYamlPaths(t *testing.T) {
-	content := `on:
+	// Create temp dir with mock auto-deploy.yml
+	tmpDir := t.TempDir()
+	yamlContent := `on:
   push:
     branches: [master]
     paths:
@@ -14,7 +18,14 @@ func TestExtractYamlPaths(t *testing.T) {
       - '.github/ISSUE_TEMPLATE/**'
   workflow_dispatch:
 `
-	paths := extractYamlPaths(content)
+	os.MkdirAll(filepath.Join(tmpDir, ".github", "workflows"), 0o755)
+	os.WriteFile(filepath.Join(tmpDir, ".github", "workflows", "auto-deploy.yml"), []byte(yamlContent), 0o644)
+
+	v := &validator{rootDir: tmpDir}
+	paths, err := v.extractAutoDeployPaths()
+	if err != nil {
+		t.Fatalf("extract paths: %v", err)
+	}
 	want := []string{
 		".github/workflows/**",
 		".github/dependabot.yml",
