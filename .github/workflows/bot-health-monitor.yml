@@ -47,7 +47,15 @@ jobs:
           CUTOFF=$(date -u -d '48 hours ago' +%Y-%m-%dT%H:%M:%SZ)
           REVIEW_COUNT=0
 
-          for REPO in resume bug terraform account blacklist opencode safetywallet splunk tmux; do
+          REPOS=$(gh api orgs/jclee941/repos --paginate --jq '.[] | select(.archived == false) | .name' 2>/dev/null | sort)
+          if [ -z "$REPOS" ]; then
+            echo "bot_active=false" >> "$GITHUB_OUTPUT"
+            echo "review_count=0" >> "$GITHUB_OUTPUT"
+            echo "warning: could not fetch repo list from org"
+            exit 0
+          fi
+
+          for REPO in $REPOS; do
             COUNT=$(gh api "repos/jclee941/$REPO/pulls/comments" \
               --paginate \
               --jq "[.[] | select(.user.login == \"jclee-bot[bot]\" and .created_at >= \"$CUTOFF\")] | length" 2>/dev/null || echo 0)
