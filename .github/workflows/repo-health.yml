@@ -133,4 +133,15 @@ jobs:
                 labels: ['documentation', 'repo-health'],
               });
               console.log(`📝 Created health issue in ${repo}`);
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 ${{ github.workflow }} failed: ${context.runId}`,
+              body: `${{ github.workflow }} workflow failed. See [run logs](${context.payload.repository.html_url}/actions/runs/${context.runId}).`
+            });
             }

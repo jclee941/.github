@@ -57,6 +57,8 @@ var downstreamWorkflowAllowlist = map[string]struct{}{
 	".github/workflows/reusable-issue-management.yml": {},
 	".github/workflows/reusable-pr-checks.yml":        {},
 	".github/workflows/security/pr-review.yml":        {},
+    ".github/workflows/elk-health-check.yml":            {},
+    ".github/workflows/elk-setup.yml":                   {},
 	// sanity.yml + auto-hardcode-scan + auto-deploy + release-drafter are fork-specific.
 }
 

@@ -210,6 +210,8 @@ github-bot/
 | Security scoring | `.github/workflows/scorecard.yml` | PR open/push | OpenSSF Scorecard security scoring with harden-runner |
 | Semantic PR validation | `.github/workflows/semantic-pr.yml` | PR open/edit/synchronize | Enforces Conventional Commits format via amannn/action-semantic-pull-request |
 | Runtime security | all workflows | every run | step-security/harden-runner@v2 with egress-policy: audit |
+| ELK health monitoring | `.github/workflows/elk-health-check.yml` | Daily 06:00 UTC | Checks Elasticsearch connectivity, index health, creates issues on failure |
+| ELK setup | `.github/workflows/elk-setup.yml` | Weekly (Sundays) + manual | Deploys index templates and ILM policies to Elasticsearch |
 
 ### Autonomous Bot Workflows
 
@@ -276,6 +278,45 @@ To check if the bot is actually reviewing PRs:
 - Check container logs on LXC 114: `ssh root@192.168.50.114 "docker logs github-bot-app"`
 - Check PR comments by `jclee-bot[bot]` in downstream repos
 
+## ELK INTEGRATION
+
+| Component | Details |
+|-----------|---------|
+| **Elasticsearch** | `http://192.168.50.102:9200` — homelab ELK stack |
+| **Filebeat** | Ships github-bot-app container logs + Docker container logs |
+| **Index** | `github-bot-logs-%{+yyyy.MM.dd}` — daily indices |
+| **ILM Policy** | `github-bot-logs`: 7-day hot rollover → warm shrink → 30-day delete |
+| **Config** | `filebeat.yml` — container input with Docker metadata + JSON decoding |
+| **Compose** | `docker-compose.github_app.yml` — filebeat service alongside github-bot-app |
+
+### Log Shipping Architecture
+
+```text
+GitHub App (docker container) → Docker JSON logs → Filebeat → Elasticsearch
+```
+
+### Automated Management
+
+| Workflow | Schedule | Purpose |
+|----------|----------|---------|
+| `elk-health-check.yml` | Daily 06:00 UTC | Checks Elasticsearch connectivity and index health; creates issues on failure |
+| `elk-setup.yml` | Weekly (Sundays) + manual | Deploys index templates and ILM policies to Elasticsearch |
+
+### Manual Operations
+
+```bash
+# Check Filebeat status on LXC 114
+ssh root@192.168.50.114 "docker logs filebeat-github-bot"
+
+# Check Elasticsearch cluster health
+curl -sS http://192.168.50.102:9200/_cluster/health?pretty
+
+# View recent indices
+curl -sS http://192.168.50.102:9200/_cat/indices/github-bot-logs-*?v
+
+# Query recent logs
+curl -sS http://192.168.50.102:9200/github-bot-logs-*/_search?pretty -H 'Content-Type: application/json' -d '{"size": 5, "sort": [{"@timestamp": {"order": "desc"}}]}'
+```
 ## CLI_PROXY INTEGRATION DETAILS
 
 | Item | Value |
