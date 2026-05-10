@@ -70,8 +70,6 @@ jobs:
         id: meta
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-        env:
           INPUT_BRANCH: ${{ inputs.branch }}
           INPUT_BASE: ${{ inputs.base }}
           EVENT_NAME: ${{ github.event_name }}
