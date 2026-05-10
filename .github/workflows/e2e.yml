@@ -16,6 +16,10 @@ jobs:
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
       - uses: actions/checkout@v6
 
       - name: Set up Python 3.12

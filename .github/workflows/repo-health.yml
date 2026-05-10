@@ -22,6 +22,10 @@ jobs:
     outputs:
       repos: ${{ steps.discover.outputs.repos }}
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
       - name: Discover repos
         id: discover
         env:
@@ -42,6 +46,10 @@ jobs:
       matrix:
         repo: ${{ fromJson(needs.discover-repos.outputs.repos) }}
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
       - name: Check repository health
         uses: actions/github-script@v7
         env:

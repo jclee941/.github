@@ -28,6 +28,10 @@ jobs:
       # its bundled model cost map instead of fetching from raw.githubusercontent.com.
       LITELLM_LOCAL_MODEL_COST_MAP: "True"
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
       - name: Check out repo
         uses: actions/checkout@v6
 

@@ -27,6 +27,10 @@ jobs:
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@v6
 
@@ -67,6 +71,10 @@ jobs:
     needs: readonly
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 21 * * 6'
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@v6
 

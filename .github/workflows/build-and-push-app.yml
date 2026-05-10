@@ -24,6 +24,10 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 15
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@v6
       - name: Check private registry reachability

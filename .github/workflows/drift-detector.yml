@@ -30,6 +30,10 @@ jobs:
       has_drift: ${{ steps.drift.outputs.has_drift }}
       drift_repos: ${{ steps.drift.outputs.drift_repos }}
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
       - name: Checkout source repo
         uses: actions/checkout@v6
 
@@ -109,6 +113,10 @@ jobs:
       matrix:
         repo: ${{ fromJSON(needs.detect.outputs.drift_repos) }}
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
       - name: Checkout source repo
         uses: actions/checkout@v6
 

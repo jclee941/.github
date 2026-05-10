@@ -19,6 +19,10 @@ jobs:
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 5
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
       - name: Welcome first interaction
         uses: actions/first-interaction@v3
         with:

@@ -20,6 +20,10 @@ jobs:
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 2
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
       - name: Normalize PR title and labels
         uses: actions/github-script@v7
         with:
