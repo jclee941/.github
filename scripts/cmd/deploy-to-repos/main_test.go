@@ -123,6 +123,10 @@ func TestExtraFilesAreSafePaths(t *testing.T) {
 		".github/dependabot.yml":           {},
 		".github/CODEOWNERS":               {},
 		".github/PULL_REQUEST_TEMPLATE.md": {},
+		".github/ISSUE_TEMPLATE/bug-report.yml":           {},
+		".github/ISSUE_TEMPLATE/feature-request.yml":      {},
+		".github/ISSUE_TEMPLATE/security-vulnerability.yml": {},
+		".github/ISSUE_TEMPLATE/config.yml":               {},
 	}
 
 	seen := make(map[string]struct{}, len(extraFiles))
@@ -200,5 +204,15 @@ func TestDependabotAutoMergeDoesNotSwallowErrors(t *testing.T) {
 		if !strings.Contains(text, want) {
 			t.Fatalf("dependabot-auto-merge.yml missing expected safety pattern %q", want)
 		}
+	}
+}
+
+func TestDeploymentNamingConstants(t *testing.T) {
+	if branchName != "chore/sync-automation-workflows" {
+		t.Errorf("branchName = %q; want %q", branchName, "chore/sync-automation-workflows")
+	}
+	wantTitle := "chore: sync automation workflows, dependabot, and templates"
+	if prTitle != wantTitle {
+		t.Errorf("prTitle = %q; want %q", prTitle, wantTitle)
 	}
 }
