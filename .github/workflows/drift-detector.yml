@@ -4,6 +4,15 @@ on:
   schedule:
     - cron: '0 9 * * 1'  # Every Monday 09:00 UTC
   workflow_dispatch:
+    inputs:
+      self_heal:
+        description: 'Auto-deploy fixes for drifted repos'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 permissions:
   contents: read
@@ -17,6 +26,9 @@ jobs:
   detect:
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 15
+    outputs:
+      has_drift: ${{ steps.drift.outputs.has_drift }}
+      drift_repos: ${{ steps.drift.outputs.drift_repos }}
     steps:
       - name: Checkout source repo
         uses: actions/checkout@v6
@@ -32,12 +44,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
         run: |
           cd scripts
-          go run ./cmd/drift-detector --format=markdown > /tmp/drift-report.md || true
-          if [ -s /tmp/drift-report.md ]; then
+          go run ./cmd/drift-detector --format=json > /tmp/drift-report.json || true
+          if [ -s /tmp/drift-report.json ]; then
             echo "has_drift=true" >> "$GITHUB_OUTPUT"
-            cat /tmp/drift-report.md
+            # Extract repo list as JSON array for matrix strategy
+            repos=$(python3 -c "import json; d=json.load(open('/tmp/drift-report.json')); print(json.dumps(d.get('repos',[])))" 2>/dev/null || echo '[]')
+            echo "drift_repos=$repos" >> "$GITHUB_OUTPUT"
+            cat /tmp/drift-report.json
           else
             echo "has_drift=false" >> "$GITHUB_OUTPUT"
+            echo "drift_repos=[]" >> "$GITHUB_OUTPUT"
             echo "No drift detected"
           fi
 
@@ -47,7 +63,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const body = fs.readFileSync('/tmp/drift-report.md', 'utf8');
+            const body = fs.readFileSync('/tmp/drift-report.json', 'utf8');
             const title = '[drift] Downstream automation drift detected';
 
             // Search for existing open drift issue
@@ -79,3 +95,32 @@ jobs:
               });
               console.log('Created drift issue #' + created.data.number);
             }
+
+  heal:
+    needs: detect
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.self_heal == 'true' && needs.detect.outputs.has_drift == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        repo: ${{ fromJSON(needs.detect.outputs.drift_repos) }}
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.21'
+
+      - name: Deploy fix for ${{ matrix.repo }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
+        run: |
+          cd scripts
+          echo "Deploying fix for ${{ matrix.repo }}..."
+          go run ./cmd/deploy-to-repos --repos=${{ matrix.repo }}
