@@ -385,9 +385,10 @@ These conventions are enforced by `scripts/cmd/deploy-to-repos/main.go` and its 
 | **`reusable-` prefix** | Callable reusable workflow | `reusable-pr-checks.yml` |
 | **`security/` subdirectory** | Security-focused workflows | `security/pr-review.yml` |
 | **No extension** | GitHub-mandated filenames | `CODEOWNERS` |
-| **`.yml` preferred** | Workflow and issue template extensions | `bug-report.yml` (not `.yaml`) |
+| **`.yml` preferred** | Workflow and issue template extensions | `1-bug-report.yml` (not `.yaml`) |
 
-**Issue templates** follow the `{type}-report.yml` pattern: `bug-report.yml`, `feature-request.yml`, `security-vulnerability.yml`.
+**Issue templates** follow the `{number}-{type}-report.yml` pattern with numeric prefix for display ordering: `1-bug-report.yml`, `2-feature-request.yml`, `3-security-vulnerability.yml` (next.js style).
+.github/ISSUE_TEMPLATE/config.yml` is exempt from numeric prefix (GitHub standard).
 
 **Deployment branch naming**: `chore/sync-automation-workflows` (reflects full scope: workflows + dependabot + templates).
 
@@ -468,3 +469,10 @@ Review posted as PR comment (markdown tables + code blocks)
 | `pr_agent/AGENTS.md` | Upstream code — read-only guidance | 47 |
 | `scripts/AGENTS.md` | Go automation tools reference | 63 |
 | `tests/e2e_live/AGENTS.md` | Live E2E test suite guide | 58 |
+
+
+**Automated validation**: `scripts/cmd/validate-naming` checks cross-file invariants (deploy constants match E2E tests, auto-deploy paths cover extraFiles, CODEOWNERS coverage, kebab-case compliance). Run with `(cd scripts && go run ./cmd/validate-naming)`. Use `--fix` for auto-correction where supported.
+
+**File naming lint**: `.ls-lint.yml` enforces directory-specific conventions via `ls-lint`. Integrated into `sanity.yml` CI.
+pos
+396#MS
