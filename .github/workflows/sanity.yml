@@ -99,3 +99,9 @@ jobs:
           echo "Validating cross-file deployment invariants..."
           (cd scripts && go run ./cmd/validate-naming)
           echo "Naming conventions validated."
+      - name: Verify file naming conventions (ls-lint)
+        run: |
+          curl -sL https://github.com/loeffel-io/ls-lint/releases/latest/download/ls-lint-linux-amd64 -o /tmp/ls-lint
+          chmod +x /tmp/ls-lint
+          /tmp/ls-lint
+          echo "ls-lint passed"

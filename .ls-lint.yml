@@ -1,0 +1,43 @@
+# ls-lint configuration — enforces file and directory naming conventions
+# https://ls-lint.org/2.2/getting-started/introduction.html
+#
+# Patterns:
+#   kebab-case:     pr-checks.yml, bug-report.yml
+#   snake_case:     main_test.go, validate_naming.go
+#   regex:          custom patterns like numbered issue templates
+
+ls:
+  # GitHub workflows must be kebab-case
+  .github/workflows:
+    .yml: kebab-case
+    .yaml: kebab-case
+
+  # Issue templates: numbered prefix + kebab-case (e.g., 1-bug-report.yml)
+  .github/ISSUE_TEMPLATE:
+    .yml: regex:^[0-9]+-[a-z0-9]+(-[a-z0-9]+)*$
+    config.yml: exists
+
+  # Go scripts: snake_case
+  scripts/cmd/*:
+    .go: snake_case
+    .mod: regex:^go\.mod$
+    .sum: regex:^go\.sum$
+
+  # Root config files: kebab-case or standard names
+  .github:
+    dependabot.yml: exists
+    CODEOWNERS: regex:^CODEOWNERS$
+    PULL_REQUEST_TEMPLATE.md: regex:^PULL_REQUEST_TEMPLATE\.md$
+
+  # General directories
+  docs:
+    .md: kebab-case
+
+ignore:
+  - node_modules
+  - .git
+  - .venv
+  - .pytest_cache
+  - __pycache__
+  - pr_agent  # upstream code, exempt from naming rules
+  - tests     # upstream test fixtures may have varying names
