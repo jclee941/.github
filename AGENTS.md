@@ -1,6 +1,7 @@
 # github-bot — PROJECT KNOWLEDGE BASE
 
 **Generated:** 2026-05-10
+**Commit:** `89f56fae`
 **Commit:** `ce48a4cc`
 **Branch:** `master`
 **Upstream base:** qodo-ai/pr-agent @ `d82f7d3e`
@@ -35,6 +36,7 @@ All upstream pr-agent features are preserved: `/review`, `/improve`, `/describe`
 | `scripts/go.mod` + `scripts/cmd/{branch-protection,deploy-to-repos,sync-secrets,repo-review}/main.go` | **NEW** | Module-restructured Go scripts to enable `go test`. Invoke via `(cd scripts && go run ./cmd/<name>)`. |
 | `scripts/cmd/branch-protection/main_test.go` + `scripts/cmd/deploy-to-repos/main_test.go` | **NEW** | Table-driven tests for pure-logic helpers (16 test cases) |
 | `scripts/cmd/deploy-to-repos/main.go` | **NEW** | Deploy `pr-review.yml` to `jclee941/*` repos |
+| `scripts/cmd/rulesets-manager/main.go` | **NEW** | GitHub Rulesets manager — supplements branch protection with ruleset-based controls (list/apply/delete) |
 | `README.md` | **REPLACED** | Fork-specific readme (upstream moved to `docs/pr-agent-upstream-README.md`) |
 | `AGENTS.md` | **REPLACED** | This file |
 | `NOTICE` | **NEW** | AGPL-3.0 attribution to upstream |
@@ -227,6 +229,12 @@ github-bot/
 
 # Re-apply branch protection + auto-merge settings:
 (cd scripts && go run ./cmd/branch-protection) --dry-run
+# Apply rulesets (supplements branch protection with GitHub Rulesets):
+(cd scripts && go run ./cmd/rulesets-manager) --dry-run                    # preview all
+(cd scripts && go run ./cmd/rulesets-manager) --repos=resume               # canary one
+(cd scripts && go run ./cmd/rulesets-manager)                              # apply to all
+(cd scripts && go run ./cmd/rulesets-manager) --mode=list                  # list existing rulesets
+(cd scripts && go run ./cmd/rulesets-manager) --mode=delete --dry-run      # preview deletion
 (cd scripts && go run ./cmd/branch-protection)
 
 # Sync CLIPROXY_API_KEY (and other shared secrets) to every public repo:
