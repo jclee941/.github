@@ -26,7 +26,27 @@ jobs:
           CUTOFF=$(date -u -d '90 days ago' +%Y-%m-%dT%H:%M:%SZ)
           STALE_REPOS=""
 
-          for REPO in resume bug terraform account blacklist opencode safetywallet splunk tmux hycu_fsds idle-outpost hycu propose youtube; do
+          REPOS=$(gh api orgs/jclee941/repos --paginate --jq '.[] | select(.archived == false) | .name' 2>/dev/null | sort)
+          if [ -z "$REPOS" ]; then
+            echo "warning: could not fetch repo list from org"
+            exit 0
+          fi
+
+          for REPO in $REPOS; do
+            # Get last commit date on default branch
+            LAST_COMMIT=$(gh api "repos/jclee941/$REPO/commits?sha=$(gh repo view jclee941/$REPO --json defaultBranchRef --jq '.defaultBranchRef.name' 2>/dev/null || echo master)" \
+              --jq '.[0].commit.committer.date' 2>/dev/null || echo "")
+
+            if [ -z "$LAST_COMMIT" ]; then
+              echo "warning: could not fetch commits for $REPO"
+              continue
+            fi
+
+            if [[ "$LAST_COMMIT" < "$CUTOFF" ]]; then
+              DAYS_IDLE=$(( ($(date +%s) - $(date -d "$LAST_COMMIT" +%s)) / 86400 ))
+              STALE_REPOS="${STALE_REPOS}- **$REPO**: last commit $LAST_COMMIT ($DAYS_IDLE days ago)\n"
+            fi
+          done
             # Get last commit date on default branch
             LAST_COMMIT=$(gh api "repos/jclee941/$REPO/commits?sha=$(gh repo view jclee941/$REPO --json defaultBranchRef --jq '.defaultBranchRef.name' 2>/dev/null || echo master)" \
               --jq '.[0].commit.committer.date' 2>/dev/null || echo "")

@@ -27,7 +27,13 @@ jobs:
           CUTOFF=$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)
           STALE_PRS=""
 
-          for REPO in resume bug terraform account blacklist opencode safetywallet splunk tmux hycu_fsds idle-outpost hycu propose youtube .github; do
+          REPOS=$(gh api orgs/jclee941/repos --paginate --jq '.[] | select(.archived == false) | .name' 2>/dev/null | sort)
+          if [ -z "$REPOS" ]; then
+            echo "warning: could not fetch repo list from org"
+            exit 0
+          fi
+
+          for REPO in $REPOS; do
             # Get open PRs with no activity in 30 days
             PULLS=$(gh api "repos/jclee941/$REPO/pulls" --state open --paginate \
               --jq ".[] | select(.updated_at < \"$CUTOFF\") | \"\\(.number)|\\(.title)|\\(.updated_at)\"" 2>/dev/null || true)
