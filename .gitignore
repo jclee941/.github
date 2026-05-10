@@ -17,6 +17,9 @@ docs/.cache/
 .sisyphus/
 poetry.lock
 
+.mypy_cache/
+.ruff_cache/
+
 # Go binaries (compiled from scripts/cmd/*/)
 scripts/branch-protection
 scripts/repo-review
