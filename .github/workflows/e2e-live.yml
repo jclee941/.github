@@ -17,6 +17,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: e2e-live
+  cancel-in-progress: false
+
 jobs:
   readonly:
     name: Read-Only Fleet Health
