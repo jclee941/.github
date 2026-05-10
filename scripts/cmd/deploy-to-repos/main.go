@@ -32,7 +32,8 @@ var canaryRepos = []string{
 var workflowFiles = []string{}
 
 var downstreamWorkflowAllowlist = map[string]struct{}{
-	".github/workflows/readme-gen.yml":                     {},
+    ".github/workflows/readme-gen.yml":                     {},
+    ".github/workflows/scorecard.yml":                   {},
     ".github/workflows/release-notes.yml":               {},
 	".github/workflows/dependency-review.yml":          {},
 	".github/workflows/actionlint.yml":                {},
@@ -66,13 +67,14 @@ var downstreamWorkflowAllowlist = map[string]struct{}{
 //   - PULL_REQUEST_TEMPLATE.md: per-repo template (the org-level template
 //     applies to repos that lack their own, but per-repo wins).
 var extraFiles = []string{
-	".github/dependabot.yml",
-	".github/CODEOWNERS",
-	".github/PULL_REQUEST_TEMPLATE.md",
-	".github/ISSUE_TEMPLATE/1-bug-report.yml",
-	".github/ISSUE_TEMPLATE/2-feature-request.yml",
-	".github/ISSUE_TEMPLATE/3-security-vulnerability.yml",
-	".github/ISSUE_TEMPLATE/config.yml",
+    ".github/dependabot.yml",
+    ".github/CODEOWNERS",
+    ".github/PULL_REQUEST_TEMPLATE.md",
+    ".github/ISSUE_TEMPLATE/1-bug-report.yml",
+    ".github/ISSUE_TEMPLATE/2-feature-request.yml",
+    ".github/ISSUE_TEMPLATE/3-security-vulnerability.yml",
+    ".github/ISSUE_TEMPLATE/config.yml",
+    ".github/renovate.json",
 }
 
 // removedWorkflows lists workflows that were previously deployed but are no longer

@@ -18,10 +18,11 @@ import (
 // allowed extensions for deployable files. Anything outside this set
 // (e.g. .env, .secrets.toml, raw secrets) MUST never be deployed.
 var allowedDeployExtensions = map[string]struct{}{
-	".yml":  {},
-	".yaml": {},
-	".md":   {},
-	"":      {}, // CODEOWNERS has no extension
+    ".yml":  {},
+    ".yaml": {},
+    ".md":   {},
+    ".json": {},
+    "":      {}, // CODEOWNERS has no extension
 }
 
 func TestDefaultReposIsDownstreamOnly(t *testing.T) {

@@ -11,6 +11,7 @@ on:
       - 'scripts/cmd/deploy-to-repos/**'
       - '.github/ISSUE_TEMPLATE/**'
       - '.ls-lint.yml'
+      - '.github/renovate.json'
   workflow_dispatch:
 permissions:
   contents: read
