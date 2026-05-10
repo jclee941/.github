@@ -10,6 +10,10 @@ permissions:
   contents: read
   issues: write
 
+concurrency:
+  group: issue-lifecycle-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lifecycle:
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
