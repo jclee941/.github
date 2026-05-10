@@ -272,7 +272,7 @@ python3 -c "import yaml; d=yaml.safe_load(open('.github/dependabot.yml')); print
 
 | # | 갭 | 작업 | 상태 |
 |---|---|---|---|
-| G6 | Issue 템플릿 | `.github/ISSUE_TEMPLATE/{bug,feature,security}.yml` + `config.yml` | ✅ 완료 |
+| G6 | Issue 템플릿 | `.github/ISSUE_TEMPLATE/{bug-report,feature-request,security-vulnerability}.yml` + `config.yml` | ✅ 완료 |
 | G7 | CONTRIBUTING.md | 포크 전용 기여자 가이드 (rollout sequence 포함) | ✅ 완료 |
 | G8 | release-drafter | `.github/release-drafter.yml` + `.github/workflows/release-drafter.yml` (Conventional Commits autolabeler) | ✅ 완료 |
 | G14 | Go 스크립트 테스트 | `scripts/cmd/{branch-protection,deploy-to-repos}/main_test.go` (16 case, `(cd scripts && go test ./...)`) | ✅ 완료 |
