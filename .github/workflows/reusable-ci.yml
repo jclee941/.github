@@ -28,6 +28,10 @@ on:
   workflow_dispatch: {}
 
 permissions:
+
+concurrency:
+  group: reusable-ci-${{ github.ref }}
+  cancel-in-progress: true
   contents: read
 
 jobs:
