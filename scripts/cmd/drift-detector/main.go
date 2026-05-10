@@ -1,14 +1,18 @@
 package main
 
 import (
-"bytes"
-"flag"
-"fmt"
-"os"
-"os/exec"
-"path/filepath"
+	"bytes"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
+
+	"github.com/jclee941/.github/scripts/internal/repos"
 )
+
 type config struct {
 	format string
 }
@@ -21,7 +25,7 @@ type driftResult struct {
 
 func main() {
 	var cfg config
-	flag.StringVar(&cfg.format, "format", "text", "Output format: text, markdown")
+	flag.StringVar(&cfg.format, "format", "text", "Output format: text, markdown, json")
 	flag.Parse()
 
 	rootDir, err := findRepoRoot()
@@ -58,7 +62,9 @@ func main() {
 		os.Exit(0)
 	}
 
-	if cfg.format == "markdown" {
+	if cfg.format == "json" {
+		printJSON(drifts)
+	} else if cfg.format == "markdown" {
 		printMarkdown(drifts)
 	} else {
 		printText(drifts)
@@ -126,18 +132,7 @@ func getManagedFiles(rootDir string) ([]string, error) {
 }
 
 func getDeployableRepos() ([]string, error) {
-	cmd := exec.Command("go", "run", "./cmd/deploy-to-repos", "--dry-run", "--repos=resume")
-	cmd.Dir = "scripts"
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	// Default repos for drift detection - check all known repos
-	// TODO: auto-discover from scripts/internal/repos/repos.go or GitHub API
-	// Default repos for drift detection - check all known repos
-	return []string{
-		"resume", "bug", "terraform", "account", "blacklist",
-		"hycu_fsds", "idle-outpost", "opencode", "safetywallet",
-		"splunk", "tmux",
-	}, nil
+	return repos.Names(repos.DeployableRepos()), nil
 }
 
 func checkRepoDrift(rootDir, repo string, managedFiles []string) ([]driftResult, error) {
@@ -201,4 +196,33 @@ func printMarkdown(drifts []driftResult) {
 	}
 	fmt.Println()
 	fmt.Println("**Action required**: Run `(cd scripts && go run ./cmd/deploy-to-repos)` to sync.")
+}
+
+func uniqueDriftRepos(drifts []driftResult) []string {
+	seen := make(map[string]bool)
+	var result []string
+	for _, d := range drifts {
+		if !seen[d.repo] {
+			seen[d.repo] = true
+			result = append(result, d.repo)
+		}
+	}
+	return result
+}
+
+func printJSON(drifts []driftResult) {
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+	type jsonOutput struct {
+		Repos  []string       `json:"repos"`
+		Drifts []driftResult `json:"drifts"`
+	}
+	out := jsonOutput{
+		Repos:  uniqueDriftRepos(drifts),
+		Drifts: drifts,
+	}
+	if err := encoder.Encode(out); err != nil {
+		fmt.Fprintf(os.Stderr, "error encoding JSON: %v\n", err)
+		os.Exit(1)
+	}
 }

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/jclee941/.github/scripts/internal/repos"
 )
@@ -82,9 +83,10 @@ type config struct {
 }
 
 type repoResult struct {
-	name   string
-	status string
-	err    error
+	name     string
+	status   string
+	err      error
+	attempts int
 }
 
 type runner struct {
@@ -125,9 +127,29 @@ func run() error {
 	for _, repo := range cfg.repos {
 		result := repoResult{name: repo}
 
-		if err := deployRepo(r, rootDir, repo, cfg.baseBranch); err != nil {
+		var err error
+		const maxAttempts = 3
+		for attempt := 1; attempt <= maxAttempts; attempt++ {
+			result.attempts = attempt
+			err = deployRepo(r, rootDir, repo, cfg.baseBranch)
+			if err == nil {
+				break
+			}
+			if attempt < maxAttempts {
+				delay := time.Duration(1<<(attempt-1)) * time.Second
+				fmt.Fprintf(os.Stdout, "[%s] attempt %d failed: %v; retrying in %v...\n", repo, attempt, err, delay)
+				time.Sleep(delay)
+			}
+		}
+
+		if err != nil {
 			result.status = "failed"
 			result.err = err
+			if !cfg.dryRun {
+				if issueErr := createFailureIssue(repo, err); issueErr != nil {
+					fmt.Fprintf(os.Stderr, "[%s] warning: failed to create failure issue: %v\n", repo, issueErr)
+				}
+			}
 		} else if cfg.dryRun {
 			result.status = "previewed"
 		} else {
@@ -558,6 +580,22 @@ func shellQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }
 
+func createFailureIssue(repo string, deployErr error) error {
+	title := fmt.Sprintf("[deploy-failure] %s: automation sync failed", repo)
+	body := fmt.Sprintf("## Deploy Failure Report\n\n**Repository:** jclee941/%s\n\n**Error:** %s\n\n**Timestamp:** %s\n\nAll 3 retry attempts with exponential backoff have been exhausted.\n\n## Manual Recovery\n\nTo retry deployment manually, run:\n\n```bash\ncd /home/jclee/dev/.github\n(cd scripts && go run ./cmd/deploy-to-repos) --repos=%s\n```\n\nOr run with dry-run first to preview:\n\n```bash\n(cd scripts && go run ./cmd/deploy-to-repos) --repos=%s --dry-run\n```\n\n**Labels:** deploy-failure, bot",
+		repo, deployErr, time.Now().Format(time.RFC3339), repo, repo)
+	args := []string{"issue", "create", "--repo", "jclee941/.github", "--title", title, "--body", body, "--label", "deploy-failure", "--label", "bot"}
+	cmd := exec.Command("gh", args...)
+	output, err := cmd.CombinedOutput()
+	if len(output) > 0 {
+		fmt.Fprintf(os.Stdout, "%s", string(output))
+	}
+	if err != nil {
+		return fmt.Errorf("gh issue create: %w", err)
+	}
+	return nil
+}
+
 func printSummary(w io.Writer, dryRun bool, results []repoResult) {
 	mode := "apply"
 	if dryRun {
@@ -566,7 +604,11 @@ func printSummary(w io.Writer, dryRun bool, results []repoResult) {
 	fmt.Fprintf(w, "\nSummary (%s):\n", mode)
 	for _, result := range results {
 		if result.err != nil {
-			fmt.Fprintf(w, "- %s: %s - %v\n", fullRepoName(result.name), result.status, result.err)
+			if result.attempts > 1 {
+				fmt.Fprintf(w, "- %s: %s (after %d attempts) - %v\n", fullRepoName(result.name), result.status, result.attempts, result.err)
+			} else {
+				fmt.Fprintf(w, "- %s: %s - %v\n", fullRepoName(result.name), result.status, result.err)
+			}
 			continue
 		}
 		fmt.Fprintf(w, "- %s: %s\n", fullRepoName(result.name), result.status)
