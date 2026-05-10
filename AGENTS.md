@@ -1,6 +1,7 @@
 # github-bot — PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-05-08
+**Generated:** 2026-05-10
+**Commit:** `3f87149e`
 **Commit:** `152aeabf`
 **Branch:** `master`
 **Upstream base:** qodo-ai/pr-agent @ `d82f7d3e`
@@ -199,6 +200,16 @@ github-bot/
 | Secret scanning | `.github/workflows/gitleaks.yml` | Required check on every PR/push; full-history scan on master |
 | Workflow lint | `.github/workflows/actionlint.yml` | Validates GHA YAML semantics on workflow changes |
 
+### Autonomous Bot Workflows
+
+| Workflow | File | Schedule | Behavior |
+|----------|------|----------|----------|
+| Bot Auto-Fix | `.github/workflows/bot-auto-fix.yml` | PR open/edit | Auto-fixes naming violations on PRs via `validate-naming --fix` |
+| Drift Detector | `.github/workflows/drift-detector.yml` | Daily 06:00 UTC | Detects downstream drift from source workflows; self-healing matrix with `--self_heal=true` |
+| Bot Health Monitor | `.github/workflows/bot-health-monitor.yml` | Daily 06:00 UTC | Checks CLIProxyAPI connectivity and jclee-bot review activity; creates critical alerts |
+| Stale Repo Identifier | `.github/workflows/stale-repo-identifier.yml` | Weekly Monday 07:00 UTC | Identifies repos with no commits in 90 days; creates summary issue |
+| PR Stale Bot | `.github/workflows/pr-stale-bot.yml` | Daily 08:00 UTC | Labels stale PRs (30+ days inactive) with `stale` label + comment; creates summary issue |
+| Org Health Report | `.github/workflows/org-health-report.yml` | Weekly Monday 09:00 UTC | Generates comprehensive health report: open PRs/issues, stale PRs, last commits per repo |
 ### Operations
 
 ```bash
