@@ -3,7 +3,7 @@
 # Your repository configuration should only include options you wish to override from the defaults.
 
 [config]
-# models — FORK: Kimi via CLIProxyAPI (Cloudflare Tunnel: cliproxy.jclee.me)
+# models — FORK: Dual-model via CLIProxyAPI (kimi-k2.6 + minimax-m2.7)
 model="kimi-k2.6"
 fallback_models=["kimi-k2.5", "minimax-m2.7"]
 #model_reasoning="o4-mini" # dedicated reasoning model for self-reflection
