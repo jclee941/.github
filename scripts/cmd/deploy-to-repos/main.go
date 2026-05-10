@@ -56,9 +56,10 @@ var downstreamWorkflowAllowlist = map[string]struct{}{
 	".github/workflows/25_release-publish.yml":           {},
 	".github/workflows/42_reusable-docs-sync.yml":        {},
 	".github/workflows/43_reusable-issue-management.yml": {},
-	".github/workflows/44_reusable-pr-checks.yml":        {},
-	".github/workflows/security/10_pr-review.yml":        {},
-	// sanity.yml + auto-hardcode-scan + auto-deploy + release-drafter are fork-specific.
+".github/workflows/44_reusable-pr-checks.yml":        {},
+".github/workflows/60_ci-auto-heal.yml":             {},
+".github/workflows/security/10_pr-review.yml":        {},
+// sanity.yml + auto-hardcode-scan + auto-deploy + release-drafter are fork-specific.
 }
 
 // extraFiles lists non-workflow files (relative to repo root) to deploy alongside workflows.
