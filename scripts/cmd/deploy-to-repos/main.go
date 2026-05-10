@@ -33,6 +33,7 @@ var workflowFiles = []string{}
 
 var downstreamWorkflowAllowlist = map[string]struct{}{
 	".github/workflows/bot-auto-fix.yml":               {},
+	".github/workflows/release-notes.yml":               {},
 	".github/workflows/dependency-review.yml":          {},
 	".github/workflows/actionlint.yml":                {},
 	".github/workflows/branch-to-pr.yml":              {},
