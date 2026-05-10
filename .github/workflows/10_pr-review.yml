@@ -176,6 +176,7 @@ jobs:
               try:
                   resp = await litellm.acompletion(
                       model="${{ matrix.model }}",
+                      custom_llm_provider="openai",
                       messages=[{"role": "user", "content": "say pong"}],
                       api_key=api_key,
                       api_base=api_base,
