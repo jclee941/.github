@@ -27,14 +27,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
+          IS_DRAFT: ${{ github.event.pull_request.draft }}
         run: |
           set -e
           # Only proceed if PR is from the same repo (no forks) and not draft
-          if [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
+          if [ "$HEAD_REPO" != "$REPO" ]; then
             echo "::notice::Skipping auto-merge for fork PR"
             exit 0
           fi
-          if [ "${{ github.event.pull_request.draft }}" = "true" ]; then
+          if [ "$IS_DRAFT" = "true" ]; then
             echo "::notice::Skipping auto-merge for draft PR"
             exit 0
           fi
