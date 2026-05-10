@@ -1,0 +1,81 @@
+name: Drift Detector
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Every Monday 09:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: drift-detector
+  cancel-in-progress: false
+
+jobs:
+  detect:
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.21'
+
+      - name: Detect drift
+        id: drift
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
+        run: |
+          cd scripts
+          go run ./cmd/drift-detector --format=markdown > /tmp/drift-report.md || true
+          if [ -s /tmp/drift-report.md ]; then
+            echo "has_drift=true" >> "$GITHUB_OUTPUT"
+            cat /tmp/drift-report.md
+          else
+            echo "has_drift=false" >> "$GITHUB_OUTPUT"
+            echo "No drift detected"
+          fi
+
+      - name: Create or update drift issue
+        if: steps.drift.outputs.has_drift == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('/tmp/drift-report.md', 'utf8');
+            const title = '[drift] Downstream automation drift detected';
+
+            // Search for existing open drift issue
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'drift,bot',
+              per_page: 10
+            });
+
+            const existing = issues.data.find(i => i.title === title);
+
+            if (existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: body + '\n\n_Updated: ' + new Date().toISOString() + '_'
+              });
+              console.log('Updated drift issue #' + existing.number);
+            } else {
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body + '\n\n_Created: ' + new Date().toISOString() + '_',
+                labels: ['drift', 'bot', 'automation']
+              });
+              console.log('Created drift issue #' + created.data.number);
+            }
