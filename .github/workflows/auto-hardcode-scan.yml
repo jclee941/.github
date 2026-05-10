@@ -159,3 +159,14 @@ jobs:
                       fh.write("## \u2705 Hardcode Scan: clean\n\nNo findings outside the documentation allowlist.\n")
               print("No hardcoded values detected (after allowlist).")
           PYEOF
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 ${{ github.workflow }} failed: ${context.runId}`,
+              body: `${{ github.workflow }} workflow failed. See [run logs](${context.payload.repository.html_url}/actions/runs/${context.runId}).`
+            });

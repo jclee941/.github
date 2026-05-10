@@ -18,11 +18,15 @@ flowchart TB
         WEB["github-bot-app<br/>(localhost:3001)"]
         PROXY["CLIProxyAPI<br/>(localhost:8317)"]
         LLM["Claude / Codex / Gemini<br/>CLI"]
+        FB["Filebeat<br/>(로그 수집)"]
+        ES["Elasticsearch<br/>(192.168.50.102:9200)"]
     end
 
     GH -->|"Webhook<br/>pull_request.opened"| CF
     CF -->|"TLS Reverse Proxy"| WEB
-    WEB -->|"litellm.completion<br/>model=kimi-k2.6"| PROXY
+    WEB -->|"litellm.completion<br/>model=minimax-m2.7"| PROXY
+    WEB -->|"Docker JSON logs"| FB
+    FB -->|"로그 전송"| ES
     PROXY -->|"OpenAI-compatible API"| LLM
     LLM -->|"생성된 리뷰"| PROXY
     PROXY -->|"JSON 응답"| WEB
@@ -30,9 +34,11 @@ flowchart TB
 
     style GH fill:#6ba06a,stroke:#333,color:#fff
     style CF fill:#f48120,stroke:#333,color:#fff
-    style WEB fill:#4a90d9,stroke:#333,color:#fff
-    style PROXY fill:#9b59b6,stroke:#333,color:#fff
-    style LLM fill:#e74c3c,stroke:#333,color:#fff
+        style WEB fill:#4a90d9,stroke:#333,color:#fff
+        style PROXY fill:#9b59b6,stroke:#333,color:#fff
+        style LLM fill:#e74c3c,stroke:#333,color:#fff
+        style FB fill:#f39c12,stroke:#333,color:#fff
+        style ES fill:#27ae60,stroke:#333,color:#fff
 ```
 
 ### 구성 요소 설명
@@ -44,6 +50,8 @@ flowchart TB
 | **github-bot-app** | Webhook 수신, pr-agent 실행, GitHub API 호출 | LXC 100 (192.168.50.102) |
 | **CLIProxyAPI** | Claude/Codex/Gemini CLI를 OpenAI API로 래핑 | LXC 100 (localhost:8317) |
 | **AI CLI** | 실제 LLM 추론 수행 (Claude Code / Codex CLI / Gemini CLI) | LXC 100 (로컬 실행) |
+| **Filebeat** | Docker 컨테이너 로그 수집 및 전송 | LXC 100 (localhost) |
+| **Elasticsearch** | 중앙 로그 저장 및 검색 | LXC 102 (192.168.50.102) |
 
 ---
 
