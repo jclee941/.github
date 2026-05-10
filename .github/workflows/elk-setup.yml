@@ -13,9 +13,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  elk-setup:
     # Homelab-only: requires access to internal Elasticsearch (192.168.50.102)
     runs-on: self-hosted
-    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Harden Runner

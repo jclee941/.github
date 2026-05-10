@@ -26,10 +26,10 @@ jobs:
       - name: Welcome first interaction
         uses: actions/first-interaction@v3
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          issue-message: |
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_message: |
             Welcome! Thanks for opening your first issue. We appreciate your contribution.
-          pr-message: |
+          pr_message: |
             Welcome! Thanks for opening your first pull request. Please ensure your PR follows our contribution guidelines.
       - name: Notify on failure
         if: failure()

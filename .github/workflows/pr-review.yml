@@ -18,8 +18,8 @@ permissions:
   issues: write
 
 concurrency:
-  group: pr-review-${{ github.event.pull_request.number }}-${{ matrix.model }}
-cancel-in-progress: true
+  group: pr-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   pr_review:
