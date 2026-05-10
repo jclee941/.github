@@ -28,11 +28,6 @@ EXPECTED_DEPLOYED_FILES = {
     ".github/PULL_REQUEST_TEMPLATE.md",
     ".github/ISSUE_TEMPLATE/",
 }
-    ".github/workflows/",
-    ".github/dependabot.yml",
-    ".github/CODEOWNERS",
-    ".github/PULL_REQUEST_TEMPLATE.md",
-}
 GO_MISSING = shutil.which("go") is None
 
 JsonObject = dict[str, object]
