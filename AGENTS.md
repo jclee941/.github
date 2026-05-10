@@ -200,7 +200,7 @@ github-bot/
 | Auto-merge policy | `.github/workflows/dependabot-auto-merge.yml` | patch + minor + github_actions → squash auto-merge after required checks pass; major → manual review comment; null update-type → manual review comment |
 | PR validation | `.github/workflows/pr-checks.yml` | sanity gates before merge |
 | Auto-review | `.github/workflows/pr-review.yml` | Runs on every PR opened by anyone except `dependabot[bot]` and drafts (Dependabot has its own auto-merge path). Posts review via `pr-agent` against cli_proxy. |
-| Static analysis | `.github/workflows/codeql.yml` | Python SAST on PR + weekly schedule (security-extended + security-and-quality queries) |
+| **README generator** (`readme-gen.yml`) — auto-generates README.md via CLIProxyAPI (minimax-m2.7 → gpt-5.5 fallback). |
 | Secret scanning | `.github/workflows/gitleaks.yml` | Required check on every PR/push; full-history scan on master |
 | Workflow lint | `.github/workflows/actionlint.yml` | Validates GHA YAML semantics on workflow changes |
 | Dependency Review | `.github/workflows/dependency-review.yml` | PR open/edit | Scans PR dependencies for known vulnerabilities (moderate+) |

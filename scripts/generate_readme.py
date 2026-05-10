@@ -23,7 +23,7 @@ from pathlib import Path
 
 API_BASE = os.environ.get("OPENAI_BASE_URL", "https://cliproxy.jclee.me/v1")
 API_KEY = os.environ.get("CLIPROXY_API_KEY", "")
-MODELS = ["kimi-k2.6", "minimax-m2.7", "gpt-5.5"]
+MODELS = ["minimax-m2.7", "gpt-5.5"]
 MAX_TOKENS = 4000
 
 
