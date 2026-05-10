@@ -34,11 +34,11 @@ flowchart TB
 
     style GH fill:#6ba06a,stroke:#333,color:#fff
     style CF fill:#f48120,stroke:#333,color:#fff
-        style WEB fill:#4a90d9,stroke:#333,color:#fff
-        style PROXY fill:#9b59b6,stroke:#333,color:#fff
-        style LLM fill:#e74c3c,stroke:#333,color:#fff
-        style FB fill:#f39c12,stroke:#333,color:#fff
-        style ES fill:#27ae60,stroke:#333,color:#fff
+style WEB fill:#4a90d9,stroke:#333,color:#fff
+style PROXY fill:#9b59b6,stroke:#333,color:#fff
+style LLM fill:#e74c3c,stroke:#333,color:#fff
+style FB fill:#f39c12,stroke:#333,color:#fff
+style ES fill:#27ae60,stroke:#333,color:#fff
 ```
 
 ### 구성 요소 설명
