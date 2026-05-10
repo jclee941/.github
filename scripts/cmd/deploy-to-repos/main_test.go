@@ -73,16 +73,16 @@ func TestNormalizeReposAllowsExplicitCanaryOnly(t *testing.T) {
 
 func TestDownstreamAllowlistContainsRequired(t *testing.T) {
 	required := []string{
-		".github/workflows/actionlint.yml",
-		".github/workflows/bot-auto-fix.yml",
-		".github/workflows/codeql.yml",
-		".github/workflows/codeql.yml",
-		".github/workflows/dependabot-auto-merge.yml",
-		".github/workflows/docs-sync.yml",
-		".github/workflows/gitleaks.yml",
-		".github/workflows/pr-checks.yml",
-		".github/workflows/pr-review.yml",
-		".github/workflows/security/pr-review.yml",
+		".github/workflows/04_actionlint.yml",
+		".github/workflows/14_bot-auto-fix.yml",
+		".github/workflows/06_codeql.yml",
+		".github/workflows/06_codeql.yml",
+		".github/workflows/12_dependabot-auto-merge.yml",
+		".github/workflows/21_docs-sync.yml",
+		".github/workflows/05_gitleaks.yml",
+		".github/workflows/03_pr-checks.yml",
+		".github/workflows/10_pr-review.yml",
+		".github/workflows/security/10_pr-review.yml",
 	}
 
 	for _, w := range required {
@@ -94,7 +94,7 @@ func TestDownstreamAllowlistContainsRequired(t *testing.T) {
 
 func TestAllowlistExcludesForkOnly(t *testing.T) {
 	forkOnly := []string{
-		".github/workflows/sanity.yml",
+		".github/workflows/90_sanity.yml",
 	}
 	for _, w := range forkOnly {
 		if _, ok := downstreamWorkflowAllowlist[w]; ok {
@@ -185,7 +185,7 @@ func TestAllowlistAndRemovedDisjoint(t *testing.T) {
 }
 
 func TestDependabotAutoMergeDoesNotSwallowErrors(t *testing.T) {
-	workflowPath := filepath.Join("..", "..", "..", ".github", "workflows", "dependabot-auto-merge.yml")
+	workflowPath := filepath.Join("..", "..", "..", ".github", "workflows", "12_dependabot-auto-merge.yml")
 	content, err := os.ReadFile(workflowPath)
 	if err != nil {
 		t.Fatalf("read dependabot-auto-merge workflow: %v", err)
@@ -193,7 +193,7 @@ func TestDependabotAutoMergeDoesNotSwallowErrors(t *testing.T) {
 
 	text := string(content)
 	if strings.Contains(text, "|| echo") {
-		t.Fatal("dependabot-auto-merge.yml must not use `|| echo` error swallowing")
+		t.Fatal("12_dependabot-auto-merge.yml must not use `|| echo` error swallowing")
 	}
 
 	for _, want := range []string{
@@ -204,7 +204,7 @@ func TestDependabotAutoMergeDoesNotSwallowErrors(t *testing.T) {
 		"dependabot-auto-merge:manual-review:unknown-update-type",
 	} {
 		if !strings.Contains(text, want) {
-			t.Fatalf("dependabot-auto-merge.yml missing expected safety pattern %q", want)
+			t.Fatalf("12_dependabot-auto-merge.yml missing expected safety pattern %q", want)
 		}
 	}
 }

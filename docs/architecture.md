@@ -216,7 +216,7 @@ flowchart LR
 flowchart TD
     START(("Push to master<br/>(.github)")) --> TRIGGER{"변경된 파일?"}
     
-    TRIGGER -->|workflows/| DEPLOY["auto-deploy.yml"]
+    TRIGGER -->|workflows/| DEPLOY["34_auto-deploy.yml"]
     TRIGGER -->|dependabot.yml| DEPLOY
     TRIGGER -->|CODEOWNERS| DEPLOY
     TRIGGER -->|PR template| DEPLOY
@@ -333,7 +333,7 @@ flowchart LR
     PR --> DOCS["docs-sync.yml"]
     PR --> DEPENDABOT["dependabot-auto-merge.yml<br/>(dependabot만)"]
     
-    PUSH --> AUTO_DEPLOY["auto-deploy.yml<br/>(조건부)"]
+    PUSH --> AUTO_DEPLOY["34_auto-deploy.yml<br/>(조건부)"]
     PUSH --> RELEASE_D["release-drafter.yml"]
     PUSH --> RELEASE_P["release-publish.yml"]
     PUSH --> GITLEAKS

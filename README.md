@@ -4,9 +4,9 @@
 
 >Private AI-powered PR reviewer for `jclee941/*` repos. Hard fork of [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent), wired to run entirely inside the jclee941 homelab.
 
-[![Sanity](https://img.shields.io/github/actions/workflow/status/jclee941/.github/sanity.yml?label=Sanity)](https://github.com/jclee941/.github/actions/workflows/sanity.yml)
+[![Sanity](https://img.shields.io/github/actions/workflow/status/jclee941/.github/sanity.yml?label=Sanity)](https://github.com/jclee941/.github/actions/workflows/90_sanity.yml)
 [![CodeQL](https://img.shields.io/github/actions/workflow/status/jclee941/.github/codeql.yml?label=CodeQL)](https://github.com/jclee941/.github/codeql.yml)
-[![Gitleaks](https://img.shields.io/github/actions/workflow/status/jclee941/.github/gitleaks.yml?label=Gitleaks)](https://github.com/jclee941/.github/workflows/gitleaks.yml)
+[![Gitleaks](https://img.shields.io/github/actions/workflow/status/jclee941/.github/gitleaks.yml?label=Gitleaks)](https://github.com/jclee941/.github/workflows/05_gitleaks.yml)
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL%20v3-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](pyproject.toml)
 [![Go](https://img.shields.io/badge/go-1.23+-blue.svg)](go.mod)

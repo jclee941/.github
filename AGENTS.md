@@ -21,12 +21,12 @@ All upstream pr-agent features are preserved: `/review`, `/improve`, `/describe`
 |------|--------|--------|
 | `pr_agent/settings/configuration.toml` | `[config] model` → `kimi-k2.6`, `fallback_models` → `["kimi-k2.5", "minimax-m2.7"]` | Default model via cli_proxy/OpenAI-compatible routing |
 | `.pr_agent.toml` | Prepended `[config]`, `[openai]`, `[litellm]` sections | Pin fork-level model and `api_base` to cli_proxy |
-| `.github/workflows/pr-review.yml` | **NEW** | ubuntu-latest runner + cli_proxy env vars |
+| `.github/workflows/10_pr-review.yml` | **NEW** | ubuntu-latest runner + cli_proxy env vars |
 | `.github/workflows/security/pr-review.yml` | **NEW** | Deep security review (Korean, `pull_request_target`, label-triggered) |
 | `.github/workflows/sanity.yml` | **NEW** | Fork CI gate (replaces upstream CI) |
 | `.github/workflows/codeql.yml` | **NEW** | Python SAST (security-extended + quality queries) |
-| `.github/workflows/gitleaks.yml` | **NEW** | Secret-pattern scan on every PR/push |
-| `.github/workflows/actionlint.yml` | **NEW** | GitHub Actions YAML semantic linter |
+| `.github/workflows/05_gitleaks.yml` | **NEW** | Secret-pattern scan on every PR/push |
+| `.github/workflows/04_actionlint.yml` | **NEW** | GitHub Actions YAML semantic linter |
 | `.github/workflows/auto-hardcode-scan.yml` | **NEW** | Weekly hardcode-pattern scan on `ubuntu-latest` (was self-hosted) |
 | `.github/CODEOWNERS` | **NEW** | Auto-reviewer assignment |
 | `.github/PULL_REQUEST_TEMPLATE.md` | **NEW** | Bilingual PR template (Korean + English) |
@@ -136,7 +136,7 @@ github-bot/
 | Change cli_proxy endpoint | `.pr_agent.toml` `[openai].api_base` | Currently `https://cliproxy.jclee.me/v1` |
 | Edit review prompts | `pr_agent/settings/pr_reviewer_prompts.toml` | upstream TOML |
 | Edit improve prompts | `pr_agent/settings/code_suggestions/` | |
-| Workflow triggers | `.github/workflows/pr-review.yml` | PR events + slash commands |
+| Workflow triggers | `.github/workflows/10_pr-review.yml` | PR events + slash commands |
 | Security review config | `.github/workflows/security/pr-review.yml` | Triggered by `security-review` label |
 | CI gate | `.github/workflows/sanity.yml` | TOML parse + pytest gate |
 | Hardcode pattern scan | `.github/workflows/auto-hardcode-scan.yml` | Weekly cron + manual dispatch on `ubuntu-latest`, 15-minute timeout |
@@ -198,10 +198,10 @@ github-bot/
 | Branch protection | default branch | **3 required contexts**: `pr-checks / Check PR Title` (Conventional Commits), `pr-checks / Check Branch Name` (standard prefixes), `Gitleaks / scan` (secret-pattern detection). 4 advisory contexts (Size, Description, Large Files, Sensitive Files) comment-only. CodeQL surfaces results via Security tab, not as a required check. No force-push, no deletion, no admin enforcement. |
 | Dependency updates | `.github/dependabot.yml` | Weekly `github-actions` + `pip` ecosystem PRs (pip groups minor+patch) |
 | Auto-merge policy | `.github/workflows/dependabot-auto-merge.yml` | patch + minor + github_actions → squash auto-merge after required checks pass; major → manual review comment; null update-type → manual review comment |
-| PR validation | `.github/workflows/pr-checks.yml` | sanity gates before merge |
-| Auto-review | `.github/workflows/pr-review.yml` | Runs on every PR opened by anyone except `dependabot[bot]` and drafts (Dependabot has its own auto-merge path). Posts review via `pr-agent` against cli_proxy. |
-| Secret scanning | `.github/workflows/gitleaks.yml` | Required check on every PR/push; full-history scan on master |
-| Workflow lint | `.github/workflows/actionlint.yml` | Validates GHA YAML semantics on workflow changes |
+| PR validation | `.github/workflows/03_pr-checks.yml` | sanity gates before merge |
+| Auto-review | `.github/workflows/10_pr-review.yml` | Runs on every PR opened by anyone except `dependabot[bot]` and drafts (Dependabot has its own auto-merge path). Posts review via `pr-agent` against cli_proxy. |
+| Secret scanning | `.github/workflows/05_gitleaks.yml` | Required check on every PR/push; full-history scan on master |
+| Workflow lint | `.github/workflows/04_actionlint.yml` | Validates GHA YAML semantics on workflow changes |
 | Dependency Review | `.github/workflows/dependency-review.yml` | PR open/edit | Scans PR dependencies for known vulnerabilities (moderate+) |
 | Release Notes | `.github/workflows/release-notes.yml` | Tag push | Auto-generates categorized release notes from conventional commits |
 | Documentation sync | `.github/workflows/docs-sync.yml` | PR open/edit/push | Markdown lint, link check, README sync validation, API docs check |
@@ -262,7 +262,7 @@ CLIPROXY_API_KEY=$(grep '^CLIPROXY_API_KEY=' .env | cut -d= -f2-) \
 
 ### Source Repo vs Production Path
 
-`.github/workflows/pr-review.yml` in this repo is a **local development/CI tool**. It only runs on PRs opened against the `.github` repository itself.
+`.github/workflows/10_pr-review.yml` in this repo is a **local development/CI tool**. It only runs on PRs opened against the `.github` repository itself.
 
 The actual production PR review path:
 1. `jclee-bot` GitHub App receives webhooks for all `jclee941/*` repos
@@ -431,7 +431,7 @@ git push origin main
 # Option 2: manual deploy
 REPO=jclee941/<target-repo>
 gh -R "$REPO" secret set CLIPROXY_API_KEY --body "$(cat /home/jclee/.cache/sisyphus/cliproxy-api-key)"
-# Copy .github/workflows/pr-review.yml to the target repo manually
+# Copy .github/workflows/10_pr-review.yml to the target repo manually
 ```
 
 ## CONVENTIONS

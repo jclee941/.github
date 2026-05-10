@@ -17,24 +17,24 @@
 
 | 파일 | 트리거 | 역할 | 평가 |
 |---|---|---|---|
-| `pr-review.yml` | `pull_request` | cli_proxy 기반 AI 코드 리뷰 (Kimi-k2.6) | ✅ 잘 구성됨 |
+| `10_pr-review.yml` | `pull_request` | cli_proxy 기반 AI 코드 리뷰 (Kimi-k2.6) | ✅ 잘 구성됨 |
 | `pr-checks.yml` → `reusable-pr-checks.yml` | `pull_request` | 6개 검사 (size/title/branch/desc/large/sensitive) | ✅ 안정적 |
 | `dependabot-auto-merge.yml` | `pull_request` (dependabot 한정) | patch/minor/gha 자동 머지 | ✅ 정책 명확 |
-| `auto-deploy.yml` | `push` to master | `deploy-to-repos.go` 실행 → 11개 다운스트림 동기화 | ⚠️ 타임아웃/concurrency 없음 |
-| `auto-hardcode-scan.yml` | `schedule` weekly + dispatch | 하드코드 정규식 스캔 | ⚠️ `self-hosted` 종속 |
+| `34_auto-deploy.yml` | `push` to master | `deploy-to-repos.go` 실행 → 11개 다운스트림 동기화 | ⚠️ 타임아웃/concurrency 없음 |
+| `35_auto-hardcode-scan.yml` | `schedule` weekly + dispatch | 하드코드 정규식 스캔 | ⚠️ `self-hosted` 종속 |
 | `docs-sync.yml` → `reusable-docs-sync.yml` | `pull_request` md/docs | 링크 검사 + markdownlint | ✅ |
 | `issue-management.yml` → `reusable-issue-management.yml` | issues + schedule | stale 정리 + 자동 라벨 | ✅ |
 | `sanity.yml` | push/PR | import 스모크 + TOML/YAML parse | ✅ but required check 아님 |
-| `security/pr-review.yml` | `pull_request_target` + 라벨 | 심층 보안 리뷰 | ⚠️ 가드 보강 필요 |
+| `security/10_pr-review.yml` | `pull_request_target` + 라벨 | 심층 보안 리뷰 | ⚠️ 가드 보강 필요 |
 
 (reusable workflow 3개는 별도 파일로 존재하지만 직접 트리거되지 않음)
 
 ### 1.2 As-is 활성 워크플로 (이 PR 적용 후)
 
 추가됨:
-- `codeql.yml` — Python SAST
-- `gitleaks.yml` — Secret scanning
-- `actionlint.yml` — Workflow YAML semantic linter
+- `06_codeql.yml` — Python SAST
+- `05_gitleaks.yml` — Secret scanning
+- `04_actionlint.yml` — Workflow YAML semantic linter
 
 총 11 top-level + 1 보안 + 3 reusable.
 
@@ -60,19 +60,19 @@
 
 | # | 갭 | 우선순위 | 위험 | 조치 | 상태 |
 |---|---|---|---|---|---|
-| G1 | CodeQL/SAST 정적 분석 없음 | 🔴 P0 | Python 보안이 AI 리뷰에만 의존 | `codeql.yml` 추가 | ✅ |
-| G2 | Secret scanning 워크플로 없음 | 🔴 P0 | `.env` 누출 발견 지연 | `gitleaks.yml` 추가 | ✅ |
+| G1 | CodeQL/SAST 정적 분석 없음 | 🔴 P0 | Python 보안이 AI 리뷰에만 의존 | `06_codeql.yml` 추가 | ✅ |
+| G2 | Secret scanning 워크플로 없음 | 🔴 P0 | `.env` 누출 발견 지연 | `05_gitleaks.yml` 추가 | ✅ |
 | G3 | `pip` ecosystem dependabot 누락 | 🟠 P1 | 의존성 자동 갱신 누락 | `dependabot.yml`에 `pip` 추가 | ✅ |
 | G4 | CODEOWNERS 없음 | 🟠 P1 | 자동 리뷰어 할당 불가 | `.github/CODEOWNERS` 추가 (소스 및 11개 다운스트림 리포에 배포; org-level CODEOWNERS는 전파 안 됨) | ✅ |
 | G5 | PR 템플릿 없음 | 🟠 P1 | description<10자 오류 빈발 | `.github/PULL_REQUEST_TEMPLATE.md` (소스 및 11개 다운스트림 리포에 배포) | ✅ |
 | G6 | Issue 템플릿 없음 | 🟡 P2 | 자동 라벨링 정확도 저하 | `.github/ISSUE_TEMPLATE/` | ⏸️ |
 | G7 | CONTRIBUTING.md 없음 | 🟡 P2 | 외부 기여자 가이드 부재 | 추가 | ⏸️ |
-| G8 | release 자동화 없음 | 🟡 P2 | 태그/체인지로그 수작업 | `release-drafter.yml` | ⏸️ |
-| G9 | actionlint 없음 | 🟠 P1 | GHA 의미 오류 prod 유입 | `actionlint.yml` 추가 | ✅ |
-| G10 | `auto-deploy.yml` concurrency 미설정 | 🟠 P1 | rapid push race | `concurrency: auto-deploy` (cancel=false) | ✅ |
+| G8 | release 자동화 없음 | 🟡 P2 | 태그/체인지로그 수작업 | `23_release-drafter.yml` | ⏸️ |
+| G9 | actionlint 없음 | 🟠 P1 | GHA 의미 오류 prod 유입 | `04_actionlint.yml` 추가 | ✅ |
+| G10 | `34_auto-deploy.yml` concurrency 미설정 | 🟠 P1 | rapid push race | `concurrency: auto-deploy` (cancel=false) | ✅ |
 | G11 | 일부 워크플로 timeout 누락 | 🟠 P1 | hung job | `timeout-minutes` 추가 | ✅ |
-| G12 | `auto-hardcode-scan.yml` self-hosted 강제 | 🟡 P2 | 러너 오프라인 시 누락 | `ubuntu-latest`로 이전 (조기 처리) | ✅ |
-| G13 | `pr-review.yml` concurrency 미설정 | 🟠 P1 | 중복 실행 + 토큰 낭비 | `concurrency` 추가 | ✅ |
+| G12 | `35_auto-hardcode-scan.yml` self-hosted 강제 | 🟡 P2 | 러너 오프라인 시 누락 | `ubuntu-latest`로 이전 (조기 처리) | ✅ |
+| G13 | `10_pr-review.yml` concurrency 미설정 | 🟠 P1 | 중복 실행 + 토큰 낭비 | `concurrency` 추가 | ✅ |
 | G14 | `scripts/*.go` 테스트 없음 | 🟡 P2 | 배포 회귀 위험 | `_test.go` 추가 | ⏸️ |
 | G15 | 빈 `.github/workflows/reusable/` | 🟡 P2 | cruft | **디렉터리 삭제** (`rmdir`) | ✅ |
 | G16 | required check 확장 | 🟠 P1 | secret leak도 머지됨 | `Gitleaks / scan` 추가 (sanity는 fork-only이므로 다운스트림 미적용) | ✅ |
@@ -132,7 +132,7 @@ if: github.event_name == 'pull_request_target' &&
 **트레이드오프 (의도된 동작)**: jclee941이 자신의 fork에서 PR을 올리고 `security-review` 라벨을 붙이면 **silently no-op**됨. 보안상 절충이며 운영자 인식 필수. 동일 리포 브랜치에서 작업하면 정상 동작.
 
 ### 4.2 액션 SHA pin (G19) — 이연
-P2 이연. 본 PR은 보안 워크플로(`security/pr-review.yml`, `codeql.yml`, `gitleaks.yml`)에도 메이저 태그(`@v3`, `@v6`)만 사용. actionlint.yml의 `download-actionlint.bash`도 `main`에서 가져옴. 일괄 SHA pin은 별도 supply-chain sprint에서.
+P2 이연. 본 PR은 보안 워크플로(`security/10_pr-review.yml`, `06_codeql.yml`, `05_gitleaks.yml`)에도 메이저 태그(`@v3`, `@v6`)만 사용. 04_actionlint.yml의 `download-actionlint.bash`도 `main`에서 가져옴. 일괄 SHA pin은 별도 supply-chain sprint에서.
 
 ---
 
@@ -156,42 +156,42 @@ Gitleaks / scan        ← NEW
 ### 5.2 `concurrency` (G10, G13)
 | 워크플로 | group | cancel-in-progress |
 |---|---|---|
-| `pr-review.yml` | `pr-review-${{ github.event.pull_request.number }}` | true |
-| `auto-deploy.yml` | `auto-deploy` | **false** (배포 도중 취소 금지) |
-| `codeql.yml` | `codeql-${{ github.event.pull_request.number || github.ref }}` | true |
-| `gitleaks.yml` | `gitleaks-${{ github.event.pull_request.number || github.ref }}` | true |
-| `actionlint.yml` | `actionlint-${{ github.event.pull_request.number || github.ref }}` | true |
+| `10_pr-review.yml` | `pr-review-${{ github.event.pull_request.number }}` | true |
+| `34_auto-deploy.yml` | `auto-deploy` | **false** (배포 도중 취소 금지) |
+| `06_codeql.yml` | `codeql-${{ github.event.pull_request.number || github.ref }}` | true |
+| `05_gitleaks.yml` | `gitleaks-${{ github.event.pull_request.number || github.ref }}` | true |
+| `04_actionlint.yml` | `actionlint-${{ github.event.pull_request.number || github.ref }}` | true |
 
 ### 5.3 `timeout-minutes` (G11)
 | 워크플로 | timeout |
 |---|---|
-| `auto-deploy.yml` | 30 |
-| `auto-hardcode-scan.yml` | 15 |
-| `codeql.yml` | 30 |
-| `gitleaks.yml` | 10 |
-| `actionlint.yml` | 5 |
+| `34_auto-deploy.yml` | 30 |
+| `35_auto-hardcode-scan.yml` | 15 |
+| `06_codeql.yml` | 30 |
+| `05_gitleaks.yml` | 10 |
+| `04_actionlint.yml` | 5 |
 
 ---
 
 ## 6. 이 PR이 변경한 파일
 
 ### 신규
-- `.github/workflows/codeql.yml`
-- `.github/workflows/gitleaks.yml`
-- `.github/workflows/actionlint.yml`
+- `.github/workflows/06_codeql.yml`
+- `.github/workflows/05_gitleaks.yml`
+- `.github/workflows/04_actionlint.yml`
 - `.github/CODEOWNERS` (소스 + 다운스트림 11개 리포)
 - `.github/PULL_REQUEST_TEMPLATE.md` (소스 + 다운스트림 11개 리포)
 - `docs/git-workflow-gap-analysis.md` (이 문서)
 
 ### 수정
 - `.github/dependabot.yml` — `pip` ecosystem 추가
-- `.github/workflows/pr-review.yml` — concurrency
-- `.github/workflows/auto-deploy.yml` — concurrency + timeout
-- `.github/workflows/auto-hardcode-scan.yml` — runner 변경 + timeout
-- `.github/workflows/security/pr-review.yml` — head repo 가드
+- `.github/workflows/10_pr-review.yml` — concurrency
+- `.github/workflows/34_auto-deploy.yml` — concurrency + timeout
+- `.github/workflows/35_auto-hardcode-scan.yml` — runner 변경 + timeout
+- `.github/workflows/security/10_pr-review.yml` — head repo 가드
 - `scripts/cmd/deploy-to-repos/main.go` — workflow allowlist 확장 + `extraFiles`에 CODEOWNERS/PULL_REQUEST_TEMPLATE.md 추가 + PR body 3단계 롤아웃 시퀀스로 갱신 (머지 → Gitleaks 통과 확인 → branch-protection 적용)
 - `scripts/cmd/branch-protection/main.go` — `Gitleaks / scan` required context 추가
-- `AGENTS.md` — 신규 파일 반영 + `pr-review-security.yml` → `security/pr-review.yml` 경로 정정 + dependabot pip 반영 + runner drift 수정 (self-hosted → ubuntu-latest) + "all 12" 문구 수정 (deploy 11 vs branch-protection 12 구분)
+- `AGENTS.md` — 신규 파일 반영 + `pr-review-security.yml` → `security/10_pr-review.yml` 경로 정정 + dependabot pip 반영 + runner drift 수정 (self-hosted → ubuntu-latest) + "all 12" 문구 수정 (deploy 11 vs branch-protection 12 구분)
 
 ### 삭제
 - `.github/workflows/reusable/` — 빈 디렉터리 (`rmdir`)
@@ -204,7 +204,7 @@ Gitleaks / scan        ← NEW
 
 ### Phase 1 — 본 리포 머지
 1. 이 PR을 `jclee941/.github` master에 머지
-2. `auto-deploy.yml`이 자동 트리거 → 11개 다운스트림 리포에 PR 생성
+2. `34_auto-deploy.yml`이 자동 트리거 → 11개 다운스트림 리포에 PR 생성
 3. 각 다운스트림 PR은 *기존* required check 2개(Title, Branch Name)만 가짐. 새 워크플로(gitleaks, codeql, actionlint)는 PR 안에서 처음 실행되며 advisory로 동작 (아직 required 아님).
 
 ### Phase 2 — 다운스트림 leak 베이스라인 (조건부)
@@ -274,7 +274,7 @@ python3 -c "import yaml; d=yaml.safe_load(open('.github/dependabot.yml')); print
 |---|---|---|---|
 | G6 | Issue 템플릿 | `.github/ISSUE_TEMPLATE/{bug-report,feature-request,security-vulnerability}.yml` + `config.yml` | ✅ 완료 |
 | G7 | CONTRIBUTING.md | 포크 전용 기여자 가이드 (rollout sequence 포함) | ✅ 완료 |
-| G8 | release-drafter | `.github/release-drafter.yml` + `.github/workflows/release-drafter.yml` (Conventional Commits autolabeler) | ✅ 완료 |
+| G8 | release-drafter | `.github/23_release-drafter.yml` + `.github/workflows/23_release-drafter.yml` (Conventional Commits autolabeler) | ✅ 완료 |
 | G14 | Go 스크립트 테스트 | `scripts/cmd/{branch-protection,deploy-to-repos}/main_test.go` (16 case, `(cd scripts && go test ./...)`) | ✅ 완료 |
 | G17 | stale-branch 자동화 | `actions/stale@v9` 기반 워크플로는 별도 PR로 이연 (브랜치 정책 합의 필요) | ⏸️ 의식적 보류 |
 | G19 | 액션 SHA pin | 별도 supply-chain sprint로 이연 (영향 범위 큼) | ⏸️ 의식적 보류 |
@@ -286,14 +286,14 @@ python3 -c "import yaml; d=yaml.safe_load(open('.github/dependabot.yml')); print
 
 ```
 push to master (.github)
-   └─► auto-deploy.yml (concurrency=auto-deploy, timeout=30m)
+   └─► 34_auto-deploy.yml (concurrency=auto-deploy, timeout=30m)
         └─► scripts/cmd/deploy-to-repos/main.go
              └─► PR in 11 downstream repos
                   ├─► pr-checks.yml          (required: Title, Branch)
-                  ├─► gitleaks.yml           (advisory until Phase 3, **required after** branch-protection.go re-applied) ← NEW
-                  ├─► pr-review.yml          (advisory AI review)
-                  ├─► codeql.yml             (advisory, .py only)        ← NEW
-                  ├─► actionlint.yml         (advisory, on workflow change) ← NEW
+                  ├─► 05_gitleaks.yml           (advisory until Phase 3, **required after** branch-protection.go re-applied) ← NEW
+                  ├─► 10_pr-review.yml          (advisory AI review)
+                  ├─► 06_codeql.yml             (advisory, .py only)        ← NEW
+                  ├─► 04_actionlint.yml         (advisory, on workflow change) ← NEW
                   ├─► docs-sync.yml          (advisory)
                   └─► dependabot-auto-merge.yml (if dependabot[bot])
                        └─► auto-merge once all required contexts green
@@ -302,20 +302,20 @@ push to master (.github)
 PR opened in `jclee941/.github` (source/fork)
    ├─► sanity.yml         (fork-only: import smoke + TOML/YAML parse)
    ├─► pr-checks.yml      (6 checks; 2 required)
-   ├─► pr-review.yml      (AI review, concurrency-bounded)
+   ├─► 10_pr-review.yml      (AI review, concurrency-bounded)
    ├─► docs-sync.yml      (markdown lint + link check)
-   ├─► codeql.yml         (Python SAST)                                  ← NEW
-   ├─► gitleaks.yml       (secret scan; required after Phase 3 rollout)        ← NEW
-   └─► actionlint.yml     (when .github/workflows/ touched)              ← NEW
+   ├─► 06_codeql.yml         (Python SAST)                                  ← NEW
+   ├─► 05_gitleaks.yml       (secret scan; required after Phase 3 rollout)        ← NEW
+   └─► 04_actionlint.yml     (when .github/workflows/ touched)              ← NEW
 
 PR opened in 11 downstream repos (no sanity.yml — it's fork-only)
    ├─► pr-checks.yml      (6 checks; 2 required)
-   ├─► pr-review.yml      (AI review, concurrency-bounded)
+   ├─► 10_pr-review.yml      (AI review, concurrency-bounded)
    ├─► docs-sync.yml      (markdown lint + link check)
-   ├─► codeql.yml         (Python SAST, .py only)                       ← NEW
-   ├─► gitleaks.yml       (secret scan; required after Phase 3 rollout) ← NEW
-   └─► actionlint.yml     (when .github/workflows/ touched)             ← NEW
+   ├─► 06_codeql.yml         (Python SAST, .py only)                       ← NEW
+   ├─► 05_gitleaks.yml       (secret scan; required after Phase 3 rollout) ← NEW
+   └─► 04_actionlint.yml     (when .github/workflows/ touched)             ← NEW
 
 Label "security-review"
-   └─► security/pr-review.yml (now requires head_repo == base_repo)      ← HARDENED
+   └─► security/10_pr-review.yml (now requires head_repo == base_repo)      ← HARDENED
 ```
