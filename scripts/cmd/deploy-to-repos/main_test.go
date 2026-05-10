@@ -74,6 +74,8 @@ func TestNormalizeReposAllowsExplicitCanaryOnly(t *testing.T) {
 func TestDownstreamAllowlistContainsRequired(t *testing.T) {
 	required := []string{
 		".github/workflows/actionlint.yml",
+		".github/workflows/bot-auto-fix.yml",
+		".github/workflows/codeql.yml",
 		".github/workflows/codeql.yml",
 		".github/workflows/dependabot-auto-merge.yml",
 		".github/workflows/docs-sync.yml",

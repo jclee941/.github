@@ -38,6 +38,7 @@ var downstreamWorkflowAllowlist = map[string]struct{}{
 	".github/workflows/dependency-review.yml":         {},
 	".github/workflows/actionlint.yml":                {},
 	".github/workflows/branch-to-pr.yml":              {},
+	".github/workflows/bot-auto-fix.yml":              {},
 	".github/workflows/ci-failure-issues.yml":         {},
 	".github/workflows/codeql.yml":                    {},
 	".github/workflows/dependabot-auto-merge.yml":     {},
