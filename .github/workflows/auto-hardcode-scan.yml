@@ -4,6 +4,10 @@ on:
     - cron: '0 0 * * 1'  # Every Monday at 00:00 UTC
   workflow_dispatch:
 
+concurrency:
+  group: auto-hardcode-scan
+  cancel-in-progress: false
+
 jobs:
   scan:
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}

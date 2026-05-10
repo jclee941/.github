@@ -16,6 +16,9 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: sanity-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   import-check:
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
