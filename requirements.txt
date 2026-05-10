@@ -32,7 +32,7 @@ tenacity==9.1.4
 gunicorn==26.0.0
 pytest-cov==7.1.0
 pydantic==2.12.5  # pinned by litellm 1.83.14 transitive
-html2text==2024.2.26
+html2text==2025.4.15
 giteapy==1.0.8
 # Uncomment the following lines to enable the 'similar issue' tool
 # pinecone-client
