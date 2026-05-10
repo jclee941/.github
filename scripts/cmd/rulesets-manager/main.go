@@ -39,44 +39,41 @@ import (
 // Target: "branch" | "tag"
 // Conditions.ref_name.include supports: ~DEFAULT_BRANCH, ~ALL, ~ALL_PROTECTION_RULES
 const rulesetPayload = `{
-  "name": "Default Branch Protection",
-  "target": "branch",
-  "enforcement": "active",
-  "bypass_actors": [],
-  "conditions": {
-    "ref_name": {
-      "include": ["~DEFAULT_BRANCH"],
-      "exclude": []
-    }
-  },
-  "rules": [
+"name": "Default Branch Protection",
+"target": "branch",
+"enforcement": "active",
+"bypass_actors": [],
+"conditions": {
+"ref_name": {
+"include": ["~DEFAULT_BRANCH"],
+"exclude": []
+}
+},
+"rules": [
     {
       "type": "required_status_checks",
       "parameters": {
         "required_status_checks": [
           {
-            "context": "pr-checks / Check PR Title",
-            "integration_id": null
+            "context": "pr-checks / Check PR Title"
           },
           {
-            "context": "pr-checks / Check Branch Name",
-            "integration_id": null
+            "context": "pr-checks / Check Branch Name"
           },
           {
-            "context": "scan",
-            "integration_id": null
+            "context": "scan"
           }
         ],
         "strict_required_status_checks_policy": false
       }
     },
     {
-      "type": "deletion"
-    },
-    {
-      "type": "non_fast_forward"
-    }
-  ]
+"type": "deletion"
+},
+{
+"type": "non_fast_forward"
+}
+]
 }`
 
 type result struct {
