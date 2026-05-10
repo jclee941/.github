@@ -34,6 +34,9 @@ jobs:
   detect:
     name: Detect Project Type
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    outputs:
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     outputs:
       has-node: ${{ steps.d.outputs.has-node }}
       has-python: ${{ steps.d.outputs.has-python }}
