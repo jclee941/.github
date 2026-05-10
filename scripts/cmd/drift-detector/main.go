@@ -18,9 +18,10 @@ type config struct {
 }
 
 type driftResult struct {
-	Repo   string `json:"repo"`
-	File   string `json:"file"`
-	Status string `json:"status"` // missing, modified, extra
+	Repo     string `json:"repo"`
+	File     string `json:"file"`
+	Status   string `json:"status"` // missing, modified, extra
+	Severity string `json:"severity"` // critical, warning, info
 }
 
 func main() {
@@ -164,15 +165,15 @@ func checkRepoDrift(rootDir, repo string, managedFiles []string) ([]driftResult,
 			continue // Both missing
 		}
 		if srcErr == nil && dstErr != nil {
-			drifts = append(drifts, driftResult{repo, mf, "missing"})
+			drifts = append(drifts, driftResult{repo, mf, "missing", "critical"})
 			continue
 		}
 		if srcErr != nil && dstErr == nil {
-			drifts = append(drifts, driftResult{repo, mf, "extra"})
+			drifts = append(drifts, driftResult{repo, mf, "extra", "info"})
 			continue
 		}
 		if !bytes.Equal(srcContent, dstContent) {
-			drifts = append(drifts, driftResult{repo, mf, "modified"})
+			drifts = append(drifts, driftResult{repo, mf, "modified", "warning"})
 		}
 	}
 
@@ -182,17 +183,17 @@ func checkRepoDrift(rootDir, repo string, managedFiles []string) ([]driftResult,
 func printText(drifts []driftResult) {
 	fmt.Println("=== DRIFT DETECTED ===")
 	for _, d := range drifts {
-		fmt.Printf("[%s] %s: %s\n", d.Repo, d.File, d.Status)
+		fmt.Printf("[%s] %s: %s (severity: %s)\n", d.Repo, d.File, d.Status, d.Severity)
 	}
 }
 
 func printMarkdown(drifts []driftResult) {
 	fmt.Println("## Downstream Automation Drift Report")
 	fmt.Println()
-	fmt.Println("| Repo | File | Status |")
-	fmt.Println("|------|------|--------|")
+	fmt.Println("| Repo | File | Status | Severity |")
+	fmt.Println("|------|------|--------|----------|")
 	for _, d := range drifts {
-		fmt.Printf("| %s | %s | %s |\n", d.Repo, d.File, d.Status)
+		fmt.Printf("| %s | %s | %s | %s |\n", d.Repo, d.File, d.Status, d.Severity)
 	}
 	fmt.Println()
 	fmt.Println("**Action required**: Run `(cd scripts && go run ./cmd/deploy-to-repos)` to sync.")
