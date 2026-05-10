@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jclee941/dotgithub-scripts/internal/repos"
+	"github.com/jclee941/.github/scripts/internal/repos"
 )
 
 var protectedRepoNames = repos.Names(repos.ProtectedRepos())

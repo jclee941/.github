@@ -35,7 +35,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jclee941/dotgithub-scripts/internal/repos"
+	"github.com/jclee941/.github/scripts/internal/repos"
 )
 
 // protectionPayload is the JSON body for the branch protection PUT call.

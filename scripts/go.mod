@@ -1,3 +1,3 @@
-module github.com/jclee941/dotgithub-scripts
+module github.com/jclee941/.github/scripts
 
 go 1.21
