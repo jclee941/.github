@@ -49,6 +49,10 @@ jobs:
         id: fix
         run: |
           echo "Running validate-naming --fix..."
+          if [ ! -d "scripts" ]; then
+            echo "No scripts directory found, skipping"
+            exit 0
+          fi
           cd scripts
           go run ./cmd/validate-naming --fix || true
           echo "Done"
