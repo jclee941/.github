@@ -66,6 +66,26 @@ def read_key_files(repo_root: Path) -> dict[str, str]:
             text = path.read_text(encoding="utf-8", errors="ignore")
             result[name] = text[:2000]  # cap each file
     return result
+    """Read important config / entry-point files for context."""
+    candidates = [
+        "package.json",
+        "pyproject.toml",
+        "setup.py",
+        "go.mod",
+        "Cargo.toml",
+        "requirements.txt",
+        "Makefile",
+        "Dockerfile",
+        "docker-compose.yml",
+        "README.md",
+    ]
+    result: dict[str, str] = {}
+    for name in candidates:
+        path = repo_root / name
+        if path.exists():
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            result[name] = text[:2000]  # cap each file
+    return result
 
 
 def call_llm(system: str, user: str) -> str:
@@ -108,6 +128,68 @@ def call_llm(system: str, user: str) -> str:
 
 
 def generate_readme(repo_root: Path) -> str:
+    tree = run_tree(repo_root)
+    files = read_key_files(repo_root)
+
+    # Scan workflow files
+    workflows_dir = repo_root / ".github" / "workflows"
+    workflows = []
+    if workflows_dir.exists():
+        for wf in sorted(workflows_dir.glob("*.yml")):
+            workflows.append(wf.name)
+        for wf in sorted((workflows_dir / "security").glob("*.yml")):
+            workflows.append(f"security/{wf.name}")
+
+    # Scan Go automation tools
+    scripts_dir = repo_root / "scripts" / "cmd"
+    go_tools = []
+    if scripts_dir.exists():
+        for d in sorted(scripts_dir.iterdir()):
+            if d.is_dir() and (d / "main.go").exists():
+                go_tools.append(d.name)
+
+    # Read AGENTS.md for automation inventory
+    agents_md = ""
+    agents_path = repo_root / "AGENTS.md"
+    if agents_path.exists():
+        agents_md = agents_path.read_text(encoding="utf-8", errors="ignore")[:4000]
+
+    system = (
+        "You are a technical writer bot specialized in GitHub automation documentation. "
+        "Generate a comprehensive, professional README.md in Korean and English (bilingual). "
+        "Use Markdown. Structure: title, badges, overview, features, architecture, "
+        "automation inventory (workflows + tools), quick start, local development, "
+        "commands reference, and contribution guide. "
+        "Be specific about what automation exists - list workflow names and tool names. "
+        "Current models: minimax-m2.7 and gpt-5.5 (via CLIProxyAPI). "
+    )
+
+    user_parts = [
+        "Generate a comprehensive README.md for the following repository.",
+        "",
+        "=== PROJECT STRUCTURE ===",
+        tree,
+        "",
+        "=== WORKFLOW FILES (", str(len(workflows)), " total) ===",
+        "\n".join(workflows),
+        "",
+        "=== GO AUTOMATION TOOLS (", str(len(go_tools)), " total) ===",
+        "\n".join(go_tools),
+        "",
+    ]
+
+    for name, content in files.items():
+        user_parts.append(f"=== {name} ===")
+        user_parts.append(content)
+        user_parts.append("")
+
+    if agents_md:
+        user_parts.append("=== AUTOMATION INVENTORY (AGENTS.md) ===")
+        user_parts.append(agents_md)
+        user_parts.append("")
+
+    user = "\n".join(user_parts)
+    return call_llm(system, user)
     tree = run_tree(repo_root)
     files = read_key_files(repo_root)
 
