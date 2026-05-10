@@ -1,6 +1,7 @@
 # github-bot — PROJECT KNOWLEDGE BASE
 
 **Generated:** 2026-05-10
+**Commit:** `161e57ad`
 **Commit:** `7bbd1698`
 **Commit:** `64829b57`
 **Commit:** `89f56fae`
@@ -202,6 +203,11 @@ github-bot/
 | Static analysis | `.github/workflows/codeql.yml` | Python SAST on PR + weekly schedule (security-extended + security-and-quality queries) |
 | Secret scanning | `.github/workflows/gitleaks.yml` | Required check on every PR/push; full-history scan on master |
 | Workflow lint | `.github/workflows/actionlint.yml` | Validates GHA YAML semantics on workflow changes |
+| Dependency Review | `.github/workflows/dependency-review.yml` | PR open/edit | Scans PR dependencies for known vulnerabilities (moderate+) |
+| Release Notes | `.github/workflows/release-notes.yml` | Tag push | Auto-generates categorized release notes from conventional commits |
+| Documentation sync | `.github/workflows/docs-sync.yml` | PR open/edit/push | Markdown lint, link check, README sync validation, API docs check |
+| README generator | `.github/workflows/readme-gen.yml` | Weekly (Sundays) + manual | Auto-generates README.md via CLIProxyAPI (kimi-k2.6 → minimax-m2.7 → gpt-5.5 fallback) |
+| Template sync | `.github/workflows/template-sync.yml` | Weekly (Sundays) + manual | Deploys standard `README.md`, `CONTRIBUTING.md`, `LICENSE` templates to downstream repos |
 
 ### Autonomous Bot Workflows
 
@@ -210,8 +216,8 @@ github-bot/
 | Bot Auto-Fix | `.github/workflows/bot-auto-fix.yml` | PR open/edit | Auto-fixes naming violations on PRs via `validate-naming --fix` |
 | Drift Detector | `.github/workflows/drift-detector.yml` | Daily 06:00 UTC | Detects downstream drift from source workflows; self-healing matrix with `--self_heal=true` |
 | Bot Health Monitor | `.github/workflows/bot-health-monitor.yml` | Daily 06:00 UTC | Checks CLIProxyAPI connectivity and jclee-bot review activity; creates critical alerts |
-| Stale Repo Identifier | `.github/workflows/stale-repo-identifier.yml` | Weekly Monday 07:00 UTC | Identifies repos with no commits in 90 days; creates summary issue |
-| PR Stale Bot | `.github/workflows/pr-stale-bot.yml` | Daily 08:00 UTC | Labels stale PRs (30+ days inactive) with `stale` label + comment; creates summary issue |
+| Org Health Report | `.github/workflows/org-health-report.yml` | Weekly Monday 09:00 UTC | Generates comprehensive health report: open PRs/issues, stale PRs, last commits per repo |
+| Repo Health Check | `.github/workflows/repo-health.yml` | Weekly (Mondays 02:00 UTC) | Checks all repos for required documentation files (README.md, CONTRIBUTING.md, LICENSE); creates issues for gaps |
 | Org Health Report | `.github/workflows/org-health-report.yml` | Weekly Monday 09:00 UTC | Generates comprehensive health report: open PRs/issues, stale PRs, last commits per repo |
 ### Operations
 
@@ -414,7 +420,7 @@ These conventions are enforced by `scripts/cmd/deploy-to-repos/main.go` and its 
 
 **Deployment PR title**: `chore: sync automation workflows, dependabot, and templates`.
 
-**`templates/` directory**: Contains `CONTRIBUTING.md`, `LICENSE`, `README.md`. These are **not** deployed by `deploy-to-repos.go`; they serve as reference/staging files for manual downstream setup or future automation.
+**`templates/` directory**: Contains `CONTRIBUTING.md`, `LICENSE`, `README.md`. These are deployed to downstream repos by `.github/workflows/template-sync.yml` on a weekly schedule.
 
 ## ANTI-PATTERNS
 

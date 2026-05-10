@@ -23,7 +23,7 @@ from pathlib import Path
 
 API_BASE = os.environ.get("OPENAI_BASE_URL", "https://cliproxy.jclee.me/v1")
 API_KEY = os.environ.get("CLIPROXY_API_KEY", "")
-MODEL = "gpt-4.1-mini"
+MODELS = ["kimi-k2.6", "minimax-m2.7", "gpt-5.5"]
 MAX_TOKENS = 4000
 
 
@@ -69,31 +69,42 @@ def read_key_files(repo_root: Path) -> dict[str, str]:
 
 
 def call_llm(system: str, user: str) -> str:
-    """Call CLIProxyAPI (OpenAI-compatible) and return the generated text."""
+    """Call CLIProxyAPI (OpenAI-compatible) with fallback models."""
     if not API_KEY:
         raise SystemExit("ERROR: CLIPROXY_API_KEY environment variable is required.")
 
-    payload = {
-        "model": MODEL,
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-        "max_tokens": MAX_TOKENS,
-        "temperature": 0.3,
-    }
-    req = urllib.request.Request(
-        f"{API_BASE}/chat/completions",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {API_KEY}",
-        },
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=300) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-    return data["choices"][0]["message"]["content"]
+    last_error = None
+    for model in MODELS:
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            "max_tokens": MAX_TOKENS,
+            "temperature": 0.3,
+        }
+        req = urllib.request.Request(
+            f"{API_BASE}/chat/completions",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {API_KEY}",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=300) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            content = data["choices"][0]["message"]["content"]
+            print(f"Generated with model: {model}")
+            return content
+        except Exception as e:
+            last_error = e
+            print(f"Model {model} failed: {e}")
+            continue
+
+    raise SystemExit(f"ERROR: All models failed. Last error: {last_error}")
 
 
 def generate_readme(repo_root: Path) -> str:
