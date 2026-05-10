@@ -374,6 +374,27 @@ gh -R "$REPO" secret set CLIPROXY_API_KEY --body "$(cat /home/jclee/.cache/sisyp
 - **Secrets**: only in `.env`, `.secrets.toml`, or GitHub Actions secrets — never in TOML/YAML in git
 - **Type safety**: never suppress (`as any`, `@ts-ignore`, `# type: ignore[...]` without justification)
 
+### File Naming Conventions (`.github/`)
+
+These conventions are enforced by `scripts/cmd/deploy-to-repos/main.go` and its tests.
+
+| Pattern | Meaning | Example |
+|---------|---------|---------|
+| **kebab-case** | Default for all workflow, template, and config files | `pr-checks.yml`, `dependabot-auto-merge.yml` |
+| **Underscore prefix `_`** | Local-only workflow; NEVER deployed downstream | `_stale.yml`, `_welcome.yml` |
+| **`reusable-` prefix** | Callable reusable workflow | `reusable-pr-checks.yml` |
+| **`security/` subdirectory** | Security-focused workflows | `security/pr-review.yml` |
+| **No extension** | GitHub-mandated filenames | `CODEOWNERS` |
+| **`.yml` preferred** | Workflow and issue template extensions | `bug-report.yml` (not `.yaml`) |
+
+**Issue templates** follow the `{type}-report.yml` pattern: `bug-report.yml`, `feature-request.yml`, `security-vulnerability.yml`.
+
+**Deployment branch naming**: `chore/sync-automation-workflows` (reflects full scope: workflows + dependabot + templates).
+
+**Deployment PR title**: `chore: sync automation workflows, dependabot, and templates`.
+
+**`templates/` directory**: Contains `CONTRIBUTING.md`, `LICENSE`, `README.md`. These are **not** deployed by `deploy-to-repos.go`; they serve as reference/staging files for manual downstream setup or future automation.
+
 ## ANTI-PATTERNS
 
 - **Never** hardcode the cli_proxy API key in any tracked file
