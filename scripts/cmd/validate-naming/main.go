@@ -255,7 +255,7 @@ func (v *validator) autoDeployPathsCoverExtraFiles() error {
 			}
 		}
 		if !covered {
-			return fmt.Errorf("extraFile %q not covered by auto-deploy.yml paths", ef)
+			return fmt.Errorf("extraFile %q not covered by 34_auto-deploy.yml paths", ef)
 		}
 	}
 
@@ -322,7 +322,7 @@ func (v *validator) fixAutoDeployPaths() error {
 		}
 	}
 	if insertIdx == -1 {
-		return fmt.Errorf("could not find insertion point in auto-deploy.yml")
+		return fmt.Errorf("could not find insertion point in 34_auto-deploy.yml")
 	}
 
 	var newLines []string
@@ -480,7 +480,7 @@ func (v *validator) workflowsNamingConvention() error {
 		return fmt.Errorf("read workflows dir: %w", err)
 	}
 
-	kebabRe := regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*\.yml$`)
+	kebabRe := regexp.MustCompile(`^([0-9]+_)?[a-z0-9]+(-[a-z0-9]+)*\.yml$`)
 	reusableRe := regexp.MustCompile(`^reusable-[a-z0-9]+(-[a-z0-9]+)*\.yml$`)
 
 	for _, entry := range entries {
@@ -512,6 +512,7 @@ func (v *validator) extraFilesExtensions() error {
 		".yml":  true,
 		".yaml": true,
 		".md":   true,
+		".json": true,
 		"":      true,
 	}
 
@@ -525,11 +526,11 @@ func (v *validator) extraFilesExtensions() error {
 	return nil
 }
 
-// extractAutoDeployPaths extracts trigger paths from auto-deploy.yml content.
+// extractAutoDeployPaths extracts trigger paths from 34_auto-deploy.yml content.
 func (v *validator) extractAutoDeployPaths() ([]string, error) {
 	content, err := os.ReadFile(v.autoDeployFile())
 	if err != nil {
-		return nil, fmt.Errorf("read auto-deploy.yml: %w", err)
+		return nil, fmt.Errorf("read 34_auto-deploy.yml: %w", err)
 	}
 
 	var paths []string
@@ -562,7 +563,7 @@ func (v *validator) e2eFile() string {
 }
 
 func (v *validator) autoDeployFile() string {
-	return filepath.Join(v.rootDir, ".github", "workflows", "auto-deploy.yml")
+	return filepath.Join(v.rootDir, ".github", "workflows", "34_auto-deploy.yml")
 }
 
 func (v *validator) codeownersFile() string {

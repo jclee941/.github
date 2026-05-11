@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/**'
       - '.github/dependabot.yml'
+      - '.github/renovate.json'
+      - '.github/CODEOWNERS'
       - '.github/CODEOWNERS'
       - '.github/PULL_REQUEST_TEMPLATE.md'
       - 'scripts/cmd/deploy-to-repos/**'
