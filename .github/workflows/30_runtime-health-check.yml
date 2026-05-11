@@ -173,7 +173,7 @@ jobs:
           fail_canary() {
             local reason="$1"
             local body
-            body=$(printf "%s\n\n- Canary repo: %s\n- Branch: %s\n- PR: %s\n- Failure: %s\n- Expected: a %s comment after posting /review\n- Wait time: 5 minutes\n- Workflow run: %s/%s/actions/runs/%s\n- Checked at: %s\n" \
+            body=$(printf "%s\n\n- Canary repo: %s\n- Branch: %s\n- PR: %s\n- Failure: %s\n- Expected: a %s comment after posting /review\n- Wait time: 10 minutes\n- Workflow run: %s/%s/actions/runs/%s\n- Checked at: %s\n" \
               "Runtime health canary failed for jclee-bot review handling." \
               "$CANARY_REPO" \
               "$branch" \
@@ -217,8 +217,8 @@ jobs:
           gh pr comment "$pr_number" --repo "$CANARY_REPO" --body "/review" \
             || fail_canary "failed to post /review comment"
 
-          echo "Waiting 5 minutes for $BOT_LOGIN to respond to $CANARY_REPO#$pr_number"
-          sleep 300
+          echo "Waiting 10 minutes for $BOT_LOGIN to respond to $CANARY_REPO#$pr_number"
+          sleep 600
 
           bot_comment_count=$(gh api "repos/$CANARY_REPO/issues/$pr_number/comments?per_page=100" \
             --jq "[.[] | select(.user.login == \"$BOT_LOGIN\")] | length") \
@@ -231,7 +231,7 @@ jobs:
           echo "$BOT_LOGIN responded with $bot_comment_count comment(s)"
       - name: Notify on failure
         if: failure()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             try {
