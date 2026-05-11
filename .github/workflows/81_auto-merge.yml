@@ -49,7 +49,7 @@ jobs:
           gh pr merge --auto --squash "$PR_URL" || echo "::notice::Auto-merge may already be enabled"
       - name: Notify on failure
         if: failure()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             try {

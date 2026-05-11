@@ -33,7 +33,7 @@ jobs:
             Welcome! Thanks for opening your first pull request. Please ensure your PR follows our contribution guidelines.
       - name: Notify on failure
         if: failure()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             try {
