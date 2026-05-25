@@ -204,15 +204,14 @@ jobs:
             -f branch="$branch" >/dev/null \
             || fail_canary "failed to write canary file"
 
-          pr_number=$(gh pr create \
+          pr_url=$(gh pr create \
             --repo "$CANARY_REPO" \
             --base "$default_branch" \
             --head "$branch" \
             --title "test: runtime health canary" \
-            --body "Runtime health canary for jclee-bot review handling. Do not merge." \
-            --json number \
-            --jq '.number') \
+            --body "Runtime health canary for jclee-bot review handling. Do not merge.") \
             || fail_canary "failed to create canary PR"
+          pr_number="${pr_url##*/}"
 
           gh pr comment "$pr_number" --repo "$CANARY_REPO" --body "/review" \
             || fail_canary "failed to post /review comment"
