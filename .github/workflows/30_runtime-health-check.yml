@@ -133,7 +133,7 @@ jobs:
           egress-policy: audit
       - name: Create canary PR and verify bot response
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           ISSUE_TITLE: 🚨 jclee-bot not responding to reviews
           CANARY_REPO: jclee941/automation-e2e-public
           BOT_LOGIN: jclee-bot[bot]
