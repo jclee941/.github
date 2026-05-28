@@ -17,14 +17,6 @@ from pr_agent.config_loader import get_settings
 # Build number for health endpoint
 _build_number_path = Path(__file__).parent.parent / "build_number.txt"
 build_number = _build_number_path.read_text().strip() if _build_number_path.exists() else "unknown"
-from typing import Any, Dict
-
-import httpx
-from fastapi import APIRouter
-from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
-from starlette.responses import Response
-
-from pr_agent.config_loader import get_settings
 
 monitoring_router = APIRouter()
 
