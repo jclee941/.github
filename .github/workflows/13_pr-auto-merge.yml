@@ -121,6 +121,11 @@ jobs:
           # and the merge box is green. We just enable it; we never bypass.
           gh pr merge --auto --squash "$PR_URL" \
             || echo "::warning::auto-merge enable failed (allow_auto_merge disabled, branch protection mismatch, or PR already merged); not retrying"
+      - name: Checkout (for composite action resolution)
+        if: failure()
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
       - name: Notify on failure
         if: failure()
         uses: ./.github/actions/notify-on-failure

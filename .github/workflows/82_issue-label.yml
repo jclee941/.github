@@ -46,6 +46,11 @@ jobs:
               console.log(`Issue #${issue.number}: added labels ${labelsToAdd.join(', ')}`);
             } else {
               console.log(`Issue #${issue.number}: no matching labels`);
+      - name: Checkout (for composite action resolution)
+        if: failure()
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
       - name: Notify on failure
         if: failure()
         uses: ./.github/actions/notify-on-failure

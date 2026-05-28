@@ -60,6 +60,11 @@ jobs:
           curl -sS --connect-timeout 10 -m 15 -u "${ELK_USERNAME}:${ELK_PASSWORD}" \
             "http://${ELK_HOST}/_cat/indices/filebeat-*?v&health=yellow,red" 2>/dev/null || true
 
+      - name: Checkout (for composite action resolution)
+        if: failure()
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
       - name: Notify on failure
         if: failure()
         uses: ./.github/actions/notify-on-failure

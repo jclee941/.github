@@ -175,6 +175,11 @@ jobs:
           echo "========================================"
           echo "PRs created: $HEAL_COUNT"
           echo "Issues created: $ISSUE_COUNT"
+      - name: Checkout (for composite action resolution)
+        if: failure()
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
       - name: Notify on failure
         if: failure()
         uses: ./.github/actions/notify-on-failure
