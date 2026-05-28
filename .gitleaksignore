@@ -30,3 +30,8 @@ e343ce8468ca8a41ab31278d423a1986f1742a29:INSTALL.md:curl-auth-user:422
 # Fork-specific docker-compose example (placeholder PEM, not a real key)
 18193954a1f5bde659e9762840e099295100b146:docker-compose.github_app.yml.lxc:private-key:23
 af1228dd16cf2fe1afdb3151618c3f9586eaf665:docker-compose.github_app.yml.lxc:private-key:23
+
+# Test fixture: PEM block used to exercise mask_text() (placeholder body, not a real key)
+e074baeccfee2291901153da103d7005f29837f6:tests/unittest/test_secret_masking.py:private-key:130
+
+fd9cd6e6be11ed6fe79f1c5f03b8bc4c570a2375:tests/unittest/test_litellm_api_key_guard.py:generic-api-key:284
