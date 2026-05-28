@@ -174,4 +174,24 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Notify on failure
         if: failure()
-        uses: ./.github/actions/notify-on-failure
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          SHORT_SHA="${GITHUB_SHA:0:8}"
+          TITLE="[ci-fail] $GITHUB_WORKFLOW @ $SHORT_SHA"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" \
+            --state open --label ci-failure \
+            --json number,title \
+            --jq ".[] | select(.title == \"$TITLE\") | .number" 2>/dev/null | head -1 || true)
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" \
+              --body "Another failure: $RUN_URL" || true
+          else
+            gh label create ci-failure --color B60205 2>/dev/null || true
+            gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title "$TITLE" \
+              --body "$GITHUB_WORKFLOW workflow failed on \`$GITHUB_SHA\`. See [run logs]($RUN_URL)." \
+              --label ci-failure || true
+          fi
