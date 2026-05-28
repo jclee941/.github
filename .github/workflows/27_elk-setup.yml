@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: elk-setup
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   elk-setup:

@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: repo-health-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   discover-repos:

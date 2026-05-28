@@ -6,8 +6,8 @@ name: Downstream Health Check
 
 on:
   schedule:
-    # 09:00 KST daily (00:00 UTC)
-    - cron: '0 0 * * *'
+    # 09:05 KST daily (00:05 UTC) - offset by 5min to avoid collision with 18_issue-management
+    - cron: '5 0 * * *'
   workflow_dispatch:
 
 permissions:

@@ -78,7 +78,8 @@ jobs:
 
           EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --label "stale-repos" --state open --json number --jq '.[0].number' 2>/dev/null || echo "")
           if [ -n "$EXISTING" ]; then
-            gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body "$BODY" 2>/dev/null || true
+            gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body "$BODY" \
+              || echo "::warning::failed to comment on stale-repos issue #$EXISTING"
             echo "Updated stale repo issue #$EXISTING"
           else
             gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$BODY" --label "stale-repos,automation"

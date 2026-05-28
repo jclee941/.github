@@ -2,7 +2,7 @@ name: Bot Health Monitor
 
 on:
   schedule:
-    - cron: '0 6 * * *'  # Daily 06:00 UTC (15:00 KST)
+    - cron: '10 6 * * *'  # Daily 06:10 UTC (15:10 KST) - offset to avoid collision with 26_elk-health-check
   workflow_dispatch:
 
 permissions:
@@ -100,7 +100,8 @@ jobs:
           if [ "$STATUS" = "healthy" ]; then
             ISSUES=$(gh issue list --repo "$GITHUB_REPOSITORY" --label "bot-health,critical" --state open --json number --jq '.[].number')
             for NUM in $ISSUES; do
-              gh issue close "$NUM" --repo "$GITHUB_REPOSITORY" --comment "Bot health restored - $SUMMARY" 2>/dev/null || true
+              gh issue close "$NUM" --repo "$GITHUB_REPOSITORY" --comment "Bot health restored - $SUMMARY" \
+                || echo "::warning::failed to close bot-health alert #$NUM after recovery"
             done
             echo "Bot is healthy. $SUMMARY"
             exit 0
@@ -111,7 +112,8 @@ jobs:
 
           EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --label "bot-health,critical" --state open --json number --jq '.[0].number' 2>/dev/null || echo "")
           if [ -n "$EXISTING" ]; then
-            gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body "$BODY" 2>/dev/null || true
+            gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body "$BODY" \
+              || echo "::warning::failed to comment on bot-health alert #$EXISTING"
             echo "Updated alert issue #$EXISTING"
           else
             gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$BODY" --label "bot-health,critical,automation"

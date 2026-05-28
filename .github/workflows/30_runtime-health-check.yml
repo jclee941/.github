@@ -164,9 +164,11 @@ jobs:
 
           cleanup() {
             if [ -n "$pr_number" ]; then
-              gh pr close "$pr_number" --repo "$CANARY_REPO" --comment "Closing runtime health canary PR." || true
+              gh pr close "$pr_number" --repo "$CANARY_REPO" --comment "Closing runtime health canary PR." \
+                || echo "::warning::canary PR cleanup failed for $CANARY_REPO#$pr_number"
             fi
-            gh api -X DELETE "repos/$CANARY_REPO/git/refs/heads/$branch" >/dev/null 2>&1 || true
+            gh api -X DELETE "repos/$CANARY_REPO/git/refs/heads/$branch" >/dev/null 2>&1 \
+              || echo "::warning::canary branch cleanup failed for $CANARY_REPO:$branch"
           }
           trap cleanup EXIT
 
