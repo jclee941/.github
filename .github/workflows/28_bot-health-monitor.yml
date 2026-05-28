@@ -46,28 +46,20 @@ jobs:
       - name: Check jclee-bot review activity
         id: bot_activity
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
+          set -eu
           CUTOFF=$(date -u -d '48 hours ago' +%Y-%m-%dT%H:%M:%SZ)
-          REVIEW_COUNT=0
 
-          REPOS=$(gh api orgs/jclee941/repos --paginate --jq '.[] | select(.archived == false) | .name' 2>/dev/null | sort)
-          if [ -z "$REPOS" ]; then
-            echo "bot_active=false" >> "$GITHUB_OUTPUT"
-            echo "review_count=0" >> "$GITHUB_OUTPUT"
-            echo "warning: could not fetch repo list from org"
-            exit 0
-          fi
-
-          for REPO in $REPOS; do
-            COUNT=$(gh api "repos/jclee941/$REPO/pulls/comments" \
-              --paginate \
-              --jq "[.[] | select(.user.login == \"jclee-bot[bot]\" and .created_at >= \"$CUTOFF\")] | length" 2>/dev/null || echo 0)
-            REVIEW_COUNT=$((REVIEW_COUNT + COUNT))
-            R_COUNT=$(gh api "repos/jclee941/$REPO/pulls" --state all --paginate \
-              --jq "[.[] | select(.user.login == \"jclee-bot[bot]\" and .created_at >= \"$CUTOFF\")] | length" 2>/dev/null || echo 0)
-            REVIEW_COUNT=$((REVIEW_COUNT + R_COUNT))
-          done
+          # Use the search API to find issues/PRs the bot has touched in the
+          # last 48h instead of paginating every repo's /pulls + /pulls/comments.
+          # `commenter:` covers PR comments and issue comments. `total_count`
+          # is capped at 1000 by the search API but anything >0 means alive.
+          QUERY="commenter:jclee-bot[bot] user:jclee941 updated:>=$CUTOFF"
+          REVIEW_COUNT=$(gh api -X GET search/issues \
+            -f q="$QUERY" \
+            -f per_page=1 \
+            --jq '.total_count' 2>/dev/null || echo 0)
 
           echo "review_count=$REVIEW_COUNT" >> "$GITHUB_OUTPUT"
           if [ "$REVIEW_COUNT" -gt 0 ]; then
@@ -123,16 +115,4 @@ jobs:
           fi
       - name: Notify on failure
         if: failure()
-        uses: actions/github-script@v9
-        with:
-          script: |
-            try {
-              await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `🚨 ${{ github.workflow }} failed: ${context.runId}`,
-              body: `${{ github.workflow }} workflow failed. See [run logs](${context.payload.repository.html_url}/actions/runs/${context.runId}).`
-              });
-            } catch (e) {
-              core.warning(`Could not create issue: ${e.message}`);
-            }
+        uses: ./.github/actions/notify-on-failure

@@ -52,33 +52,8 @@ jobs:
 
       - name: Notify on failure
         if: failure()
-        uses: actions/github-script@v9
+        uses: ./.github/actions/notify-on-failure
         with:
-          script: |
-            const title = `🚨 ELK Health Check Failed: ${context.runId}`;
-            const body = `ELK health check workflow failed. Elasticsearch at \`192.168.50.102:9200\` may be down or unreachable.\n\nSee [run logs](${context.payload.repository.html_url}/actions/runs/${context.runId}).`;
-            
-            // Check for existing open issue
-            const issues = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: 'elk-health',
-              state: 'open'
-            });
-            
-            if (issues.data.length === 0) {
-              await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: title,
-                body: body,
-                labels: ['elk-health', 'automated']
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issues.data[0].number,
-                body: `ELK health check failed again at ${new Date().toISOString()}. See [run logs](${context.payload.repository.html_url}/actions/runs/${context.runId}).`
-              });
-            }
+          title: 'ELK Health Check Failed'
+          body: 'ELK health check workflow failed. Elasticsearch at `192.168.50.102:9200` may be down or unreachable.'
+          labels: 'elk-health,automated'

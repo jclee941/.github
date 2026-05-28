@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: elk-setup
@@ -111,17 +112,7 @@ jobs:
 
       - name: Notify on failure
         if: failure()
-        uses: actions/github-script@v9
+        uses: ./.github/actions/notify-on-failure
         with:
-          script: |
-            try {
-              await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `🚨 ELK Setup Failed: ${context.runId}`,
-              body: `ELK setup workflow failed. See [run logs](${context.payload.repository.html_url}/actions/runs/${context.runId}).`,
-              labels: ['elk-health', 'automated']
-              });
-            } catch (e) {
-              core.warning(`Could not create issue: ${e.message}`);
-            }
+          title: 'ELK Setup Failed'
+          labels: 'elk-health,automated'
