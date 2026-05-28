@@ -19,7 +19,7 @@ flowchart TB
         PROXY["CLIProxyAPI<br/>(localhost:8317)"]
         LLM["Claude / Codex / Gemini<br/>CLI"]
         FB["Filebeat<br/>(로그 수집)"]
-        ES["Elasticsearch<br/>(192.168.50.102:9200)"]
+        ES["Elasticsearch<br/>(192.168.50.105:9200)"]
     end
 
     GH -->|"Webhook<br/>pull_request.opened"| CF
@@ -47,11 +47,11 @@ style ES fill:#27ae60,stroke:#333,color:#fff
 |-----------|------|------|
 | **GitHub** | PR 이벤트 발생, 리뷰 코멘트 표시 | Public Cloud |
 | **Cloudflare Tunnel** | 홈랩 남부 네트워크에 퍼블릭 HTTPS 엔드포인트 제공 | Cloudflare Edge |
-| **github-bot-app** | Webhook 수신, pr-agent 실행, GitHub API 호출 | LXC 100 (192.168.50.102) |
-| **CLIProxyAPI** | Claude/Codex/Gemini CLI를 OpenAI API로 래핑 | LXC 100 (localhost:8317) |
-| **AI CLI** | 실제 LLM 추론 수행 (Claude Code / Codex CLI / Gemini CLI) | LXC 100 (로컬 실행) |
-| **Filebeat** | Docker 컨테이너 로그 수집 및 전송 | LXC 100 (localhost) |
-| **Elasticsearch** | 중앙 로그 저장 및 검색 | LXC 102 (192.168.50.102) |
+| **github-bot-app** | Webhook 수신, pr-agent 실행, GitHub API 호출 | LXC 114 (192.168.50.114) |
+| **CLIProxyAPI** | Claude/Codex/Gemini CLI를 OpenAI API로 래핑 | LXC 114 (localhost:8317) |
+| **AI CLI** | 실제 LLM 추론 수행 (Claude Code / Codex CLI / Gemini CLI) | LXC 114 (로컬 실행) |
+| **Filebeat** | Docker 컨테이너 로그 수집 및 전송 | LXC 114 (localhost) |
+| **Elasticsearch** | 중앙 로그 저장 및 검색 | LXC 105 (192.168.50.105) |
 
 ---
 

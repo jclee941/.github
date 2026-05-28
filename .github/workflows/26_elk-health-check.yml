@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   elk-health-check:
-    # Homelab-only: requires access to internal Elasticsearch (192.168.50.102)
+    # Homelab-only: requires access to internal Elasticsearch (host in ELK_HOST secret)
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
@@ -25,35 +25,45 @@ jobs:
           egress-policy: audit
 
       - name: Check Elasticsearch connectivity
+        env:
+          ELK_HOST: ${{ secrets.ELK_HOST }}
+          ELK_USERNAME: ${{ secrets.ELK_USERNAME }}
+          ELK_PASSWORD: ${{ secrets.ELK_PASSWORD }}
         run: |
-          echo "Checking Elasticsearch at 192.168.50.102:9200..."
-          # Note: This runs on GitHub-hosted runner; ELK is internal homelab
-          # Use curl with timeout; if unreachable, create an issue
-          if curl -sS --connect-timeout 10 -m 15 \
-            "http://192.168.50.102:9200/_cluster/health" 2>/dev/null | grep -q '"status"'; then
+          echo "Checking Elasticsearch at ${ELK_HOST}..."
+          if curl -sS --connect-timeout 10 -m 15 -u "${ELK_USERNAME}:${ELK_PASSWORD}" \
+            "http://${ELK_HOST}/_cluster/health" 2>/dev/null | grep -q '"status"'; then
             echo "✅ Elasticsearch is reachable"
-            curl -sS "http://192.168.50.102:9200/_cluster/health?pretty"
+            curl -sS -u "${ELK_USERNAME}:${ELK_PASSWORD}" "http://${ELK_HOST}/_cluster/health?pretty"
           else
             echo "❌ Elasticsearch is unreachable"
             exit 1
           fi
 
       - name: Check index health
+        env:
+          ELK_HOST: ${{ secrets.ELK_HOST }}
+          ELK_USERNAME: ${{ secrets.ELK_USERNAME }}
+          ELK_PASSWORD: ${{ secrets.ELK_PASSWORD }}
         run: |
           echo "Checking github-bot-logs indices..."
-          curl -sS --connect-timeout 10 -m 15 \
-            "http://192.168.50.102:9200/_cat/indices/github-bot-logs-*?v&health=yellow,red" 2>/dev/null || true
+          curl -sS --connect-timeout 10 -m 15 -u "${ELK_USERNAME}:${ELK_PASSWORD}" \
+            "http://${ELK_HOST}/_cat/indices/github-bot-logs-*?v&health=yellow,red" 2>/dev/null || true
 
       - name: Check Filebeat indices
+        env:
+          ELK_HOST: ${{ secrets.ELK_HOST }}
+          ELK_USERNAME: ${{ secrets.ELK_USERNAME }}
+          ELK_PASSWORD: ${{ secrets.ELK_PASSWORD }}
         run: |
           echo "Checking Filebeat indices..."
-          curl -sS --connect-timeout 10 -m 15 \
-            "http://192.168.50.102:9200/_cat/indices/filebeat-*?v&health=yellow,red" 2>/dev/null || true
+          curl -sS --connect-timeout 10 -m 15 -u "${ELK_USERNAME}:${ELK_PASSWORD}" \
+            "http://${ELK_HOST}/_cat/indices/filebeat-*?v&health=yellow,red" 2>/dev/null || true
 
       - name: Notify on failure
         if: failure()
         uses: ./.github/actions/notify-on-failure
         with:
           title: 'ELK Health Check Failed'
-          body: 'ELK health check workflow failed. Elasticsearch at `192.168.50.102:9200` may be down or unreachable.'
+          body: 'ELK health check workflow failed. Elasticsearch may be down or unreachable.'
           labels: 'elk-health,automated'
