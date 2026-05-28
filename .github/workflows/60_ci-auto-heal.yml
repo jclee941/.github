@@ -174,17 +174,7 @@ jobs:
           echo "Issues created: $ISSUE_COUNT"
       - name: Notify on failure
         if: failure()
-        uses: actions/github-script@v9
+        uses: ./.github/actions/notify-on-failure
         with:
-          script: |
-            try {
-              await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: `🚨 CI Auto-Heal failed: ${context.runId}`,
-                body: `CI Auto-Heal workflow failed to complete. See [run logs](${context.payload.repository.html_url}/actions/runs/${context.runId}).`,
-                labels: ['ci-health']
-              });
-            } catch (e) {
-              core.warning(`Could not create issue: ${e.message}`);
-            }
+          title: 'CI Auto-Heal failed'
+          labels: 'ci-health'

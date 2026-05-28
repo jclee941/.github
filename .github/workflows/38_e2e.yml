@@ -43,9 +43,9 @@ jobs:
       - name: Run E2E tests
         env:
           LITELLM_LOCAL_MODEL_COST_MAP: "true"
-          GITHUB.WEBHOOK_SECRET: "false"
-          OPENAI.KEY: "test-key"
-          OPENAI.API_BASE: "http://localhost:8317/v1"
+          GITHUB__WEBHOOK_SECRET: "false"
+          OPENAI__KEY: "test-key"
+          OPENAI__API_BASE: "http://localhost:8317/v1"
         run: |
           PYTHONPATH=. pytest tests/e2e/ -v --tb=short
 
@@ -59,16 +59,4 @@ jobs:
             .coverage
       - name: Notify on failure
         if: failure()
-        uses: actions/github-script@v9
-        with:
-          script: |
-            try {
-              await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `🚨 ${{ github.workflow }} failed: ${context.runId}`,
-              body: `${{ github.workflow }} workflow failed. See [run logs](${context.payload.repository.html_url}/actions/runs/${context.runId}).`
-              });
-            } catch (e) {
-              core.warning(`Could not create issue: ${e.message}`);
-            }
+        uses: ./.github/actions/notify-on-failure
