@@ -43,13 +43,28 @@ REVIEW_DURATION_SECONDS = Histogram(
     ["command"],
     buckets=[1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0],
 )
-
-
+LLM_FAILURES_TOTAL = Counter(
+    "llm_failures_total",
+    "Total number of LLM call failures categorized by reason",
+    ["reason", "model"],
+)
 WEBHOOK_FAILURES_TOTAL = Counter(
     "webhook_failures_total",
     "Total number of webhook handler failures (exceptions in handle_request)",
     ["event", "action", "exception_type"],
 )
+
+
+def record_llm_failure(reason: str, model: str) -> None:
+    """Record an LLM call failure.
+
+    reason: one of 'rate_limit', 'timeout', 'connect', 'api_error', 'unknown'
+    model: the model name (e.g. 'kimi-k2.6')
+    """
+    LLM_FAILURES_TOTAL.labels(
+        reason=reason or "unknown",
+        model=model or "unknown",
+    ).inc()
 
 
 def record_webhook_start(event: str, action: str) -> float:
