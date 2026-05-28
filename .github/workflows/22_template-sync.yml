@@ -122,7 +122,8 @@ jobs:
               --body "🔄 Templates updated automatically."
             echo "Updated existing PR #$existing"
           else
-            printf '%s\n' '## Summary' '' 'Synchronized standard documentation templates from the source repository:' '' '- \`README.md\` — bilingual project overview' '- \`CONTRIBUTING.md\` — bilingual contribution guidelines' '- \`LICENSE\` — MIT license' '' '> 자동 생성됨 (Template Sync Workflow)' > /tmp/pr-body.md
+            # shellcheck disable=SC2016  # printf format strings must use single quotes
+            printf '%s\n' '## Summary' '' 'Synchronized standard documentation templates from the source repository:' '' '- `README.md` — bilingual project overview' '- `CONTRIBUTING.md` — bilingual contribution guidelines' '- `LICENSE` — MIT license' '' '> 자동 생성됨 (Template Sync Workflow)' > /tmp/pr-body.md
             gh pr create --repo jclee941/${{ matrix.repo }} \
               --title "docs: sync standard templates from jclee941/.github" \
               --body-file /tmp/pr-body.md \

@@ -67,9 +67,11 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-          echo "total_open_prs=$TOTAL_OPEN_PRS" >> "$GITHUB_OUTPUT"
-          echo "total_open_issues=$TOTAL_OPEN_ISSUES" >> "$GITHUB_OUTPUT"
-          echo "total_stale_prs=$TOTAL_STALE_PRS" >> "$GITHUB_OUTPUT"
+          {
+            echo "total_open_prs=$TOTAL_OPEN_PRS"
+            echo "total_open_issues=$TOTAL_OPEN_ISSUES"
+            echo "total_stale_prs=$TOTAL_STALE_PRS"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create or update health report issue
         env:
