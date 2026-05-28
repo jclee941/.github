@@ -29,6 +29,10 @@ jobs:
     if: github.event.pull_request.draft == false && github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     name: PR review via CLIProxyAPI (${{ matrix.model }})
+    # Advisory — the AI review is a quality signal, not a merge gate.
+    # When the homelab CLIProxyAPI is unreachable or rate-limited the
+    # workflow surfaces the failure in logs but does not block PRs.
+    continue-on-error: true
     timeout-minutes: 30
 
     steps:
