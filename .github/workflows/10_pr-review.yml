@@ -69,6 +69,7 @@ jobs:
         env:
           CLIPROXY_API_KEY: ${{ secrets.CLIPROXY_API_KEY }}
         run: |
+          set -eu
           set +e
           if [ -z "$CLIPROXY_API_KEY" ]; then
             echo "::warning::CLIPROXY_API_KEY secret is not set on this repo; skipping review."
@@ -94,6 +95,7 @@ jobs:
       - name: Install GitHub CLI
         if: steps.cli_proxy.outputs.ok == 'true'
         run: |
+          set -eu
           if ! command -v gh &> /dev/null; then
             curl -fsSL -o /tmp/gh.tar.gz https://github.com/cli/cli/releases/download/v2.49.2/gh_2.49.2_linux_amd64.tar.gz
             tar -xzf /tmp/gh.tar.gz -C /tmp

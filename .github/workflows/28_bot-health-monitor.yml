@@ -27,6 +27,7 @@ jobs:
         env:
           CLIPROXY_API_KEY: ${{ secrets.CLIPROXY_API_KEY }}
         run: |
+          set -eu
           if [ -z "$CLIPROXY_API_KEY" ]; then
             echo "cliproxy_ok=false" >> "$GITHUB_OUTPUT"
             echo "cliproxy_error=CLIPROXY_API_KEY secret not set" >> "$GITHUB_OUTPUT"
@@ -71,6 +72,7 @@ jobs:
       - name: Evaluate health
         id: health
         run: |
+          set -eu
           CLIPROXY_OK="${{ steps.cliproxy.outputs.cliproxy_ok }}"
           BOT_ACTIVE="${{ steps.bot_activity.outputs.bot_active }}"
           REVIEW_COUNT="${{ steps.bot_activity.outputs.review_count }}"
@@ -90,6 +92,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -eu
           STATUS="${{ steps.health.outputs.status }}"
           SUMMARY="${{ steps.health.outputs.summary }}"
           TITLE='[bot-health] jclee-bot critical alert'

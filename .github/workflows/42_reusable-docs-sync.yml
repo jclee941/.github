@@ -81,6 +81,7 @@ jobs:
 
       - name: Lint Markdown files
         run: |
+          set -eu
           markdownlint '**/*.md' \
             --ignore node_modules \
             --ignore .venv \

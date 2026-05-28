@@ -64,6 +64,7 @@ jobs:
       - name: Check for changes
         id: diff
         run: |
+          set -eu
           if git diff --quiet README.md; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "No changes to README.md"

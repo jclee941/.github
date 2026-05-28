@@ -30,6 +30,7 @@ jobs:
           ELK_USERNAME: ${{ secrets.ELK_USERNAME }}
           ELK_PASSWORD: ${{ secrets.ELK_PASSWORD }}
         run: |
+          set -eu
           echo "Checking Elasticsearch at ${ELK_HOST}..."
           if curl -sS --connect-timeout 10 -m 15 -u "${ELK_USERNAME}:${ELK_PASSWORD}" \
             "http://${ELK_HOST}/_cluster/health" 2>/dev/null | grep -q '"status"'; then

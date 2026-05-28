@@ -62,6 +62,7 @@ jobs:
 
       - name: Install gitleaks
         run: |
+          set -eu
           wget -qO /tmp/gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz"
           mkdir -p "$HOME/.local/bin"
           tar -xzf /tmp/gitleaks.tar.gz -C "$HOME/.local/bin" gitleaks
@@ -70,6 +71,7 @@ jobs:
 
       - name: Run gitleaks detect
         run: |
+          set -eu
           if [ "${{ github.event_name }}" == "pull_request" ]; then
             BASE_SHA="${{ github.event.pull_request.base.sha }}"
             HEAD_SHA="${{ github.event.pull_request.head.sha }}"

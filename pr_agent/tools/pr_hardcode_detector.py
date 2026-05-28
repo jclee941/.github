@@ -164,7 +164,10 @@ class PRHardcodeDetector:
             description = f.get("description", "").replace("|", "\\|")
             body += f"| {icon} {severity.upper()} | {category} | `{file_path}` | {line} | {description} |\n"
 
-        body += "\n**Recommendation:** Consider extracting these values into environment variables, configuration files, or secrets management systems."
+        body += (
+            "\n**Recommendation:** Consider extracting these values into environment "
+            "variables, configuration files, or secrets management systems."
+        )
 
         self.git_provider.publish_comment(body)
 
@@ -179,7 +182,10 @@ class PRHardcodeDetector:
                         body += f"**File:** `{f.get('file', 'N/A')}`\n\n"
                         body += f"**Line:** {f.get('line', 'N/A')}\n\n"
                         body += f"**Description:** {f.get('description', '')}\n\n"
-                        body += "**Suggested Fix:** Extract this hardcoded value into environment variables or a configuration file."
+                        body += (
+                            "**Suggested Fix:** Extract this hardcoded value into "
+                            "environment variables or a configuration file."
+                        )
                         try:
                             repo.create_issue(title=title, body=body, labels=["hardcode", "security"])
                             get_logger().info(f"Created issue: {title}")
@@ -220,7 +226,11 @@ class PRHardcodeDetector:
             pr_body = "## 🔧 Hardcoded Values Fix Proposal\n\n"
             pr_body += "The following hardcoded values were detected and should be externalized:\n\n"
             for f in findings:
-                pr_body += f"- **{f.get('category', 'unknown')}** in `{f.get('file', 'N/A')}:{f.get('line', 'N/A')}`: {f.get('description', '')}\n"
+                pr_body += (
+                    f"- **{f.get('category', 'unknown')}** in "
+                    f"`{f.get('file', 'N/A')}:{f.get('line', 'N/A')}`: "
+                    f"{f.get('description', '')}\n"
+                )
             pr_body += "\n### Suggested Changes\n"
             pr_body += "1. Review the generated `.env.example` file\n"
             pr_body += "2. Replace hardcoded values with environment variable references\n"

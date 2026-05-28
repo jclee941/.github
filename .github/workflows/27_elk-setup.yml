@@ -33,6 +33,7 @@ jobs:
           ELK_USERNAME: ${{ secrets.ELK_USERNAME }}
           ELK_PASSWORD: ${{ secrets.ELK_PASSWORD }}
         run: |
+          set -eu
           echo "Setting up github-bot-logs index template..."
           curl -sS -X PUT -u "${ELK_USERNAME}:${ELK_PASSWORD}" "http://${ELK_HOST}/_index_template/github-bot-logs" \
             -H 'Content-Type: application/json' \
@@ -73,6 +74,7 @@ jobs:
           ELK_USERNAME: ${{ secrets.ELK_USERNAME }}
           ELK_PASSWORD: ${{ secrets.ELK_PASSWORD }}
         run: |
+          set -eu
           echo "Setting up github-bot-logs ILM policy..."
           curl -sS -X PUT -u "${ELK_USERNAME}:${ELK_PASSWORD}" "http://${ELK_HOST}/_ilm/policy/github-bot-logs" \
             -H 'Content-Type: application/json' \

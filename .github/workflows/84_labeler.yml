@@ -29,6 +29,7 @@ jobs:
       - name: Check for labeler config
         id: check
         run: |
+          set -eu
           if [ -f .github/labeler.yml ]; then
             echo "has-config=true" >> "$GITHUB_OUTPUT"
           else

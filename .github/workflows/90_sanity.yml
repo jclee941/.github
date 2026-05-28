@@ -57,6 +57,7 @@ jobs:
 
       - name: Verify core package imports
         run: |
+          set -eu
           python -c "import pr_agent; print('pr_agent:', pr_agent.__file__)"
           python -c "from pr_agent.tools.pr_reviewer import PRReviewer; print('PRReviewer OK')"
           python -c "from pr_agent.tools.pr_description import PRDescription; print('PRDescription OK')"
@@ -66,6 +67,7 @@ jobs:
 
       - name: Verify fork config files parse
         run: |
+          set -eu
           python3 -c "
           import tomllib
           c = tomllib.loads(open('.pr_agent.toml').read())
@@ -85,6 +87,7 @@ jobs:
 
       - name: Verify workflow YAML files parse
         run: |
+          set -eu
           python3 -c "
           import yaml, os, glob
           for f in sorted(glob.glob('.github/workflows/*.y*ml')):

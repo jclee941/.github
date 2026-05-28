@@ -36,6 +36,7 @@ jobs:
       - name: Generate Release Notes
         id: notes
         run: |
+          set -eu
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
           PREVIOUS_TAG=$(git tag --sort=-creatordate | grep -v "$TAG" | head -n 1)
           
@@ -113,6 +114,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -eu
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
           BODY="${{ steps.notes.outputs.body }}"
           

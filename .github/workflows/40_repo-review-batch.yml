@@ -148,6 +148,7 @@ jobs:
           CONFIG__CUSTOM_MODEL_MAX_TOKENS: "128000"
           LITELLM_LOCAL_MODEL_COST_MAP: "true"
         run: |
+          set -eu
           DRY=""
           if [ "${{ inputs.dry_run }}" = "true" ]; then DRY="--dry-run"; fi
           cd scripts && go run ./cmd/repo-review \
@@ -162,6 +163,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
+          set -eu
           {
             echo "## Repo Review Batch Summary"
             echo ""
