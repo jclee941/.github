@@ -17,16 +17,15 @@ permissions:
   pull-requests: write
   issues: write
 
-concurrency:
-  group: pr-review-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
 jobs:
   pr_review:
     strategy:
       matrix:
         model: [minimax-m2.7, gpt-5.5]
       fail-fast: false
+    concurrency:
+      group: pr-review-${{ github.event.pull_request.number }}-${{ matrix.model }}
+      cancel-in-progress: true
     if: github.event.pull_request.draft == false && github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     name: PR review via CLIProxyAPI (${{ matrix.model }})
@@ -103,8 +102,9 @@ jobs:
           OPENAI.API_BASE: https://cliproxy.jclee.me/v1
           OPENAI_API_KEY: ${{ secrets.CLIPROXY_API_KEY }}
           OPENAI_BASE_URL: https://cliproxy.jclee.me/v1
-          LITELLM_LOG: 'DEBUG'
+          LITELLM_LOG: ${{ vars.PR_REVIEW_DEBUG == '1' && 'DEBUG' || 'INFO' }}
           LITELLM_LOCAL_MODEL_COST_MAP: "True"
+          PR_REVIEW_DEBUG: ${{ vars.PR_REVIEW_DEBUG || '0' }}
           CONFIG.MODEL: ${{ matrix.model }}
           CONFIG.FALLBACK_MODELS: '["minimax-m2.7"]'
           CONFIG.RESPONSE_LANGUAGE: ko
@@ -159,39 +159,21 @@ jobs:
                                "Confirm GITHUB__USER_TOKEN env var is exported.")
           print("preflight ok: github.user_token configured")
 
-          # DEBUG: verify OpenAI settings that litellm will use
+          # Verify OpenAI settings that litellm will use
           api_key = get_settings().get("openai.key")
           api_base = get_settings().get("openai.api_base")
-          print(f"DEBUG: openai.key present={bool(api_key)}, openai.api_base={api_base}")
           if not api_key:
               raise SystemExit("ERROR: openai.key is empty. Confirm OPENAI.KEY env var is exported.")
           if not api_base:
               raise SystemExit("ERROR: openai.api_base is empty. Confirm OPENAI.API_BASE env var is exported.")
-
-          # DEBUG: test a minimal litellm completion to isolate failure
-          import asyncio
-          import litellm
-          litellm.set_verbose = True
-          async def _test():
-              try:
-                  resp = await litellm.acompletion(
-                      model="${{ matrix.model }}",
-                      custom_llm_provider="openai",
-                      messages=[{"role": "user", "content": "say pong"}],
-                      api_key=api_key,
-                      api_base=api_base,
-                      timeout=30,
-                      max_tokens=10,
-                  )
-                  print(f"DEBUG: litellm test OK: {resp}")
-              except Exception as e:
-                  print(f"DEBUG: litellm test FAILED: {type(e).__name__}: {e}")
-                  raise SystemExit(1)
-          asyncio.run(_test())
+          print(f"preflight ok: openai.api_base={api_base}")
           PY
 
-          # DEBUG: run comprehensive handler debug to isolate streaming failure
-          .venv/bin/python - <<'PY'
+          # Optional deep handler/litellm diagnostics — enable by setting repo variable
+          # PR_REVIEW_DEBUG=1 (Settings → Variables → Actions). Off by default to keep
+          # PR review logs lean.
+          if [ "${PR_REVIEW_DEBUG:-0}" = "1" ]; then
+            .venv/bin/python - <<'PY'
           import asyncio
           import os
           import sys
@@ -227,6 +209,7 @@ jobs:
 
           asyncio.run(debug())
           PY
+          fi
 
           # Dynamic command selection, execution, and silent-failure detection
           # are handled by pr_review_runner.py (tested in scripts/pr_review_runner_test.py).

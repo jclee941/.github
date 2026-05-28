@@ -6,7 +6,7 @@ on:
     - cron: '0 */6 * * *'
 
 permissions:
-  contents: write
+  contents: read
   issues: write
 
 concurrency:
@@ -209,37 +209,27 @@ jobs:
             --base "$default_branch" \
             --head "$branch" \
             --title "test: runtime health canary" \
-            --body "Runtime health canary for jclee-bot review handling. Do not merge.") \
+            --body "Runtime health canary for jclee-bot review handling. Do not merge." \
+            2>/dev/null) \
             || fail_canary "failed to create canary PR"
-          pr_number="${pr_url##*/}"
+          pr_number=$(printf '%s\n' "$pr_url" | grep -oE '/[0-9]+$' | tr -d '/' | tail -n 1)
+          if [ -z "$pr_number" ]; then
+            fail_canary "could not parse PR number from gh pr create output: $pr_url"
+          fi
 
+          review_posted_at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           gh pr comment "$pr_number" --repo "$CANARY_REPO" --body "/review" \
             || fail_canary "failed to post /review comment"
 
-          echo "Waiting 10 minutes for $BOT_LOGIN to respond to $CANARY_REPO#$pr_number"
+          echo "Waiting 10 minutes for $BOT_LOGIN to respond to $CANARY_REPO#$pr_number (since $review_posted_at)"
           sleep 600
 
           bot_comment_count=$(gh api "repos/$CANARY_REPO/issues/$pr_number/comments?per_page=100" \
-            --jq "[.[] | select(.user.login == \"$BOT_LOGIN\")] | length") \
+            --jq "[.[] | select(.user.login == \"$BOT_LOGIN\" and .created_at >= \"$review_posted_at\")] | length") \
             || fail_canary "failed to read canary PR comments"
 
           if [ "$bot_comment_count" -lt 1 ]; then
-            fail_canary "no $BOT_LOGIN comment found after /review"
+            fail_canary "no $BOT_LOGIN comment found after /review (since $review_posted_at)"
           fi
 
-          echo "$BOT_LOGIN responded with $bot_comment_count comment(s)"
-      - name: Notify on failure
-        if: failure()
-        uses: actions/github-script@v9
-        with:
-          script: |
-            try {
-              await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `🚨 ${{ github.workflow }} failed: ${context.runId}`,
-              body: `${{ github.workflow }} workflow failed. See [run logs](${context.payload.repository.html_url}/actions/runs/${context.runId}).`
-              });
-            } catch (e) {
-              core.warning(`Could not create issue: ${e.message}`);
-            }
+          echo "$BOT_LOGIN responded with $bot_comment_count comment(s) since $review_posted_at"
