@@ -45,6 +45,13 @@ REVIEW_DURATION_SECONDS = Histogram(
 )
 
 
+WEBHOOK_FAILURES_TOTAL = Counter(
+    "webhook_failures_total",
+    "Total number of webhook handler failures (exceptions in handle_request)",
+    ["event", "action", "exception_type"],
+)
+
+
 def record_webhook_start(event: str, action: str) -> float:
     """Record the start of a webhook request. Returns the start time."""
     WEBHOOK_REQUESTS_TOTAL.labels(event=event or "unknown", action=action).inc()
@@ -65,6 +72,15 @@ def record_review_start(command: str) -> float:
 def record_review_end(command: str, start_time: float) -> None:
     """Record the end of a review command."""
     REVIEW_DURATION_SECONDS.labels(command=command).observe(time.time() - start_time)
+
+
+def record_webhook_failure(event: str, action: str, exception_type: str) -> None:
+    """Record a webhook handler failure with the exception class name."""
+    WEBHOOK_FAILURES_TOTAL.labels(
+        event=event or "unknown",
+        action=action or "unknown",
+        exception_type=exception_type or "Unknown",
+    ).inc()
 
 
 @monitoring_router.get("/health")
