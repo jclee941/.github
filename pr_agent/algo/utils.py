@@ -147,7 +147,6 @@ def convert_to_markdown_v2(output_data: dict,
         'contribution_time_cost_estimate': '⏳',
         'todo_sections': '📝',
         'score': '🏅',
-        'focused_pr': '✨',
         'related_ticket': '🎫',
         'insights_from_user_answer': '📝',
         'code_feedback': '🤖',
@@ -238,18 +237,18 @@ def convert_to_markdown_v2(output_data: dict,
             if gfm_supported:
                 markdown_text += "<tr><td>"
                 if is_value_no(value):
-                    markdown_text += f"✅&nbsp;<strong>TODO 섹션 없음</strong>"
+                    markdown_text += f"✅&nbsp;<strong>할 일 섹션 없음</strong>"
                 else:
                     markdown_todo_items = format_todo_items(value, git_provider, gfm_supported)
-                    markdown_text += f"{emoji}&nbsp;<strong>TODO 섹션</strong>\n<br><br>\n"
+                    markdown_text += f"{emoji}&nbsp;<strong>할 일 섹션</strong>\n<br><br>\n"
                     markdown_text += markdown_todo_items
                 markdown_text += "</td></tr>\n"
             else:
                 if is_value_no(value):
-                    markdown_text += f"### ✅ TODO 섹션 없음\n\n"
+                    markdown_text += f"### ✅ 할 일 섹션 없음\n\n"
                 else:
                     markdown_todo_items = format_todo_items(value, git_provider, gfm_supported)
-                    markdown_text += f"### {emoji} TODO sections\n\n"
+                    markdown_text += f"### {emoji} 할 일 섹션\n\n"
                     markdown_text += markdown_todo_items
         elif 'can be split' in key_nice.lower():
             if gfm_supported:
