@@ -69,8 +69,8 @@ class TestForkPrAgentConfig:
             f"Expected [config].model = 'kimi-k2.6', got {model}"
         )
 
-    def test_fallback_models_contains_kimi_k2_5_and_minimax_m2_7(self):
-        """Test that fallback_models contains 'kimi-k2.5' and 'minimax-m2.7'."""
+    def test_fallback_models_are_kimi_excluded(self):
+        """Test that fallback_models == ['minimax-m2.7', 'gpt-5.5'] (Kimi excluded)."""
         path = self.get_toml_path()
         with open(path, "rb") as f:
             data = tomllib.load(f)
@@ -78,11 +78,11 @@ class TestForkPrAgentConfig:
         assert "config" in data, "Missing [config] section in .pr_agent.toml"
         fallback_models = data["config"].get("fallback_models", [])
 
-        assert "kimi-k2.5" in fallback_models, (
-            f"Expected 'kimi-k2.5' in fallback_models, got {fallback_models}"
+        assert fallback_models == ["minimax-m2.7", "gpt-5.5"], (
+            f"Expected fallback_models == ['minimax-m2.7', 'gpt-5.5'], got {fallback_models}"
         )
-        assert "minimax-m2.7" in fallback_models, (
-            f"Expected 'minimax-m2.7' in fallback_models, got {fallback_models}"
+        assert "kimi-k2.5" not in fallback_models, (
+            f"kimi-k2.5 must be excluded from fallback_models, got {fallback_models}"
         )
 
     def test_configuration_toml_was_edited_for_fork(self):

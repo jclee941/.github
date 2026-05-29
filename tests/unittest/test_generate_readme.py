@@ -27,16 +27,16 @@ def _load_module():
 def test_canonical_model_chain():
     """MODELS must match the canonical CLIProxyAPI fallback chain."""
     mod = _load_module()
-    assert mod.MODELS == ["kimi-k2.6", "kimi-k2.5", "minimax-m2.7"], (
+    assert mod.MODELS == ["minimax-m2.7", "gpt-5.5"], (
         f"generate_readme MODELS drifted from canonical chain: {mod.MODELS}"
     )
 
 
 def test_no_stale_model_text_in_prompt():
-    """Prompt must not advertise the old minimax/gpt-5.5-only chain."""
+    """Prompt must not advertise the old Kimi-inclusive chain."""
     text = SCRIPT.read_text()
-    assert "Current models: minimax-m2.7 and gpt-5.5" not in text, (
-        "generate_readme.py still names the stale model chain in its prompt"
+    assert "kimi-k2.6" not in text and "kimi-k2.5" not in text, (
+        "generate_readme.py still names the stale Kimi model chain in its prompt"
     )
 
 

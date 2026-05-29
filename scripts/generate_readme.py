@@ -22,7 +22,7 @@ from pathlib import Path
 
 API_BASE = os.environ.get("OPENAI_BASE_URL", "https://cliproxy.jclee.me/v1")
 API_KEY = os.environ.get("CLIPROXY_API_KEY", "")
-MODELS = ["kimi-k2.6", "kimi-k2.5", "minimax-m2.7"]
+MODELS = ["minimax-m2.7", "gpt-5.5"]
 MAX_TOKENS = 4000
 
 
@@ -140,7 +140,7 @@ def generate_readme(repo_root: Path) -> str:
         "automation inventory (workflows + tools), quick start, local development, "
         "commands reference, and contribution guide. "
         "Be specific about what automation exists - list workflow names and tool names. "
-        "Current models: kimi-k2.6 with fallback kimi-k2.5 / minimax-m2.7 (via CLIProxyAPI). "
+        "Current README-gen models: minimax-m2.7 with fallback gpt-5.5 (via CLIProxyAPI). "
     )
 
     user_parts = [

@@ -16,7 +16,7 @@
 # (.github/workflows/10_pr-review.yml) runs a matrix of [minimax-m2.7, gpt-5.5]
 # and overrides CONFIG.MODEL per matrix row.
 model = "kimi-k2.6"
-fallback_models = ["kimi-k2.5", "minimax-m2.7"]
+fallback_models = ["minimax-m2.7", "gpt-5.5"]
 custom_model_max_tokens = 128000
 max_model_tokens = 128000
 ignore_pr_authors = ["dependabot\\[bot\\]"]  # FORK: skip Dependabot PRs (no linked issues, causes ticket compliance 404s)
