@@ -41,3 +41,10 @@ c64ecb148c9ce8184302d8c6f804bc9e6fc231bc:tests/unittest/test_pr_hardcode_detecto
 c64ecb148c9ce8184302d8c6f804bc9e6fc231bc:tests/unittest/test_pr_hardcode_detector.py:generic-api-key:235
 c64ecb148c9ce8184302d8c6f804bc9e6fc231bc:tests/unittest/test_pr_hardcode_detector.py:generic-api-key:246
 fd9cd6e6be11ed6fe79f1c5f03b8bc4c570a2375:tests/unittest/test_litellm_api_key_guard.py:generic-api-key:284
+
+# Same fixtures, squash-merge commit on master (#259) — gitleaks fingerprints are commit-SHA scoped
+73a346b46a42d6810b575c35011075f79d948a1a:tests/unittest/test_pr_hardcode_detector.py:private-key:81
+73a346b46a42d6810b575c35011075f79d948a1a:tests/unittest/test_pr_hardcode_detector.py:generic-api-key:208
+73a346b46a42d6810b575c35011075f79d948a1a:tests/unittest/test_pr_hardcode_detector.py:generic-api-key:223
+73a346b46a42d6810b575c35011075f79d948a1a:tests/unittest/test_pr_hardcode_detector.py:generic-api-key:235
+73a346b46a42d6810b575c35011075f79d948a1a:tests/unittest/test_pr_hardcode_detector.py:generic-api-key:246
