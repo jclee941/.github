@@ -618,3 +618,66 @@ class TestAutoApproveLogic:
         reviewer.git_provider.publish_comment.assert_called_once()
         call_args = reviewer.git_provider.publish_comment.call_args[0][0]
         assert "disabled" in call_args.lower()
+
+
+class TestSchemaMismatchGuards:
+    """Defensive guards for malformed LLM responses (gpt-5.5 returned plain string)."""
+
+    def _make_stub(self, review_data):
+        stub = MagicMock()
+        stub.review_data = review_data
+        stub._record_schema_mismatch = PRReviewer._record_schema_mismatch.__get__(stub)
+        return stub
+
+    def test_extract_findings_returns_empty_when_review_data_is_string(self):
+        """LLM returned plain prose instead of structured dict."""
+        stub = self._make_stub("plain prose response from gpt-5.5")
+        findings = PRReviewer._extract_auto_issue_findings(stub)
+        assert findings == []
+
+    def test_extract_findings_returns_empty_when_review_section_is_string(self):
+        """data['review'] is a string instead of nested dict."""
+        stub = self._make_stub({"review": "unstructured text"})
+        findings = PRReviewer._extract_auto_issue_findings(stub)
+        assert findings == []
+
+    def test_extract_findings_returns_empty_when_review_data_is_none(self):
+        """review_data attribute defaults / never set."""
+        stub = MagicMock()
+        stub.review_data = None
+        stub._record_schema_mismatch = PRReviewer._record_schema_mismatch.__get__(stub)
+        findings = PRReviewer._extract_auto_issue_findings(stub)
+        assert findings == []
+
+    @patch("pr_agent.tools.pr_reviewer.get_settings")
+    def test_schema_mismatch_records_metric(self, mock_settings):
+        """_record_schema_mismatch increments LLM_FAILURES_TOTAL with reason='schema_mismatch'."""
+        mock_settings.return_value.get.return_value = "kimi-k2.6"
+        from pr_agent.servers.monitoring import LLM_FAILURES_TOTAL
+        before = sum(1 for k in LLM_FAILURES_TOTAL._metrics if k[0] == "schema_mismatch")
+        stub = MagicMock()
+        PRReviewer._record_schema_mismatch(stub, "review", "some string value")
+        after_keys = [k for k in LLM_FAILURES_TOTAL._metrics if k[0] == "schema_mismatch"]
+        assert len(after_keys) >= before
+        assert any("schema_mismatch" == k[0] for k in after_keys)
+
+
+class TestLoadYamlSchemaGuard:
+    """load_yaml must coerce non-dict scalars to {} so callers don't crash."""
+
+    def test_plain_string_returns_empty_dict(self):
+        from pr_agent.algo.utils import load_yaml
+        result = load_yaml("just plain text no structure")
+        assert isinstance(result, dict)
+        assert result == {}
+
+    def test_integer_scalar_returns_empty_dict(self):
+        from pr_agent.algo.utils import load_yaml
+        result = load_yaml("42")
+        assert isinstance(result, dict)
+        assert result == {}
+
+    def test_valid_dict_passes_through(self):
+        from pr_agent.algo.utils import load_yaml
+        result = load_yaml("foo: bar\nbaz: 42")
+        assert result == {"foo": "bar", "baz": 42}
