@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   report:
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
       - name: Harden Runner
