@@ -22,7 +22,7 @@ All upstream pr-agent features are preserved: `/review`, `/improve`, `/describe`
 | `pr_agent/settings/configuration.toml` | `[config] model` → `kimi-k2.6`, `fallback_models` → `["kimi-k2.5", "minimax-m2.7"]` | Default model via cli_proxy/OpenAI-compatible routing |
 | `.pr_agent.toml` | Prepended `[config]`, `[openai]`, `[litellm]` sections | Pin fork-level model and `api_base` to cli_proxy |
 | `.github/workflows/10_pr-review.yml` | **NEW** | ubuntu-latest runner + cli_proxy env vars |
-| `.github/workflows/security/pr-review.yml` | **NEW** | Deep security review (Korean, `pull_request_target`, label-triggered) |
+| `.github/workflows/security/11_pr-review.yml` | **NEW** | Deep security review (Korean, `pull_request_target`, label-triggered) |
 | `.github/workflows/sanity.yml` | **NEW** | Fork CI gate (replaces upstream CI) |
 | `.github/workflows/codeql.yml` | **NEW** | Python SAST (security-extended + quality queries) |
 | `.github/workflows/05_gitleaks.yml` | **NEW** | Secret-pattern scan on every PR/push |
@@ -92,7 +92,7 @@ github-bot/
 │       └── ...                    # other prompt templates
 ├── .github/workflows/
 │   ├── pr-review.yml              # FORK: ubuntu-latest + cli_proxy (kimi-k2.6)
-│   ├── security/pr-review.yml     # FORK: deep security review (Korean, label-gated)
+│   ├── security/11_pr-review.yml     # FORK: deep security review (Korean, label-gated)
 │   ├── sanity.yml                 # FORK: CI gate (replaces upstream CI)
 │   ├── pr-checks.yml              # PR validation (size, title, branch, description)
 │   ├── gitleaks.yml               # Secret scanning
@@ -137,7 +137,7 @@ github-bot/
 | Edit review prompts | `pr_agent/settings/pr_reviewer_prompts.toml` | upstream TOML |
 | Edit improve prompts | `pr_agent/settings/code_suggestions/` | |
 | Workflow triggers | `.github/workflows/10_pr-review.yml` | PR events + slash commands |
-| Security review config | `.github/workflows/security/pr-review.yml` | Triggered by `security-review` label |
+| Security review config | `.github/workflows/security/11_pr-review.yml` | Triggered by `security-review` label |
 | CI gate | `.github/workflows/sanity.yml` | TOML parse + pytest gate |
 | Hardcode pattern scan | `.github/workflows/auto-hardcode-scan.yml` | Weekly cron + manual dispatch on `ubuntu-latest`, 15-minute timeout |
 | Slash command handling | `pr_agent/servers/github_app.py`, `github_action_runner.py` | |
@@ -365,7 +365,7 @@ ssh root@192.168.50.114 "docker restart cli-proxy-api"
 
 ## PR-AGENT WORKFLOW ENV VAR CONVENTIONS
 
-pr-agent loads its settings via `Dynaconf(envvar_prefix=False, ...)` (see `pr_agent/config_loader.py:18`). With no prefix, **only specific env-var spellings reach the nested settings tree** — the bug-fix history is non-obvious. Memorise this table before adding any new env var to `pr-review.yml` or `security/pr-review.yml`:
+pr-agent loads its settings via `Dynaconf(envvar_prefix=False, ...)` (see `pr_agent/config_loader.py:18`). With no prefix, **only specific env-var spellings reach the nested settings tree** — the bug-fix history is non-obvious. Memorise this table before adding any new env var to `pr-review.yml` or `security/11_pr-review.yml`:
 
 | Setting key (used in pr-agent code) | Wrong env name | Correct env name | Why |
 |------|----------------|------------------|-----|
@@ -377,7 +377,7 @@ pr-agent loads its settings via `Dynaconf(envvar_prefix=False, ...)` (see `pr_ag
 | `settings.config.custom_model_max_tokens` | omit (forces MAX_TOKENS lookup) | **`CONFIG.CUSTOM_MODEL_MAX_TOKENS=128000`** | `kimi-k2.6` is NOT in `pr_agent/algo/__init__.py:MAX_TOKENS`; without this, prompt-trim refuses to call litellm |
 | `settings.pr_reviewer.require_*` | — | `PR_REVIEWER.REQUIRE_*` | Literal dot |
 
-**Special case — `security/pr-review.yml` only**: that workflow invokes `pr_agent.servers.github_action_runner` directly, which manually translates `GITHUB_TOKEN` → `settings.github.user_token` and `OPENAI_KEY` → `settings.openai.key` at `pr_agent/servers/github_action_runner.py:55-61`. Both env-var styles work there, but for consistency the fork uses the same `OPENAI.KEY` / `GITHUB__USER_TOKEN` everywhere.
+**Special case — `security/11_pr-review.yml` only**: that workflow invokes `pr_agent.servers.github_action_runner` directly, which manually translates `GITHUB_TOKEN` → `settings.github.user_token` and `OPENAI_KEY` → `settings.openai.key` at `pr_agent/servers/github_action_runner.py:55-61`. Both env-var styles work there, but for consistency the fork uses the same `OPENAI.KEY` / `GITHUB__USER_TOKEN` everywhere.
 
 **Silent-failure guard** (`pr-review.yml:141`): pr-agent's CLI catches its own exceptions in `pr_reviewer.py:184` and **returns exit code 0 even on fatal failures**. The workflow `tee`s output to `/tmp/pr-agent.log` and `grep`s for known fatal patterns (`Failed to generate prediction with any model`, `Failed to review PR`, `AuthenticationError`, etc.) — known no-op patterns (`Empty diff for PR:`, `PR has no files:`, `Review output is not published`) are subtracted to avoid false positives. The full pattern list is in the workflow's run-step.
 
@@ -456,7 +456,7 @@ These conventions are enforced by `scripts/cmd/deploy-to-repos/main.go` and its 
 | **kebab-case** | Default for all workflow, template, and config files | `pr-checks.yml`, `dependabot-auto-merge.yml` |
 | **Underscore prefix `_`** | Local-only workflow; NEVER deployed downstream | `_stale.yml`, `_welcome.yml` |
 | **`reusable-` prefix** | Callable reusable workflow | `reusable-pr-checks.yml` |
-| **`security/` subdirectory** | Security-focused workflows | `security/pr-review.yml` |
+| **`security/` subdirectory** | Security-focused workflows | `security/11_pr-review.yml` |
 | **No extension** | GitHub-mandated filenames | `CODEOWNERS` |
 | **`.yml` preferred** | Workflow and issue template extensions | `1-bug-report.yml` (not `.yaml`) |
 
@@ -474,7 +474,7 @@ These conventions are enforced by `scripts/cmd/deploy-to-repos/main.go` and its 
 - **Never** hardcode the cli_proxy API key in any tracked file
 - **Never** commit `.env`, `.secrets.toml`, `pr_agent/settings/.secrets.toml`, or anything under `.cache/`
 - **Never** edit `pr_agent/settings/configuration.toml` beyond the cli_proxy model line — it conflicts with every upstream merge
-- **Never** run PR review on PRs from untrusted forks under `pull_request_target` without a head-repo guard — code execution / token-theft risk. The current guard in `.github/workflows/security/pr-review.yml` requires `head.repo.full_name == github.repository`.
+- **Never** run PR review on PRs from untrusted forks under `pull_request_target` without a head-repo guard — code execution / token-theft risk. The current guard in `.github/workflows/security/11_pr-review.yml` requires `head.repo.full_name == github.repository`.
 - **Never** push to `main` without running at least `pytest tests/unittest/test_fix_json_escape_char.py`
 - **Never** delete or rename upstream prompt TOML files (e.g. `pr_agent/settings/pr_reviewer_prompts.toml`) — they're the single source of truth for prompts
 - **Never** run the legacy root-level binaries in `scripts/` (`./branch-protection`, `./deploy-to-repos`, `./repo-review`, `./sync-secrets`). Use `(cd scripts && go run ./cmd/<name>)` instead.
@@ -497,7 +497,7 @@ Located in `docs/review-templates/` and referenced from `.pr_agent.toml`.
 |----------|---------|---------|
 | `code-review-template.md` | Master review format, priorities, severity levels | Every `/review` |
 | `documentation-checklist.md` | README, API docs, docstring, PR description checks | Embedded in `extra_instructions` |
-| `security-review-template.md` | OWASP Top 10, secret scanning, SAST checks | `security-review` label or `/agentic_review --security` |
+| `security-review-template.md` | OWASP Top 10, secret scanning, SAST checks | `security-review` label |
 
 ### Template Usage Flow
 

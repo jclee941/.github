@@ -16,11 +16,33 @@ from pr_agent.log import get_logger
 
 # Regex patterns for common hardcoding issues
 HARDCODE_PATTERNS = {
+    # High-signal secret formats (specific, low false-positive)
+    "aws_access_key": re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
+    "github_token": re.compile(
+        r"\b(?:ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9]{22}_[A-Za-z0-9_]{50,})\b"
+    ),
+    "private_key": re.compile(r"-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----"),
+    "jwt": re.compile(r"\beyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b"),
+    "connection_string": re.compile(
+        r"(?i)\b(?:mongodb|postgres(?:ql)?|mysql|mariadb|redis|rediss|amqp)"
+        r"(?:\+[a-z0-9]+)?(?:\+srv)?://"
+        r"[^:\s/'\"]+:[^@\s/'\"]+@[^\s'\"]+"
+    ),
+    # Generic credential assignments
     "api_key": re.compile(r'(?i)(api[_-]?key|apikey)\s*[:=]\s*["\'][a-zA-Z0-9\-_]{8,}["\']'),
     "secret": re.compile(r'(?i)(secret|password|passwd|pwd|token)\s*[:=]\s*["\'][^"\']{4,}["\']'),
     "ip_address": re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?\b"),
     "url": re.compile(r'https?://[^\s"\']+(?<!\{)'),
-    "magic_number": re.compile(r"\b\d{3,}\b"),
+    # Context-bound magic numbers only (timeouts/retries/thresholds), not every
+    # 3+ digit literal. The bare `\d{3,}` pattern flagged ports, years and HTTP
+    # status codes, drowning real findings in noise.
+    "magic_number": re.compile(
+        r"(?i)[a-z0-9_]*"
+        r"(?:timeout|retry|retries|max_attempts|threshold|interval|delay|backoff|"
+        r"ttl|expiry|expires_in|rate_limit|buffer_size|batch_size|page_size|"
+        r"pool_size|max_size|chunk_size)"
+        r"[a-z0-9_]*\s*[:=]\s*\d{3,}\b"
+    ),
 }
 
 
@@ -61,7 +83,7 @@ class PRHardcodeDetector:
             get_logger().info("Preparing hardcode prediction...")
             await retry_with_fallback_models(self._prepare_prediction)
 
-            findings = self._parse_findings()
+            findings = self._merge_regex_findings(self._parse_findings(), getattr(self, "regex_findings", []))
             if not findings:
                 get_logger().info("No hardcoded values detected.")
                 if get_settings().config.publish_output:
@@ -90,30 +112,110 @@ class PRHardcodeDetector:
         )
 
         # Quick regex pre-filter
-        regex_findings = self._regex_scan(self.patches_diff)
-        if regex_findings:
-            get_logger().info(f"Regex pre-filter found {len(regex_findings)} potential hardcoded values")
+        self.regex_findings = self._regex_scan(self.patches_diff)
+        if self.regex_findings:
+            get_logger().info(f"Regex pre-filter found {len(self.regex_findings)} potential hardcoded values")
 
         get_logger().info("Getting AI prediction for hardcode detection...")
         self.prediction = await self._get_prediction(model)
 
+    # Matches a numbered hunk line: "881 +      content" or "880        content".
+    # group 1 = source line number, group 2 = '+' for added lines (else absent).
+    _HUNK_LINE_RE = re.compile(r"^(\d+)\s+(\+)?\s*(.*)$")
+    _FILE_HEADER_RE = re.compile(r"^## File:?\s*'?([^'\n]+?)'?\s*$")
+
     def _regex_scan(self, diff: str) -> List[Dict]:
-        findings = []
-        lines = diff.splitlines()
-        for line_num, line in enumerate(lines, 1):
-            if not line.startswith("+") or line.startswith("+++"):
+        """Scan added lines of a PR diff for hardcoded secrets/values.
+
+        Handles two formats:
+        1. The real pr-agent diff (add_line_numbers_to_hunks=True): blocks led by
+           "## File: '<path>'" and "__new hunk__", where added lines look like
+           "881 +      content" (group1=source line, '+' marks an addition).
+        2. A bare unified-diff fragment where added lines start with '+' (used by
+           lightweight tests and as a fallback).
+        """
+        findings: List[Dict] = []
+        current_file = ""
+        for raw in diff.splitlines():
+            file_match = self._FILE_HEADER_RE.match(raw.strip())
+            if file_match:
+                current_file = file_match.group(1).strip()
                 continue
-            content = line[1:]  # remove leading '+'
+            if raw.startswith("__") or raw.startswith("@@"):
+                continue
+
+            source_line: int | str = ""
+            content = None
+            hunk_match = self._HUNK_LINE_RE.match(raw)
+            if hunk_match:
+                # Numbered hunk format: only scan added ('+') lines.
+                if hunk_match.group(2) != "+":
+                    continue
+                source_line = int(hunk_match.group(1))
+                content = hunk_match.group(3)
+            elif raw.startswith("+") and not raw.startswith("+++"):
+                # Bare unified-diff fallback.
+                content = raw[1:]
+            else:
+                continue
+
+            content = content.strip()
             for category, pattern in HARDCODE_PATTERNS.items():
                 if pattern.search(content):
                     findings.append(
                         {
-                            "line": line_num,
+                            "file": current_file,
+                            "line": source_line,
                             "category": category,
-                            "content": content.strip(),
+                            "content": content,
                         }
                     )
         return findings
+
+    # Severity assigned to regex pre-filter findings when merged into output.
+    _REGEX_SEVERITY = {
+        "aws_access_key": "critical",
+        "github_token": "critical",
+        "private_key": "critical",
+        "jwt": "high",
+        "connection_string": "high",
+        "secret": "high",
+        "api_key": "high",
+        "ip_address": "low",
+        "url": "low",
+        "magic_number": "low",
+    }
+
+    def _merge_regex_findings(self, llm_findings: List[Dict], regex_findings: List[Dict]) -> List[Dict]:
+        """Merge deterministic regex pre-filter findings into the LLM findings.
+
+        The regex scan was previously only logged, so its secret/magic patterns
+        never affected published output. We normalize each regex hit to the
+        published finding shape and append it, deduping against LLM findings
+        that already cover the same (file, line, category).
+        """
+        merged = list(llm_findings or [])
+        seen = {
+            (str(f.get("file", "")), f.get("line"), str(f.get("category", "")).lower())
+            for f in merged
+        }
+        for rf in regex_findings or []:
+            key = (str(rf.get("file", "")), rf.get("line"), str(rf.get("category", "")).lower())
+            if key in seen:
+                continue
+            seen.add(key)
+            category = rf.get("category", "unknown")
+            merged.append(
+                {
+                    "severity": self._REGEX_SEVERITY.get(category, "medium"),
+                    "category": category,
+                    "file": rf.get("file", ""),
+                    "line": rf.get("line", ""),
+                    "description": rf.get("content", ""),
+                    "source": "regex",
+                }
+            )
+        return merged
 
     async def _get_prediction(self, model: str):
         variables = copy.deepcopy(self.vars)
