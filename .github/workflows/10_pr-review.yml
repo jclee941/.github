@@ -21,7 +21,7 @@ jobs:
   pr_review:
     strategy:
       matrix:
-        model: [minimax-m2.7, gpt-5.5]
+        model: [kimi-k2.6, minimax-m2.7, gpt-5.5]
       fail-fast: false
     concurrency:
       group: pr-review-${{ github.event.pull_request.number }}-${{ matrix.model }}
