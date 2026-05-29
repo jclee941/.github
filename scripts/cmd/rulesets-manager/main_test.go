@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 )
 
@@ -123,7 +124,7 @@ func TestRulesetPayloadJSON(t *testing.T) {
 				t.Error("required_status_checks rule missing parameters")
 				continue
 			}
-			checks, ok := rule.Parameters["required_status_checks"].([]interface{})
+			checks, ok := rule.Parameters["required_status_checks"].([]any)
 			if !ok {
 				t.Error("required_status_checks.parameters.required_status_checks not found or wrong type")
 				continue
@@ -132,6 +133,44 @@ func TestRulesetPayloadJSON(t *testing.T) {
 				t.Errorf("expected 3 status checks, got %d", len(checks))
 			}
 		}
+	}
+}
+
+func TestRulesetPayloadRequiredStatusCheckContexts(t *testing.T) {
+	var payload rulesetPayloadStruct
+	if err := json.Unmarshal([]byte(rulesetPayload), &payload); err != nil {
+		t.Fatalf("rulesetPayload is invalid JSON: %v", err)
+	}
+
+	var got []string
+	for _, rule := range payload.Rules {
+		if rule.Type != "required_status_checks" {
+			continue
+		}
+		checks, ok := rule.Parameters["required_status_checks"].([]any)
+		if !ok {
+			t.Fatal("required_status_checks.parameters.required_status_checks not found or wrong type")
+		}
+		for _, check := range checks {
+			checkMap, ok := check.(map[string]any)
+			if !ok {
+				t.Fatalf("required status check has type %T, want object", check)
+			}
+			context, ok := checkMap["context"].(string)
+			if !ok {
+				t.Fatalf("required status check context has type %T, want string", checkMap["context"])
+			}
+			got = append(got, context)
+		}
+	}
+
+	want := []string{
+		"pr-checks / Check PR Title",
+		"pr-checks / Check Branch Name",
+		"Gitleaks / scan",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("required status check contexts = %v, want %v", got, want)
 	}
 }
 

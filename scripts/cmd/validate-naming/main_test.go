@@ -49,3 +49,15 @@ func TestContains(t *testing.T) {
 		t.Error("expected contains to NOT find 'd'")
 	}
 }
+
+func TestRequiredStatusChecksMatchWorkflowContexts(t *testing.T) {
+	rootDir, err := findRepoRoot()
+	if err != nil {
+		t.Fatalf("find repo root: %v", err)
+	}
+
+	v := &validator{rootDir: rootDir}
+	if err := v.requiredStatusChecksMatchWorkflowContexts(); err != nil {
+		t.Fatalf("required status checks should match workflow contexts: %v", err)
+	}
+}

@@ -67,7 +67,7 @@ const rulesetPayload = `{
             "context": "pr-checks / Check Branch Name"
           },
           {
-            "context": "scan"
+            "context": "Gitleaks / scan"
           }
         ],
         "strict_required_status_checks_policy": false
@@ -351,19 +351,12 @@ func deleteRulesetByName(repo, name string, dryRun bool) error {
 	return nil
 }
 
-// rulesetListItem is used for JSON parsing in list mode.
-type rulesetListItem struct {
-	ID          int64  `json:"id"`
-	Name        string `json:"name"`
-	Enforcement string `json:"enforcement"`
-}
-
 // rulesetPayloadStruct is used for JSON marshaling of the payload.
 type rulesetPayloadStruct struct {
 	Name           string              `json:"name"`
 	Target         string              `json:"target"`
 	Enforcement    string              `json:"enforcement"`
-	BypassActors   []interface{}       `json:"bypass_actors"`
+	BypassActors   []any               `json:"bypass_actors"`
 	Conditions     rulesetConditions   `json:"conditions"`
 	Rules          []rulesetRule       `json:"rules"`
 }
@@ -376,8 +369,8 @@ type rulesetConditions struct {
 }
 
 type rulesetRule struct {
-	Type       string                 `json:"type"`
-	Parameters map[string]interface{} `json:"parameters,omitempty"`
+	Type       string         `json:"type"`
+	Parameters map[string]any `json:"parameters,omitempty"`
 }
 
 func init() {
