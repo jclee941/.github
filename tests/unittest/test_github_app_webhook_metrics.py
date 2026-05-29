@@ -42,3 +42,20 @@ async def test_handle_request_with_metrics_records_failure_without_reraising():
         "pr_url": "https://github.com/jclee941/example/pull/7",
         "exception_type": "ValueError",
     }
+
+
+def test_record_webhook_failure_defaults_to_lowercase_unknown():
+    """All metric label defaults must be lowercase 'unknown' for PromQL consistency."""
+    from pr_agent.servers.monitoring import record_webhook_failure
+
+    record_webhook_failure(None, None, None)
+    # The labeled counter must exist with all-lowercase 'unknown' values
+    counter = WEBHOOK_FAILURES_TOTAL.labels(
+        event="unknown", action="unknown", exception_type="unknown"
+    )
+    assert counter._value.get() >= 1
+
+    # Also verify no 'Unknown' (capitalized) label slipped through
+    label_keys = list(WEBHOOK_FAILURES_TOTAL._metrics.keys())
+    capitalized = [k for k in label_keys if "Unknown" in k]
+    assert not capitalized, f"Found capitalized 'Unknown' in labels: {capitalized}"

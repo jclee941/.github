@@ -94,7 +94,7 @@ def record_webhook_failure(event: str, action: str, exception_type: str) -> None
     WEBHOOK_FAILURES_TOTAL.labels(
         event=event or "unknown",
         action=action or "unknown",
-        exception_type=exception_type or "Unknown",
+        exception_type=exception_type or "unknown",
     ).inc()
 
 
