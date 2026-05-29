@@ -21,6 +21,10 @@ repositories:
       branch_protection: true
       health_check: true
       auto_merge: true
+    metadata:
+      description: "Gmail automation workspace"
+      topics: [automation, email, gmail-api, javascript]
+      homepage: ""
 
   - name: blacklist
     visibility: public
@@ -30,6 +34,10 @@ repositories:
       branch_protection: true
       health_check: true
       auto_merge: true
+    metadata:
+      description: "IP reputation / threat intel - migrated from GitLab"
+      topics: [ip-reputation, osint, security, threat-intelligence]
+      homepage: ""
 
   - name: bug
     visibility: public
@@ -39,6 +47,10 @@ repositories:
       branch_protection: true
       health_check: true
       auto_merge: true
+    metadata:
+      description: "Bug bounty automation toolkit — recon, monitoring, vulnerability hunting"
+      topics: [automation, bug-bounty, pentesting, recon, security]
+      homepage: ""
 
   - name: hycu_fsds
     visibility: public
@@ -48,6 +60,10 @@ repositories:
       branch_protection: true
       health_check: true
       auto_merge: true
+    metadata:
+      description: "HYCU FSDS 자율주행 — Formula Student Driverless Simulator 기반 자율주행 시스템 (한양사이버대 자율주행 경진대회 우수상 2026)"
+      topics: [autonomous-driving, formula-student, python, robotics, simulation]
+      homepage: ""
 
   - name: idle-outpost
     visibility: public
@@ -57,6 +73,10 @@ repositories:
       branch_protection: true
       health_check: true
       auto_merge: true
+    metadata:
+      description: "게임 보상 자동 수령 봇 — API 클레임 + 스크래핑 + 알림 (Python)"
+      topics: [automation, bot, game, python, scraping]
+      homepage: ""
 
   - name: opencode
     visibility: public
@@ -66,6 +86,10 @@ repositories:
       branch_protection: true
       health_check: true
       auto_merge: true
+    metadata:
+      description: "opencode AI 코딩 에이전트 커스터마이징 — skills, commands, config (Go)"
+      topics: [ai-agent, configuration, developer-tools, golang, opencode]
+      homepage: ""
 
   - name: resume
     visibility: public
@@ -75,6 +99,10 @@ repositories:
       branch_protection: true
       health_check: true
       auto_merge: true
+    metadata:
+      description: "Resume monorepo: Cloudflare Worker portfolio (resume.jclee.me) + job automation + Wishket profile. Korean infrastructure/security engineer, 9yr."
+      topics: [cloudflare-workers, personal-website, portfolio, resume]
+      homepage: "https://resume.jclee.me"
 
   - name: safetywallet
     visibility: public
@@ -84,6 +112,10 @@ repositories:
       branch_protection: true
       health_check: true
       auto_merge: true
+    metadata:
+      description: "SafetyWallet - Field worker safety PWA with Cloudflare Workers API, Next.js admin dashboard, and worker PWA. Hono + Drizzle + D1."
+      topics: [cloudflare-workers, drizzle, hono, nextjs, pwa, safety]
+      homepage: ""
 
   - name: splunk
     visibility: public
@@ -93,6 +125,10 @@ repositories:
       branch_protection: true
       health_check: true
       auto_merge: true
+    metadata:
+      description: "Security Alert System — Production Splunk app for FortiGate security monitoring (FAZ→Splunk HEC bridge, 15+ alerts, Slack interactive callbacks)"
+      topics: [fortigate, python, security-monitoring, siem, splunk]
+      homepage: ""
 
   - name: terraform
     visibility: public
@@ -102,6 +138,10 @@ repositories:
       branch_protection: true
       health_check: true
       auto_merge: true
+    metadata:
+      description: "Homelab infrastructure-as-code monorepo — Proxmox, networking, monitoring, and external services via Terraform"
+      topics: [homelab, iac, infrastructure-as-code, proxmox, terraform]
+      homepage: ""
 
   - name: tmux
     visibility: public
@@ -111,6 +151,10 @@ repositories:
       branch_protection: true
       health_check: true
       auto_merge: true
+    metadata:
+      description: "Tmux configuration and session management toolkit"
+      topics: [dotfiles, productivity, terminal, tmux]
+      homepage: ""
 
   # Private repos (3)
   - name: hycu
@@ -121,6 +165,10 @@ repositories:
       branch_protection: true
       health_check: true
       auto_merge: true
+    metadata:
+      description: "한양사이버대학교(HYCU) 온라인 강의 출석 자동화 도구 (Node.js + TypeScript + Docker)"
+      topics: [attendance, automation, docker, lms, nodejs, typescript]
+      homepage: ""
 
   - name: youtube
     visibility: private
@@ -130,6 +178,10 @@ repositories:
       branch_protection: true
       health_check: true
       auto_merge: true
+    metadata:
+      description: "YouTube automation pipeline (n8n v6 + Python FastAPI + FFmpeg)"
+      topics: [automation, fastapi, ffmpeg, n8n, python, youtube]
+      homepage: ""
 
   - name: propose
     visibility: private
@@ -139,6 +191,10 @@ repositories:
       branch_protection: true
       health_check: true
       auto_merge: true
+    metadata:
+      description: "모바일 청첩장 — 결혼식 없이 시작을 알리는 커플용 디지털 청첩장 (Cloudflare Workers + GSAP, propose.jclee.me)"
+      topics: [cloudflare-workers, gsap, korean, typescript, wedding-invitation]
+      homepage: "https://propose.jclee.me"
 
   # Fork (excluded from deploy but included in protection)
   - name: pr-agent

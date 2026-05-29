@@ -21,7 +21,7 @@ jobs:
   pr_review:
     strategy:
       matrix:
-        model: [minimax-m2.7, gpt-5.5]
+        model: [kimi-k2.6, minimax-m2.7, gpt-5.5]
       fail-fast: false
     concurrency:
       group: pr-review-${{ github.event.pull_request.number }}-${{ matrix.model }}
@@ -118,7 +118,10 @@ jobs:
           LITELLM_LOCAL_MODEL_COST_MAP: "True"
           PR_REVIEW_DEBUG: ${{ vars.PR_REVIEW_DEBUG || '0' }}
           CONFIG__MODEL: ${{ matrix.model }}
-          CONFIG__FALLBACK_MODELS: '["minimax-m2.7"]'
+          # Canonical fallback chain (matches .pr_agent.toml, 40_repo-review-batch,
+          # 86_pr-review-security, configuration.toml). litellm skips the matrix.model
+          # if it already failed as primary, so listing it here is harmless.
+          CONFIG__FALLBACK_MODELS: '["kimi-k2.5", "minimax-m2.7"]'
           CONFIG__RESPONSE_LANGUAGE: ko
           CONFIG__AI_TIMEOUT: "180"
           CONFIG__CUSTOM_MODEL_MAX_TOKENS: "128000"

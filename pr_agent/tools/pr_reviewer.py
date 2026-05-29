@@ -334,10 +334,38 @@ class PRReviewer:
         except Exception as e:
             get_logger().warning(f"Auto-issue creation failed: {e}")
 
+    def _record_schema_mismatch(self, field: str, value) -> None:
+        """Record an LLM schema mismatch (got non-dict where dict expected)."""
+        try:
+            from pr_agent.servers.monitoring import record_llm_failure
+            model = get_settings().get("config.model", "unknown")
+            record_llm_failure("schema_mismatch", model)
+        except Exception:
+            pass
+        get_logger().warning(
+            f"PR reviewer schema mismatch: '{field}' is {type(value).__name__}, expected dict",
+            artifact={
+                "field": field,
+                "type": type(value).__name__,
+                "value_preview": str(value)[:200],
+            },
+        )
+
     def _extract_auto_issue_findings(self):
         findings = []
         data = getattr(self, "review_data", {})
+
+        # Defensive: load_yaml can return non-dict (e.g. str) when the LLM
+        # response is malformed or returns plain prose instead of structured YAML.
+        # Observed with some gpt-5.5 responses. Record and skip rather than crash.
+        if not isinstance(data, dict):
+            self._record_schema_mismatch("review_data", data)
+            return findings
+
         review = data.get("review", {})
+        if not isinstance(review, dict):
+            self._record_schema_mismatch("review", review)
+            return findings
 
         # Check security_concerns
         security = review.get("security_concerns", "")
@@ -436,8 +464,17 @@ class PRReviewer:
         pr_url = self.git_provider.get_pr_url()
         repo = self.git_provider.repo
 
-        # Build fingerprint marker
-        marker_input = f"{repo}|{finding['file']}|{finding['start_line']}|{finding['title']}"
+        # Build fingerprint marker from structural position + category + a stable
+        # hash of the finding content. The LLM-generated *title* is excluded
+        # because it is reworded across re-reviews (which would create duplicate
+        # issues), but category and content are included so that two DISTINCT
+        # findings sharing the same line span (or repo-level findings with no
+        # location) do not collapse into a single marker.
+        content_hash = hashlib.sha256(str(finding.get("content", "")).encode()).hexdigest()[:8]
+        marker_input = (
+            f"{repo}|{finding['file']}|{finding['start_line']}|{finding['end_line']}"
+            f"|{finding.get('category', '')}|{content_hash}"
+        )
         fingerprint = hashlib.sha256(marker_input.encode()).hexdigest()[:16]
         marker = f"<!-- jclee-bot-review-finding: {fingerprint} -->"
 

@@ -21,8 +21,18 @@ assert WF_DIR.exists(), f"Workflows dir not found: {WF_DIR}"
 # ---------------------------------------------------------------------------
 
 def read_workflow(name: str) -> str:
-    """Return raw text of a workflow file."""
+    """Return raw text of a workflow file.
+
+    Workflow files carry an ``NN_`` sequential-numbering prefix (e.g.
+    ``34_auto-deploy.yml``). Callers pass the logical name (``auto-deploy.yml``)
+    and this resolves the prefixed file so the policy tests stay stable across
+    re-numbering.
+    """
     path = WF_DIR / name
+    if not path.exists():
+        matches = sorted(WF_DIR.glob(f"[0-9][0-9]_{name}"))
+        if matches:
+            path = matches[0]
     if not path.exists():
         pytest.fail(f"Workflow not found: {path}")
     return path.read_text()
