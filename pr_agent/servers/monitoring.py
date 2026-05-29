@@ -17,14 +17,6 @@ from pr_agent.config_loader import get_settings
 # Build number for health endpoint
 _build_number_path = Path(__file__).parent.parent / "build_number.txt"
 build_number = _build_number_path.read_text().strip() if _build_number_path.exists() else "unknown"
-from typing import Any, Dict
-
-import httpx
-from fastapi import APIRouter
-from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
-from starlette.responses import Response
-
-from pr_agent.config_loader import get_settings
 
 monitoring_router = APIRouter()
 
@@ -51,6 +43,28 @@ REVIEW_DURATION_SECONDS = Histogram(
     ["command"],
     buckets=[1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0],
 )
+LLM_FAILURES_TOTAL = Counter(
+    "llm_failures_total",
+    "Total number of LLM call failures categorized by reason",
+    ["reason", "model"],
+)
+WEBHOOK_FAILURES_TOTAL = Counter(
+    "webhook_failures_total",
+    "Total number of webhook handler failures (exceptions in handle_request)",
+    ["event", "action", "exception_type"],
+)
+
+
+def record_llm_failure(reason: str, model: str) -> None:
+    """Record an LLM call failure.
+
+    reason: one of 'rate_limit', 'timeout', 'connect', 'api_error', 'schema_mismatch', 'unknown'
+    model: the model name (e.g. 'kimi-k2.6')
+    """
+    LLM_FAILURES_TOTAL.labels(
+        reason=reason or "unknown",
+        model=model or "unknown",
+    ).inc()
 
 
 def record_webhook_start(event: str, action: str) -> float:
@@ -73,6 +87,15 @@ def record_review_start(command: str) -> float:
 def record_review_end(command: str, start_time: float) -> None:
     """Record the end of a review command."""
     REVIEW_DURATION_SECONDS.labels(command=command).observe(time.time() - start_time)
+
+
+def record_webhook_failure(event: str, action: str, exception_type: str) -> None:
+    """Record a webhook handler failure with the exception class name."""
+    WEBHOOK_FAILURES_TOTAL.labels(
+        event=event or "unknown",
+        action=action or "unknown",
+        exception_type=exception_type or "unknown",
+    ).inc()
 
 
 @monitoring_router.get("/health")

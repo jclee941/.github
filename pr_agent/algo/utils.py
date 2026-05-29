@@ -762,6 +762,17 @@ def load_yaml(response_text: str, keys_fix_yaml: List[str] = [], first_key="", l
         else:
             get_logger().info(f"Successfully parsed AI prediction after fallbacks",
                               artifact={'response_text': response_text})
+    # Defensive: yaml.safe_load can return a plain scalar (str, int, bool, None)
+    # when the LLM response has no structure. Callers expect dict or list and call
+    # .get() / .items() on the result. Coerce scalars to {} so downstream code
+    # doesn't crash with 'str object has no attribute get'.
+    # Note: list is a valid return type (see test_load_invalid_yaml2) - preserve it.
+    if data is not None and not isinstance(data, (dict, list)):
+        get_logger().warning(
+            f"load_yaml: parsed value is not a dict or list (got {type(data).__name__}); coercing to empty dict",
+            artifact={"value_preview": str(data)[:200]},
+        )
+        data = {}
     return data
 
 

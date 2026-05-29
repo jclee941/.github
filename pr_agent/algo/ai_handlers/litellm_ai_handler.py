@@ -24,6 +24,7 @@ from pr_agent.algo.ai_handlers.litellm_helpers import (
 from pr_agent.algo.utils import ReasoningEffort, get_version
 from pr_agent.config_loader import get_settings
 from pr_agent.log import get_logger
+from pr_agent.servers.monitoring import record_llm_failure
 
 MODEL_RETRIES = 2
 DUMMY_LITELLM_API_KEY = "dummy_key"  # placeholder set when no OpenAI key is configured
@@ -435,12 +436,23 @@ class LiteLLMAIHandler(BaseAiHandler):
             resp, finish_reason, response_obj = await self._get_completion(**kwargs)
 
         except openai.RateLimitError as e:
+            record_llm_failure("rate_limit", model)
             get_logger().error(f"Rate limit error during LLM inference: {e}")
             raise
+        except openai.APITimeoutError as e:
+            record_llm_failure("timeout", model)
+            get_logger().warning(f"Timeout during LLM inference: {e}")
+            raise
+        except openai.APIConnectionError as e:
+            record_llm_failure("connect", model)
+            get_logger().warning(f"Connection error during LLM inference (backend unreachable): {e}")
+            raise
         except openai.APIError as e:
+            record_llm_failure("api_error", model)
             get_logger().warning(f"Error during LLM inference: {e}")
             raise
         except Exception as e:
+            record_llm_failure("unknown", model)
             get_logger().warning(f"Unknown error during LLM inference: {e}")
             raise openai.APIError from e
 
