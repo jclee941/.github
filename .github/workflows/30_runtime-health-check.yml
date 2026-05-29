@@ -6,7 +6,7 @@ on:
     - cron: '0 */6 * * *'
 
 permissions:
-  contents: write
+  contents: read
   issues: write
 
 concurrency:
@@ -133,7 +133,7 @@ jobs:
           egress-policy: audit
       - name: Create canary PR and verify bot response
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           ISSUE_TITLE: 🚨 jclee-bot not responding to reviews
           CANARY_REPO: jclee941/automation-e2e-public
           BOT_LOGIN: jclee-bot[bot]
@@ -164,9 +164,11 @@ jobs:
 
           cleanup() {
             if [ -n "$pr_number" ]; then
-              gh pr close "$pr_number" --repo "$CANARY_REPO" --comment "Closing runtime health canary PR." || true
+              gh pr close "$pr_number" --repo "$CANARY_REPO" --comment "Closing runtime health canary PR." \
+                || echo "::warning::canary PR cleanup failed for $CANARY_REPO#$pr_number"
             fi
-            gh api -X DELETE "repos/$CANARY_REPO/git/refs/heads/$branch" >/dev/null 2>&1 || true
+            gh api -X DELETE "repos/$CANARY_REPO/git/refs/heads/$branch" >/dev/null 2>&1 \
+              || echo "::warning::canary branch cleanup failed for $CANARY_REPO:$branch"
           }
           trap cleanup EXIT
 
@@ -204,43 +206,32 @@ jobs:
             -f branch="$branch" >/dev/null \
             || fail_canary "failed to write canary file"
 
-          pr_number=$(gh pr create \
+          pr_url=$(gh pr create \
             --repo "$CANARY_REPO" \
             --base "$default_branch" \
             --head "$branch" \
             --title "test: runtime health canary" \
             --body "Runtime health canary for jclee-bot review handling. Do not merge." \
-            --json number \
-            --jq '.number') \
+            2>/dev/null) \
             || fail_canary "failed to create canary PR"
+          pr_number=$(printf '%s\n' "$pr_url" | grep -oE '/[0-9]+$' | tr -d '/' | tail -n 1)
+          if [ -z "$pr_number" ]; then
+            fail_canary "could not parse PR number from gh pr create output: $pr_url"
+          fi
 
+          review_posted_at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           gh pr comment "$pr_number" --repo "$CANARY_REPO" --body "/review" \
             || fail_canary "failed to post /review comment"
 
-          echo "Waiting 10 minutes for $BOT_LOGIN to respond to $CANARY_REPO#$pr_number"
+          echo "Waiting 10 minutes for $BOT_LOGIN to respond to $CANARY_REPO#$pr_number (since $review_posted_at)"
           sleep 600
 
           bot_comment_count=$(gh api "repos/$CANARY_REPO/issues/$pr_number/comments?per_page=100" \
-            --jq "[.[] | select(.user.login == \"$BOT_LOGIN\")] | length") \
+            --jq "[.[] | select(.user.login == \"$BOT_LOGIN\" and .created_at >= \"$review_posted_at\")] | length") \
             || fail_canary "failed to read canary PR comments"
 
           if [ "$bot_comment_count" -lt 1 ]; then
-            fail_canary "no $BOT_LOGIN comment found after /review"
+            fail_canary "no $BOT_LOGIN comment found after /review (since $review_posted_at)"
           fi
 
-          echo "$BOT_LOGIN responded with $bot_comment_count comment(s)"
-      - name: Notify on failure
-        if: failure()
-        uses: actions/github-script@v9
-        with:
-          script: |
-            try {
-              await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `🚨 ${{ github.workflow }} failed: ${context.runId}`,
-              body: `${{ github.workflow }} workflow failed. See [run logs](${context.payload.repository.html_url}/actions/runs/${context.runId}).`
-              });
-            } catch (e) {
-              core.warning(`Could not create issue: ${e.message}`);
-            }
+          echo "$BOT_LOGIN responded with $bot_comment_count comment(s) since $review_posted_at"

@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: repo-health-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   discover-repos:
@@ -31,6 +31,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -eu
           repos=$(gh api orgs/jclee941/repos --paginate \
             --jq '.[] | select(.archived == false) | .name' \
             | sort | uniq | jq -R . | jq -s -c .)
@@ -133,19 +134,11 @@ jobs:
                 labels: ['documentation', 'repo-health'],
               });
               console.log(`📝 Created health issue in ${repo}`);
+      - name: Checkout (for composite action resolution)
+        if: failure()
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
       - name: Notify on failure
         if: failure()
-        uses: actions/github-script@v9
-        with:
-          script: |
-            try {
-              await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `🚨 ${{ github.workflow }} failed: ${context.runId}`,
-              body: `${{ github.workflow }} workflow failed. See [run logs](${context.payload.repository.html_url}/actions/runs/${context.runId}).`
-              });
-            } catch (e) {
-              core.warning(`Could not create issue: ${e.message}`);
-            }
-            }
+        uses: ./.github/actions/notify-on-failure

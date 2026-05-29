@@ -76,18 +76,25 @@ services:
     depends_on:
       - github-bot-app
 
-  # Auto-update: poll registry every 60s and restart app when image changes
+  # Auto-update: poll registry every 60s and restart app when image changes.
   watchtower:
-    image: containrrr/watchtower:latest
+    image: containrrr/watchtower:1.7.1
     container_name: watchtower
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - WATCHTOWER_POLL_INTERVAL=60
-      - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_INCLUDE_STOPPED=true
-      - WATCHTOWER_REVIVE_STOPPED=false
+      # CLEANUP disabled: when watchtower removes the OLD image immediately after
+      # detecting a new one, it can lose the running container's image metadata and
+      # dead-locks with 'No such image ... no available image info. Proceeding to
+      # next.' on every poll, never actually updating. Keep old images; prune via
+      # a separate scheduled 'docker image prune' if disk pressure matters.
+      - WATCHTOWER_CLEANUP=false
+      # Only manage containers that are actually running; INCLUDE_STOPPED caused
+      # watchtower to also track exited build/CI containers and amplified the
+      # missing-image races above.
+      - WATCHTOWER_INCLUDE_STOPPED=false
       - WATCHTOWER_ROLLING_RESTART=true
       - DOCKER_API_VERSION=1.40
     networks:
