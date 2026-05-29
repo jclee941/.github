@@ -58,7 +58,7 @@ WEBHOOK_FAILURES_TOTAL = Counter(
 def record_llm_failure(reason: str, model: str) -> None:
     """Record an LLM call failure.
 
-    reason: one of 'rate_limit', 'timeout', 'connect', 'api_error', 'schema_mismatch', 'unknown'
+    reason: one of 'rate_limit', 'timeout', 'connect', 'api_error', 'schema_mismatch', 'provider_fallback', 'unknown'
     model: the model name (e.g. 'kimi-k2.6')
     """
     LLM_FAILURES_TOTAL.labels(
