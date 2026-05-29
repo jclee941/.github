@@ -17,7 +17,7 @@
 | 워크플로우 | 56개 (`NN_` 접두사 실행 순서), `deploy-to-repos`로 다운스트림 배포 |
 | Go CLI | 8개 (branch-protection, deploy-to-repos, sync-secrets, repo-review, rulesets-manager, drift-detector, repo-metadata, validate-naming) |
 | 관측성 | Prometheus 메트릭 + `/health` + `/ready` (`monitoring.py`), ELK 연동 |
-| 테스트 | Python 563 + Go 6 패키지 통과, `90_sanity.yml` CI 게이트 |
+| 테스트 | Python 563 + Go 6/8 cmd 패키지 테스트(`sync-secrets`·`repo-review` 미작성) 통과, `90_sanity.yml` CI 게이트 |
 
 **진단 결론**: 핵심 기능은 견고함. 개선 여지는 **자동화 커버리지의 빈틈**(드리프트·메타데이터·정책)과 **2건의 실제 버그**에 집중됨.
 
@@ -32,7 +32,7 @@
 | # | 갭 / Gap | 근거 / Evidence | 영향 / Impact |
 |---|----------|-----------------|---------------|
 | **B1** | `20_readme-gen.yml` 커밋 스텝이 **중복**됨 — `git checkout -b bot/auto-readme-update`가 두 번 실행되어 두 번째에서 브랜치 충돌로 실패 | `.github/workflows/20_readme-gen.yml:82` 및 `:89` (동일 브랜치 2회) | README 변경이 있을 때 워크플로우 실패 |
-| **B2** | `22_template-sync.yml`이 `contents: read` 권한만 선언하면서 다운스트림 repo에 push 시도 | `22_template-sync.yml:10-12` (read) vs `:105-109` (push) | 기본 `GITHUB_TOKEN`으로는 cross-repo write 불가 → 동작 실패 가능. PAT/App 토큰 필요 |
+| **B2** | `22_template-sync.yml`이 **소스 repo의 `GITHUB_TOKEN`으로 다른 repo에 push** 시도 — cross-repo write 불가 | checkout `token: ${{ secrets.GITHUB_TOKEN }}` (`22_template-sync.yml:57`), push (`:111`), 상위 권한도 `contents: read` (`:10-12`) | 기본 `GITHUB_TOKEN`은 당해 repo 범위만 유효 → cross-repo push 실패. `GH_PAT`/App 토큰 필요 |
 
 ### 🟠 자동화 커버리지 갭 / Coverage Gaps
 
@@ -42,7 +42,7 @@
 | **G2** | README 자동화 **정책 충돌** — `20_readme-gen`(AI 생성, Sun 00:00)과 `22_template-sync`(정적 템플릿 덮어쓰기, Sun 01:00)이 같은 `README.md`를 두고 경쟁 PR 생성 | `20_readme-gen.yml:82`, `22_template-sync.yml:78` (`cp ... README.md`) | 나중에 머지되는 쪽이 이김. README 소유권 불명확 |
 | **G3** | `drift-detector`가 **파일 드리프트만** 감지 — repo 메타데이터·branch protection·rulesets·secrets 드리프트는 미감지 | `scripts/cmd/drift-detector/main.go:96-132` (`getManagedFiles`는 워크플로/dependabot/CODEOWNERS만) | 정책 차원의 fleet 일관성 침묵 붕괴 가능 |
 | **G4** | `29_downstream-health-check`가 **3개 워크플로우만** 점검 (`actionlint`, `pr-checks`, `gitleaks`) | `29_downstream-health-check.yml:46` (`WORKFLOWS=(...)`) | pr-review·codeql·dependency-review·docs-sync·auto-merge·ci-auto-heal 실패 미탐지 |
-| **G5** | `renovate.json`이 배포·감시되지만 **Renovate 실행 워크플로우가 없음** | `deploy-to-repos/main.go:73-82` (extraFiles), `34_auto-deploy.yml:7-9` (watch), 실행 워크플로우 부재 | 외부 Renovate App 미설치 시 config가 무의미(inert) |
+| **G5** | `renovate.json`이 배포·감시되지만 **Renovate 실행 워크플로우가 없음** | `deploy-to-repos/main.go:73` (extraFiles), `34_auto-deploy.yml:9` (`.github/renovate.json` watch), 실행 워크플로우 부재 | 외부 Renovate App 미설치 시 config가 무의미(inert) |
 | **G6** | 빌드·이미지 롤아웃(`36_build-and-push-app` + Watchtower) 후 **배포 검증/롤백 게이트 없음** | `36_build-and-push-app.yml:55-63` (`latest` push), 후속 canary gate 부재 | 깨진 이미지가 자동 배포되어도 자동 감지·롤백 없음 |
 
 ### 🟡 유지보수·견고성 / Maintainability & Robustness
@@ -53,7 +53,7 @@
 | **M2** | `sync-secrets`·`repo-review`에 `_test.go` 없음 | 해당 디렉터리에 `main.go`만 존재 | 고-blast-radius 스크립트의 회귀 무방비 |
 | **M3** | 프로필 README(`jclee941/jclee941`) 미구현 — `profile-readme-sync.yml` 제안만 존재 | `docs/github-profile-enhancement-brainstorm.md:81` | 계정 디스커버리/첫인상 미흡 (라이브 미확인) |
 | **M4** | 운영 설정 하드코딩 — `ELASTICSEARCH_HOSTS`, healthcheck 30s 간격(≈90s 탐지 지연) | `docker-compose.github_app.yml:45-50`, `:72-74` | ELK 호스트 변경 시 수동 수정, 장애 탐지 지연 |
-| **M5** | 월요일 cron 군집 (00:00~09:30 UTC) | `35_*:00:00`, `31_*:02:00`, `08_*:09:00`, `32_*:09:15`, `33_*:09:30` | 일부 offset 적용됨. ubuntu-latest 큐 지연 관측 시에만 문제 |
+| **M5** | 월요일 cron 군집 (00:00~09:30 UTC) | `35_auto-hardcode-scan.yml:4`(00:00), `31_repo-health.yml:8`(02:00), `08_scorecard.yml:5`(09:00), `32_org-health-report.yml:5`(09:15), `33_drift-detector.yml:5`(09:30) | 일부 offset 적용됨. ubuntu-latest 큐 지연 관측 시에만 문제 |
 
 ---
 
