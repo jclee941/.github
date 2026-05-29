@@ -121,6 +121,28 @@ jobs:
           # and the merge box is green. We just enable it; we never bypass.
           gh pr merge --auto --squash "$PR_URL" \
             || echo "::warning::auto-merge enable failed (allow_auto_merge disabled, branch protection mismatch, or PR already merged); not retrying"
+
+      - name: Self-heal stale BLOCKED PR
+        # If checks pass but GitHub reports mergeStateStatus=BLOCKED, the PR's
+        # base is stale (older default-branch tip produced a now-renamed
+        # required check, e.g. bare 'scan' vs 'Gitleaks / scan'). Update the
+        # branch to re-run current workflows and clear the block. Never --admin.
+        if: env.skip != 'true' && inputs.dry_run != true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ steps.pr.outputs.url }}
+        run: |
+          set -eu
+          state="$(gh pr view "$PR_URL" --json mergeStateStatus --jq '.mergeStateStatus')"
+          failed="$(gh pr view "$PR_URL" --json statusCheckRollup \
+            --jq '[.statusCheckRollup[]? | select((.conclusion // .state) == "FAILURE")] | length')"
+          if [ "$state" = "BLOCKED" ] && [ "$failed" = "0" ]; then
+            echo "::notice::PR $PR_URL is BLOCKED with no failing checks; updating branch to clear stale required-context drift"
+            gh pr update-branch "$PR_URL" \
+              || echo "::warning::update-branch failed (already up to date, conflict, or not permitted); not retrying"
+          else
+            echo "::notice::PR $PR_URL mergeStateStatus=$state failed=$failed; no self-heal needed"
+          fi
       - name: Checkout (for composite action resolution)
         if: failure()
         uses: actions/checkout@v6
