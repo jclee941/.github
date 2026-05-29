@@ -17,7 +17,7 @@ from . import conftest as live_fixtures
 pytestmark = pytest.mark.security_review
 
 GITHUB_API_URL = live_fixtures.GITHUB_API_URL
-SECURITY_WORKFLOW_PATH = ".github/workflows/security/pr-review.yml"
+SECURITY_WORKFLOW_PATH = ".github/workflows/security/11_pr-review.yml"
 SECURITY_WORKFLOW_ID = "security%2Fpr-review.yml"
 ACCEPTABLE_SECURITY_REVIEW_CONCLUSIONS = {"success", "failure", "skipped"}
 

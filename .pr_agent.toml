@@ -31,6 +31,12 @@ response_language = "ko"
 # FORK: CLIProxyAPI endpoint via Docker internal network
 # The api_key is NOT set here; use env var OPENAI_KEY from GitHub Secrets or .env
 api_base = "https://cliproxy.jclee.me/v1"
+# FORK: provider-level fallback. If the primary api_base is unreachable
+# (connection refused / Cloudflare 524 / timeout), each model is retried
+# against these base URLs in order before moving to the next model.
+# Empty list = no provider fallback (original behavior). The fallback bases
+# must serve the same OpenAI-compatible API and accept the same api_key.
+api_base_fallbacks = []
 
 # ---------------------------------------------------------------------------
 # [litellm] — Parameter Handling
@@ -105,12 +111,11 @@ pr_commands = [
   "/describe --pr_description.publish_description_as_comment=true",
   "/review",
   "/improve",
-  "/agentic_review",
 ]
 
 # Push trigger (commits pushed to open PR)
 handle_push_trigger = true
-push_commands = ["/improve", "/agentic_review"]
+push_commands = ["/improve"]
 
 # ---------------------------------------------------------------------------
 # [github_action_config] — Supported PR Actions
@@ -123,13 +128,6 @@ pr_actions = [
   "review_requested",
   "synchronize",
 ]
-
-# ---------------------------------------------------------------------------
-# [review_agent] — Agentic Review Settings
-# ---------------------------------------------------------------------------
-[review_agent]
-enabled = true
-publish_output = true
 
 # ---------------------------------------------------------------------------
 # [pr_readme_generator] — README Auto-generation

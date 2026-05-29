@@ -15,6 +15,7 @@ type Repo struct {
 	Visibility    string
 	DefaultBranch string
 	Automation    Automation
+	Metadata      Metadata
 }
 
 type Automation struct {
@@ -22,6 +23,12 @@ type Automation struct {
 	BranchProtection bool
 	HealthCheck      bool
 	AutoMerge        bool
+}
+
+type Metadata struct {
+	Description string
+	Topics      []string
+	Homepage    string
 }
 
 var (
@@ -52,6 +59,10 @@ func ProtectedRepos() []Repo {
 
 func HealthCheckRepos() []Repo {
 	return filterRepos(func(repo Repo) bool { return repo.Automation.HealthCheck })
+}
+
+func ReposWithMetadata() []Repo {
+	return filterRepos(func(repo Repo) bool { return repo.Metadata.Description != "" })
 }
 
 func Names(repoList []Repo) []string {
@@ -86,6 +97,9 @@ func filterRepos(include func(Repo) bool) []Repo {
 func cloneRepos(repos []Repo) []Repo {
 	clone := make([]Repo, len(repos))
 	copy(clone, repos)
+	for i := range clone {
+		clone[i].Metadata.Topics = append([]string(nil), repos[i].Metadata.Topics...)
+	}
 	return clone
 }
 
@@ -103,6 +117,7 @@ func loadFromConfig() ([]Repo, error) {
 	var repos []Repo
 	var current *Repo
 	inAutomation := false
+	inMetadata := false
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -118,6 +133,7 @@ func loadFromConfig() ([]Repo, error) {
 			}
 			current = &Repo{Name: strings.TrimSpace(strings.TrimPrefix(trimmed, "- name:"))}
 			inAutomation = false
+			inMetadata = false
 			continue
 		}
 
@@ -128,6 +144,10 @@ func loadFromConfig() ([]Repo, error) {
 		switch {
 		case trimmed == "automation:":
 			inAutomation = true
+			inMetadata = false
+		case trimmed == "metadata:":
+			inAutomation = false
+			inMetadata = true
 		case strings.HasPrefix(trimmed, "visibility:"):
 			current.Visibility = strings.TrimSpace(strings.TrimPrefix(trimmed, "visibility:"))
 		case strings.HasPrefix(trimmed, "default_branch:"):
@@ -135,6 +155,9 @@ func loadFromConfig() ([]Repo, error) {
 		case inAutomation && strings.Contains(trimmed, ":"):
 			key, value, _ := strings.Cut(trimmed, ":")
 			setAutomationFlag(&current.Automation, strings.TrimSpace(key), parseBool(strings.TrimSpace(value)))
+		case inMetadata && strings.Contains(trimmed, ":"):
+			key, value, _ := strings.Cut(trimmed, ":")
+			setMetadataField(&current.Metadata, strings.TrimSpace(key), strings.TrimSpace(value))
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -191,6 +214,45 @@ func setAutomationFlag(automation *Automation, key string, value bool) {
 	case "auto_merge":
 		automation.AutoMerge = value
 	}
+}
+
+func setMetadataField(metadata *Metadata, key, value string) {
+	switch key {
+	case "description":
+		metadata.Description = parseScalar(value)
+	case "topics":
+		metadata.Topics = parseInlineList(value)
+	case "homepage":
+		metadata.Homepage = parseScalar(value)
+	}
+}
+
+func parseScalar(value string) string {
+	value = strings.TrimSpace(value)
+	if len(value) >= 2 {
+		if (value[0] == '"' && value[len(value)-1] == '"') || (value[0] == '\'' && value[len(value)-1] == '\'') {
+			return value[1 : len(value)-1]
+		}
+	}
+	return value
+}
+
+func parseInlineList(value string) []string {
+	value = strings.TrimSpace(value)
+	value = strings.TrimPrefix(value, "[")
+	value = strings.TrimSuffix(value, "]")
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	parts := strings.Split(value, ",")
+	items := make([]string, 0, len(parts))
+	for _, part := range parts {
+		item := parseScalar(strings.TrimSpace(part))
+		if item != "" {
+			items = append(items, item)
+		}
+	}
+	return items
 }
 
 func validate(repos []Repo) error {
