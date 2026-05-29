@@ -3,10 +3,10 @@ name: Gitleaks
 # Caller for the reusable gitleaks scan workflow.
 #
 # Why the indirection:
-#   GitHub renders required-check contexts as '<workflow name> / <job key>'.
-#   By calling 45_reusable-gitleaks.yml (job: scan) from here (workflow:
-#   Gitleaks), the check appears as 'Gitleaks / scan' — matching the
-#   branch protection contract on all 15 jclee941/* deploy-target repos.
+#   GitHub renders required-check contexts as '<caller job key> / <called job key>'.
+#   The caller job key is 'Gitleaks' and the called job key is 'scan', so the
+#   check appears as 'Gitleaks / scan' — matching the branch protection contract
+#   on all 15 jclee941/* deploy-target repos.
 #
 # All scan logic lives in 45_reusable-gitleaks.yml. This file ONLY wires
 # the triggers and forwards secrets via 'secrets: inherit'.
@@ -27,7 +27,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  scan:
+  Gitleaks:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     uses: ./.github/workflows/45_reusable-gitleaks.yml
     secrets: inherit
