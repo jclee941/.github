@@ -38,11 +38,11 @@
 | **LLM 백엔드** | `CLIProxyAPI` @ `192.168.50.114:8317` (LXC 100) |
 | **Webhook 엔드포인트** | `https://bot.jclee.me` (Cloudflare Tunnel) |
 | **GitHub App** | `jclee-bot` (ID: 3540327) |
-| **기본 모델** | `kimi-k2.6` (fallback: `kimi-k2.5`, `minimax-m2.7`) via CLIProxyAPI |
+| **기본 모델 / GitHub App** | `kimi-k2.6` (fallback: `minimax-m2.7`, `gpt-5.5`) via CLIProxyAPI |
 | **적용 범위** | `jclee941/*` 관리 리포지토리 (public + private, 16개) |
 | **런너** | GitHub-hosted `ubuntu-latest` + self-hosted (일부) |
 
-> **Note / 참고**: Homelab에 공개 인터넷을 통해 접근하며, CLIProxyAPI는 Claude Code CLI / Codex CLI / Gemini CLI를 OpenAI 호환 API로 래핑합니다. PR 리뷰 워크플로우(`10_pr-review.yml`)는 `[kimi-k2.6, minimax-m2.7, gpt-5.5]` 매트릭스로 실행됩니다.
+> **Note / 참고**: Homelab에 공개 인터넷을 통해 접근하며, CLIProxyAPI는 Claude Code CLI / Codex CLI / Gemini CLI를 OpenAI 호환 API로 래핑합니다. GitHub App(웹훅) 기본 모델은 `kimi-k2.6`이며, PR 리뷰 워크플로우(`10_pr-review.yml`)는 `[minimax-m2.7, gpt-5.5]` 매트릭스로 실행됩니다 (공통 fallback: `minimax-m2.7`, `gpt-5.5`).
 
 > **Upstream / 업스트림**: 이 README는 포크 전용입니다. 원본 qodo-ai/pr-agent README는 [`docs/pr-agent-upstream-README.md`](docs/pr-agent-upstream-README.md)에 보존되어 있으며, 모든 업스트림 기능(`/review`, `/improve`, `/describe`, `/ask`, `/update_changelog`, 멀티모델 fallback)은 그대로 유지됩니다.
 

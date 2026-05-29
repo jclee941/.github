@@ -19,7 +19,7 @@ All upstream pr-agent features are preserved: `/review`, `/improve`, `/describe`
 
 | File | Change | Reason |
 |------|--------|--------|
-| `pr_agent/settings/configuration.toml` | `[config] model` → `kimi-k2.6`, `fallback_models` → `["kimi-k2.5", "minimax-m2.7"]` | Default model via cli_proxy/OpenAI-compatible routing |
+| `pr_agent/settings/configuration.toml` | `[config] model` → `kimi-k2.6`, `fallback_models` → `["minimax-m2.7", "gpt-5.5"]` | GitHub App default model via cli_proxy/OpenAI-compatible routing |
 | `.pr_agent.toml` | Prepended `[config]`, `[openai]`, `[litellm]` sections | Pin fork-level model and `api_base` to cli_proxy |
 | `.github/workflows/10_pr-review.yml` | **NEW** | ubuntu-latest runner + cli_proxy env vars |
 | `.github/workflows/security/11_pr-review.yml` | **NEW** | Deep security review (Korean, `pull_request_target`, label-triggered) |
@@ -336,7 +336,7 @@ curl -sS http://192.168.50.102:9200/github-bot-logs-*/_search?pretty -H 'Content
 
 ### Available models (24 total as of 2026-05-07)
 
-> **Current default**: `kimi-k2.6` with fallbacks `kimi-k2.5`, `minimax-m2.7`.
+> **Current default**: GitHub App webhook uses `kimi-k2.6`; canonical fallback chain is `minimax-m2.7`, `gpt-5.5` (enforced by `90_sanity.yml`). The PR-review workflow matrix uses `[minimax-m2.7, gpt-5.5]`.
 > Prefix-less Kimi/Claude/GPT/Codex/Gemini model names are routed through the configured OpenAI-compatible cli_proxy endpoint.
 
 - **Codex (GPT)**: `openai/gpt-5.2`, `openai/gpt-5.1`, `openai/gpt-5`, `gpt-5-codex-mini`, `gpt-5.1-codex-max`, `gpt-4.1`, `gpt-4.1-mini`
@@ -468,6 +468,22 @@ These conventions are enforced by `scripts/cmd/deploy-to-repos/main.go` and its 
 **Deployment PR title**: `chore: sync automation workflows, dependabot, and templates`.
 
 **`templates/` directory**: Contains `CONTRIBUTING.md`, `LICENSE`, `README.md`. These are deployed to downstream repos by `.github/workflows/template-sync.yml` on a weekly schedule.
+
+### Workflow Standardization Conventions
+
+Enforced across all `.github/workflows/*.yml` (and `security/`); verified by `90_sanity.yml`, `actionlint`, and `validate-naming`.
+
+| Aspect | Standard | Exceptions |
+|--------|----------|------------|
+| **Numeric prefix** | `NN_<kebab-case>.yml` two-digit prefix by pipeline stage (01-90) | reusable callers keep `reusable-`/`_`/`security/` semantics |
+| **Action pinning** | First-party `actions/*` & `github/*` use semver `@vN`; third-party actions use 40-char commit SHA with `# vX.Y.Z` comment | `step-security/harden-runner@v2` is repo-wide semver (95+ uses) |
+| **Runner selection** | `runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}` | `07_dependency-review.yml`, `08_scorecard.yml` stay `ubuntu-latest` (GitHub-hosted SARIF/dependency API); `13_pr-auto-merge.yml`, `26_elk-health-check.yml`, `27_elk-setup.yml`, `36_build-and-push-app.yml` stay `self-hosted` (homelab) |
+| **Failure notification** | Use `uses: ./.github/actions/notify-on-failure` (shared composite, dedup-by-title) for `if: failure()` steps | core issue-reporting logic (e.g. `29_downstream-health-check.yml` `health-check` issues) is NOT a failure-notify step |
+| **Fallback models** | Single canonical chain `["minimax-m2.7", "gpt-5.5"]` across `.pr_agent.toml`, `configuration.toml`, and every workflow `CONFIG__FALLBACK_MODELS` | GitHub App primary stays `kimi-k2.6` |
+| **PR-review matrix** | `10_pr-review.yml` matrix = `[minimax-m2.7, gpt-5.5]` (Kimi excluded) | GitHub App webhook default = `kimi-k2.6` |
+| **Reusable self-refs** | `18_issue-management.yml` & `21_docs-sync.yml` reference `jclee941/.github/.github/workflows/*@master` intentionally (kept in sync by `34_auto-deploy.yml`) | — |
+| **Harden runner** | `step-security/harden-runner@v2` (egress-policy: audit) as first step in every job with `steps:` | reusable-workflow caller jobs (only `uses:`) are exempt |
+| **POSIX** | Trailing newline at EOF; no duplicate keys; passes `actionlint` | — |
 
 ## ANTI-PATTERNS
 
