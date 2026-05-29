@@ -270,6 +270,140 @@ class TestCreateSingleIssue:
             body = reviewer.git_provider.create_issue.call_args.kwargs["body"]
             assert "minimax-m2.7" in body
 
+    def test_fingerprint_ignores_title_changes(self):
+        """Dedup marker must be stable when only the LLM-generated title changes.
+
+        Regression: the fingerprint included finding['title'], which the LLM
+        rewords between re-reviews of the same finding, producing a new marker
+        and a DUPLICATE GitHub issue. The marker must depend only on structural
+        position (repo|file|start_line|end_line).
+        """
+        reviewer = make_reviewer({})
+        reviewer.git_provider.find_open_issue_by_marker.return_value = None
+        reviewer.git_provider.create_issue.return_value = MagicMock(number=1)
+
+        first = {
+            "category": "bug",
+            "severity": "high",
+            "title": "[Review][Bug] Original wording",
+            "content": "Test content",
+            "file": "src/test.py",
+            "start_line": 10,
+            "end_line": 20,
+        }
+        second = {**first, "title": "[Review][Bug] Completely reworded by model"}
+
+        reviewer._create_single_issue(first, ["jclee-bot", "review-finding"])
+        first_marker = reviewer.git_provider.find_open_issue_by_marker.call_args_list[0].args[0]
+
+        reviewer._create_single_issue(second, ["jclee-bot", "review-finding"])
+        second_marker = reviewer.git_provider.find_open_issue_by_marker.call_args_list[1].args[0]
+
+        assert first_marker == second_marker, (
+            "Dedup marker changed when only the title changed; "
+            f"{first_marker!r} != {second_marker!r}"
+        )
+
+    def test_fingerprint_changes_with_position(self):
+        """Different structural position must produce a different marker."""
+        reviewer = make_reviewer({})
+        reviewer.git_provider.find_open_issue_by_marker.return_value = None
+        reviewer.git_provider.create_issue.return_value = MagicMock(number=1)
+
+        base = {
+            "category": "bug",
+            "severity": "high",
+            "title": "[Review][Bug] Same title",
+            "content": "Test content",
+            "file": "src/test.py",
+            "start_line": 10,
+            "end_line": 20,
+        }
+        other = {**base, "start_line": 99, "end_line": 105}
+
+        reviewer._create_single_issue(base, ["jclee-bot", "review-finding"])
+        m1 = reviewer.git_provider.find_open_issue_by_marker.call_args_list[0].args[0]
+
+        reviewer._create_single_issue(other, ["jclee-bot", "review-finding"])
+        m2 = reviewer.git_provider.find_open_issue_by_marker.call_args_list[1].args[0]
+
+        assert m1 != m2, f"Marker should differ for different positions; {m1!r} == {m2!r}"
+
+    def test_fingerprint_differs_for_different_category_same_position(self):
+        """Two distinct findings on the same span must NOT collide.
+
+        Regression guard (Oracle): a position-only fingerprint collapsed a
+        security finding and a bug finding at the same lines into one marker,
+        so the second was wrongly skipped as a duplicate.
+        """
+        reviewer = make_reviewer({})
+        reviewer.git_provider.find_open_issue_by_marker.return_value = None
+        reviewer.git_provider.create_issue.return_value = MagicMock(number=1)
+
+        sec = {
+            "category": "security",
+            "severity": "critical",
+            "title": "[Review][Security] SQLi",
+            "content": "SQL injection via string concat",
+            "file": "src/db.py",
+            "start_line": 10,
+            "end_line": 20,
+        }
+        bug = {
+            "category": "bug",
+            "severity": "high",
+            "title": "[Review][Bug] Off-by-one",
+            "content": "Loop bound is wrong",
+            "file": "src/db.py",
+            "start_line": 10,
+            "end_line": 20,
+        }
+
+        reviewer._create_single_issue(sec, ["jclee-bot", "review-finding"])
+        m_sec = reviewer.git_provider.find_open_issue_by_marker.call_args_list[0].args[0]
+        reviewer._create_single_issue(bug, ["jclee-bot", "review-finding"])
+        m_bug = reviewer.git_provider.find_open_issue_by_marker.call_args_list[1].args[0]
+
+        assert m_sec != m_bug, (
+            "Distinct findings (different category) at the same span collided; "
+            f"{m_sec!r} == {m_bug!r}"
+        )
+
+    def test_fingerprint_differs_for_repo_level_findings_with_no_location(self):
+        """Repo-level findings (file='', start=0, end=0) must not all collide."""
+        reviewer = make_reviewer({})
+        reviewer.git_provider.find_open_issue_by_marker.return_value = None
+        reviewer.git_provider.create_issue.return_value = MagicMock(number=1)
+
+        f1 = {
+            "category": "security",
+            "severity": "critical",
+            "title": "[Review][Security] A",
+            "content": "Missing auth check on admin endpoint",
+            "file": "",
+            "start_line": 0,
+            "end_line": 0,
+        }
+        f2 = {
+            "category": "security",
+            "severity": "critical",
+            "title": "[Review][Security] B",
+            "content": "Secrets logged in plaintext",
+            "file": "",
+            "start_line": 0,
+            "end_line": 0,
+        }
+
+        reviewer._create_single_issue(f1, ["jclee-bot", "review-finding"])
+        m1 = reviewer.git_provider.find_open_issue_by_marker.call_args_list[0].args[0]
+        reviewer._create_single_issue(f2, ["jclee-bot", "review-finding"])
+        m2 = reviewer.git_provider.find_open_issue_by_marker.call_args_list[1].args[0]
+
+        assert m1 != m2, (
+            "Distinct repo-level findings collided into one marker; "
+            f"{m1!r} == {m2!r}"
+        )
+
 
 class TestCreateIssuesForReviewFindings:
     """Test suite for _create_issues_for_review_findings."""
@@ -618,3 +752,66 @@ class TestAutoApproveLogic:
         reviewer.git_provider.publish_comment.assert_called_once()
         call_args = reviewer.git_provider.publish_comment.call_args[0][0]
         assert "disabled" in call_args.lower()
+
+
+class TestSchemaMismatchGuards:
+    """Defensive guards for malformed LLM responses (gpt-5.5 returned plain string)."""
+
+    def _make_stub(self, review_data):
+        stub = MagicMock()
+        stub.review_data = review_data
+        stub._record_schema_mismatch = PRReviewer._record_schema_mismatch.__get__(stub)
+        return stub
+
+    def test_extract_findings_returns_empty_when_review_data_is_string(self):
+        """LLM returned plain prose instead of structured dict."""
+        stub = self._make_stub("plain prose response from gpt-5.5")
+        findings = PRReviewer._extract_auto_issue_findings(stub)
+        assert findings == []
+
+    def test_extract_findings_returns_empty_when_review_section_is_string(self):
+        """data['review'] is a string instead of nested dict."""
+        stub = self._make_stub({"review": "unstructured text"})
+        findings = PRReviewer._extract_auto_issue_findings(stub)
+        assert findings == []
+
+    def test_extract_findings_returns_empty_when_review_data_is_none(self):
+        """review_data attribute defaults / never set."""
+        stub = MagicMock()
+        stub.review_data = None
+        stub._record_schema_mismatch = PRReviewer._record_schema_mismatch.__get__(stub)
+        findings = PRReviewer._extract_auto_issue_findings(stub)
+        assert findings == []
+
+    @patch("pr_agent.tools.pr_reviewer.get_settings")
+    def test_schema_mismatch_records_metric(self, mock_settings):
+        """_record_schema_mismatch increments LLM_FAILURES_TOTAL with reason='schema_mismatch'."""
+        mock_settings.return_value.get.return_value = "kimi-k2.6"
+        from pr_agent.servers.monitoring import LLM_FAILURES_TOTAL
+        before = sum(1 for k in LLM_FAILURES_TOTAL._metrics if k[0] == "schema_mismatch")
+        stub = MagicMock()
+        PRReviewer._record_schema_mismatch(stub, "review", "some string value")
+        after_keys = [k for k in LLM_FAILURES_TOTAL._metrics if k[0] == "schema_mismatch"]
+        assert len(after_keys) >= before
+        assert any("schema_mismatch" == k[0] for k in after_keys)
+
+
+class TestLoadYamlSchemaGuard:
+    """load_yaml must coerce non-dict scalars to {} so callers don't crash."""
+
+    def test_plain_string_returns_empty_dict(self):
+        from pr_agent.algo.utils import load_yaml
+        result = load_yaml("just plain text no structure")
+        assert isinstance(result, dict)
+        assert result == {}
+
+    def test_integer_scalar_returns_empty_dict(self):
+        from pr_agent.algo.utils import load_yaml
+        result = load_yaml("42")
+        assert isinstance(result, dict)
+        assert result == {}
+
+    def test_valid_dict_passes_through(self):
+        from pr_agent.algo.utils import load_yaml
+        result = load_yaml("foo: bar\nbaz: 42")
+        assert result == {"foo": "bar", "baz": 42}

@@ -7,15 +7,16 @@
 #   regex:          custom patterns like numbered issue templates
 
 ls:
-  # GitHub workflows must be kebab-case
+  # GitHub workflows: optional numeric prefix (NN_) + kebab-case.
+  # Examples: pr-checks.yml, 01_branch-to-pr.yml, 86_pr-review-security.yml.
   .github/workflows:
-    .yml: kebab-case
-    .yaml: kebab-case
+    .yml: regex:^([0-9]+_)?[a-z0-9]+(-[a-z0-9]+)*$
+    .yaml: regex:^([0-9]+_)?[a-z0-9]+(-[a-z0-9]+)*$
 
   # Issue templates: numbered prefix + kebab-case (e.g., 1-bug-report.yml)
+  # `config.yml` is the GitHub-mandated discovery file and is exempt.
   .github/ISSUE_TEMPLATE:
-    .yml: regex:^[0-9]+-[a-z0-9]+(-[a-z0-9]+)*$
-    config.yml: exists
+    .yml: regex:^(config|[0-9]+-[a-z0-9]+(-[a-z0-9]+)*)$
 
   # Go scripts: snake_case
   scripts/cmd/*:
@@ -23,15 +24,18 @@ ls:
     .mod: regex:^go\.mod$
     .sum: regex:^go\.sum$
 
-  # Root config files: kebab-case or standard names
+  # Root config files: kebab-case or standard names. The `exists` rule
+  # in ls-lint v2.3 is matched against extension-keyed entries only and
+  # silently reports "found 0" for plain filenames; rely on positive
+  # regex assertions for the well-known meta files instead.
   .github:
-    dependabot.yml: exists
+    .yml: kebab-case
     CODEOWNERS: regex:^CODEOWNERS$
     PULL_REQUEST_TEMPLATE.md: regex:^PULL_REQUEST_TEMPLATE\.md$
 
-  # General directories
+  # General directories — upstream fork files keep their original case.
   docs:
-    .md: kebab-case
+    .md: regex:^([a-z0-9]+(-[a-z0-9]+)*|pr-agent-upstream-README)$
 
 ignore:
   - node_modules

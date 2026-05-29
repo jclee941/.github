@@ -5,8 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from pr_agent.servers.utils import verify_signature, DefaultDictWithTimeout, RateLimitExceeded
-
+from pr_agent.servers.utils import DefaultDictWithTimeout, RateLimitExceeded, verify_signature
 
 # =============================================================================
 # Tests for verify_signature()
@@ -259,6 +258,77 @@ class TestDefaultDictWithTimeout:
         assert "a" in d
         assert "b" not in d
         assert "c" in d
+
+    def test_evicts_expired_keys_on_refresh_interval(self):
+        """Keys older than TTL must be removed when refresh interval elapses."""
+        base = 1000.0
+        with patch("pr_agent.servers.utils.time.monotonic") as mt:
+            mt.return_value = base
+            # Create dict INSIDE mock so __init__ captures mocked time.
+            # __init__ sets __last_refresh = base - refresh_interval, so the first
+            # access at base will NOT trigger refresh (elapsed == refresh_interval, not >).
+            # ttl=5, refresh_interval=10 - so we need to wait > 10s for refresh to fire.
+            d = DefaultDictWithTimeout(default_factory=int, ttl=5, refresh_interval=10,
+                                       update_key_time_on_get=False)
+            d["a"] = 1
+            d["b"] = 2
+            assert "a" in d
+            assert "b" in d
+
+            # Advance 6s: past TTL(5) but refresh_interval(10) measured from __last_refresh
+            # (which was base - 10 = 990, so elapsed = base+6 - 990 = 16 > 10).
+            # First access here triggers refresh, but wait - elapsed needs to be carefully
+            # tracked. After init at base=1000, __last_refresh = 990. So at base+1, elapsed=11>10,
+            # refresh runs immediately. We need to use larger refresh_interval so first writes survive.
+
+            # Strategy: use refresh_interval larger than first interaction gap so writes complete
+            # without triggering eviction, then advance time past refresh_interval, then read.
+            mt.return_value = base + 3.0  # only 3s elapsed since base; key_times['a','b']=base
+            # elapsed since __last_refresh(990): 13s > 10s, refresh triggers
+            # 'a' age: (base+3) - base = 3s < ttl(5) - survives
+            # 'b' age: same - survives
+            _ = d["a"]  # triggers refresh; both a and b survive (age 3 < ttl 5)
+            assert "a" in d
+            assert "b" in d
+
+            # Advance further: key 'a','b' are now (base+3) - base = old.
+            # Wait, last_refresh got updated to base+3 in the previous step.
+            # Advance past ttl(5) AND past refresh_interval(10) from new last_refresh(base+3):
+            mt.return_value = base + 14.0  # elapsed since last_refresh(base+3): 11s > 10s
+            d["c"] = 99  # key_times['c'] = base+14
+            _ = d["c"]  # triggers refresh
+            # 'a': age = (base+14) - base = 14s > ttl(5) - EVICTED
+            # 'b': same - EVICTED
+            # 'c': age = 0 - survives
+            assert "a" not in d
+            assert "b" not in d
+            assert "c" in d
+
+    def test_no_ttl_never_evicts(self):
+        """When ttl is None, no cleanup ever happens."""
+        base = 1000.0
+        with patch("pr_agent.servers.utils.time.monotonic") as mt:
+            mt.return_value = base
+            d = DefaultDictWithTimeout(default_factory=int, ttl=None, refresh_interval=1)
+            d["a"] = 1
+            mt.return_value = base + 1000
+            _ = d["a"]
+            assert "a" in d
+
+    def test_get_updates_access_time_when_enabled(self):
+        """When update_key_time_on_get=True, getting a key refreshes its TTL."""
+        base = 1000.0
+        with patch("pr_agent.servers.utils.time.monotonic") as mt:
+            mt.return_value = base
+            d = DefaultDictWithTimeout(default_factory=int, ttl=10, refresh_interval=5,
+                                       update_key_time_on_get=True)
+            d["a"] = 1
+            mt.return_value = base + 9
+            _ = d["a"]  # touches 'a', resetting its key_time
+            mt.return_value = base + 18  # 18s > ttl(10) from base, but only 9s since last touch
+            _ = d["a"]  # refresh runs (>5s since last_refresh), 'a' was touched at base+9
+            # 9s elapsed since last access at base+9, which is < ttl(10), so 'a' survives
+            assert "a" in d
 
 
 # =============================================================================

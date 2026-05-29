@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: template-sync-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   discover-repos:
@@ -30,6 +30,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -eu
           repos=$(gh api orgs/jclee941/repos --paginate \
             --jq '.[] | select(.archived == false and .name != ".github") | .name' \
             | sort | uniq | jq -R . | jq -s -c .)
@@ -86,6 +87,7 @@ jobs:
       - name: Check for changes
         id: diff
         run: |
+          set -eu
           if git diff --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "No changes"
@@ -122,7 +124,8 @@ jobs:
               --body "🔄 Templates updated automatically."
             echo "Updated existing PR #$existing"
           else
-            printf '%s\n' '## Summary' '' 'Synchronized standard documentation templates from the source repository:' '' '- \`README.md\` — bilingual project overview' '- \`CONTRIBUTING.md\` — bilingual contribution guidelines' '- \`LICENSE\` — MIT license' '' '> 자동 생성됨 (Template Sync Workflow)' > /tmp/pr-body.md
+            # shellcheck disable=SC2016  # printf format strings must use single quotes
+            printf '%s\n' '## Summary' '' 'Synchronized standard documentation templates from the source repository:' '' '- `README.md` — bilingual project overview' '- `CONTRIBUTING.md` — bilingual contribution guidelines' '- `LICENSE` — MIT license' '' '> 자동 생성됨 (Template Sync Workflow)' > /tmp/pr-body.md
             gh pr create --repo jclee941/${{ matrix.repo }} \
               --title "docs: sync standard templates from jclee941/.github" \
               --body-file /tmp/pr-body.md \
@@ -133,16 +136,24 @@ jobs:
           fi
       - name: Notify on failure
         if: failure()
-        uses: actions/github-script@v9
-        with:
-          script: |
-            try {
-              await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `🚨 ${{ github.workflow }} failed: ${context.runId}`,
-              body: `${{ github.workflow }} workflow failed. See [run logs](${context.payload.repository.html_url}/actions/runs/${context.runId}).`
-              });
-            } catch (e) {
-              core.warning(`Could not create issue: ${e.message}`);
-            }
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          SHORT_SHA="${GITHUB_SHA:0:8}"
+          TITLE="[ci-fail] $GITHUB_WORKFLOW @ $SHORT_SHA"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" \
+            --state open --label ci-failure \
+            --json number,title \
+            --jq ".[] | select(.title == \"$TITLE\") | .number" 2>/dev/null | head -1 || true)
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" \
+              --body "Another failure: $RUN_URL" || true
+          else
+            gh label create ci-failure --color B60205 2>/dev/null || true
+            gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title "$TITLE" \
+              --body "$GITHUB_WORKFLOW workflow failed on \`$GITHUB_SHA\`. See [run logs]($RUN_URL)." \
+              --label ci-failure || true
+          fi

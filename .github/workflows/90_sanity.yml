@@ -57,6 +57,7 @@ jobs:
 
       - name: Verify core package imports
         run: |
+          set -eu
           python -c "import pr_agent; print('pr_agent:', pr_agent.__file__)"
           python -c "from pr_agent.tools.pr_reviewer import PRReviewer; print('PRReviewer OK')"
           python -c "from pr_agent.tools.pr_description import PRDescription; print('PRDescription OK')"
@@ -66,6 +67,7 @@ jobs:
 
       - name: Verify fork config files parse
         run: |
+          set -eu
           python3 -c "
           import tomllib
           c = tomllib.loads(open('.pr_agent.toml').read())
@@ -85,6 +87,7 @@ jobs:
 
       - name: Verify workflow YAML files parse
         run: |
+          set -eu
           python3 -c "
           import yaml, os, glob
           for f in sorted(glob.glob('.github/workflows/*.y*ml')):
@@ -95,6 +98,50 @@ jobs:
                   except Exception as e:
                       print(f'{f}: FAIL — {e}')
                       raise SystemExit(1)
+          "
+
+      - name: Verify LLM model config consistency across surfaces
+        run: |
+          set -eu
+          python3 -c "
+          import tomllib, re
+
+          # Canonical fallback chain = source of truth in .pr_agent.toml.
+          c = tomllib.loads(open('.pr_agent.toml').read())
+          primary = c['config']['model']
+          canonical_fb = c['config']['fallback_models']
+          assert primary == 'kimi-k2.6', f'primary model drifted: {primary}'
+          assert canonical_fb == ['kimi-k2.5', 'minimax-m2.7'], f'canonical fallback drifted: {canonical_fb}'
+          print(f'canonical: primary={primary} fallback={canonical_fb}')
+
+          # upstream configuration.toml must share the same fallback chain.
+          u = tomllib.loads(open('pr_agent/settings/configuration.toml').read())
+          assert u['config']['fallback_models'] == canonical_fb, \
+              f'configuration.toml fallback drift: {u[\"config\"][\"fallback_models\"]}'
+
+          # Every workflow that sets CONFIG__FALLBACK_MODELS must match canonical.
+          import glob
+          fb_re = re.compile(r'CONFIG__FALLBACK_MODELS:\s*(.+)')
+          import json
+          violations = []
+          for f in sorted(glob.glob('.github/workflows/*.yml') + glob.glob('.github/workflows/**/*.yml')):
+              for i, line in enumerate(open(f), 1):
+                  m = fb_re.search(line)
+                  if not m:
+                      continue
+                  raw = m.group(1).strip().strip(chr(39)).strip(chr(34))
+                  try:
+                      val = json.loads(raw)
+                  except Exception:
+                      continue  # templated/dynamic value; skip
+                  if val != canonical_fb:
+                      violations.append(f'{f}:{i} -> {val} (expected {canonical_fb})')
+          if violations:
+              print('FALLBACK DRIFT DETECTED:')
+              for v in violations:
+                  print('  ' + v)
+              raise SystemExit(1)
+          print('All workflow CONFIG__FALLBACK_MODELS match canonical chain')
           "
 
       - name: Fast unittest smoke (AGENTS.md minimum gate)
@@ -114,16 +161,4 @@ jobs:
           echo "ls-lint passed"
       - name: Notify on failure
         if: failure()
-        uses: actions/github-script@v9
-        with:
-          script: |
-            try {
-              await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `🚨 ${{ github.workflow }} failed: ${context.runId}`,
-              body: `${{ github.workflow }} workflow failed. See [run logs](${context.payload.repository.html_url}/actions/runs/${context.runId}).`
-              });
-            } catch (e) {
-              core.warning(`Could not create issue: ${e.message}`);
-            }
+        uses: ./.github/actions/notify-on-failure

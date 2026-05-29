@@ -22,14 +22,15 @@ from pr_agent.git_providers.utils import apply_repo_settings
 from pr_agent.identity_providers import get_identity_provider
 from pr_agent.identity_providers.identity_provider import Eligibility
 from pr_agent.log import LoggingFormat, get_logger, setup_logger
-from pr_agent.servers.utils import DefaultDictWithTimeout, verify_signature
 from pr_agent.servers.monitoring import (
     monitoring_router,
-    record_webhook_start,
-    record_webhook_end,
-    record_review_start,
     record_review_end,
+    record_review_start,
+    record_webhook_end,
+    record_webhook_failure,
+    record_webhook_start,
 )
+from pr_agent.servers.utils import DefaultDictWithTimeout, verify_signature
 
 setup_logger(fmt=LoggingFormat.JSON, level=get_settings().get("CONFIG.LOG_LEVEL", "DEBUG"))
 base_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
@@ -82,11 +83,35 @@ async def get_body(request):
 
 
 async def _handle_request_with_metrics(body: Dict[str, Any], event: str):
-    """Wrapper to record webhook metrics."""
+    """Wrapper to record webhook metrics and surface unhandled exceptions."""
     action = body.get("action", "unknown")
     start_time = record_webhook_start(event, action)
     try:
         return await handle_request(body, event)
+    except Exception as e:  # noqa: BLE001 - intentional broad catch at boundary
+        exc_type = type(e).__name__
+        record_webhook_failure(event, action, exc_type)
+        repo = body.get("repository", {}).get("full_name", "")
+        sender = body.get("sender", {}).get("login", "")
+        installation_id = body.get("installation", {}).get("id", "")
+        pr_url = (
+            body.get("pull_request", {}).get("html_url")
+            or body.get("issue", {}).get("html_url")
+            or body.get("check_run", {}).get("html_url")
+            or ""
+        )
+        get_logger().exception(
+            "Unhandled exception in webhook handler",
+            artifact={
+                "event": event,
+                "action": action,
+                "repo": repo,
+                "sender": sender,
+                "installation_id": installation_id,
+                "pr_url": pr_url,
+                "exception_type": exc_type,
+            },
+        )
     finally:
         record_webhook_end(event, start_time)
 

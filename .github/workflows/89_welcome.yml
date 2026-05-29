@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: welcome-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   welcome:
@@ -31,18 +31,11 @@ jobs:
             Welcome! Thanks for opening your first issue. We appreciate your contribution.
           pr_message: |
             Welcome! Thanks for opening your first pull request. Please ensure your PR follows our contribution guidelines.
+      - name: Checkout (for composite action resolution)
+        if: failure()
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
       - name: Notify on failure
         if: failure()
-        uses: actions/github-script@v9
-        with:
-          script: |
-            try {
-              await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `🚨 ${{ github.workflow }} failed: ${context.runId}`,
-              body: `${{ github.workflow }} workflow failed. See [run logs](${context.payload.repository.html_url}/actions/runs/${context.runId}).`
-              });
-            } catch (e) {
-              core.warning(`Could not create issue: ${e.message}`);
-            }
+        uses: ./.github/actions/notify-on-failure
