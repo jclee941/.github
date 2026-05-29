@@ -71,7 +71,77 @@ def get_git_ssl_env() -> dict[str, str]:
     return returned_env
 
 
+# Methods on GitProvider subclasses whose user-facing text argument(s) must be
+# masked for secrets before being published to a remote provider (GitHub,
+# GitLab, ...). Maps method name -> tuple of (arg_index, arg_name) pairs that
+# hold publishable text. arg_index is 1-based (we skip ``self``).
+_PUBLISH_METHODS_TO_MASK = {
+    "publish_comment": ((1, "pr_comment"),),
+    "publish_persistent_comment": ((1, "pr_comment"),),
+    "publish_persistent_comment_full": ((1, "pr_comment"),),
+    "publish_description": ((1, "pr_title"), (2, "pr_body")),
+    "publish_inline_comment": ((1, "body"),),
+    "publish_inline_comments": ((1, "comments"),),  # list[dict]; mask_obj handles it
+    "publish_code_suggestions": ((1, "code_suggestions"),),  # list[dict]
+    "publish_labels": ((1, "labels"),),  # list[str]
+    "edit_comment": ((2, "body"),),
+    "edit_comment_from_comment_id": ((2, "body"),),
+    "reply_to_comment_from_comment_id": ((2, "body"),),
+    "publish_file_comments": ((1, "file_comments"),),
+}
+
+
+def _wrap_publish_method(method):
+    """Return a wrapper that masks secret-bearing arguments before delegating."""
+    import functools
+    import inspect
+
+    spec = _PUBLISH_METHODS_TO_MASK[method.__name__]
+    is_coro = inspect.iscoroutinefunction(method)
+
+    def _apply(args, kwargs):
+        try:
+            from pr_agent.algo.secret_masking import mask_obj, mask_text
+        except Exception:
+            return args, kwargs
+        args = list(args)
+        for idx, name in spec:
+            if name in kwargs:
+                value = kwargs[name]
+                kwargs[name] = mask_text(value) if isinstance(value, str) else mask_obj(value)
+            elif idx < len(args):
+                value = args[idx]
+                args[idx] = mask_text(value) if isinstance(value, str) else mask_obj(value)
+        return tuple(args), kwargs
+
+    if is_coro:
+        @functools.wraps(method)
+        async def awrapper(*args, **kwargs):
+            args, kwargs = _apply(args, kwargs)
+            return await method(*args, **kwargs)
+        awrapper.__pr_agent_secret_masked__ = True  # type: ignore[attr-defined]
+        return awrapper
+
+    @functools.wraps(method)
+    def wrapper(*args, **kwargs):
+        args, kwargs = _apply(args, kwargs)
+        return method(*args, **kwargs)
+    wrapper.__pr_agent_secret_masked__ = True  # type: ignore[attr-defined]
+    return wrapper
+
+
 class GitProvider(ABC):
+    def __init_subclass__(cls, **kwargs):
+        """Auto-wrap any concrete publish_* / edit_comment_* method in subclasses."""
+        super().__init_subclass__(**kwargs)
+        for name in _PUBLISH_METHODS_TO_MASK:
+            method = cls.__dict__.get(name)
+            if method is None or not callable(method):
+                continue
+            if getattr(method, "__pr_agent_secret_masked__", False):
+                continue
+            setattr(cls, name, _wrap_publish_method(method))
+
     @abstractmethod
     def is_supported(self, capability: str) -> bool:
         pass

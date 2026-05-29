@@ -63,6 +63,9 @@ class LangChainOpenAIHandler(BaseAiHandler):
         stop=stop_after_attempt(OPENAI_RETRIES),
     )
     async def chat_completion(self, model: str, system: str, user: str, temperature: float = 0.2, img_path: str = None):
+        from pr_agent.algo.secret_masking import mask_text
+        system = mask_text(system) if isinstance(system, str) else system
+        user = mask_text(user) if isinstance(user, str) else user
         if img_path:
             get_logger().warning(
                 f"Image path is not supported for LangChainOpenAIHandler. Ignoring image path: {img_path}"

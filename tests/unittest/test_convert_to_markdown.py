@@ -272,6 +272,42 @@ class TestConvertToMarkdown:
         assert convert_to_markdown_v2(input_data).strip() == expected_output.strip()
 
 
+class TestTodoSectionsKorean:
+    """todo_sections rendering must be fully Korean (no English 'TODO' leak)."""
+
+    def test_no_todos_gfm_uses_korean(self):
+        input_data = {'review': {'todo_sections': 'No'}}
+        output = convert_to_markdown_v2(input_data)
+        assert 'TODO' not in output
+        assert '할 일 섹션 없음' in output
+
+    def test_no_todos_non_gfm_uses_korean(self):
+        input_data = {'review': {'todo_sections': 'No'}}
+        output = convert_to_markdown_v2(input_data, gfm_supported=False)
+        assert 'TODO' not in output
+        assert '할 일 섹션 없음' in output
+
+    def test_with_todos_gfm_uses_korean(self):
+        input_data = {'review': {'todo_sections': [
+            {'relevant_file': 'src/app.py', 'line_number': 10, 'content': 'refactor this'},
+        ]}}
+        mock_git_provider = Mock()
+        mock_git_provider.get_line_link.return_value = ''
+        output = convert_to_markdown_v2(input_data, git_provider=mock_git_provider)
+        assert 'TODO' not in output
+        assert '할 일 섹션' in output
+
+    def test_with_todos_non_gfm_uses_korean(self):
+        input_data = {'review': {'todo_sections': [
+            {'relevant_file': 'src/app.py', 'line_number': 10, 'content': 'refactor this'},
+        ]}}
+        mock_git_provider = Mock()
+        mock_git_provider.get_line_link.return_value = ''
+        output = convert_to_markdown_v2(input_data, git_provider=mock_git_provider, gfm_supported=False)
+        assert 'TODO' not in output
+        assert '할 일 섹션' in output
+
+
 class TestBR:
     def test_br1(self):
         file_change_description = '- Imported `FilePatchInfo` and `EDIT_TYPE` from `pr_agent.algo.types` instead of `pr_agent.git_providers.git_provider`.'

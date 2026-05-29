@@ -66,7 +66,7 @@ jobs:
         with:
           egress-policy: audit
       - name: Conventional Commits validation
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const title = context.payload.pull_request.title;
@@ -96,11 +96,11 @@ jobs:
         with:
           egress-policy: audit
       - name: Branch naming validation
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const branch = context.payload.pull_request.head.ref;
-            const allowed = /^(feat|fix|hotfix|test|docs|refactor|chore|ci|perf|security|style|build|revert|dependabot|fork|release)\/.+/;
+            const allowed = /^(feat|fix|hotfix|test|docs|refactor|chore|ci|perf|security|style|build|revert|dependabot|fork|release|claude)\/.+/;
             
             if (!allowed.test(branch)) {
               const body = `## 브랜치 이름 규칙 위반\n\n현재 브랜치: \`${branch}\`\n\n표준 prefix를 사용하세요:\n\n` +
@@ -126,7 +126,7 @@ jobs:
         with:
           egress-policy: audit
       - name: Description validation
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const body = context.payload.pull_request.body || '';
@@ -178,7 +178,7 @@ jobs:
           fetch-depth: 0
 
       - name: Detect large file changes
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const { data: files } = await github.rest.pulls.listFiles({
@@ -223,7 +223,7 @@ jobs:
           fetch-depth: 0
 
       - name: Detect sensitive file changes
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const { data: files } = await github.rest.pulls.listFiles({
@@ -256,17 +256,4 @@ jobs:
             }
       - name: Notify on failure
         if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            try {
-              await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `🚨 ${{ github.workflow }} failed: ${context.runId}`,
-              body: `${{ github.workflow }} workflow failed. See [run logs](${context.payload.repository.html_url}/actions/runs/${context.runId}).`
-              });
-            } catch (e) {
-              core.warning(`Could not create issue: ${e.message}`);
-            }
-            }
+        uses: ./.github/actions/notify-on-failure

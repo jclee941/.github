@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: issue-label-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   label:
@@ -23,7 +23,7 @@ jobs:
         with:
           egress-policy: audit
       - name: Auto-label issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -46,19 +46,11 @@ jobs:
               console.log(`Issue #${issue.number}: added labels ${labelsToAdd.join(', ')}`);
             } else {
               console.log(`Issue #${issue.number}: no matching labels`);
+      - name: Checkout (for composite action resolution)
+        if: failure()
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
       - name: Notify on failure
         if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            try {
-              await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `🚨 ${{ github.workflow }} failed: ${context.runId}`,
-              body: `${{ github.workflow }} workflow failed. See [run logs](${context.payload.repository.html_url}/actions/runs/${context.runId}).`
-              });
-            } catch (e) {
-              core.warning(`Could not create issue: ${e.message}`);
-            }
-            }
+        uses: ./.github/actions/notify-on-failure

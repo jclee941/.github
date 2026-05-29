@@ -48,6 +48,7 @@ tests/e2e_live/
 | `E2E_CANARY_PUBLIC_REPO` | `jclee941/automation-e2e-public` | Public canary for mutation tests |
 | `E2E_CANARY_PRIVATE_REPO` | `jclee941/automation-e2e-private` | Private canary for mutation tests |
 | `E2E_CLIPROXY_API_KEY` | `CLIPROXY_API_KEY` | Optional CLIProxyAPI connectivity checks |
+
 ## COMMANDS
 
 ```bash
