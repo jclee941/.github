@@ -131,6 +131,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ steps.pr.outputs.url }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          REPO: ${{ github.repository }}
         run: |
           set -eu
           state="$(gh pr view "$PR_URL" --json mergeStateStatus --jq '.mergeStateStatus')"
@@ -138,7 +140,9 @@ jobs:
             --jq '[.statusCheckRollup[]? | select((.conclusion // .state) == "FAILURE")] | length')"
           if [ "$state" = "BLOCKED" ] && [ "$failed" = "0" ]; then
             echo "::notice::PR $PR_URL is BLOCKED with no failing checks; updating branch to clear stale required-context drift"
-            gh pr update-branch "$PR_URL" \
+            # gh CLI on the runner may predate the `gh pr update-branch`
+            # subcommand, so call the REST endpoint directly.
+            gh api -X PUT "repos/$REPO/pulls/$PR_NUMBER/update-branch" \
               || echo "::warning::update-branch failed (already up to date, conflict, or not permitted); not retrying"
           else
             echo "::notice::PR $PR_URL mergeStateStatus=$state failed=$failed; no self-heal needed"
