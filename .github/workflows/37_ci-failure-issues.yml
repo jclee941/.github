@@ -228,6 +228,11 @@ jobs:
               --label ci-failure,automated \
               || echo "::warning::failed to create ci-failure issue; non-fatal"
           fi
+      - name: Checkout (for composite action resolution)
+        if: failure()
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
       - name: Notify on failure
         if: failure()
         uses: ./.github/actions/notify-on-failure

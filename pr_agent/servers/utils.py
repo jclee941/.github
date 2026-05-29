@@ -64,8 +64,8 @@ class DefaultDictWithTimeout(defaultdict):
         if self.__ttl is None:
             return
         request_time = self.__time()
-        if request_time - self.__last_refresh > self.__refresh_interval:
-            return
+        if request_time - self.__last_refresh < self.__refresh_interval:
+            return  # not yet time to refresh
         to_delete = [key for key, key_time in self.__key_times.items() if request_time - key_time > self.__ttl]
         for key in to_delete:
             del self[key]

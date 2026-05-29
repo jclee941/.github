@@ -25,4 +25,5 @@ scripts/branch-protection
 scripts/repo-review
 scripts/sync-secrets
 scripts/deploy-to-repos
+scripts/validate-naming
 *.pyc

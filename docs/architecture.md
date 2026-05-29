@@ -19,7 +19,7 @@ flowchart TB
         PROXY["CLIProxyAPI<br/>(localhost:8317)"]
         LLM["Claude / Codex / Gemini<br/>CLI"]
         FB["Filebeat<br/>(로그 수집)"]
-        ES["Elasticsearch<br/>(192.168.50.102:9200)"]
+        ES["Elasticsearch<br/>(192.168.50.105:9200)"]
     end
 
     GH -->|"Webhook<br/>pull_request.opened"| CF
@@ -47,11 +47,11 @@ style ES fill:#27ae60,stroke:#333,color:#fff
 |-----------|------|------|
 | **GitHub** | PR 이벤트 발생, 리뷰 코멘트 표시 | Public Cloud |
 | **Cloudflare Tunnel** | 홈랩 남부 네트워크에 퍼블릭 HTTPS 엔드포인트 제공 | Cloudflare Edge |
-| **github-bot-app** | Webhook 수신, pr-agent 실행, GitHub API 호출 | LXC 100 (192.168.50.102) |
-| **CLIProxyAPI** | Claude/Codex/Gemini CLI를 OpenAI API로 래핑 | LXC 100 (localhost:8317) |
-| **AI CLI** | 실제 LLM 추론 수행 (Claude Code / Codex CLI / Gemini CLI) | LXC 100 (로컬 실행) |
-| **Filebeat** | Docker 컨테이너 로그 수집 및 전송 | LXC 100 (localhost) |
-| **Elasticsearch** | 중앙 로그 저장 및 검색 | LXC 102 (192.168.50.102) |
+| **github-bot-app** | Webhook 수신, pr-agent 실행, GitHub API 호출 | LXC 114 (192.168.50.114) |
+| **CLIProxyAPI** | Claude/Codex/Gemini CLI를 OpenAI API로 래핑 | LXC 114 (localhost:8317) |
+| **AI CLI** | 실제 LLM 추론 수행 (Claude Code / Codex CLI / Gemini CLI) | LXC 114 (로컬 실행) |
+| **Filebeat** | Docker 컨테이너 로그 수집 및 전송 | LXC 114 (localhost) |
+| **Elasticsearch** | 중앙 로그 저장 및 검색 | LXC 105 (192.168.50.105) |
 
 ---
 
@@ -78,7 +78,7 @@ flowchart TD
     OPTIONAL --> DOCS["docs-sync.yml<br/>(문서 품질)"]
     
     OPTIONAL --> SECURITY{"security-review<br/>라벨?"}
-    SECURITY -->|Yes| DEEP["security/pr-review.yml<br/>(심층 보안 감사)"]
+    SECURITY -->|Yes| DEEP["security/11_pr-review.yml<br/>(심층 보안 감사)"]
     SECURITY -->|No| MERGE_CHECK
     
     DEEP --> MERGE_CHECK{머지 조건 충족?}
@@ -283,12 +283,12 @@ flowchart TD
     AUTHOR -->|human| TYPE{"변경 유형?"}
     
     TYPE -->|docs only| DOCS["describe only"]
-    TYPE -->|feat/fix/refactor| FULL1["describe + review<br/>+ improve + agentic_review"]
+    TYPE -->|feat/fix/refactor| FULL1["describe + review"]
     TYPE -->|other| SIZE{"변경량?"}
     
     SIZE -->|< 50 LOC| SMALL["review only"]
     SIZE -->|> 1000 LOC| LARGE["describe + review"]
-    SIZE -->|50~1000 LOC| DEFAULT["describe + review<br/>+ improve + agentic_review"]
+    SIZE -->|50~1000 LOC| DEFAULT["describe + review"]
     
     BOT --> END(("실행"))
     DOCS --> END
@@ -368,7 +368,7 @@ flowchart TD
     LABEL -->|Yes| GUARD{"head.repo.full_name ==<br/>github.repository?"}
     
     GUARD -->|No| BLOCK["❌ 차단<br/>(fork PR 토큰 탈취 방지)"]
-    GUARD -->|Yes| SECURE["security/pr-review.yml<br/>심층 보안 감사"]
+    GUARD -->|Yes| SECURE["security/11_pr-review.yml<br/>심층 보안 감사"]
     
     SECURE --> OWASP["OWASP Top 10<br/>체크리스트"]
     OWASP --> SECRET["Secret / Key<br/>관리 검증"]

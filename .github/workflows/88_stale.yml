@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: stale-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   stale:
@@ -38,6 +38,11 @@ jobs:
           stale-pr-label: "stale"
           exempt-issue-labels: "pinned,security"
           exempt-pr-labels: "pinned,security"
+      - name: Checkout (for composite action resolution)
+        if: failure()
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
       - name: Notify on failure
         if: failure()
         uses: ./.github/actions/notify-on-failure

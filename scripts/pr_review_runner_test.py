@@ -82,7 +82,7 @@ class TestDecideCommands:
     def test_feat_title(self):
         meta = PRMeta(1, "user", "feat(auth): add login", 100, 50, ["auth.py"])
         cmds, reason = decide_commands(meta)
-        assert cmds == ["describe", "review", "improve", "agentic_review"]
+        assert cmds == ["describe", "review"]
         assert reason == "feat/fix/refactor PR"
 
     def test_small_pr(self):
@@ -100,7 +100,7 @@ class TestDecideCommands:
     def test_default(self):
         meta = PRMeta(1, "user", "chore: update", 100, 100, ["main.py"])
         cmds, reason = decide_commands(meta)
-        assert cmds == ["describe", "review", "improve", "agentic_review"]
+        assert cmds == ["describe", "review"]
         assert reason == "default"
 
 

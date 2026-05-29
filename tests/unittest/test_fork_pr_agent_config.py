@@ -100,3 +100,43 @@ class TestForkPrAgentConfig:
         assert "model=\"kimi-k2.6\"" in content or "model = \"kimi-k2.6\"" in content, (
             "configuration.toml should contain model=\"kimi-k2.6\" for fork-specific default"
         )
+
+    def test_auto_commands_resolve_to_registered_commands(self):
+        """Every command in [github_app].pr_commands / push_commands must be
+        registered in command2class.
+
+        Regression guard: c6fbb70e removed `agentic_review` from the workflow
+        runner but left it in .pr_agent.toml. The GitHub App (LXC 100) reads
+        this file, so it silently logged \"Unknown command: agentic_review\"
+        and returned False on every PR open and every push. This test fails
+        if any auto-command does not resolve to a real handler.
+        """
+        import shlex
+
+        from pr_agent.agent.pr_agent import command2class
+
+        path = self.get_toml_path()
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+
+        github_app = data.get("github_app", {})
+        auto_commands = []
+        for key in ("pr_commands", "push_commands"):
+            auto_commands.extend(github_app.get(key, []))
+
+        assert auto_commands, (
+            "Expected [github_app].pr_commands/push_commands to be non-empty"
+        )
+
+        unresolved = []
+        for raw in auto_commands:
+            # mirror PRAgent._handle_request parsing: split args, strip '/'
+            command = shlex.split(raw)[0].lstrip("/").lower()
+            if command not in command2class:
+                unresolved.append((raw, command))
+
+        assert not unresolved, (
+            "Auto-commands not registered in command2class (will silently "
+            f"fail at runtime): {unresolved}. "
+            f"Registered commands: {sorted(command2class.keys())}"
+        )
