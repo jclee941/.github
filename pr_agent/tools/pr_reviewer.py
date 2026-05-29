@@ -464,8 +464,17 @@ class PRReviewer:
         pr_url = self.git_provider.get_pr_url()
         repo = self.git_provider.repo
 
-        # Build fingerprint marker
-        marker_input = f"{repo}|{finding['file']}|{finding['start_line']}|{finding['title']}"
+        # Build fingerprint marker from structural position + category + a stable
+        # hash of the finding content. The LLM-generated *title* is excluded
+        # because it is reworded across re-reviews (which would create duplicate
+        # issues), but category and content are included so that two DISTINCT
+        # findings sharing the same line span (or repo-level findings with no
+        # location) do not collapse into a single marker.
+        content_hash = hashlib.sha256(str(finding.get("content", "")).encode()).hexdigest()[:8]
+        marker_input = (
+            f"{repo}|{finding['file']}|{finding['start_line']}|{finding['end_line']}"
+            f"|{finding.get('category', '')}|{content_hash}"
+        )
         fingerprint = hashlib.sha256(marker_input.encode()).hexdigest()[:16]
         marker = f"<!-- jclee-bot-review-finding: {fingerprint} -->"
 
