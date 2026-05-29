@@ -104,7 +104,13 @@ jobs:
       - name: Open draft PR
         if: steps.meta.outputs.skip != 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Use GH_PAT (falls back to GITHUB_TOKEN) so the created PR triggers
+          # downstream 'pull_request' workflows. PRs opened with the default
+          # GITHUB_TOKEN do NOT fire other workflows (GitHub's recursion guard),
+          # which left required checks (pr-checks, Gitleaks) never running and
+          # auto-merge permanently BLOCKED. With a PAT the checks run and
+          # auto-merge actually fires.
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           BRANCH: ${{ steps.meta.outputs.branch }}
           BASE: ${{ steps.meta.outputs.base }}
           ISSUE_NUM: ${{ steps.meta.outputs.issue_number }}
