@@ -470,8 +470,45 @@ class LiteLLMAIHandler(BaseAiHandler):
 
     async def _get_completion(self, **kwargs):
         """
-        Wrapper that automatically handles streaming for required models.
+        Wrapper that automatically handles streaming for required models, and
+        retries against fallback api_base URLs when the primary provider is
+        unreachable (connection refused / timeout / Cloudflare 524).
         """
+        fallback_bases = get_settings().get("openai.api_base_fallbacks", []) or []
+        if not isinstance(fallback_bases, list):
+            fallback_bases = [b.strip() for b in str(fallback_bases).split(",") if b.strip()]
+        # Try the primary base (already set on litellm/kwargs) first, then each
+        # fallback base. Only connection/timeout failures trigger a base switch;
+        # other errors (rate limit, bad request) propagate immediately.
+        bases_to_try = [None] + list(fallback_bases)  # None = use current/default base
+        last_exc = None
+        for idx, base in enumerate(bases_to_try):
+            attempt_kwargs = dict(kwargs)
+            if base:
+                attempt_kwargs["api_base"] = base
+            try:
+                return await self._get_completion_once(**attempt_kwargs)
+            except (openai.APIConnectionError, openai.APITimeoutError) as e:
+                last_exc = e
+                if idx < len(bases_to_try) - 1:
+                    next_base = bases_to_try[idx + 1]
+                    try:
+                        from pr_agent.servers.monitoring import record_llm_failure
+                        record_llm_failure("provider_fallback", attempt_kwargs.get("model", "unknown"))
+                    except Exception:
+                        pass
+                    get_logger().warning(
+                        f"Provider unreachable at base={base or 'primary'}; "
+                        f"falling back to base={next_base}: {e}"
+                    )
+                    continue
+                raise
+        # Unreachable, but keep the type checker honest.
+        if last_exc:
+            raise last_exc
+
+    async def _get_completion_once(self, **kwargs):
+        """Single completion attempt against the api_base currently in kwargs."""
         model = kwargs["model"]
         # FORK: route prefix-less Kimi/Claude/Minimax/GPT model names through the
         # configured OpenAI-compatible endpoint (CLIProxyAPI via Cloudflare Tunnel).
