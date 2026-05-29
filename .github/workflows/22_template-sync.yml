@@ -64,23 +64,20 @@ jobs:
           ref: master
           path: _templates
           sparse-checkout: |
-            templates/README.md
             templates/CONTRIBUTING.md
             templates/LICENSE
           fetch-depth: 1
 
       - name: Sync templates
         run: |
-          set -e
+          set -eu
           repo_name="${{ matrix.repo }}"
 
-          # Copy templates, replacing placeholder
-          cp _templates/templates/README.md README.md
+          # Sync only CONTRIBUTING.md + LICENSE. README.md is intentionally NOT
+          # synced here: 20_readme-gen.yml generates a per-repo README via
+          # CLIProxyAPI, and copying a static template would clobber it.
           cp _templates/templates/CONTRIBUTING.md CONTRIBUTING.md
           cp _templates/templates/LICENSE LICENSE
-
-          # Replace placeholder
-          sed -i "s/{REPO_NAME}/$repo_name/g" README.md
 
           echo "Templates synced for $repo_name"
 
@@ -99,12 +96,12 @@ jobs:
       - name: Commit and push to branch
         if: steps.diff.outputs.changed == 'true'
         run: |
-          set -e
+          set -eu
           git config user.email "bot@jclee.me"
           git config user.name "github-bot"
           git checkout -b bot/template-sync
-          git add README.md CONTRIBUTING.md LICENSE
-          git commit -m "docs: sync standard templates from jclee941/.github [skip ci]"
+          git add CONTRIBUTING.md LICENSE
+          git commit -m "docs: sync CONTRIBUTING/LICENSE templates from jclee941/.github [skip ci]"
           gh auth setup-git
           git push -u origin bot/template-sync --force-with-lease
         env:
@@ -115,7 +112,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -e
+          set -eu
           existing=$(gh pr list --repo jclee941/${{ matrix.repo }} \
             --head bot/template-sync --state open \
             --json number --jq '.[0].number' || true)
@@ -125,7 +122,7 @@ jobs:
             echo "Updated existing PR #$existing"
           else
             # shellcheck disable=SC2016  # printf format strings must use single quotes
-            printf '%s\n' '## Summary' '' 'Synchronized standard documentation templates from the source repository:' '' '- `README.md` — bilingual project overview' '- `CONTRIBUTING.md` — bilingual contribution guidelines' '- `LICENSE` — MIT license' '' '> 자동 생성됨 (Template Sync Workflow)' > /tmp/pr-body.md
+            printf '%s\n' '## Summary' '' 'Synchronized standard documentation templates from the source repository:' '' '- `CONTRIBUTING.md` — bilingual contribution guidelines' '- `LICENSE` — MIT license' '' '> 자동 생성됨 (Template Sync Workflow)' > /tmp/pr-body.md
             gh pr create --repo jclee941/${{ matrix.repo }} \
               --title "docs: sync standard templates from jclee941/.github" \
               --body-file /tmp/pr-body.md \
