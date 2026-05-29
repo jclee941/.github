@@ -1,7 +1,7 @@
 # 보안 리뷰 템플릿
 
 > PR-Agent `jclee-bot`용 보안 중심 코드 리뷰
-> 트리거: `security-review` 라벨 또는 `/agentic_review --security`
+> 트리거: `security-review` 라벨
 > 응답 언어: **한국어 (ko)**
 
 ---

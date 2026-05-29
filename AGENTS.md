@@ -497,7 +497,7 @@ Located in `docs/review-templates/` and referenced from `.pr_agent.toml`.
 |----------|---------|---------|
 | `code-review-template.md` | Master review format, priorities, severity levels | Every `/review` |
 | `documentation-checklist.md` | README, API docs, docstring, PR description checks | Embedded in `extra_instructions` |
-| `security-review-template.md` | OWASP Top 10, secret scanning, SAST checks | `security-review` label or `/agentic_review --security` |
+| `security-review-template.md` | OWASP Top 10, secret scanning, SAST checks | `security-review` label |
 
 ### Template Usage Flow
 

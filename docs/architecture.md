@@ -283,12 +283,12 @@ flowchart TD
     AUTHOR -->|human| TYPE{"변경 유형?"}
     
     TYPE -->|docs only| DOCS["describe only"]
-    TYPE -->|feat/fix/refactor| FULL1["describe + review<br/>+ improve + agentic_review"]
+    TYPE -->|feat/fix/refactor| FULL1["describe + review"]
     TYPE -->|other| SIZE{"변경량?"}
     
     SIZE -->|< 50 LOC| SMALL["review only"]
     SIZE -->|> 1000 LOC| LARGE["describe + review"]
-    SIZE -->|50~1000 LOC| DEFAULT["describe + review<br/>+ improve + agentic_review"]
+    SIZE -->|50~1000 LOC| DEFAULT["describe + review"]
     
     BOT --> END(("실행"))
     DOCS --> END
