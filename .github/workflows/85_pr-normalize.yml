@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: pr-normalize-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   normalize:
@@ -72,6 +72,11 @@ jobs:
             }
 
             console.log(`PR #${pr.number}: title="${title}", conventional=${isConventional}, label=${label}`);
+      - name: Checkout (for composite action resolution)
+        if: failure()
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
       - name: Notify on failure
         if: failure()
         uses: ./.github/actions/notify-on-failure

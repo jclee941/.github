@@ -11,11 +11,11 @@ permissions:
 
 concurrency:
   group: elk-setup
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   elk-setup:
-    # Homelab-only: requires access to internal Elasticsearch (192.168.50.102)
+    # Homelab-only: requires access to internal Elasticsearch (host in ELK_HOST secret)
     runs-on: self-hosted
     timeout-minutes: 10
     steps:
@@ -28,9 +28,14 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Setup index template
+        env:
+          ELK_HOST: ${{ secrets.ELK_HOST }}
+          ELK_USERNAME: ${{ secrets.ELK_USERNAME }}
+          ELK_PASSWORD: ${{ secrets.ELK_PASSWORD }}
         run: |
+          set -eu
           echo "Setting up github-bot-logs index template..."
-          curl -sS -X PUT "http://192.168.50.102:9200/_index_template/github-bot-logs" \
+          curl -sS -X PUT -u "${ELK_USERNAME}:${ELK_PASSWORD}" "http://${ELK_HOST}/_index_template/github-bot-logs" \
             -H 'Content-Type: application/json' \
             -d '{
               "index_patterns": ["github-bot-logs-*"],
@@ -64,9 +69,14 @@ jobs:
             }' || echo "Warning: Could not create index template (Elasticsearch may be unreachable)"
 
       - name: Setup ILM policy
+        env:
+          ELK_HOST: ${{ secrets.ELK_HOST }}
+          ELK_USERNAME: ${{ secrets.ELK_USERNAME }}
+          ELK_PASSWORD: ${{ secrets.ELK_PASSWORD }}
         run: |
+          set -eu
           echo "Setting up github-bot-logs ILM policy..."
-          curl -sS -X PUT "http://192.168.50.102:9200/_ilm/policy/github-bot-logs" \
+          curl -sS -X PUT -u "${ELK_USERNAME}:${ELK_PASSWORD}" "http://${ELK_HOST}/_ilm/policy/github-bot-logs" \
             -H 'Content-Type: application/json' \
             -d '{
               "policy": {

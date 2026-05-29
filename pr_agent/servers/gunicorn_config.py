@@ -80,6 +80,29 @@ worker_connections = 1000
 timeout = 240
 keepalive = 2
 
+# -- Hardening: async workers, graceful reload, memory bounds, Cloudflare Tunnel trust
+#
+#   worker_class - UvicornWorker is required because the app uses FastAPI/Starlette
+#   async endpoints. Default sync workers cannot serve async code paths.
+#
+#   graceful_timeout - Seconds to wait for in-flight requests on reload/restart.
+#
+#   max_requests + max_requests_jitter - Recycle workers to bound memory growth
+#   from LLM caches. Jitter staggers restarts so they don't all hit at once.
+#
+#   preload_app = False - Each worker must re-import and re-init its own Counter/
+#   Histogram state (Prometheus metrics). Preloading shares state across workers.
+#
+#   forwarded_allow_ips = '*' - Bot runs behind Cloudflare Tunnel; must trust
+#   X-Forwarded-For / X-Forwarded-Proto headers from the tunnel.
+#
+worker_class = os.getenv('GUNICORN_WORKER_CLASS', 'uvicorn.workers.UvicornWorker')
+graceful_timeout = 30
+max_requests = int(os.getenv('GUNICORN_MAX_REQUESTS', '1000'))
+max_requests_jitter = 100
+preload_app = False
+forwarded_allow_ips = '*'
+
 #
 #   spew - Install a trace function that spews every line of Python
 #       that is executed when running the server. This is the

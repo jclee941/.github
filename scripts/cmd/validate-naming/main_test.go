@@ -19,7 +19,7 @@ func TestExtractYamlPaths(t *testing.T) {
   workflow_dispatch:
 `
 	os.MkdirAll(filepath.Join(tmpDir, ".github", "workflows"), 0o755)
-	os.WriteFile(filepath.Join(tmpDir, ".github", "workflows", "auto-deploy.yml"), []byte(yamlContent), 0o644)
+	os.WriteFile(filepath.Join(tmpDir, ".github", "workflows", "34_auto-deploy.yml"), []byte(yamlContent), 0o644)
 
 	v := &validator{rootDir: tmpDir}
 	paths, err := v.extractAutoDeployPaths()
