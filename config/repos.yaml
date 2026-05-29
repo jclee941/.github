@@ -140,6 +140,17 @@ repositories:
       health_check: true
       auto_merge: true
 
+  # Canary target: jclee-bot Runtime Health Check creates synthetic PRs here.
+  # Standard automation still applies so canary PRs run through real CI gates.
+  - name: automation-e2e-public
+    visibility: public
+    default_branch: main
+    automation:
+      deploy_workflows: true
+      branch_protection: true
+      health_check: false  # this repo IS the health check target; no recursive check
+      auto_merge: true
+
   # Fork (excluded from deploy but included in protection)
   - name: pr-agent
     visibility: public
