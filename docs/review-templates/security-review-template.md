@@ -9,16 +9,19 @@
 ## 1. 검증 범위 (Scope)
 
 ### 1.1 입력 검증 (Input Validation)
+
 - [ ] 모든 사용자 입력이 검증(validation)되고 정제(sanitization)되는가?
 - [ ] 파일 업로드 시 MIME 타입과 확장자가 모두 검증되는가?
 - [ ] Path traversal (`../`, `..\`) 방어가 되는가?
 
 ### 1.2 인증/인가 (Authentication/Authorization)
+
 - [ ] 세션/토큰 만료 시간이 적절히 설정되었는가?
 - [ ] 권한 상승(Privilege Escalation) 가능성이 있는가?
 - [ ] 민감한 작업에 2FA/MFA가 요구되는가?
 
 ### 1.3 데이터 보호 (Data Protection)
+
 - [ ] 비밀번호가 bcrypt/Argon2 등으로 해싱되는가?
 - [ ] PII(개인식별정보)가 로그에 남지 않는가?
 - [ ] 민감한 데이터가 클라이언트에 노출되지 않는가?
@@ -45,11 +48,13 @@
 ## 3. 시크릿/키 관리
 
 ### 3.1 하드코딩된 시크릿 검색
+
 - [ ] API Key, Password, Token이 코드에 하드코딩되지 않았는가?
 - [ ] `.env`, GitHub Secrets, Vault 등 외부 저장소 사용
 - [ ] 커밋 이력에 시크릿이 노출되지 않았는가? (git-secrets, truffleHog)
 
 ### 3.2 키 회전 (Key Rotation)
+
 - [ ] 장기간 사용되는 키에 자동 회전 정책이 있는가?
 - [ ] 노출 시 즉시 폐기/재발급 절차가 문서화되었는가?
 
@@ -69,7 +74,9 @@
 ```코드
 {보안 코드 예시}
 ```
+
 **참조**: {CVE 링크 또는 OWASP 가이드}
+
 ```
 
 ---

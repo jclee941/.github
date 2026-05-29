@@ -30,7 +30,6 @@ jobs:
         with:
           args: >
             --exclude-all-private
-            --exclude-mail
             --timeout 30
             --retry 3
             --no-progress
@@ -77,12 +76,17 @@ jobs:
           node-version: '20'
 
       - name: Install markdownlint
-        run: npm install -g markdownlint-cli
+        # Pin the version: unpinned markdownlint-cli auto-upgrades and new
+        # default rules (e.g. MD060 table-style, MD056) retroactively fail
+        # the whole repo's existing docs. Pin + explicit config keeps lint
+        # deterministic across runs.
+        run: npm install -g markdownlint-cli@0.43.0
 
       - name: Lint Markdown files
         run: |
           set -eu
           markdownlint '**/*.md' \
+            --config .markdownlint.json \
             --ignore node_modules \
             --ignore .venv \
             --ignore '**/pr-agent-upstream-README.md'

@@ -189,7 +189,6 @@ github-bot/
 
 **Scope**: 16 repos (12 public + 3 private + 1 source) receive the full automation stack. The 3 private repos were upgraded to GitHub Pro on 2026-05-07 and now have complete automation (auto-merge, branch protection, Dependabot, auto-review). The `pr-agent` fork is excluded by design. |
 
-
 ### Per-repo automation guarantees
 
 | Component | File | Behavior |
@@ -223,6 +222,7 @@ github-bot/
 | Org Health Report | `.github/workflows/org-health-report.yml` | Weekly Monday 09:00 UTC | Generates comprehensive health report: open PRs/issues, stale PRs, last commits per repo |
 | Repo Health Check | `.github/workflows/repo-health.yml` | Weekly (Mondays 02:00 UTC) | Checks all repos for required documentation files (README.md, CONTRIBUTING.md, LICENSE); creates issues for gaps |
 | Org Health Report | `.github/workflows/org-health-report.yml` | Weekly Monday 09:00 UTC | Generates comprehensive health report: open PRs/issues, stale PRs, last commits per repo |
+
 ### Operations
 
 ```bash
@@ -265,6 +265,7 @@ CLIPROXY_API_KEY=$(grep '^CLIPROXY_API_KEY=' .env | cut -d= -f2-) \
 `.github/workflows/10_pr-review.yml` in this repo is a **local development/CI tool**. It only runs on PRs opened against the `.github` repository itself.
 
 The actual production PR review path:
+
 1. `jclee-bot` GitHub App receives webhooks for all `jclee941/*` repos
 2. App server on LXC 114 (`bot.jclee.me`) runs pr-agent directly
 3. Reviews are posted via the GitHub App installation token
@@ -274,6 +275,7 @@ Therefore, high skip counts in the `pr-review.yml` workflow are **expected and b
 ### Monitoring Bot Health
 
 To check if the bot is actually reviewing PRs:
+
 - Check GitHub App webhook delivery logs: `https://github.com/settings/apps/jclee-bot/advanced`
 - Check container logs on LXC 114: `ssh root@192.168.50.114 "docker logs github-bot-app"`
 - Check PR comments by `jclee-bot[bot]` in downstream repos
@@ -317,6 +319,7 @@ curl -sS http://192.168.50.102:9200/_cat/indices/github-bot-logs-*?v
 # Query recent logs
 curl -sS http://192.168.50.102:9200/github-bot-logs-*/_search?pretty -H 'Content-Type: application/json' -d '{"size": 5, "sort": [{"@timestamp": {"order": "desc"}}]}'
 ```
+
 ## CLI_PROXY INTEGRATION DETAILS
 
 | Item | Value |
@@ -341,6 +344,7 @@ curl -sS http://192.168.50.102:9200/github-bot-logs-*/_search?pretty -H 'Content
 - **Antigravity (Claude)**: `ag-claude-sonnet-4-5`, `ag-claude-sonnet-4-5-thinking`
 
 Get the full list:
+
 ```bash
 curl -sS http://192.168.50.114:8317/v1/models \
   -H "Authorization: Bearer $CLIPROXY_API_KEY" | jq -r '.data[].id'
@@ -354,6 +358,7 @@ ssh root@192.168.50.114 \
 ```
 
 Rotate: edit `/opt/cli-proxy-api/config.yaml` on LXC 100, restart the docker container:
+
 ```bash
 ssh root@192.168.50.114 "docker restart cli-proxy-api"
 ```
@@ -377,7 +382,6 @@ pr-agent loads its settings via `Dynaconf(envvar_prefix=False, ...)` (see `pr_ag
 **Silent-failure guard** (`pr-review.yml:141`): pr-agent's CLI catches its own exceptions in `pr_reviewer.py:184` and **returns exit code 0 even on fatal failures**. The workflow `tee`s output to `/tmp/pr-agent.log` and `grep`s for known fatal patterns (`Failed to generate prediction with any model`, `Failed to review PR`, `AuthenticationError`, etc.) — known no-op patterns (`Empty diff for PR:`, `PR has no files:`, `Review output is not published`) are subtracted to avoid false positives. The full pattern list is in the workflow's run-step.
 
 **Phase 3 rollout completed (2026-05-03)**: Branch protection on all 12 public repos now enforces `Gitleaks / scan` as a third required status check. To re-apply after editing `branch-protection.go`, run `(cd scripts && go run ./cmd/branch-protection)` from this repo.
-
 
 ## COMMANDS
 
@@ -538,7 +542,6 @@ Review posted as PR comment (markdown tables + code blocks)
 | `pr_agent/AGENTS.md` | Upstream code — read-only guidance | 47 |
 | `scripts/AGENTS.md` | Go automation tools reference | 63 |
 | `tests/e2e_live/AGENTS.md` | Live E2E test suite guide | 58 |
-
 
 **Automated validation**: `scripts/cmd/validate-naming` checks cross-file invariants (deploy constants match E2E tests, auto-deploy paths cover extraFiles, CODEOWNERS coverage, kebab-case compliance). Run with `(cd scripts && go run ./cmd/validate-naming)`. Use `--fix` for auto-correction where supported.
 

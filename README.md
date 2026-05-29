@@ -49,6 +49,7 @@
 ## 주요 기능 / Features
 
 - ### AI PR 리뷰 / AI-Powered PR Review
+
   - `/review` — 자동 코드 리뷰 및 개선 제안
   - `/improve` — 코드 개선안 생성
   - `/describe` — PR 설명 생성
@@ -56,17 +57,20 @@
   - `/update_changelog` — 체인지로그 업데이트
 
 - ### 자동화 워크플로우 / Automated Workflows
+
   - PR 정규화, 사이즈 분류, 스탤 플래그
   - 자동 머지, 보안 리뷰, 의존성 검토
   - 이슈 라이프사이클 관리, 템플릿 동기화
 
 - ### 보안 강화 / Security Hardening
+
   - CodeQL 정적 분석
   - Gitleaks 시크릿 스캐닝
   - Dependabot 자동 병합
   - 보안 리뷰 워크플로우 (심층 분석)
 
 - ### Go 기반运维 도구 / Go Operational Tools
+
   - 브랜치 보호 관리
   - 리포지토리 일괄 배포
   - 드리프트 감지
@@ -249,4 +253,3 @@
 |-------------|-------------|---------------------|
 | **branch-protection** | `scripts/cmd/branch-protection/` | 브랜치 보호 규칙 관리 (apply, list, check) |
 | **deploy-to-repos** | `scripts/cmd/deploy-to-repos/` | `pr-review.yml`을 `jclee941/*` 리포지토리에 일괄 배포 |
-

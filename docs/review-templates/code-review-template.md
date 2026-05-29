@@ -29,6 +29,7 @@
 ```코드
 {개선된 코드 예시}
 ```
+
 ```
 
 ### 2.2 심각도 레벨
@@ -91,15 +92,19 @@ token_blacklist.add(old_token)
 ```
 
 ### [WARNING] auth/models.py:12
+
 **문제**: `expires_at` 필드에 timezone 정보 누락
 **개선안**:
+
 ```python
 expires_at = models.DateTimeField(default=lambda: timezone.now() + timedelta(hours=1))
 ```
 
 ### [INFO] README.md
+
 **문제**: 새로운 `JWT_REFRESH_INTERVAL` 환경변수가 문서에 누락됨
 **개선안**: Configuration 섹션에 해당 변수 설명 추가
+
 ```
 
 ---

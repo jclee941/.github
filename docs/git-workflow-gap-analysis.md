@@ -6,6 +6,7 @@
 **분석 범위**: `.github/workflows/`, `.github/dependabot.yml`, `scripts/*.go`, `.git/hooks/`, 커뮤니티 파일
 
 > 본 문서는 "분석"과 "구현"을 한 PR로 다룹니다. 두 가지 상태를 명확히 구분합니다.
+>
 > - **As-was**: 이 PR 직전의 상태
 > - **As-is**: 이 PR 적용 후의 상태
 
@@ -32,6 +33,7 @@
 ### 1.2 As-is 활성 워크플로 (이 PR 적용 후)
 
 추가됨:
+
 - `06_codeql.yml` — Python SAST
 - `05_gitleaks.yml` — Secret scanning
 - `04_actionlint.yml` — Workflow YAML semantic linter
@@ -88,10 +90,12 @@
 ## 3. 신규 워크플로 (이 PR)
 
 ### 3.1 CodeQL (G1) — advisory only, NOT required
+
 - 트리거: `**.py` 또는 pyproject 변경 시 PR/push, 주 1회 schedule
 - 이유: `.py` 변경에만 트리거되므로 required로 강제하면 비-Python PR이 영원히 대기. Security 탭과 PR 코멘트로 surface.
 
 ### 3.2 Gitleaks (G2) — required check (Phase 3 이후)
+
 - 트리거: 모든 PR, master push
 - 동작:
   - **PR**: gitleaks-action@v2가 PR commit range (`${baseRef}^..${headRef}`, `--first-parent --no-merges`)에 대해 `gitleaks detect` 실행. 엄밀한 base..head 파일 diff 스캔이 아니라 **PR commit 시리즈 내 도입된 leak**을 보고함 (PR 안에서 추가됐다 제거된 것도 잡힐 수 있음).
@@ -100,10 +104,12 @@
 - 베이스라인: 다운스트림에 historical leak 있으면 repo 루트에 `.gitleaks.toml` (allowlist) 또는 `.gitleaksignore` (지문 목록) 추가. **`GITLEAKS_CONFIG` env는 의도적으로 미설정** — 미존재 경로를 강제 지정하면 action이 hard-fail함. CLI가 자동 감지함.
 
 ### 3.3 actionlint (G9)
+
 - 트리거: `.github/workflows/**` 변경
 - shell injection, expression validity 등 GHA 의미 검증
 
 ### 3.4 Dependabot pip ecosystem (G3) — 다운스트림 노이즈 주의
+
 - 본 리포(`.github`)는 Python 프로젝트이므로 `pip` ecosystem이 `pyproject.toml` / `requirements*.txt`를 추적함.
 - `.github/dependabot.yml`은 `extraFiles`를 통해 11개 다운스트림 리포에도 배포됨.
 - **다운스트림 주의**: Python manifest가 없는 리포(예: `terraform`, `tmux`)는 Dependabot이 "no manifest found" 경고를 남길 수 있음. 실제 PR은 생성되지 않으므로 **안전하며 무시 가능**. 향후 해당 리포에 Python이 추가되면 자동 활성화됨.
@@ -115,6 +121,7 @@
 ### 4.1 `pull_request_target` 가드 (G18)
 
 **As-was**:
+
 ```yaml
 if: github.event_name == 'pull_request_target' &&
     github.event.label.name == 'security-review' &&
@@ -122,6 +129,7 @@ if: github.event_name == 'pull_request_target' &&
 ```
 
 **As-is**:
+
 ```yaml
 if: github.event_name == 'pull_request_target' &&
     github.event.label.name == 'security-review' &&
@@ -132,6 +140,7 @@ if: github.event_name == 'pull_request_target' &&
 **트레이드오프 (의도된 동작)**: jclee941이 자신의 fork에서 PR을 올리고 `security-review` 라벨을 붙이면 **silently no-op**됨. 보안상 절충이며 운영자 인식 필수. 동일 리포 브랜치에서 작업하면 정상 동작.
 
 ### 4.2 액션 SHA pin (G19) — 이연
+
 P2 이연. 본 PR은 보안 워크플로(`security/10_pr-review.yml`, `06_codeql.yml`, `05_gitleaks.yml`)에도 메이저 태그(`@v3`, `@v6`)만 사용. 04_actionlint.yml의 `download-actionlint.bash`도 `main`에서 가져옴. 일괄 SHA pin은 별도 supply-chain sprint에서.
 
 ---
@@ -139,12 +148,16 @@ P2 이연. 본 PR은 보안 워크플로(`security/10_pr-review.yml`, `06_codeql
 ## 5. 품질 강화
 
 ### 5.1 Required status checks (G16)
+
 **As-was** (2 contexts, 다운스트림 동일):
+
 ```
 pr-checks / Check PR Title
 pr-checks / Check Branch Name
 ```
+
 **As-is** (3 contexts, 다운스트림 동일):
+
 ```
 pr-checks / Check PR Title
 pr-checks / Check Branch Name
@@ -154,6 +167,7 @@ Gitleaks / scan        ← NEW
 > Sanity는 fork-only이므로 다운스트림 required에서 제외. CodeQL은 `.py`만 트리거하므로 required에서 제외.
 
 ### 5.2 `concurrency` (G10, G13)
+
 | 워크플로 | group | cancel-in-progress |
 |---|---|---|
 | `10_pr-review.yml` | `pr-review-${{ github.event.pull_request.number }}` | true |
@@ -163,6 +177,7 @@ Gitleaks / scan        ← NEW
 | `04_actionlint.yml` | `actionlint-${{ github.event.pull_request.number || github.ref }}` | true |
 
 ### 5.3 `timeout-minutes` (G11)
+
 | 워크플로 | timeout |
 |---|---|
 | `34_auto-deploy.yml` | 30 |
@@ -176,6 +191,7 @@ Gitleaks / scan        ← NEW
 ## 6. 이 PR이 변경한 파일
 
 ### 신규
+
 - `.github/workflows/06_codeql.yml`
 - `.github/workflows/05_gitleaks.yml`
 - `.github/workflows/04_actionlint.yml`
@@ -184,6 +200,7 @@ Gitleaks / scan        ← NEW
 - `docs/git-workflow-gap-analysis.md` (이 문서)
 
 ### 수정
+
 - `.github/dependabot.yml` — `pip` ecosystem 추가
 - `.github/workflows/10_pr-review.yml` — concurrency
 - `.github/workflows/34_auto-deploy.yml` — concurrency + timeout
@@ -194,6 +211,7 @@ Gitleaks / scan        ← NEW
 - `AGENTS.md` — 신규 파일 반영 + `pr-review-security.yml` → `security/10_pr-review.yml` 경로 정정 + dependabot pip 반영 + runner drift 수정 (self-hosted → ubuntu-latest) + "all 12" 문구 수정 (deploy 11 vs branch-protection 12 구분)
 
 ### 삭제
+
 - `.github/workflows/reusable/` — 빈 디렉터리 (`rmdir`)
 
 ---
@@ -203,12 +221,15 @@ Gitleaks / scan        ← NEW
 이 PR을 머지한다고 끝이 아닙니다. **순서가 중요**합니다. 순서를 어기면 모든 PR이 영원히 required check 대기 상태가 됩니다.
 
 ### Phase 1 — 본 리포 머지
+
 1. 이 PR을 `jclee941/.github` master에 머지
 2. `34_auto-deploy.yml`이 자동 트리거 → 11개 다운스트림 리포에 PR 생성
 3. 각 다운스트림 PR은 *기존* required check 2개(Title, Branch Name)만 가짐. 새 워크플로(gitleaks, codeql, actionlint)는 PR 안에서 처음 실행되며 advisory로 동작 (아직 required 아님).
 
 ### Phase 2 — 다운스트림 leak 베이스라인 (조건부)
+
 다운스트림 PR에서 Gitleaks가 historical leak으로 fail 시:
+
 ```bash
 # 옵션 A: 지문 무시
 echo "<fingerprint>" >> .gitleaksignore
@@ -220,20 +241,26 @@ description = "Test fixtures"
 regexes = ['''AKIA[0-9A-Z]{16}''']
 EOF
 ```
+
 이 베이스라인을 동일 PR에 추가 커밋하여 통과시킨 뒤 머지.
 
 ### Phase 3 — 새 required context 등록
+
 모든 다운스트림 PR이 머지된 후에만:
+
 ```bash
 (cd scripts && go run ./cmd/branch-protection) --dry-run
 (cd scripts && go run ./cmd/branch-protection)         # apply
 ```
+
 이 시점부터 다운스트림 branch protection은 `Gitleaks / scan`을 required로 요구함.
 
 ⚠️ **순서를 어기면 다음이 발생**:
+
 - Phase 3을 Phase 1보다 먼저 실행 → 다운스트림에 워크플로가 없으므로 required context가 영원히 missing → **모든 PR (Dependabot 포함) auto-merge 무한 대기**
 
 ### 롤아웃 후 검증 (Phase 3 완료 후 권장)
+
 ```bash
 gh pr create --repo jclee941/resume --title 'test: validate new workflows' \
   --body 'Test new automation' --head test/validate --base master
