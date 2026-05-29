@@ -98,6 +98,32 @@ _LOGURU_RESERVED_KW = frozenset(
 _PLACEHOLDER_NAME_RE = re.compile(r"\{([a-zA-Z_][a-zA-Z_0-9]*)(?:[!:][^{}]*)?\}")
 
 
+def _mask_log_inputs(message, args, kwargs):
+    """Pass log inputs through pr_agent.algo.secret_masking before they reach loguru.
+
+    Imports lazily because pr_agent.algo imports get_logger() from this module at
+    import time, which would create a hard cycle.
+    """
+    try:
+        from pr_agent.algo.secret_masking import mask_obj, mask_text
+    except Exception:
+        return message, args, kwargs
+    try:
+        if isinstance(message, str):
+            message = mask_text(message)
+        if args:
+            args = tuple(mask_obj(a) for a in args)
+        if kwargs:
+            # Mask every kwarg value (covers artifact=, extra=, error=, ...).
+            # Keys themselves are never user input here.
+            kwargs = {k: mask_obj(v) for k, v in kwargs.items()}
+    except Exception:
+        # Never let masking crash a log call.
+        pass
+    return message, args, kwargs
+
+
+
 class _SafeLogger:
     """Wraps loguru to defuse a foot-gun: when a caller passes a
     pre-rendered message containing literal '{' or '}' (e.g. an f-string
@@ -143,6 +169,7 @@ class _SafeLogger:
         return placeholders.isdisjoint(format_kwargs)
 
     def _emit(self, level: str, message, *args, **kwargs):
+        message, args, kwargs = _mask_log_inputs(message, args, kwargs)
         if self._needs_escape(message, args, kwargs):
             message = message.replace("{", "{{").replace("}", "}}")
         # depth=2 so the record's file/line still points at the caller of
@@ -174,6 +201,7 @@ class _SafeLogger:
         self._emit("exception", message, *args, **kwargs)
 
     def log(self, lvl, message, *args, **kwargs):
+        message, args, kwargs = _mask_log_inputs(message, args, kwargs)
         if self._needs_escape(message, args, kwargs):
             message = message.replace("{", "{{").replace("}", "}}")
         self._raw.opt(depth=2).log(lvl, message, *args, **kwargs)

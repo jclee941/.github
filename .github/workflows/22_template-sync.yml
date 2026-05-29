@@ -1,0 +1,159 @@
+name: Template Sync
+
+on:
+  # Manual trigger
+  workflow_dispatch:
+  # Weekly sync (Sundays 01:00 UTC)
+  schedule:
+    - cron: '0 1 * * 0'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: template-sync-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  discover-repos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      repos: ${{ steps.discover.outputs.repos }}
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+      - name: Discover repos
+        id: discover
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          repos=$(gh api orgs/jclee941/repos --paginate \
+            --jq '.[] | select(.archived == false and .name != ".github") | .name' \
+            | sort | uniq | jq -R . | jq -s -c .)
+          echo "repos=$repos" >> "$GITHUB_OUTPUT"
+          echo "Discovered repos: $repos"
+
+  sync-templates:
+    needs: discover-repos
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        repo: ${{ fromJson(needs.discover-repos.outputs.repos) }}
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+      - name: Check out target repo
+        uses: actions/checkout@v6
+        with:
+          repository: jclee941/${{ matrix.repo }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 1
+
+      - name: Check out source templates
+        uses: actions/checkout@v6
+        with:
+          repository: jclee941/.github
+          ref: master
+          path: _templates
+          sparse-checkout: |
+            templates/README.md
+            templates/CONTRIBUTING.md
+            templates/LICENSE
+          fetch-depth: 1
+
+      - name: Sync templates
+        run: |
+          set -e
+          repo_name="${{ matrix.repo }}"
+
+          # Copy templates, replacing placeholder
+          cp _templates/templates/README.md README.md
+          cp _templates/templates/CONTRIBUTING.md CONTRIBUTING.md
+          cp _templates/templates/LICENSE LICENSE
+
+          # Replace placeholder
+          sed -i "s/{REPO_NAME}/$repo_name/g" README.md
+
+          echo "Templates synced for $repo_name"
+
+      - name: Check for changes
+        id: diff
+        run: |
+          set -eu
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No changes"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Changes detected"
+          fi
+
+      - name: Commit and push to branch
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          set -e
+          git config user.email "bot@jclee.me"
+          git config user.name "github-bot"
+          git checkout -b bot/template-sync
+          git add README.md CONTRIBUTING.md LICENSE
+          git commit -m "docs: sync standard templates from jclee941/.github [skip ci]"
+          gh auth setup-git
+          git push -u origin bot/template-sync --force-with-lease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create or update PR
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          existing=$(gh pr list --repo jclee941/${{ matrix.repo }} \
+            --head bot/template-sync --state open \
+            --json number --jq '.[0].number' || true)
+          if [ -n "$existing" ] && [ "$existing" != "null" ]; then
+            gh pr comment "$existing" --repo jclee941/${{ matrix.repo }} \
+              --body "🔄 Templates updated automatically."
+            echo "Updated existing PR #$existing"
+          else
+            # shellcheck disable=SC2016  # printf format strings must use single quotes
+            printf '%s\n' '## Summary' '' 'Synchronized standard documentation templates from the source repository:' '' '- `README.md` — bilingual project overview' '- `CONTRIBUTING.md` — bilingual contribution guidelines' '- `LICENSE` — MIT license' '' '> 자동 생성됨 (Template Sync Workflow)' > /tmp/pr-body.md
+            gh pr create --repo jclee941/${{ matrix.repo }} \
+              --title "docs: sync standard templates from jclee941/.github" \
+              --body-file /tmp/pr-body.md \
+              --base master || gh pr create --repo jclee941/${{ matrix.repo }} \
+              --title "docs: sync standard templates from jclee941/.github" \
+              --body-file /tmp/pr-body.md \
+              --base main
+          fi
+      - name: Notify on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          SHORT_SHA="${GITHUB_SHA:0:8}"
+          TITLE="[ci-fail] $GITHUB_WORKFLOW @ $SHORT_SHA"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" \
+            --state open --label ci-failure \
+            --json number,title \
+            --jq ".[] | select(.title == \"$TITLE\") | .number" 2>/dev/null | head -1 || true)
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" \
+              --body "Another failure: $RUN_URL" || true
+          else
+            gh label create ci-failure --color B60205 2>/dev/null || true
+            gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title "$TITLE" \
+              --body "$GITHUB_WORKFLOW workflow failed on \`$GITHUB_SHA\`. See [run logs]($RUN_URL)." \
+              --label ci-failure || true
+          fi

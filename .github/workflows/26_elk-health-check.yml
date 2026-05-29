@@ -1,0 +1,75 @@
+name: ELK Health Check
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Daily 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: elk-health-check
+  cancel-in-progress: false
+
+jobs:
+  elk-health-check:
+    # Homelab-only: requires access to internal Elasticsearch (host in ELK_HOST secret)
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Check Elasticsearch connectivity
+        env:
+          ELK_HOST: ${{ secrets.ELK_HOST }}
+          ELK_USERNAME: ${{ secrets.ELK_USERNAME }}
+          ELK_PASSWORD: ${{ secrets.ELK_PASSWORD }}
+        run: |
+          set -eu
+          echo "Checking Elasticsearch at ${ELK_HOST}..."
+          if curl -sS --connect-timeout 10 -m 15 -u "${ELK_USERNAME}:${ELK_PASSWORD}" \
+            "http://${ELK_HOST}/_cluster/health" 2>/dev/null | grep -q '"status"'; then
+            echo "✅ Elasticsearch is reachable"
+            curl -sS -u "${ELK_USERNAME}:${ELK_PASSWORD}" "http://${ELK_HOST}/_cluster/health?pretty"
+          else
+            echo "❌ Elasticsearch is unreachable"
+            exit 1
+          fi
+
+      - name: Check index health
+        env:
+          ELK_HOST: ${{ secrets.ELK_HOST }}
+          ELK_USERNAME: ${{ secrets.ELK_USERNAME }}
+          ELK_PASSWORD: ${{ secrets.ELK_PASSWORD }}
+        run: |
+          echo "Checking github-bot-logs indices..."
+          curl -sS --connect-timeout 10 -m 15 -u "${ELK_USERNAME}:${ELK_PASSWORD}" \
+            "http://${ELK_HOST}/_cat/indices/github-bot-logs-*?v&health=yellow,red" 2>/dev/null || true
+
+      - name: Check Filebeat indices
+        env:
+          ELK_HOST: ${{ secrets.ELK_HOST }}
+          ELK_USERNAME: ${{ secrets.ELK_USERNAME }}
+          ELK_PASSWORD: ${{ secrets.ELK_PASSWORD }}
+        run: |
+          echo "Checking Filebeat indices..."
+          curl -sS --connect-timeout 10 -m 15 -u "${ELK_USERNAME}:${ELK_PASSWORD}" \
+            "http://${ELK_HOST}/_cat/indices/filebeat-*?v&health=yellow,red" 2>/dev/null || true
+
+      - name: Checkout (for composite action resolution)
+        if: failure()
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-on-failure
+        with:
+          title: 'ELK Health Check Failed'
+          body: 'ELK health check workflow failed. Elasticsearch may be down or unreachable.'
+          labels: 'elk-health,automated'

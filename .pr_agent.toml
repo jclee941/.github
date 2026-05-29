@@ -10,6 +10,11 @@
 # FORK: route all LLM calls through homelab CLIProxyAPI
 # Public endpoint: https://cliproxy.jclee.me/v1 (origin: 192.168.50.114:8317 LXC 100)
 # Available Kimi models: kimi-k2, kimi-k2-thinking, kimi-k2.5, kimi-k2.6
+# Available Minimax models: minimax-m2.7
+# Available OpenAI-bridged models: gpt-5.5
+# Default below is used by the GitHub App (LXC 100). The PR review workflow
+# (.github/workflows/10_pr-review.yml) runs a matrix of [minimax-m2.7, gpt-5.5]
+# and overrides CONFIG.MODEL per matrix row.
 model = "kimi-k2.6"
 fallback_models = ["kimi-k2.5", "minimax-m2.7"]
 custom_model_max_tokens = 128000
@@ -26,6 +31,12 @@ response_language = "ko"
 # FORK: CLIProxyAPI endpoint via Docker internal network
 # The api_key is NOT set here; use env var OPENAI_KEY from GitHub Secrets or .env
 api_base = "https://cliproxy.jclee.me/v1"
+# FORK: provider-level fallback. If the primary api_base is unreachable
+# (connection refused / Cloudflare 524 / timeout), each model is retried
+# against these base URLs in order before moving to the next model.
+# Empty list = no provider fallback (original behavior). The fallback bases
+# must serve the same OpenAI-compatible API and accept the same api_key.
+api_base_fallbacks = []
 
 # ---------------------------------------------------------------------------
 # [litellm] — Parameter Handling
@@ -100,12 +111,11 @@ pr_commands = [
   "/describe --pr_description.publish_description_as_comment=true",
   "/review",
   "/improve",
-  "/agentic_review",
 ]
 
 # Push trigger (commits pushed to open PR)
 handle_push_trigger = true
-push_commands = ["/improve", "/agentic_review"]
+push_commands = ["/improve"]
 
 # ---------------------------------------------------------------------------
 # [github_action_config] — Supported PR Actions
@@ -118,13 +128,6 @@ pr_actions = [
   "review_requested",
   "synchronize",
 ]
-
-# ---------------------------------------------------------------------------
-# [review_agent] — Agentic Review Settings
-# ---------------------------------------------------------------------------
-[review_agent]
-enabled = true
-publish_output = true
 
 # ---------------------------------------------------------------------------
 # [pr_readme_generator] — README Auto-generation

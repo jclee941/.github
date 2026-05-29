@@ -5,12 +5,14 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
 	"testing"
 
-	"github.com/jclee941/dotgithub-scripts/internal/repos"
+	"github.com/jclee941/.github/scripts/internal/repos"
 )
 
 // allowed extensions for deployable files. Anything outside this set
@@ -19,6 +21,7 @@ var allowedDeployExtensions = map[string]struct{}{
 	".yml":  {},
 	".yaml": {},
 	".md":   {},
+	".json": {},
 	"":      {}, // CODEOWNERS has no extension
 }
 
@@ -70,14 +73,16 @@ func TestNormalizeReposAllowsExplicitCanaryOnly(t *testing.T) {
 
 func TestDownstreamAllowlistContainsRequired(t *testing.T) {
 	required := []string{
-		".github/workflows/actionlint.yml",
-		".github/workflows/codeql.yml",
-		".github/workflows/dependabot-auto-merge.yml",
-		".github/workflows/docs-sync.yml",
-		".github/workflows/gitleaks.yml",
-		".github/workflows/pr-checks.yml",
-		".github/workflows/pr-review.yml",
-		".github/workflows/security/pr-review.yml",
+		".github/workflows/04_actionlint.yml",
+		".github/workflows/14_bot-auto-fix.yml",
+		".github/workflows/06_codeql.yml",
+		".github/workflows/06_codeql.yml",
+		".github/workflows/12_dependabot-auto-merge.yml",
+		".github/workflows/21_docs-sync.yml",
+		".github/workflows/05_gitleaks.yml",
+		".github/workflows/03_pr-checks.yml",
+		".github/workflows/10_pr-review.yml",
+		".github/workflows/security/11_pr-review.yml",
 	}
 
 	for _, w := range required {
@@ -89,7 +94,7 @@ func TestDownstreamAllowlistContainsRequired(t *testing.T) {
 
 func TestAllowlistExcludesForkOnly(t *testing.T) {
 	forkOnly := []string{
-		".github/workflows/sanity.yml",
+		".github/workflows/90_sanity.yml",
 	}
 	for _, w := range forkOnly {
 		if _, ok := downstreamWorkflowAllowlist[w]; ok {
@@ -118,9 +123,13 @@ func TestExtraFilesAreSafePaths(t *testing.T) {
 	}
 
 	required := map[string]struct{}{
-		".github/dependabot.yml":           {},
-		".github/CODEOWNERS":               {},
-		".github/PULL_REQUEST_TEMPLATE.md": {},
+		".github/dependabot.yml":                              {},
+		".github/CODEOWNERS":                                  {},
+		".github/PULL_REQUEST_TEMPLATE.md":                    {},
+		".github/ISSUE_TEMPLATE/1-bug-report.yml":             {},
+		".github/ISSUE_TEMPLATE/2-feature-request.yml":        {},
+		".github/ISSUE_TEMPLATE/3-security-vulnerability.yml": {},
+		".github/ISSUE_TEMPLATE/config.yml":                   {},
 	}
 
 	seen := make(map[string]struct{}, len(extraFiles))
@@ -172,5 +181,40 @@ func TestAllowlistAndRemovedDisjoint(t *testing.T) {
 				t.Errorf("workflow %q in both lists", r)
 			}
 		}
+	}
+}
+
+func TestDependabotAutoMergeDoesNotSwallowErrors(t *testing.T) {
+	workflowPath := filepath.Join("..", "..", "..", ".github", "workflows", "12_dependabot-auto-merge.yml")
+	content, err := os.ReadFile(workflowPath)
+	if err != nil {
+		t.Fatalf("read dependabot-auto-merge workflow: %v", err)
+	}
+
+	text := string(content)
+	if strings.Contains(text, "|| echo") {
+		t.Fatal("12_dependabot-auto-merge.yml must not use `|| echo` error swallowing")
+	}
+
+	for _, want := range []string{
+		"set -euo pipefail",
+		"autoMergeRequest",
+		"repos/$REPO/pulls/$PR_NUMBER/reviews",
+		"dependabot-auto-merge:manual-review:major",
+		"dependabot-auto-merge:manual-review:unknown-update-type",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("12_dependabot-auto-merge.yml missing expected safety pattern %q", want)
+		}
+	}
+}
+
+func TestDeploymentNamingConstants(t *testing.T) {
+	if branchName != "chore/sync-automation-workflows" {
+		t.Errorf("branchName = %q; want %q", branchName, "chore/sync-automation-workflows")
+	}
+	wantTitle := "chore: sync automation workflows, dependabot, and templates"
+	if prTitle != wantTitle {
+		t.Errorf("prTitle = %q; want %q", prTitle, wantTitle)
 	}
 }

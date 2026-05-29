@@ -1,0 +1,48 @@
+name: Release Drafter
+
+# Drafts/updates a release whenever a PR is merged into the default branch.
+# Reads .github/release-drafter.yml for category + version-resolver rules.
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - edited
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-drafter-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  update_release_draft:
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+      - uses: release-drafter/release-drafter@693d20e7c1ce1a81d3a41962f85914253b518449  # v7.3.1
+        with:
+          config-name: release-drafter.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout (for composite action resolution)
+        if: failure()
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-on-failure

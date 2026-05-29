@@ -18,13 +18,14 @@ pytestmark = pytest.mark.deploy_path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS_DIR = REPO_ROOT / "scripts"
-DEPLOY_BRANCH = "chore/add-pr-review-bot-workflow"
-DEPLOY_PR_TITLE = "chore: standardize automation workflows + dependabot config"
+DEPLOY_BRANCH = "chore/sync-automation-workflows"
+DEPLOY_PR_TITLE = "chore: sync automation workflows, dependabot, and templates"
 EXPECTED_DEPLOYED_FILES = {
     ".github/workflows/",
     ".github/dependabot.yml",
     ".github/CODEOWNERS",
     ".github/PULL_REQUEST_TEMPLATE.md",
+    ".github/ISSUE_TEMPLATE/",
 }
 GO_MISSING = shutil.which("go") is None
 

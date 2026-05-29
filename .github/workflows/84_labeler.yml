@@ -1,0 +1,48 @@
+name: _Labeler
+
+# Reusable workflow: auto-label PRs based on changed files.
+# Called by downstream repos' labeler.yml.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: labeler-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  label:
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Check for labeler config
+        id: check
+        run: |
+          set -eu
+          if [ -f .github/labeler.yml ]; then
+            echo "has-config=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-config=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No .github/labeler.yml found; skipping auto-label"
+          fi
+
+      - name: Run labeler
+        if: steps.check.outputs.has-config == 'true'
+        uses: actions/labeler@v6
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          configuration-path: .github/labeler.yml
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-on-failure

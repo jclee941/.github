@@ -1,0 +1,62 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  e2e-tests:
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@v6
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest-asyncio responses
+
+      - name: Run E2E tests
+        env:
+          LITELLM_LOCAL_MODEL_COST_MAP: "true"
+          GITHUB__WEBHOOK_SECRET: "false"
+          OPENAI__KEY: "test-key"
+          OPENAI__API_BASE: "http://localhost:8317/v1"
+        run: |
+          PYTHONPATH=. pytest tests/e2e/ -v --tb=short
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: pytest-e2e-results
+          path: |
+            test-results.xml
+            .coverage
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-on-failure

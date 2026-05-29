@@ -8,7 +8,7 @@ Go automation tools for managing 16 jclee941 repos. Branch protection, workflow 
 
 ```
 scripts/
-├── go.mod                               # module github.com/jclee941/dotgithub-scripts
+├── go.mod                               # module github.com/jclee941/.github/scripts
 ├── cmd/
 │   ├── branch-protection/main.go        # auto-merge + branch protection rules
 │   ├── deploy-to-repos/main.go          # push workflows to downstream repos

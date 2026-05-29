@@ -11,14 +11,15 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
-	"github.com/jclee941/dotgithub-scripts/internal/repos"
+	"github.com/jclee941/.github/scripts/internal/repos"
 )
 
 const (
-	prTitle    = "chore: standardize automation workflows + dependabot config"
-	prBody     = "## Summary\n\nSync standard automation from `jclee941/.github`:\n\n- **PR checks** (size, title, branch name, description, large files, sensitive files) - 2 enforcing + 4 advisory contexts.\n- **Auto-review** via cli_proxy on every non-draft PR (Dependabot PRs are reviewed by `dependabot-auto-merge.yml` instead).\n- **Dependabot auto-merge** for patch + minor + github_actions updates; majors and unknown update-types are commented for manual review.\n- **CodeQL** (Python SAST), **Gitleaks** (secret scanning), **actionlint** (workflow YAML linter).\n- **`.github/dependabot.yml`** schedules weekly `github-actions` + `pip` ecosystem updates. (`pip` will warn 'no manifest found' on non-Python repos; safe to ignore until Python is added.)\n- **`.github/CODEOWNERS`** + **`.github/PULL_REQUEST_TEMPLATE.md`** - per-repo files (org-level CODEOWNERS does NOT propagate).\n- **Issue management + docs sync** workflows.\n\nDeployed by `scripts/deploy-to-repos.go` from `jclee941/.github`. See [AGENTS.md § GIT FLOW AUTOMATION](https://github.com/jclee941/.github/blob/master/AGENTS.md#git-flow-automation) for the inventory and policy.\n\n## Rollout sequence (REQUIRED ORDER - do not skip)\n\n1. **Merge this PR** — the new workflows (`gitleaks.yml`, `codeql.yml`, `actionlint.yml`) start running on subsequent PRs as **advisory** checks. They are NOT yet required.\n2. **Confirm `Gitleaks / scan` is green** — open one trivial test PR (or wait for the next real PR) and verify the Gitleaks job passes. If the repo has historical leaks, `gitleaks` will fail. In that case add a `.gitleaksignore` (one fingerprint per line) or a repo-local `.gitleaks.toml` allowlist, commit it, and re-run.\n3. **Apply branch protection** — only after step 2 succeeds, run from `jclee941/.github`:\n   ```\n   go run ./scripts/cmd/branch-protection --repos=<this-repo>\n   ```\n   This registers `Gitleaks / scan` as a third required status check (alongside the two existing `pr-checks` contexts). Skipping step 2 will deadlock all subsequent PRs (including Dependabot) on a missing required check.\n"
-	branchName = "chore/add-pr-review-bot-workflow"
+	prTitle    = "chore: sync automation workflows, dependabot, and templates"
+	prBody     = "## Summary\n\nSync standard automation from `jclee941/.github`:\n\n- **PR checks** (size, title, branch name, description, large files, sensitive files) - 2 enforcing + 4 advisory contexts.\n- **Auto-review** via cli_proxy on every non-draft PR (Dependabot PRs are reviewed by `12_dependabot-auto-merge.yml` instead).\n- **Dependabot auto-merge** for patch + minor + github_actions updates; majors and unknown update-types are commented for manual review.\n- **CodeQL** (Python SAST), **Gitleaks** (secret scanning), **actionlint** (workflow YAML linter).\n- **`.github/dependabot.yml`** schedules weekly `github-actions` + `pip` ecosystem updates. (`pip` will warn 'no manifest found' on non-Python repos; safe to ignore until Python is added.)\n- **`.github/CODEOWNERS`** + **`.github/PULL_REQUEST_TEMPLATE.md`** - per-repo files (org-level CODEOWNERS does NOT propagate).\n- **`.github/ISSUE_TEMPLATE/`** — standardized bug reports, feature requests, and security vulnerability templates.\n- **Issue management + docs sync** workflows — markdown lint, link check, README sync validation, API docs check.\n- **README generator** (`20_readme-gen.yml`) — auto-generates README.md via CLIProxyAPI (minimax-m2.7 → gpt-5.5 fallback).\n- **Template sync** (`template-sync.yml`) — deploys standard `README.md`, `CONTRIBUTING.md`, `LICENSE` templates.\n\nDeployed by `scripts/deploy-to-repos.go` from `jclee941/.github`. See [AGENTS.md § GIT FLOW AUTOMATION](https://github.com/jclee941/.github/blob/master/AGENTS.md#git-flow-automation) for the inventory and policy.\n\n## Rollout sequence (REQUIRED ORDER - do not skip)\n\n1. **Merge this PR** — the new workflows (`05_gitleaks.yml`, `06_codeql.yml`, `04_actionlint.yml`) start running on subsequent PRs as **advisory** checks. They are NOT yet required.\n2. **Confirm `Gitleaks / scan` is green** — open one trivial test PR (or wait for the next real PR) and verify the Gitleaks job passes. If the repo has historical leaks, `gitleaks` will fail. In that case add a `.gitleaksignore` (one fingerprint per line) or a repo-local `.gitleaks.toml` allowlist, commit it, and re-run.\n3. **Apply branch protection** — only after step 2 succeeds, run from `jclee941/.github`:\n   ```\n   go run ./scripts/cmd/branch-protection --repos=<this-repo>\n   ```\n   This registers `Gitleaks / scan` as a third required status check (alongside the two existing `pr-checks` contexts). Skipping step 2 will deadlock all subsequent PRs (including Dependabot) on a missing required check.\n"
+	branchName = "chore/sync-automation-workflows"
 )
 
 // canaryRepos lists dedicated live-test repositories that may be mutated only
@@ -31,27 +32,35 @@ var canaryRepos = []string{
 var workflowFiles = []string{}
 
 var downstreamWorkflowAllowlist = map[string]struct{}{
-	".github/workflows/actionlint.yml":                {},
-	".github/workflows/branch-to-pr.yml":              {},
-	".github/workflows/ci-failure-issues.yml":         {},
-	".github/workflows/codeql.yml":                    {},
-	".github/workflows/dependabot-auto-merge.yml":     {},
-	".github/workflows/docs-sync.yml":                 {},
-	".github/workflows/downstream-health-check.yml":   {},
-	".github/workflows/gitleaks.yml":                  {},
-	".github/workflows/issue-backfill.yml":            {},
-	".github/workflows/issue-management.yml":          {},
-	".github/workflows/issue-to-branch.yml":           {},
-	".github/workflows/merged-pr-cleanup.yml":         {},
-	".github/workflows/pr-auto-merge.yml":             {},
-	".github/workflows/pr-checks.yml":                 {},
-	".github/workflows/pr-review.yml":                 {},
-	".github/workflows/release-publish.yml":           {},
-	".github/workflows/reusable-docs-sync.yml":        {},
-	".github/workflows/reusable-issue-management.yml": {},
-	".github/workflows/reusable-pr-checks.yml":        {},
-	".github/workflows/security/pr-review.yml":        {},
-	// sanity.yml + auto-hardcode-scan + auto-deploy + release-drafter are fork-specific.
+	".github/workflows/20_readme-gen.yml":                {},
+	".github/workflows/08_scorecard.yml":                 {},
+	".github/workflows/24_release-notes.yml":             {},
+	".github/workflows/07_dependency-review.yml":         {},
+	".github/workflows/04_actionlint.yml":                {},
+	".github/workflows/01_branch-to-pr.yml":              {},
+	".github/workflows/14_bot-auto-fix.yml":              {},
+	".github/workflows/37_ci-failure-issues.yml":         {},
+	".github/workflows/06_codeql.yml":                    {},
+	".github/workflows/12_dependabot-auto-merge.yml":     {},
+	".github/workflows/21_docs-sync.yml":                 {},
+	".github/workflows/29_downstream-health-check.yml":   {},
+	".github/workflows/05_gitleaks.yml":                  {},
+	".github/workflows/19_issue-backfill.yml":            {},
+	".github/workflows/18_issue-management.yml":          {},
+	".github/workflows/02_issue-to-branch.yml":           {},
+	".github/workflows/15_merged-pr-cleanup.yml":         {},
+	".github/workflows/13_pr-auto-merge.yml":             {},
+	".github/workflows/03_pr-checks.yml":                 {},
+	".github/workflows/10_pr-review.yml":                 {},
+	".github/workflows/09_semantic-pr.yml":               {},
+	".github/workflows/25_release-publish.yml":           {},
+	".github/workflows/42_reusable-docs-sync.yml":        {},
+	".github/workflows/43_reusable-issue-management.yml": {},
+	".github/workflows/44_reusable-pr-checks.yml":        {},
+	".github/workflows/45_reusable-gitleaks.yml":         {},
+	".github/workflows/60_ci-auto-heal.yml":              {},
+	".github/workflows/security/11_pr-review.yml":        {},
+// sanity.yml + auto-hardcode-scan + auto-deploy + release-drafter are fork-specific.
 }
 
 // extraFiles lists non-workflow files (relative to repo root) to deploy alongside workflows.
@@ -65,11 +74,71 @@ var extraFiles = []string{
 	".github/dependabot.yml",
 	".github/CODEOWNERS",
 	".github/PULL_REQUEST_TEMPLATE.md",
+	".github/ISSUE_TEMPLATE/1-bug-report.yml",
+	".github/ISSUE_TEMPLATE/2-feature-request.yml",
+	".github/ISSUE_TEMPLATE/3-security-vulnerability.yml",
+	".github/ISSUE_TEMPLATE/config.yml",
+	".github/renovate.json",
 }
 
 // removedWorkflows lists workflows that were previously deployed but are no longer
 // in the allowlist. They will be deleted from downstream repos during deployment.
-var removedWorkflows = []string{}
+var removedWorkflows = []string{
+	".github/workflows/branch-to-pr.yml",
+	".github/workflows/issue-to-branch.yml",
+	".github/workflows/pr-checks.yml",
+	".github/workflows/actionlint.yml",
+	".github/workflows/gitleaks.yml",
+	".github/workflows/codeql.yml",
+	".github/workflows/dependency-review.yml",
+	".github/workflows/scorecard.yml",
+	".github/workflows/semantic-pr.yml",
+	".github/workflows/pr-review.yml",
+	".github/workflows/security/pr-review.yml",
+	".github/workflows/dependabot-auto-merge.yml",
+	".github/workflows/pr-auto-merge.yml",
+	".github/workflows/bot-auto-fix.yml",
+	".github/workflows/merged-pr-cleanup.yml",
+	".github/workflows/stale-repo-identifier.yml",
+	".github/workflows/pr-stale-bot.yml",
+	".github/workflows/issue-management.yml",
+	".github/workflows/issue-backfill.yml",
+	".github/workflows/readme-gen.yml",
+	".github/workflows/docs-sync.yml",
+	".github/workflows/template-sync.yml",
+	".github/workflows/release-drafter.yml",
+	".github/workflows/release-notes.yml",
+	".github/workflows/release-publish.yml",
+	".github/workflows/elk-health-check.yml",
+	".github/workflows/elk-setup.yml",
+	".github/workflows/bot-health-monitor.yml",
+	".github/workflows/downstream-health-check.yml",
+	".github/workflows/runtime-health-check.yml",
+	".github/workflows/repo-health.yml",
+	".github/workflows/org-health-report.yml",
+	".github/workflows/drift-detector.yml",
+	".github/workflows/auto-deploy.yml",
+	".github/workflows/auto-hardcode-scan.yml",
+	".github/workflows/build-and-push-app.yml",
+	".github/workflows/ci-failure-issues.yml",
+	".github/workflows/e2e.yml",
+	".github/workflows/e2e-live.yml",
+	".github/workflows/repo-review-batch.yml",
+	".github/workflows/reusable-ci.yml",
+	".github/workflows/reusable-docs-sync.yml",
+	".github/workflows/reusable-issue-management.yml",
+	".github/workflows/reusable-pr-checks.yml",
+	".github/workflows/_auto-merge.yml",
+	".github/workflows/_issue-label.yml",
+	".github/workflows/_issue-lifecycle.yml",
+	".github/workflows/_labeler.yml",
+	".github/workflows/_pr-normalize.yml",
+	".github/workflows/_pr-review-security.yml",
+	".github/workflows/_pr-size.yml",
+	".github/workflows/_stale.yml",
+	".github/workflows/_welcome.yml",
+	".github/workflows/sanity.yml",
+}
 
 type config struct {
 	dryRun     bool
@@ -78,9 +147,10 @@ type config struct {
 }
 
 type repoResult struct {
-	name   string
-	status string
-	err    error
+	name     string
+	status   string
+	err      error
+	attempts int
 }
 
 type runner struct {
@@ -121,9 +191,29 @@ func run() error {
 	for _, repo := range cfg.repos {
 		result := repoResult{name: repo}
 
-		if err := deployRepo(r, rootDir, repo, cfg.baseBranch); err != nil {
+		var err error
+		const maxAttempts = 3
+		for attempt := 1; attempt <= maxAttempts; attempt++ {
+			result.attempts = attempt
+			err = deployRepo(r, rootDir, repo, cfg.baseBranch)
+			if err == nil {
+				break
+			}
+			if attempt < maxAttempts {
+				delay := time.Duration(1<<(attempt-1)) * time.Second
+				fmt.Fprintf(os.Stdout, "[%s] attempt %d failed: %v; retrying in %v...\n", repo, attempt, err, delay)
+				time.Sleep(delay)
+			}
+		}
+
+		if err != nil {
 			result.status = "failed"
 			result.err = err
+			if !cfg.dryRun {
+				if issueErr := createFailureIssue(repo, err); issueErr != nil {
+					fmt.Fprintf(os.Stderr, "[%s] warning: failed to create failure issue: %v\n", repo, issueErr)
+				}
+			}
 		} else if cfg.dryRun {
 			result.status = "previewed"
 		} else {
@@ -222,7 +312,7 @@ func findRepoRoot() (string, error) {
 
 	current := wd
 	for {
-		candidate := filepath.Join(current, ".github/workflows/pr-checks.yml")
+		candidate := filepath.Join(current, ".github/workflows/03_pr-checks.yml")
 		if _, err := os.Stat(candidate); err == nil {
 			return current, nil
 		}
@@ -234,7 +324,7 @@ func findRepoRoot() (string, error) {
 		current = parent
 	}
 
-	return "", fmt.Errorf("could not find repo root containing .github/workflows/pr-checks.yml from %s", wd)
+	return "", fmt.Errorf("could not find repo root containing .github/workflows/03_pr-checks.yml from %s", wd)
 }
 
 func getWorkflowFiles(rootDir string) ([]string, error) {
@@ -554,6 +644,22 @@ func shellQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }
 
+func createFailureIssue(repo string, deployErr error) error {
+	title := fmt.Sprintf("[deploy-failure] %s: automation sync failed", repo)
+	body := fmt.Sprintf("## Deploy Failure Report\n\n**Repository:** jclee941/%s\n\n**Error:** %s\n\n**Timestamp:** %s\n\nAll 3 retry attempts with exponential backoff have been exhausted.\n\n## Manual Recovery\n\nTo retry deployment manually, run:\n\n```bash\ncd /home/jclee/dev/.github\n(cd scripts && go run ./cmd/deploy-to-repos) --repos=%s\n```\n\nOr run with dry-run first to preview:\n\n```bash\n(cd scripts && go run ./cmd/deploy-to-repos) --repos=%s --dry-run\n```\n\n**Labels:** deploy-failure, bot",
+		repo, deployErr, time.Now().Format(time.RFC3339), repo, repo)
+	args := []string{"issue", "create", "--repo", "jclee941/.github", "--title", title, "--body", body, "--label", "deploy-failure", "--label", "bot"}
+	cmd := exec.Command("gh", args...)
+	output, err := cmd.CombinedOutput()
+	if len(output) > 0 {
+		fmt.Fprintf(os.Stdout, "%s", string(output))
+	}
+	if err != nil {
+		return fmt.Errorf("gh issue create: %w", err)
+	}
+	return nil
+}
+
 func printSummary(w io.Writer, dryRun bool, results []repoResult) {
 	mode := "apply"
 	if dryRun {
@@ -562,7 +668,11 @@ func printSummary(w io.Writer, dryRun bool, results []repoResult) {
 	fmt.Fprintf(w, "\nSummary (%s):\n", mode)
 	for _, result := range results {
 		if result.err != nil {
-			fmt.Fprintf(w, "- %s: %s - %v\n", fullRepoName(result.name), result.status, result.err)
+			if result.attempts > 1 {
+				fmt.Fprintf(w, "- %s: %s (after %d attempts) - %v\n", fullRepoName(result.name), result.status, result.attempts, result.err)
+			} else {
+				fmt.Fprintf(w, "- %s: %s - %v\n", fullRepoName(result.name), result.status, result.err)
+			}
 			continue
 		}
 		fmt.Fprintf(w, "- %s: %s\n", fullRepoName(result.name), result.status)

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jclee941/dotgithub-scripts/internal/repos"
+	"github.com/jclee941/.github/scripts/internal/repos"
 )
 
 var protectedRepoNames = repos.Names(repos.ProtectedRepos())
@@ -158,7 +158,7 @@ func TestProtectionPayloadIsValidJSON(t *testing.T) {
 	want := []string{
 		"pr-checks / Check PR Title",
 		"pr-checks / Check Branch Name",
-		"scan",
+		"Gitleaks / scan",
 	}
 	if len(contexts) != len(want) {
 		t.Fatalf("contexts count: want %d, got %d (%v)", len(want), len(contexts), contexts)

@@ -23,7 +23,7 @@ from pathlib import Path
 
 API_BASE = os.environ.get("OPENAI_BASE_URL", "https://cliproxy.jclee.me/v1")
 API_KEY = os.environ.get("CLIPROXY_API_KEY", "")
-MODEL = "gpt-4.1-mini"
+MODELS = ["minimax-m2.7", "gpt-5.5"]
 MAX_TOKENS = 4000
 
 
@@ -66,37 +66,130 @@ def read_key_files(repo_root: Path) -> dict[str, str]:
             text = path.read_text(encoding="utf-8", errors="ignore")
             result[name] = text[:2000]  # cap each file
     return result
+    """Read important config / entry-point files for context."""
+    candidates = [
+        "package.json",
+        "pyproject.toml",
+        "setup.py",
+        "go.mod",
+        "Cargo.toml",
+        "requirements.txt",
+        "Makefile",
+        "Dockerfile",
+        "docker-compose.yml",
+        "README.md",
+    ]
+    result: dict[str, str] = {}
+    for name in candidates:
+        path = repo_root / name
+        if path.exists():
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            result[name] = text[:2000]  # cap each file
+    return result
 
 
 def call_llm(system: str, user: str) -> str:
-    """Call CLIProxyAPI (OpenAI-compatible) and return the generated text."""
+    """Call CLIProxyAPI (OpenAI-compatible) with fallback models."""
     if not API_KEY:
         raise SystemExit("ERROR: CLIPROXY_API_KEY environment variable is required.")
 
-    payload = {
-        "model": MODEL,
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-        "max_tokens": MAX_TOKENS,
-        "temperature": 0.3,
-    }
-    req = urllib.request.Request(
-        f"{API_BASE}/chat/completions",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {API_KEY}",
-        },
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=300) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-    return data["choices"][0]["message"]["content"]
+    last_error = None
+    for model in MODELS:
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            "max_tokens": MAX_TOKENS,
+            "temperature": 0.3,
+        }
+        req = urllib.request.Request(
+            f"{API_BASE}/chat/completions",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {API_KEY}",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=300) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            content = data["choices"][0]["message"]["content"]
+            print(f"Generated with model: {model}")
+            return content
+        except Exception as e:
+            last_error = e
+            print(f"Model {model} failed: {e}")
+            continue
+
+    raise SystemExit(f"ERROR: All models failed. Last error: {last_error}")
 
 
 def generate_readme(repo_root: Path) -> str:
+    tree = run_tree(repo_root)
+    files = read_key_files(repo_root)
+
+    # Scan workflow files
+    workflows_dir = repo_root / ".github" / "workflows"
+    workflows = []
+    if workflows_dir.exists():
+        for wf in sorted(workflows_dir.glob("*.yml")):
+            workflows.append(wf.name)
+        for wf in sorted((workflows_dir / "security").glob("*.yml")):
+            workflows.append(f"security/{wf.name}")
+
+    # Scan Go automation tools
+    scripts_dir = repo_root / "scripts" / "cmd"
+    go_tools = []
+    if scripts_dir.exists():
+        for d in sorted(scripts_dir.iterdir()):
+            if d.is_dir() and (d / "main.go").exists():
+                go_tools.append(d.name)
+
+    # Read AGENTS.md for automation inventory
+    agents_md = ""
+    agents_path = repo_root / "AGENTS.md"
+    if agents_path.exists():
+        agents_md = agents_path.read_text(encoding="utf-8", errors="ignore")[:4000]
+
+    system = (
+        "You are a technical writer bot specialized in GitHub automation documentation. "
+        "Generate a comprehensive, professional README.md in Korean and English (bilingual). "
+        "Use Markdown. Structure: title, badges, overview, features, architecture, "
+        "automation inventory (workflows + tools), quick start, local development, "
+        "commands reference, and contribution guide. "
+        "Be specific about what automation exists - list workflow names and tool names. "
+        "Current models: minimax-m2.7 and gpt-5.5 (via CLIProxyAPI). "
+    )
+
+    user_parts = [
+        "Generate a comprehensive README.md for the following repository.",
+        "",
+        "=== PROJECT STRUCTURE ===",
+        tree,
+        "",
+        "=== WORKFLOW FILES (", str(len(workflows)), " total) ===",
+        "\n".join(workflows),
+        "",
+        "=== GO AUTOMATION TOOLS (", str(len(go_tools)), " total) ===",
+        "\n".join(go_tools),
+        "",
+    ]
+
+    for name, content in files.items():
+        user_parts.append(f"=== {name} ===")
+        user_parts.append(content)
+        user_parts.append("")
+
+    if agents_md:
+        user_parts.append("=== AUTOMATION INVENTORY (AGENTS.md) ===")
+        user_parts.append(agents_md)
+        user_parts.append("")
+
+    user = "\n".join(user_parts)
+    return call_llm(system, user)
     tree = run_tree(repo_root)
     files = read_key_files(repo_root)
 

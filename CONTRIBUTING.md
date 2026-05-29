@@ -70,7 +70,7 @@ for f in scripts/*.go; do go build -o /tmp/check-$(basename "$f" .go) "$f"; done
 - Never paste API keys, tokens, or PII into PR descriptions, issue bodies, or commit messages.
 - The `Gitleaks / scan` workflow blocks merges that introduce real-looking secrets. False positives can be allowlisted in `.gitleaksignore` (commit-pinned fingerprint format).
 - For active vulnerabilities, open a **private** security advisory:
-  https://github.com/jclee941/.github/security/advisories/new
+  <https://github.com/jclee941/.github/security/advisories/new>
 
 ## Documentation expectations
 

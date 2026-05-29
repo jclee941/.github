@@ -1,0 +1,52 @@
+name: _Auto Merge
+
+# Reusable workflow: enables auto-merge on approved human-authored PRs.
+# Called by downstream repos' auto-merge.yml.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+concurrency:
+  group: auto-merge-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  auto-merge:
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Enable auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
+          IS_DRAFT: ${{ github.event.pull_request.draft }}
+        run: |
+          set -e
+          # Only proceed if PR is from the same repo (no forks) and not draft
+          if [ "$HEAD_REPO" != "$REPO" ]; then
+            echo "::notice::Skipping auto-merge for fork PR"
+            exit 0
+          fi
+          if [ "$IS_DRAFT" = "true" ]; then
+            echo "::notice::Skipping auto-merge for draft PR"
+            exit 0
+          fi
+          # Enable auto-merge with squash
+          gh pr merge --auto --squash "$PR_URL" || echo "::notice::Auto-merge may already be enabled"
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-on-failure

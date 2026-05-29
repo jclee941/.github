@@ -147,7 +147,6 @@ def convert_to_markdown_v2(output_data: dict,
         'contribution_time_cost_estimate': '⏳',
         'todo_sections': '📝',
         'score': '🏅',
-        'focused_pr': '✨',
         'related_ticket': '🎫',
         'insights_from_user_answer': '📝',
         'code_feedback': '🤖',
@@ -238,18 +237,18 @@ def convert_to_markdown_v2(output_data: dict,
             if gfm_supported:
                 markdown_text += "<tr><td>"
                 if is_value_no(value):
-                    markdown_text += f"✅&nbsp;<strong>TODO 섹션 없음</strong>"
+                    markdown_text += f"✅&nbsp;<strong>할 일 섹션 없음</strong>"
                 else:
                     markdown_todo_items = format_todo_items(value, git_provider, gfm_supported)
-                    markdown_text += f"{emoji}&nbsp;<strong>TODO 섹션</strong>\n<br><br>\n"
+                    markdown_text += f"{emoji}&nbsp;<strong>할 일 섹션</strong>\n<br><br>\n"
                     markdown_text += markdown_todo_items
                 markdown_text += "</td></tr>\n"
             else:
                 if is_value_no(value):
-                    markdown_text += f"### ✅ TODO 섹션 없음\n\n"
+                    markdown_text += f"### ✅ 할 일 섹션 없음\n\n"
                 else:
                     markdown_todo_items = format_todo_items(value, git_provider, gfm_supported)
-                    markdown_text += f"### {emoji} TODO sections\n\n"
+                    markdown_text += f"### {emoji} 할 일 섹션\n\n"
                     markdown_text += markdown_todo_items
         elif 'can be split' in key_nice.lower():
             if gfm_supported:
@@ -762,6 +761,17 @@ def load_yaml(response_text: str, keys_fix_yaml: List[str] = [], first_key="", l
         else:
             get_logger().info(f"Successfully parsed AI prediction after fallbacks",
                               artifact={'response_text': response_text})
+    # Defensive: yaml.safe_load can return a plain scalar (str, int, bool, None)
+    # when the LLM response has no structure. Callers expect dict or list and call
+    # .get() / .items() on the result. Coerce scalars to {} so downstream code
+    # doesn't crash with 'str object has no attribute get'.
+    # Note: list is a valid return type (see test_load_invalid_yaml2) - preserve it.
+    if data is not None and not isinstance(data, (dict, list)):
+        get_logger().warning(
+            f"load_yaml: parsed value is not a dict or list (got {type(data).__name__}); coercing to empty dict",
+            artifact={"value_preview": str(data)[:200]},
+        )
+        data = {}
     return data
 
 

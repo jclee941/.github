@@ -35,14 +35,14 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jclee941/dotgithub-scripts/internal/repos"
+	"github.com/jclee941/.github/scripts/internal/repos"
 )
 
 // protectionPayload is the JSON body for the branch protection PUT call.
 // Free-tier-safe. Required status checks (3 contexts):
 //  1. "pr-checks / Check PR Title"   - Conventional Commits enforcement
 //  2. "pr-checks / Check Branch Name" - branch prefix enforcement
-//  3. "scan"                        - secret-pattern detection
+//  3. "Gitleaks / scan"            - secret-pattern detection
 //
 // Sanity ("Sanity / import-check") is fork-specific to .github (imports
 // pr_agent) and is NOT a required check on downstream repos.
@@ -63,7 +63,7 @@ const protectionPayload = `{
     "contexts": [
       "pr-checks / Check PR Title",
       "pr-checks / Check Branch Name",
-      "scan"
+      "Gitleaks / scan"
     ]
   },
   "enforce_admins": false,

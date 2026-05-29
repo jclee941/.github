@@ -18,11 +18,15 @@ flowchart TB
         WEB["github-bot-app<br/>(localhost:3001)"]
         PROXY["CLIProxyAPI<br/>(localhost:8317)"]
         LLM["Claude / Codex / Gemini<br/>CLI"]
+        FB["Filebeat<br/>(로그 수집)"]
+        ES["Elasticsearch<br/>(192.168.50.105:9200)"]
     end
 
     GH -->|"Webhook<br/>pull_request.opened"| CF
     CF -->|"TLS Reverse Proxy"| WEB
-    WEB -->|"litellm.completion<br/>model=kimi-k2.6"| PROXY
+    WEB -->|"litellm.completion<br/>model=minimax-m2.7"| PROXY
+    WEB -->|"Docker JSON logs"| FB
+    FB -->|"로그 전송"| ES
     PROXY -->|"OpenAI-compatible API"| LLM
     LLM -->|"생성된 리뷰"| PROXY
     PROXY -->|"JSON 응답"| WEB
@@ -30,9 +34,11 @@ flowchart TB
 
     style GH fill:#6ba06a,stroke:#333,color:#fff
     style CF fill:#f48120,stroke:#333,color:#fff
-    style WEB fill:#4a90d9,stroke:#333,color:#fff
-    style PROXY fill:#9b59b6,stroke:#333,color:#fff
-    style LLM fill:#e74c3c,stroke:#333,color:#fff
+style WEB fill:#4a90d9,stroke:#333,color:#fff
+style PROXY fill:#9b59b6,stroke:#333,color:#fff
+style LLM fill:#e74c3c,stroke:#333,color:#fff
+style FB fill:#f39c12,stroke:#333,color:#fff
+style ES fill:#27ae60,stroke:#333,color:#fff
 ```
 
 ### 구성 요소 설명
@@ -41,9 +47,11 @@ flowchart TB
 |-----------|------|------|
 | **GitHub** | PR 이벤트 발생, 리뷰 코멘트 표시 | Public Cloud |
 | **Cloudflare Tunnel** | 홈랩 남부 네트워크에 퍼블릭 HTTPS 엔드포인트 제공 | Cloudflare Edge |
-| **github-bot-app** | Webhook 수신, pr-agent 실행, GitHub API 호출 | LXC 100 (192.168.50.102) |
-| **CLIProxyAPI** | Claude/Codex/Gemini CLI를 OpenAI API로 래핑 | LXC 100 (localhost:8317) |
-| **AI CLI** | 실제 LLM 추론 수행 (Claude Code / Codex CLI / Gemini CLI) | LXC 100 (로컬 실행) |
+| **github-bot-app** | Webhook 수신, pr-agent 실행, GitHub API 호출 | LXC 114 (192.168.50.114) |
+| **CLIProxyAPI** | Claude/Codex/Gemini CLI를 OpenAI API로 래핑 | LXC 114 (localhost:8317) |
+| **AI CLI** | 실제 LLM 추론 수행 (Claude Code / Codex CLI / Gemini CLI) | LXC 114 (로컬 실행) |
+| **Filebeat** | Docker 컨테이너 로그 수집 및 전송 | LXC 114 (localhost) |
+| **Elasticsearch** | 중앙 로그 저장 및 검색 | LXC 105 (192.168.50.105) |
 
 ---
 
@@ -70,7 +78,7 @@ flowchart TD
     OPTIONAL --> DOCS["docs-sync.yml<br/>(문서 품질)"]
     
     OPTIONAL --> SECURITY{"security-review<br/>라벨?"}
-    SECURITY -->|Yes| DEEP["security/pr-review.yml<br/>(심층 보안 감사)"]
+    SECURITY -->|Yes| DEEP["security/11_pr-review.yml<br/>(심층 보안 감사)"]
     SECURITY -->|No| MERGE_CHECK
     
     DEEP --> MERGE_CHECK{머지 조건 충족?}
@@ -208,7 +216,7 @@ flowchart LR
 flowchart TD
     START(("Push to master<br/>(.github)")) --> TRIGGER{"변경된 파일?"}
     
-    TRIGGER -->|workflows/| DEPLOY["auto-deploy.yml"]
+    TRIGGER -->|workflows/| DEPLOY["34_auto-deploy.yml"]
     TRIGGER -->|dependabot.yml| DEPLOY
     TRIGGER -->|CODEOWNERS| DEPLOY
     TRIGGER -->|PR template| DEPLOY
@@ -275,12 +283,12 @@ flowchart TD
     AUTHOR -->|human| TYPE{"변경 유형?"}
     
     TYPE -->|docs only| DOCS["describe only"]
-    TYPE -->|feat/fix/refactor| FULL1["describe + review<br/>+ improve + agentic_review"]
+    TYPE -->|feat/fix/refactor| FULL1["describe + review"]
     TYPE -->|other| SIZE{"변경량?"}
     
     SIZE -->|< 50 LOC| SMALL["review only"]
     SIZE -->|> 1000 LOC| LARGE["describe + review"]
-    SIZE -->|50~1000 LOC| DEFAULT["describe + review<br/>+ improve + agentic_review"]
+    SIZE -->|50~1000 LOC| DEFAULT["describe + review"]
     
     BOT --> END(("실행"))
     DOCS --> END
@@ -325,7 +333,7 @@ flowchart LR
     PR --> DOCS["docs-sync.yml"]
     PR --> DEPENDABOT["dependabot-auto-merge.yml<br/>(dependabot만)"]
     
-    PUSH --> AUTO_DEPLOY["auto-deploy.yml<br/>(조건부)"]
+    PUSH --> AUTO_DEPLOY["34_auto-deploy.yml<br/>(조건부)"]
     PUSH --> RELEASE_D["release-drafter.yml"]
     PUSH --> RELEASE_P["release-publish.yml"]
     PUSH --> GITLEAKS
@@ -360,7 +368,7 @@ flowchart TD
     LABEL -->|Yes| GUARD{"head.repo.full_name ==<br/>github.repository?"}
     
     GUARD -->|No| BLOCK["❌ 차단<br/>(fork PR 토큰 탈취 방지)"]
-    GUARD -->|Yes| SECURE["security/pr-review.yml<br/>심층 보안 감사"]
+    GUARD -->|Yes| SECURE["security/11_pr-review.yml<br/>심층 보안 감사"]
     
     SECURE --> OWASP["OWASP Top 10<br/>체크리스트"]
     OWASP --> SECRET["Secret / Key<br/>관리 검증"]

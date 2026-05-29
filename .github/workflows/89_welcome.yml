@@ -1,0 +1,41 @@
+name: _Welcome
+
+# Reusable workflow: welcome first-time contributors.
+# Called by downstream repos' welcome.yml.
+
+on:
+  workflow_call:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: welcome-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  welcome:
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+      - name: Welcome first interaction
+        uses: actions/first-interaction@v3
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_message: |
+            Welcome! Thanks for opening your first issue. We appreciate your contribution.
+          pr_message: |
+            Welcome! Thanks for opening your first pull request. Please ensure your PR follows our contribution guidelines.
+      - name: Checkout (for composite action resolution)
+        if: failure()
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-on-failure
