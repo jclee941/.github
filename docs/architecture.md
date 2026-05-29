@@ -78,7 +78,7 @@ flowchart TD
     OPTIONAL --> DOCS["docs-sync.yml<br/>(문서 품질)"]
     
     OPTIONAL --> SECURITY{"security-review<br/>라벨?"}
-    SECURITY -->|Yes| DEEP["security/pr-review.yml<br/>(심층 보안 감사)"]
+    SECURITY -->|Yes| DEEP["security/11_pr-review.yml<br/>(심층 보안 감사)"]
     SECURITY -->|No| MERGE_CHECK
     
     DEEP --> MERGE_CHECK{머지 조건 충족?}
@@ -368,7 +368,7 @@ flowchart TD
     LABEL -->|Yes| GUARD{"head.repo.full_name ==<br/>github.repository?"}
     
     GUARD -->|No| BLOCK["❌ 차단<br/>(fork PR 토큰 탈취 방지)"]
-    GUARD -->|Yes| SECURE["security/pr-review.yml<br/>심층 보안 감사"]
+    GUARD -->|Yes| SECURE["security/11_pr-review.yml<br/>심층 보안 감사"]
     
     SECURE --> OWASP["OWASP Top 10<br/>체크리스트"]
     OWASP --> SECRET["Secret / Key<br/>관리 검증"]
