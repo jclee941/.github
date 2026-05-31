@@ -44,6 +44,7 @@ func main() {
 		{"extraFiles have allowed extensions", v.extraFilesExtensions, nil},
 		{"required status checks match workflow check-run names", v.requiredStatusChecksMatchWorkflowContexts, nil},
 		{"notify-on-failure jobs checkout local actions first", v.notifyOnFailureRequiresCheckout, nil},
+		{"workflows query users/ not orgs/ for jclee941", v.noOrgEndpointForUserAccount, nil},
 	}
 
 	failed := 0
@@ -769,6 +770,41 @@ func (v *validator) notifyOnFailureRequiresCheckout() error {
 
 	if len(offenders) > 0 {
 		return fmt.Errorf("jobs use ./.github/actions/notify-on-failure without a prior default-path checkout: %s", strings.Join(offenders, "; "))
+	}
+	return nil
+}
+
+// noOrgEndpointForUserAccount guards against a recurring bug: jclee941 is a
+// USER account, not an organization, so `gh api orgs/jclee941/...` returns 404
+// and silently (2>/dev/null) yields empty repo lists or hard-fails matrix jobs.
+// All repo discovery must use the users/ endpoint.
+func (v *validator) noOrgEndpointForUserAccount() error {
+	dirs := []string{
+		filepath.Join(v.rootDir, ".github", "workflows"),
+		filepath.Join(v.rootDir, ".github", "workflows", "security"),
+	}
+	var offenders []string
+	for _, d := range dirs {
+		entries, err := os.ReadDir(d)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if e.IsDir() || !(strings.HasSuffix(e.Name(), ".yml") || strings.HasSuffix(e.Name(), ".yaml")) {
+				continue
+			}
+			p := filepath.Join(d, e.Name())
+			b, err := os.ReadFile(p)
+			if err != nil {
+				return fmt.Errorf("read workflow %s: %w", p, err)
+			}
+			if strings.Contains(string(b), "orgs/jclee941") {
+				offenders = append(offenders, e.Name())
+			}
+		}
+	}
+	if len(offenders) > 0 {
+		return fmt.Errorf("workflows query the orgs/ endpoint for the jclee941 USER account (use users/jclee941): %s", strings.Join(offenders, ", "))
 	}
 	return nil
 }

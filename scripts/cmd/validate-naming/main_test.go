@@ -114,3 +114,33 @@ func TestNotifyOnFailureRequiresCheckoutRepoClean(t *testing.T) {
 		t.Fatalf("repo should satisfy notify-on-failure checkout invariant: %v", err)
 	}
 }
+
+func TestNoOrgEndpointForUserAccountDetectsOffender(t *testing.T) {
+	tmpDir := t.TempDir()
+	dir := filepath.Join(tmpDir, ".github", "workflows")
+	os.MkdirAll(dir, 0o755)
+	bad := "jobs:\n  x:\n    steps:\n      - run: gh api orgs/jclee941/repos\n"
+	os.WriteFile(filepath.Join(dir, "99_bad.yml"), []byte(bad), 0o644)
+
+	v := &validator{rootDir: tmpDir}
+	if err := v.noOrgEndpointForUserAccount(); err == nil {
+		t.Fatal("expected orgs/jclee941 usage to be flagged")
+	}
+
+	good := "jobs:\n  x:\n    steps:\n      - run: gh api users/jclee941/repos\n"
+	os.WriteFile(filepath.Join(dir, "99_bad.yml"), []byte(good), 0o644)
+	if err := v.noOrgEndpointForUserAccount(); err != nil {
+		t.Fatalf("users/jclee941 should pass, got: %v", err)
+	}
+}
+
+func TestNoOrgEndpointForUserAccountRepoClean(t *testing.T) {
+	rootDir, err := findRepoRoot()
+	if err != nil {
+		t.Fatalf("find repo root: %v", err)
+	}
+	v := &validator{rootDir: rootDir}
+	if err := v.noOrgEndpointForUserAccount(); err != nil {
+		t.Fatalf("repo should not use orgs/ endpoint for jclee941: %v", err)
+	}
+}
