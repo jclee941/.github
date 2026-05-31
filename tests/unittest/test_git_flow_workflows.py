@@ -240,12 +240,21 @@ class TestReadmeGeneratorOwnRepo:
         )
 
     def test_push_is_idempotent_and_pat_authed(self):
-        """Push must fetch the remote branch first (valid lease) and use GH_PAT so
-        the pushed branch triggers PR checks / auto-merge. [skip ci] must be gone."""
+        """Push must be idempotent for both the first run (no remote branch yet)
+        and re-runs, and use GH_PAT so the pushed branch triggers PR checks /
+        auto-merge. [skip ci] must be gone."""
         text = read_workflow("readme-gen.yml")
-        assert "git fetch origin bot/auto-readme-update" in text, (
-            "push must fetch the remote bot branch first or --force-with-lease will "
-            "fail with 'stale info' on re-runs."
+        # checkout -B + plain --force works whether or not the remote branch
+        # exists. An explicit --force-with-lease=...:refs/remotes/... reference
+        # FAILS on the first run with 'cannot parse expected object name' because
+        # the remote-tracking ref does not exist yet.
+        assert "git push -u origin bot/auto-readme-update --force" in text, (
+            "push must use 'git push -u origin bot/auto-readme-update --force' so it "
+            "works on both first-run and re-run without a stale/missing lease."
+        )
+        assert "--force-with-lease" not in text, (
+            "--force-with-lease=...:refs/remotes/origin/... breaks on the first run "
+            "(remote-tracking ref absent). Use plain --force for the bot branch."
         )
         commit_lines = [ln for ln in text.splitlines() if "git commit -m" in ln]
         assert commit_lines, "20_readme-gen.yml has no git commit line"
