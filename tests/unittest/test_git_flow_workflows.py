@@ -209,3 +209,110 @@ class TestSanityWorkflow:
         assert not missing, (
             f"sanity.yml is missing TOML parsing checks: {missing}"
         )
+
+
+# ---------------------------------------------------------------------------
+# README generator must run on the source repo (jclee941/.github) itself
+# ---------------------------------------------------------------------------
+
+class TestReadmeGeneratorOwnRepo:
+    """20_readme-gen.yml must keep the source repo's own README current."""
+
+    def test_does_not_skip_source_repo(self):
+        """The job must NOT carry a guard that skips jclee941/.github."""
+        text = read_workflow("readme-gen.yml")
+        assert "github.repository != 'jclee941/.github'" not in text, (
+            "20_readme-gen.yml still skips the source repo; the bot can never "
+            "auto-update its own README. Remove the repository != guard."
+        )
+
+    def test_single_commit_branch_block(self):
+        """Only ONE 'git checkout -b bot/auto-readme-update' may exist."""
+        text = read_workflow("readme-gen.yml")
+        assert text.count("git checkout -b bot/auto-readme-update") == 1, (
+            "20_readme-gen.yml has a duplicated commit/push block; "
+            "collapse it into a single idempotent push."
+        )
+
+    def test_run_blocks_use_set_eu(self):
+        """Shell run blocks must use 'set -eu' (not bare 'set -e')."""
+        text = read_workflow("readme-gen.yml")
+        # No bare 'set -e' line should remain (it must be 'set -eu' or stricter).
+        bare = [
+            ln for ln in text.splitlines()
+            if ln.strip() == "set -e"
+        ]
+        assert not bare, (
+            "20_readme-gen.yml has bare 'set -e' blocks; use 'set -eu'."
+        )
+
+
+# ---------------------------------------------------------------------------
+# Template sync must NOT clobber the (LLM-generated) README
+# ---------------------------------------------------------------------------
+
+class TestTemplateSyncDoesNotTouchReadme:
+    """22_template-sync.yml must sync only CONTRIBUTING.md + LICENSE."""
+
+    def test_no_readme_sparse_checkout(self):
+        text = read_workflow("template-sync.yml")
+        assert "templates/README.md" not in text, (
+            "22_template-sync.yml still sparse-checks-out templates/README.md; "
+            "it would clobber the LLM-generated README from 20_readme-gen.yml."
+        )
+
+    def test_no_readme_copy(self):
+        text = read_workflow("template-sync.yml")
+        assert "README.md README.md" not in text and "cp _templates/templates/README.md" not in text, (
+            "22_template-sync.yml still copies a static README over the repo README."
+        )
+
+    def test_does_not_stage_readme(self):
+        text = read_workflow("template-sync.yml")
+        # git add must not include README.md anymore.
+        add_lines = [ln for ln in text.splitlines() if "git add" in ln]
+        for ln in add_lines:
+            assert "README.md" not in ln, (
+                f"22_template-sync.yml still stages README.md: {ln.strip()}"
+            )
+
+
+# ---------------------------------------------------------------------------
+# Auto-merge workflows must self-heal BLOCKED (stale-base) PRs
+# ---------------------------------------------------------------------------
+
+class TestAutoMergeSelfHeal:
+    """12_dependabot-auto-merge.yml and 13_pr-auto-merge.yml must update
+    a stale base branch when GitHub reports mergeStateStatus=BLOCKED while
+    checks pass, so required-context drift unblocks itself. They must NEVER
+    bypass branch protection with --admin."""
+
+    WORKFLOWS = ["dependabot-auto-merge.yml", "pr-auto-merge.yml"]
+
+    def test_inspects_merge_state_status(self):
+        for wf in self.WORKFLOWS:
+            text = read_workflow(wf)
+            assert "mergeStateStatus" in text, (
+                f"{wf} must inspect mergeStateStatus to detect BLOCKED PRs"
+            )
+
+    def test_calls_update_branch(self):
+        for wf in self.WORKFLOWS:
+            text = read_workflow(wf)
+            assert "update-branch" in text, (
+                f"{wf} must call 'gh pr update-branch' to self-heal stale bases"
+            )
+
+    def test_never_uses_admin_bypass(self):
+        for wf in self.WORKFLOWS:
+            text = read_workflow(wf)
+            # Only flag --admin in executable lines, not in explanatory
+            # comments like 'We never use --admin'.
+            offending = [
+                ln for ln in text.splitlines()
+                if "--admin" in ln and not ln.lstrip().startswith("#")
+            ]
+            assert not offending, (
+                f"{wf} must NOT use --admin (never bypass branch protection): "
+                f"{offending}"
+            )

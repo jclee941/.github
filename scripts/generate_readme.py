@@ -16,7 +16,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
 import sys
 import urllib.request
 from pathlib import Path
@@ -46,26 +45,6 @@ def run_tree(repo_root: Path) -> str:
 
 
 def read_key_files(repo_root: Path) -> dict[str, str]:
-    """Read important config / entry-point files for context."""
-    candidates = [
-        "package.json",
-        "pyproject.toml",
-        "setup.py",
-        "go.mod",
-        "Cargo.toml",
-        "requirements.txt",
-        "Makefile",
-        "Dockerfile",
-        "docker-compose.yml",
-        "README.md",
-    ]
-    result: dict[str, str] = {}
-    for name in candidates:
-        path = repo_root / name
-        if path.exists():
-            text = path.read_text(encoding="utf-8", errors="ignore")
-            result[name] = text[:2000]  # cap each file
-    return result
     """Read important config / entry-point files for context."""
     candidates = [
         "package.json",
@@ -161,7 +140,7 @@ def generate_readme(repo_root: Path) -> str:
         "automation inventory (workflows + tools), quick start, local development, "
         "commands reference, and contribution guide. "
         "Be specific about what automation exists - list workflow names and tool names. "
-        "Current models: minimax-m2.7 and gpt-5.5 (via CLIProxyAPI). "
+        "Current README-gen models: minimax-m2.7 with fallback gpt-5.5 (via CLIProxyAPI). "
     )
 
     user_parts = [
@@ -186,29 +165,6 @@ def generate_readme(repo_root: Path) -> str:
     if agents_md:
         user_parts.append("=== AUTOMATION INVENTORY (AGENTS.md) ===")
         user_parts.append(agents_md)
-        user_parts.append("")
-
-    user = "\n".join(user_parts)
-    return call_llm(system, user)
-    tree = run_tree(repo_root)
-    files = read_key_files(repo_root)
-
-    system = (
-        "You are a technical writer bot. Generate a clean, professional README.md in Korean. "
-        "Use Markdown. Include: title, description, features, installation, usage, project structure, "
-        "and contribution guide if applicable. Keep it concise but informative."
-    )
-
-    user_parts = [
-        "Generate a README.md for the following repository.",
-        "",
-        "=== PROJECT STRUCTURE ===",
-        tree,
-        "",
-    ]
-    for name, content in files.items():
-        user_parts.append(f"=== {name} ===")
-        user_parts.append(content)
         user_parts.append("")
 
     user = "\n".join(user_parts)

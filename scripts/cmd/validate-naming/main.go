@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"go/ast"
@@ -9,8 +10,10 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
+	"sort"
+	"strconv"
 	"strings"
-	"unicode"
 )
 
 // validation checks cross-file invariants for the deployment system.
@@ -39,6 +42,8 @@ func main() {
 		{"issue templates follow kebab-case", v.issueTemplatesKebabCase, nil},
 		{"workflows follow naming convention", v.workflowsNamingConvention, nil},
 		{"extraFiles have allowed extensions", v.extraFilesExtensions, nil},
+		{"required status checks match workflow check-run names", v.requiredStatusChecksMatchWorkflowContexts, nil},
+		{"notify-on-failure jobs checkout local actions first", v.notifyOnFailureRequiresCheckout, nil},
 	}
 
 	failed := 0
@@ -120,7 +125,11 @@ func extractGoConst(filePath string, constNames []string) (map[string]string, er
 				}
 				if i < len(valueSpec.Values) {
 					if lit, ok := valueSpec.Values[i].(*ast.BasicLit); ok && lit.Kind == token.STRING {
-						result[name.Name] = strings.Trim(lit.Value, `"`)
+						value, err := strconv.Unquote(lit.Value)
+						if err != nil {
+							return nil, fmt.Errorf("unquote %s in %s: %w", name.Name, filePath, err)
+						}
+						result[name.Name] = value
 					}
 				}
 			}
@@ -366,9 +375,7 @@ func (v *validator) codeownersCoversExtraFiles() error {
 			if patDir == "." {
 				patDir = pattern
 			}
-			if strings.HasSuffix(patDir, "/") {
-				patDir = strings.TrimSuffix(patDir, "/")
-			}
+			patDir = strings.TrimSuffix(patDir, "/")
 			checkDir := strings.TrimSuffix(dir, "/")
 			if strings.HasPrefix(checkDir, patDir) || checkDir == patDir {
 				covered = true
@@ -416,9 +423,7 @@ func (v *validator) fixCodeowners() error {
 			if patDir == "." {
 				patDir = pattern
 			}
-			if strings.HasSuffix(patDir, "/") {
-				patDir = strings.TrimSuffix(patDir, "/")
-			}
+			patDir = strings.TrimSuffix(patDir, "/")
 			checkDir := strings.TrimSuffix(dir, "/")
 			if strings.HasPrefix(checkDir, patDir) || checkDir == patDir {
 				covered = true
@@ -526,6 +531,301 @@ func (v *validator) extraFilesExtensions() error {
 	return nil
 }
 
+func (v *validator) requiredStatusChecksMatchWorkflowContexts() error {
+	produced, err := v.producedWorkflowContexts()
+	if err != nil {
+		return err
+	}
+
+	producedSet := make(map[string]bool, len(produced))
+	for _, context := range produced {
+		producedSet[context] = true
+	}
+
+	requiredBySource, err := v.requiredStatusCheckContexts()
+	if err != nil {
+		return err
+	}
+
+	for source, required := range requiredBySource {
+		for _, context := range required {
+			if !producedSet[context] {
+				return fmt.Errorf("%s requires status check %q, but produced workflow contexts are %v", source, context, produced)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (v *validator) requiredStatusCheckContexts() (map[string][]string, error) {
+	branchContexts, err := v.branchProtectionRequiredContexts()
+	if err != nil {
+		return nil, err
+	}
+	rulesetContexts, err := v.rulesetsManagerRequiredContexts()
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string][]string{
+		"branch-protection": branchContexts,
+		"rulesets-manager":  rulesetContexts,
+	}, nil
+}
+
+func (v *validator) branchProtectionRequiredContexts() ([]string, error) {
+	goConsts, err := extractGoConst(v.branchProtectionFile(), []string{"protectionPayload"})
+	if err != nil {
+		return nil, err
+	}
+
+	var payload struct {
+		RequiredStatusChecks struct {
+			Contexts []string `json:"contexts"`
+		} `json:"required_status_checks"`
+	}
+	if err := json.Unmarshal([]byte(goConsts["protectionPayload"]), &payload); err != nil {
+		return nil, fmt.Errorf("parse branch protection payload: %w", err)
+	}
+	if len(payload.RequiredStatusChecks.Contexts) == 0 {
+		return nil, fmt.Errorf("branch protection payload has no required status checks")
+	}
+	return payload.RequiredStatusChecks.Contexts, nil
+}
+
+func (v *validator) rulesetsManagerRequiredContexts() ([]string, error) {
+	goConsts, err := extractGoConst(v.rulesetsManagerFile(), []string{"rulesetPayload"})
+	if err != nil {
+		return nil, err
+	}
+
+	var payload struct {
+		Rules []struct {
+			Type       string `json:"type"`
+			Parameters struct {
+				RequiredStatusChecks []struct {
+					Context string `json:"context"`
+				} `json:"required_status_checks"`
+			} `json:"parameters"`
+		} `json:"rules"`
+	}
+	if err := json.Unmarshal([]byte(goConsts["rulesetPayload"]), &payload); err != nil {
+		return nil, fmt.Errorf("parse rulesets manager payload: %w", err)
+	}
+
+	var contexts []string
+	for _, rule := range payload.Rules {
+		if rule.Type != "required_status_checks" {
+			continue
+		}
+		for _, check := range rule.Parameters.RequiredStatusChecks {
+			contexts = append(contexts, check.Context)
+		}
+	}
+	if len(contexts) == 0 {
+		return nil, fmt.Errorf("rulesets manager payload has no required status checks")
+	}
+	return contexts, nil
+}
+
+func (v *validator) producedWorkflowContexts() ([]string, error) {
+	// Guard against the fleet-blocking drift where rulesets required bare
+	// "scan" while GitHub produced "Gitleaks / scan" for the reusable workflow.
+	// Keep this derived from workflow files so renaming caller/called jobs fails
+	// validation before branch protection or rulesets are redeployed.
+	workflowPairs := []struct {
+		caller string
+		jobKey string
+	}{
+		{caller: "03_pr-checks.yml", jobKey: "pr-checks"},
+		{caller: "05_gitleaks.yml", jobKey: "Gitleaks"},
+	}
+
+	var contexts []string
+	for _, pair := range workflowPairs {
+		callerJobs, err := parseWorkflowJobs(v.workflowFile(pair.caller))
+		if err != nil {
+			return nil, err
+		}
+		callerJob, ok := callerJobs[pair.jobKey]
+		if !ok {
+			return nil, fmt.Errorf("workflow %s missing caller job %q", pair.caller, pair.jobKey)
+		}
+		if callerJob.Uses == "" {
+			return nil, fmt.Errorf("workflow %s job %q does not call a reusable workflow", pair.caller, pair.jobKey)
+		}
+
+		calledFile := filepath.Base(callerJob.Uses)
+		calledJobs, err := parseWorkflowJobs(v.workflowFile(calledFile))
+		if err != nil {
+			return nil, err
+		}
+		for _, job := range calledJobs {
+			displayName := job.Key
+			if job.Name != "" {
+				displayName = job.Name
+			}
+			contexts = append(contexts, pair.jobKey+" / "+displayName)
+		}
+	}
+	sort.Strings(contexts)
+	return contexts, nil
+}
+
+type workflowJob struct {
+	Key  string
+	Name string
+	Uses string
+}
+
+// notifyOnFailureRequiresCheckout enforces a deployment invariant: any job that
+// uses the local composite action ./.github/actions/notify-on-failure MUST run
+// an actions/checkout step (to a non-custom path) BEFORE it, otherwise the
+// composite action file is absent on the runner workspace and the notify step
+// itself fails. A custom `path:` checkout (e.g. path: pr-agent-src) does NOT
+// satisfy this because the action is resolved from the workspace root.
+func (v *validator) notifyOnFailureRequiresCheckout() error {
+	dirs := []string{
+		filepath.Join(v.rootDir, ".github", "workflows"),
+		filepath.Join(v.rootDir, ".github", "workflows", "security"),
+	}
+	var files []string
+	for _, d := range dirs {
+		entries, err := os.ReadDir(d)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			if strings.HasSuffix(e.Name(), ".yml") || strings.HasSuffix(e.Name(), ".yaml") {
+				files = append(files, filepath.Join(d, e.Name()))
+			}
+		}
+	}
+	sort.Strings(files)
+
+	jobRe := regexp.MustCompile(`^  ([A-Za-z0-9_-]+):\s*$`)
+	stepRe := regexp.MustCompile(`^      - `)
+	checkoutRe := regexp.MustCompile(`uses:\s*actions/checkout@`)
+	pathRe := regexp.MustCompile(`^          path:\s*\S`)
+	notifyRe := regexp.MustCompile(`uses:\s*\./\.github/actions/notify-on-failure`)
+
+	var offenders []string
+	for _, f := range files {
+		content, err := os.ReadFile(f)
+		if err != nil {
+			return fmt.Errorf("read workflow %s: %w", f, err)
+		}
+		lines := strings.Split(string(content), "\n")
+		inJobs := false
+		currentJob := ""
+		// per-job state
+		sawDefaultCheckout := false
+		inCheckoutStep := false
+		checkoutHasPath := false
+		flushCheckout := func() {
+			if inCheckoutStep && !checkoutHasPath {
+				sawDefaultCheckout = true
+			}
+			inCheckoutStep = false
+			checkoutHasPath = false
+		}
+		for _, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "jobs:" {
+				inJobs = true
+				continue
+			}
+			if !inJobs {
+				continue
+			}
+			if m := jobRe.FindStringSubmatch(line); len(m) == 2 {
+				flushCheckout()
+				currentJob = m[1]
+				sawDefaultCheckout = false
+				continue
+			}
+			if currentJob == "" {
+				continue
+			}
+			if stepRe.MatchString(line) {
+				flushCheckout()
+			}
+			if checkoutRe.MatchString(line) {
+				inCheckoutStep = true
+			}
+			if inCheckoutStep && pathRe.MatchString(line) {
+				checkoutHasPath = true
+			}
+			if notifyRe.MatchString(line) && !sawDefaultCheckout {
+				offenders = append(offenders, fmt.Sprintf("%s :: job %q", filepath.Base(f), currentJob))
+			}
+		}
+		flushCheckout()
+	}
+
+	if len(offenders) > 0 {
+		return fmt.Errorf("jobs use ./.github/actions/notify-on-failure without a prior default-path checkout: %s", strings.Join(offenders, "; "))
+	}
+	return nil
+}
+
+func parseWorkflowJobs(filePath string) (map[string]workflowJob, error) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("read workflow %s: %w", filePath, err)
+	}
+
+	jobs := make(map[string]workflowJob)
+	inJobs := false
+	currentKey := ""
+	jobRe := regexp.MustCompile(`^  ([A-Za-z0-9_-]+):\s*$`)
+	propRe := regexp.MustCompile(`^    ([A-Za-z0-9_-]+):\s*(.*)$`)
+
+	for _, line := range strings.Split(string(content), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		if trimmed == "jobs:" {
+			inJobs = true
+			continue
+		}
+		if !inJobs {
+			continue
+		}
+		if !strings.HasPrefix(line, " ") {
+			break
+		}
+		if matches := jobRe.FindStringSubmatch(line); len(matches) == 2 {
+			currentKey = matches[1]
+			jobs[currentKey] = workflowJob{Key: currentKey}
+			continue
+		}
+		if currentKey == "" {
+			continue
+		}
+		if matches := propRe.FindStringSubmatch(line); len(matches) == 3 {
+			job := jobs[currentKey]
+			switch matches[1] {
+			case "name":
+				job.Name = strings.Trim(matches[2], `"'`)
+			case "uses":
+				job.Uses = strings.Trim(matches[2], `"'`)
+			}
+			jobs[currentKey] = job
+		}
+	}
+
+	if len(jobs) == 0 {
+		return nil, fmt.Errorf("workflow %s has no jobs", filePath)
+	}
+	return jobs, nil
+}
+
 // extractAutoDeployPaths extracts trigger paths from 34_auto-deploy.yml content.
 func (v *validator) extractAutoDeployPaths() ([]string, error) {
 	content, err := os.ReadFile(v.autoDeployFile())
@@ -542,8 +842,8 @@ func (v *validator) extractAutoDeployPaths() ([]string, error) {
 			continue
 		}
 		if inPaths {
-			if strings.HasPrefix(trimmed, "-") {
-				path := strings.TrimSpace(strings.TrimPrefix(trimmed, "-"))
+			if path, ok := strings.CutPrefix(trimmed, "-"); ok {
+				path = strings.TrimSpace(path)
 				paths = append(paths, strings.Trim(path, `"'`))
 			} else if trimmed != "" && !strings.HasPrefix(trimmed, "#") {
 				break
@@ -556,6 +856,18 @@ func (v *validator) extractAutoDeployPaths() ([]string, error) {
 // Helper methods for file paths
 func (v *validator) deployFile() string {
 	return filepath.Join(v.rootDir, "scripts", "cmd", "deploy-to-repos", "main.go")
+}
+
+func (v *validator) branchProtectionFile() string {
+	return filepath.Join(v.rootDir, "scripts", "cmd", "branch-protection", "main.go")
+}
+
+func (v *validator) rulesetsManagerFile() string {
+	return filepath.Join(v.rootDir, "scripts", "cmd", "rulesets-manager", "main.go")
+}
+
+func (v *validator) workflowFile(name string) string {
+	return filepath.Join(v.rootDir, ".github", "workflows", name)
 }
 
 func (v *validator) e2eFile() string {
@@ -571,90 +883,5 @@ func (v *validator) codeownersFile() string {
 }
 
 func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
-}
-
-// toKebabCase converts a string to kebab-case.
-func toKebabCase(s string) string {
-	var result []rune
-	for i, r := range s {
-		if unicode.IsUpper(r) && i > 0 {
-			result = append(result, '-')
-		}
-		result = append(result, unicode.ToLower(r))
-	}
-	return string(result)
-}
-
-// isKebabCase checks if a string is already kebab-case.
-func isKebabCase(s string) bool {
-	for _, r := range s {
-		if !unicode.IsLower(r) && !unicode.IsDigit(r) && r != '-' && r != '_' {
-			return false
-		}
-	}
-	return true
-}
-
-// sanitizeFilename removes/replaces invalid characters for a filename.
-func sanitizeFilename(name string) string {
-	var result []rune
-	for _, r := range name {
-		switch {
-		case unicode.IsLetter(r), unicode.IsDigit(r), r == '-', r == '_':
-			result = append(result, r)
-		case r == ' ':
-			result = append(result, '-')
-		default:
-			// skip other characters
-		}
-	}
-	return string(result)
-}
-
-// countLines counts non-empty lines in a string.
-func countLines(s string) int {
-	count := 0
-	for _, line := range strings.Split(s, "\n") {
-		if strings.TrimSpace(line) != "" {
-			count++
-		}
-	}
-	return count
-}
-
-// max returns the maximum of two integers.
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-// min returns the minimum of two integers.
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-// stringPtr returns a pointer to a string.
-func stringPtr(s string) *string {
-	return &s
-}
-
-// intPtr returns a pointer to an int.
-func intPtr(i int) *int {
-	return &i
-}
-
-// boolPtr returns a pointer to a bool.
-func boolPtr(b bool) *bool {
-	return &b
+	return slices.Contains(slice, item)
 }

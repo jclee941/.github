@@ -62,6 +62,7 @@ services:
   filebeat:
     image: docker.elastic.co/beats/filebeat:8.17.0
     container_name: filebeat-github-bot
+    command: ["filebeat", "-e", "--strict.perms=false"]
     restart: unless-stopped
     user: root
     volumes:
@@ -70,7 +71,12 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - filebeat-data:/usr/share/filebeat/data
     environment:
-      - ELASTICSEARCH_HOSTS=http://192.168.50.102:9200
+      # Elasticsearch lives at 192.168.50.105:9200 (homelab-elk). The old
+      # 192.168.50.102 address is dead -> connection refused -> zero
+      # github-bot-logs-* indices. Credentials are required (security enabled).
+      - ELASTICSEARCH_HOSTS=http://192.168.50.105:9200
+      - ELASTICSEARCH_USERNAME=${ELK_USERNAME}
+      - ELASTICSEARCH_PASSWORD=${ELK_PASSWORD}
     networks:
       - cliproxy_net
     depends_on:

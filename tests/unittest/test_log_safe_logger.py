@@ -157,3 +157,15 @@ def test_named_placeholder_with_format_spec(safe_logger):
     logger.info("value {n:.2f}", n=3.14159)
     rec = _records(buf)[0]
     assert rec["message"] == "value 3.14", rec["message"]
+
+
+def test_artifact_secret_is_masked(safe_logger):
+    """Webhook bodies and other structured payloads are logged via artifact=.
+    The _SafeLogger secret-masking pass MUST scrub credentials so the raw
+    token never reaches the serialized sink (filebeat -> ELK)."""
+    logger, buf = safe_logger
+    token = "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    logger.debug("Marketplace webhook body", artifact={"action": "purchased", "token": token})
+    raw = buf.getvalue()
+    assert raw, "a record should be emitted"
+    assert token not in raw, f"secret token leaked into log output: {raw[:300]!r}"

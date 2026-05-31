@@ -13,8 +13,8 @@ filebeat.inputs:
           target: ""
           overwrite_keys: true
           when:
-            contains:
-              message: '{"time"'
+            regexp:
+              message: '^\{'
       - drop_fields:
           fields: ["agent", "ecs", "input", "log.file", "log.offset"]
           ignore_missing: true
@@ -32,11 +32,17 @@ filebeat.inputs:
           target: ""
           overwrite_keys: true
           when:
-            contains:
-              message: '{"time"'
+            regexp:
+              message: '^\{'
 
 output.elasticsearch:
-  hosts: ["http://192.168.50.102:9200"]
+  # 192.168.50.105:9200 is the live homelab-elk node. The previous
+  # 192.168.50.102 address is dead (connection refused), which silently
+  # broke github-bot-logs-* shipping. Host/credentials are overridable via the
+  # ELASTICSEARCH_HOSTS / ELASTICSEARCH_USERNAME / ELASTICSEARCH_PASSWORD env.
+  hosts: ["${ELASTICSEARCH_HOSTS:http://192.168.50.105:9200}"]
+  username: "${ELASTICSEARCH_USERNAME:elastic}"
+  password: "${ELASTICSEARCH_PASSWORD:}"
   index: "github-bot-logs-%{+yyyy.MM.dd}"
   template:
     name: "github-bot-logs"

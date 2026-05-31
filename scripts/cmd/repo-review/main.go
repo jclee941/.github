@@ -16,7 +16,7 @@ var (
 	dryRun        = flag.Bool("dry-run", false, "If true, no issues are created/commented")
 	sinceCommits  = flag.Int("since-commits", 50, "Commits back from HEAD to use as review base")
 	diffSizeLimit = flag.Int("diff-size-limit", 150000, "Max diff char count before skipping a repo")
-	model         = flag.String("model", "kimi-k2.6", "Primary LLM model")
+	model         = flag.String("model", "minimax-m2.7", "Primary LLM model")
 	workDir       = flag.String("work-dir", "/tmp/repo-review", "Working directory for clones")
 	owner         = flag.String("owner", "jclee941", "GitHub owner/org")
 )

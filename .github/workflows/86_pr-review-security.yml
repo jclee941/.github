@@ -48,8 +48,8 @@ jobs:
           GITHUB__USER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI__KEY: ${{ secrets.CLIPROXY_API_KEY }}
           OPENAI__API_BASE: https://cliproxy.jclee.me/v1
-          CONFIG__MODEL: kimi-k2.6
-          CONFIG__FALLBACK_MODELS: '["kimi-k2.5", "minimax-m2.7"]'
+          CONFIG__MODEL: minimax-m2.7
+          CONFIG__FALLBACK_MODELS: '["minimax-m2.7", "gpt-5.5"]'
           CONFIG__CUSTOM_MODEL_MAX_TOKENS: "128000"
         run: |
           set -e
