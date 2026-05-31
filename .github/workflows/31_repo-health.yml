@@ -32,7 +32,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -eu
-          repos=$(gh api orgs/jclee941/repos --paginate \
+          repos=$(gh api users/jclee941/repos --paginate \
             --jq '.[] | select(.archived == false) | .name' \
             | sort | uniq | jq -R . | jq -s -c .)
           echo "repos=$repos" >> "$GITHUB_OUTPUT"
