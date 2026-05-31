@@ -227,11 +227,36 @@ class TestReadmeGeneratorOwnRepo:
         )
 
     def test_single_commit_branch_block(self):
-        """Only ONE 'git checkout -b bot/auto-readme-update' may exist."""
+        """Exactly ONE idempotent bot/auto-readme-update branch block may exist."""
         text = read_workflow("readme-gen.yml")
-        assert text.count("git checkout -b bot/auto-readme-update") == 1, (
-            "20_readme-gen.yml has a duplicated commit/push block; "
-            "collapse it into a single idempotent push."
+        # checkout -B (not -b) so re-runs are idempotent against the fixed branch.
+        assert text.count("git checkout -B bot/auto-readme-update") == 1, (
+            "20_readme-gen.yml must have exactly one idempotent "
+            "'git checkout -B bot/auto-readme-update' block."
+        )
+        assert "git checkout -b bot/auto-readme-update" not in text, (
+            "20_readme-gen.yml uses non-idempotent 'checkout -b'; use 'checkout -B' "
+            "so repeated runs do not fail on the existing branch."
+        )
+
+    def test_push_is_idempotent_and_pat_authed(self):
+        """Push must fetch the remote branch first (valid lease) and use GH_PAT so
+        the pushed branch triggers PR checks / auto-merge. [skip ci] must be gone."""
+        text = read_workflow("readme-gen.yml")
+        assert "git fetch origin bot/auto-readme-update" in text, (
+            "push must fetch the remote bot branch first or --force-with-lease will "
+            "fail with 'stale info' on re-runs."
+        )
+        commit_lines = [ln for ln in text.splitlines() if "git commit -m" in ln]
+        assert commit_lines, "20_readme-gen.yml has no git commit line"
+        for ln in commit_lines:
+            assert "[skip ci]" not in ln, (
+                "README PR commit must not carry [skip ci]; required checks must run "
+                f"for auto-merge to be satisfiable: {ln.strip()}"
+            )
+        assert "secrets.GH_PAT" in text, (
+            "README Generator must use GH_PAT so the pushed branch triggers PR checks "
+            "and auto-merge can fire (GITHUB_TOKEN pushes do not trigger workflows)."
         )
 
     def test_run_blocks_use_set_eu(self):
