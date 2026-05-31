@@ -35,13 +35,13 @@ I need to be specific about workflow names and tool names.
 ## badges
 
 ```markdown
-[![Project Version](https://img.shields.io/badge/version-0.3.1-blue.svg)](https://github.com/jclee941/github-bot)
+[![Project Version](https://img.shields.io/badge/version-0.3.1-blue.svg)](https://github.com/jclee941/.github)
 [![Python](https://img.shields.io/badge/python-3.12+-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange.svg)](LICENSE)
 [![Upstream](https://img.shields.io/badge/upstream-qodo--ai/pr--agent-red.svg)](https://github.com/qodo-ai/pr-agent)
 ```
 
-[![Project Version](https://img.shields.io/badge/version-0.3.1-blue.svg)](https://github.com/jclee941/github-bot)
+[![Project Version](https://img.shields.io/badge/version-0.3.1-blue.svg)](https://github.com/jclee941/.github)
 [![Python](https://img.shields.io/badge/python-3.12+-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange.svg)](LICENSE)
 [![Upstream](https://img.shields.io/badge/upstream-qodo--ai/pr--agent-red.svg)](https://github.com/qodo-ai/pr-agent)
@@ -52,13 +52,13 @@ I need to be specific about workflow names and tool names.
 
 ### English
 
-`pr-agent` is a private AI-powered pull request reviewer and automation bot for `jclee941/*` repositories. It is a hard fork of [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent) (AGPL-3.0), rewired to use a homelab [CLIProxyAPI](https://github.com/jclee941/CLIProxyAPI) deployment (`192.168.50.114:8317`) as the primary LLM backend. All workflows run on GitHub-hosted `ubuntu-latest` runners and reach the homelab LLM via the public internet through `https://cliproxy.jclee.me/v1`.
+`pr-agent` is a private AI-powered pull request reviewer and automation bot for `jclee941/*` repositories. It is a hard fork of [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent) (AGPL-3.0), rewired to use a homelab [CLIProxyAPI](https://github.com/jclee941/.github) deployment (`192.168.50.114:8317`) as the primary LLM backend. All workflows run on GitHub-hosted `ubuntu-latest` runners and reach the homelab LLM via the public internet through `https://cliproxy.jclee.me/v1`.
 
 All upstream pr-agent features are preserved: `/review`, `/improve`, `/describe`, `/ask`, `/update_changelog`, PR compression, dynamic context, multi-model fallback, and slash commands.
 
 ### 한국어
 
-`pr-agent`는 `jclee941/*` 레포지터리를 위한 개인용 AI 기반 풀 리퀘스트 리뷰어 및 자동화 봇입니다. [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent)의 하드 포크(AGPL-3.0)로, 주 LLM 백엔드로 홈랩 [CLIProxyAPI](https://github.com/jclee941/CLIProxyAPI) 배포판(`192.168.50.114:8317`)을 사용하도록 재연결되었습니다. 모든 워크플로우는 GitHub 호스팅 `ubuntu-latest` 러너에서 실행되며, `https://cliproxy.jclee.me/v1`을 통해 공개 인터넷으로 홈랩 LLM에 접속합니다.
+`pr-agent`는 `jclee941/*` 레포지터리를 위한 개인용 AI 기반 풀 리퀘스트 리뷰어 및 자동화 봇입니다. [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent)의 하드 포크(AGPL-3.0)로, 주 LLM 백엔드로 홈랩 [CLIProxyAPI](https://github.com/jclee941/.github) 배포판(`192.168.50.114:8317`)을 사용하도록 재연결되었습니다. 모든 워크플로우는 GitHub 호스팅 `ubuntu-latest` 러너에서 실행되며, `https://cliproxy.jclee.me/v1`을 통해 공개 인터넷으로 홈랩 LLM에 접속합니다.
 
 `/review`, `/improve`, `/describe`, `/ask`, `/update_changelog`, PR 압축, 동적 컨텍스트, 다중 모델 폴백, 슬래시 명령 등 상류(upstream) pr-agent의 모든 기능이 유지됩니다.
 
