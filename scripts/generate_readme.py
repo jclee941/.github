@@ -17,6 +17,7 @@ import argparse
 import json
 import os
 import sys
+import re
 import urllib.request
 from pathlib import Path
 
@@ -24,6 +25,36 @@ API_BASE = os.environ.get("OPENAI_BASE_URL", "https://cliproxy.jclee.me/v1")
 API_KEY = os.environ.get("CLIPROXY_API_KEY", "")
 MODELS = ["minimax-m2.7", "gpt-5.5"]
 MAX_TOKENS = 4000
+
+# Repos that actually exist under github.com/jclee941. Links to any OTHER
+# jclee941 repo are LLM hallucinations (e.g. jclee941/CLIProxyAPI,
+# jclee941/github-bot) that 404 and fail the docs-sync link-check.
+_KNOWN_JCLEE_REPOS = {
+    ".github", "account", "blacklist", "bug", "hycu", "hycu_fsds",
+    "idle-outpost", "opencode", "propose", "pr-agent", "resume",
+    "safetywallet", "splunk", "terraform", "tmux", "youtube",
+    "automation-e2e-public",
+}
+
+
+def sanitize_links(text: str) -> str:
+    """Rewrite links to non-existent github.com/jclee941/<repo> URLs (LLM
+    hallucinations such as jclee941/CLIProxyAPI or jclee941/github-bot) to the
+    canonical source repo so they no longer 404 in the docs-sync link-check.
+
+    Operates on the bare URL, so it works for plain links, badges (nested
+    brackets), and raw URLs alike. Real jclee941 repos and any non-jclee941
+    link (e.g. qodo-ai/pr-agent) are left untouched."""
+    canonical = "https://github.com/jclee941/.github"
+    url_re = re.compile(r"https://github\.com/jclee941/([A-Za-z0-9._-]+)")
+
+    def _replace(m: re.Match) -> str:
+        repo = m.group(1)
+        if repo in _KNOWN_JCLEE_REPOS:
+            return m.group(0)  # real repo, keep the URL
+        return canonical  # hallucinated repo, rewrite to the canonical repo
+
+    return url_re.sub(_replace, text)
 
 
 def run_tree(repo_root: Path) -> str:
@@ -141,6 +172,9 @@ def generate_readme(repo_root: Path) -> str:
         "commands reference, and contribution guide. "
         "Be specific about what automation exists - list workflow names and tool names. "
         "Current README-gen models: minimax-m2.7 with fallback gpt-5.5 (via CLIProxyAPI). "
+        "Do NOT invent GitHub repository URLs: never link to non-existent repos such as "
+        "github.com/jclee941/CLIProxyAPI or github.com/jclee941/github-bot. For external "
+        "links use only qodo-ai/pr-agent, cliproxy.jclee.me, and bot.jclee.me. "
     )
 
     user_parts = [
@@ -181,7 +215,7 @@ def main() -> int:
     readme_path = repo_root / "README.md"
 
     print(f"Scanning {repo_root} ...")
-    content = generate_readme(repo_root)
+    content = sanitize_links(generate_readme(repo_root))
 
     if args.dry_run:
         print("\n--- GENERATED README ---\n")
