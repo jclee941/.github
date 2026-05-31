@@ -2,6 +2,7 @@
 The user wants me to generate a comprehensive README.md for this repository. The repository appears to be a GitHub bot project (pr-agent fork) with extensive automation. Let me analyze all the provided information and create a comprehensive bilingual README in Korean and English.
 
 Key information:
+
 - Project: pr-agent fork for jclee941 repositories
 - AI-powered PR reviewer
 - Uses CLIProxyAPI at 192.168.50.114:8317 as LLM backend
@@ -10,6 +11,7 @@ Key information:
 - Hard fork of qodo-ai/pr-agent
 
 Let me create a comprehensive README with:
+
 1. Title
 2. Badges
 3. Overview (bilingual)

@@ -427,3 +427,39 @@ class TestFixedBotBranchPushIsIdempotent:
                     f"{wf} pushes the fixed branch {branch} with --force-with-lease, "
                     f"which fails 'stale info' on re-runs: {ln.strip()}"
                 )
+
+
+# ---------------------------------------------------------------------------
+# Generated README must pass the repo's own docs-sync markdownlint
+# ---------------------------------------------------------------------------
+
+class TestReadmeGeneratorNormalizesMarkdown:
+    """The LLM-generated README must be normalised with the SAME markdownlint
+    tool/config that 42_reusable-docs-sync.yml enforces, or the auto README PR
+    fails 'Documentation Sync' (markdown-lint) on every run."""
+
+    def test_runs_markdownlint_fix(self):
+        text = read_workflow("readme-gen.yml")
+        assert "markdownlint" in text and "--fix" in text, (
+            "20_readme-gen.yml must run 'markdownlint --fix README.md' after "
+            "generating the README so it passes the docs-sync markdown-lint check."
+        )
+
+    def test_markdownlint_version_matches_docs_sync(self):
+        rg = read_workflow("readme-gen.yml")
+        ds = read_workflow("reusable-docs-sync.yml")
+        import re
+        m = re.search(r"markdownlint-cli@([0-9][0-9.]*)", ds)
+        assert m, "could not find pinned markdownlint-cli version in docs-sync"
+        ver = m.group(1)
+        assert f"markdownlint-cli@{ver}" in rg, (
+            f"20_readme-gen.yml must pin the same markdownlint-cli@{ver} as "
+            f"docs-sync so the generated README is normalised with identical rules."
+        )
+
+    def test_uses_repo_markdownlint_config(self):
+        text = read_workflow("readme-gen.yml")
+        assert ".markdownlint.json" in text, (
+            "20_readme-gen.yml markdownlint --fix must use the repo's "
+            ".markdownlint.json config (same rules as docs-sync)."
+        )
