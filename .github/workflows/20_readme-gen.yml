@@ -78,18 +78,19 @@ jobs:
           set -eu
           git config user.email "bot@jclee.me"
           git config user.name "github-bot"
-          # Re-create the bot branch from the freshly generated state. Fetch the
-          # remote branch first (if it exists) so the lease is valid; checkout -B
-          # makes the operation idempotent across repeated runs (fixed branch name).
-          git fetch origin bot/auto-readme-update:refs/remotes/origin/bot/auto-readme-update || true
+          # Re-create the bot branch from the freshly generated state.
+          # checkout -B is idempotent across repeated runs (fixed branch name),
+          # and --force below handles both the first run (no remote branch yet)
+          # and re-runs (existing remote branch) without a 'stale info' lease
+          # error. This is a bot-owned branch with the bot as sole writer, and
+          # the workflow concurrency group serialises runs, so --force is safe.
           git checkout -B bot/auto-readme-update
           git add README.md
           # No [skip ci]: the PR needs its required checks to run so auto-merge
           # can be satisfied.
           git commit -m "docs: auto-update README.md"
           gh auth setup-git
-          git push -u origin bot/auto-readme-update \
-            --force-with-lease=bot/auto-readme-update:refs/remotes/origin/bot/auto-readme-update
+          git push -u origin bot/auto-readme-update --force
         env:
           # GH_PAT (not GITHUB_TOKEN) so the pushed branch triggers PR checks and
           # auto-merge can fire.
