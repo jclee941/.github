@@ -96,3 +96,76 @@ def test_sanitize_links_strips_nonexistent_jclee_repos():
     bout = mod.sanitize_links(badge)
     assert "jclee941/github-bot" not in bout, bout
     assert "img.shields.io" in bout, "badge image/label must be preserved"
+
+
+def test_normalize_strips_think_block():
+    """LLM emits <think>...</think> reasoning that must never reach README.md."""
+    mod = _load_module()
+    assert hasattr(mod, "normalize_llm_readme_response"), (
+        "generate_readme.py must define normalize_llm_readme_response(text)."
+    )
+    raw = "<think>\nI will write a readme.\n</think>\n\n# Real Title\n\nbody"
+    out = mod.normalize_llm_readme_response(raw)
+    assert "<think>" not in out and "will write a readme" not in out, out
+    assert out.lstrip().startswith("# Real Title"), out
+
+
+def test_normalize_unwraps_json_content():
+    """LLM wraps the README in a fenced JSON {"content": "..."} object."""
+    mod = _load_module()
+    raw = '```json\n{\n  "content": "# Title\\n\\nHello **world**\\n"\n}\n```'
+    out = mod.normalize_llm_readme_response(raw)
+    assert out.lstrip().startswith("# Title"), out
+    assert "Hello **world**" in out, out
+    assert '"content"' not in out and "```json" not in out, out
+
+
+def test_normalize_think_then_json():
+    """The real failure: <think> block followed by a fenced JSON content object."""
+    mod = _load_module()
+    raw = '<think>\nreasoning\n</think>\n\n```json\n{"content": "# T\\n\\nbody\\n"}\n```'
+    out = mod.normalize_llm_readme_response(raw)
+    assert out.lstrip().startswith("# T"), out
+    assert "<think>" not in out and "```json" not in out and "reasoning" not in out, out
+
+
+def test_normalize_unwraps_truncated_json():
+    """Truncated JSON (response hit max_tokens mid-string, no closing brace/fence)
+    must still yield best-effort Markdown, not a raw JSON wrapper."""
+    mod = _load_module()
+    raw = '```json\n{\n  "content": "# Title\\n\\nbody line that got cut off mid'
+    out = mod.normalize_llm_readme_response(raw)
+    assert out.lstrip().startswith("# Title"), out
+    assert '"content"' not in out and "```json" not in out, out
+
+
+def test_normalize_passthrough_plain_markdown():
+    """Plain markdown (no think / no json wrapper) must pass through unchanged."""
+    mod = _load_module()
+    raw = "# Title\n\nplain body\n"
+    out = mod.normalize_llm_readme_response(raw)
+    assert out.strip() == raw.strip(), out
+
+
+def test_normalize_fixes_empty_badge_links():
+    """LLM emits badge placeholders [![alt](img)](#) — the empty (#) link fails
+    markdownlint MD042. normalize must drop the empty link wrapper, keep the badge."""
+    mod = _load_module()
+    raw = "# T\n\n[![Version](https://img.shields.io/badge/v.svg)](#)\n\nbody\n"
+    out = mod.normalize_llm_readme_response(raw)
+    assert "](#)" not in out, out
+    assert "img.shields.io/badge/v.svg" in out, out
+
+
+def test_sanitize_links_handles_http_and_www():
+    """sanitize_links must catch http:// and www. variants of hallucinated repos."""
+    mod = _load_module()
+    md = (
+        "[a](http://github.com/jclee941/github-bot) "
+        "[b](https://www.github.com/jclee941/CLIProxyAPI) "
+        "[ok](https://github.com/jclee941/.github)"
+    )
+    out = mod.sanitize_links(md)
+    assert "jclee941/github-bot" not in out, out
+    assert "jclee941/CLIProxyAPI" not in out, out
+    assert "jclee941/.github" in out, out

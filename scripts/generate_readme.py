@@ -24,7 +24,7 @@ from pathlib import Path
 API_BASE = os.environ.get("OPENAI_BASE_URL", "https://cliproxy.jclee.me/v1")
 API_KEY = os.environ.get("CLIPROXY_API_KEY", "")
 MODELS = ["minimax-m2.7", "gpt-5.5"]
-MAX_TOKENS = 4000
+MAX_TOKENS = 16000  # README is long; 4000 truncated the JSON mid-string
 
 # Repos that actually exist under github.com/jclee941. Links to any OTHER
 # jclee941 repo are LLM hallucinations (e.g. jclee941/CLIProxyAPI,
@@ -37,6 +37,52 @@ _KNOWN_JCLEE_REPOS = {
 }
 
 
+def normalize_llm_readme_response(text: str) -> str:
+    """Strip LLM artifacts so only clean Markdown reaches README.md.
+
+    Models (kimi/minimax/gpt via CLIProxyAPI) sometimes emit a <think>...</think>
+    reasoning block and/or wrap the whole README in a fenced JSON object
+    {"content": "..."} (which truncates mid-string at max_tokens). Without this,
+    README.md is published with leaked reasoning and an escaped JSON string
+    instead of real Markdown."""
+    if not text:
+        return text
+    s = text
+    # 1. Remove <think>...</think> reasoning blocks.
+    s = re.sub(r"<think\b[^>]*>.*?</think>", "", s, flags=re.DOTALL | re.IGNORECASE)
+    s = s.strip()
+    # 2. Strip an opening code fence (```json / ```markdown). Handle BOTH closed
+    #    fences and unclosed ones (truncated output that hit max_tokens).
+    s = re.sub(r"^```[a-zA-Z0-9]*\s*\n", "", s)
+    s = re.sub(r"\n```\s*$", "", s).strip()
+    # 3. If the body is (or starts as) a JSON object with a string 'content'
+    #    field, unwrap it. Covers complete and truncated JSON.
+    if s.startswith("{") and '"content"' in s:
+        try:
+            obj = json.loads(s)
+            if isinstance(obj, dict) and isinstance(obj.get("content"), str):
+                s = obj["content"].strip()
+        except (json.JSONDecodeError, ValueError):
+            # Truncated/incomplete JSON (response hit max_tokens mid-string).
+            mcontent = re.search(r'"content"\s*:\s*"', s)
+            if mcontent:
+                body = s[mcontent.end():]
+                body = re.sub(r'"\s*\}\s*$', "", body)
+                try:
+                    s = json.loads('"' + body + '"')
+                except (json.JSONDecodeError, ValueError):
+                    s = body.encode().decode("unicode_escape")
+                s = s.strip()
+    # 4. Unwrap a trailing markdown fence if the content itself is fenced.
+    fence2 = re.match(r"^```[a-zA-Z0-9]*\s*\n(.*)\n```\s*$", s, flags=re.DOTALL)
+    if fence2:
+        s = fence2.group(1).strip()
+    # 5. Drop empty-link wrappers around badges: [![alt](img)](#) -> ![alt](img).
+    #    The placeholder '(#)' fails markdownlint MD042 (no-empty-links).
+    s = re.sub(r"\[(!\[[^\]]*\]\([^)]*\))\]\(#\)", r"\1", s)
+    return s
+
+
 def sanitize_links(text: str) -> str:
     """Rewrite links to non-existent github.com/jclee941/<repo> URLs (LLM
     hallucinations such as jclee941/CLIProxyAPI or jclee941/github-bot) to the
@@ -46,7 +92,7 @@ def sanitize_links(text: str) -> str:
     brackets), and raw URLs alike. Real jclee941 repos and any non-jclee941
     link (e.g. qodo-ai/pr-agent) are left untouched."""
     canonical = "https://github.com/jclee941/.github"
-    url_re = re.compile(r"https://github\.com/jclee941/([A-Za-z0-9._-]+)")
+    url_re = re.compile(r"https?://(?:www\.)?github\.com/jclee941/([A-Za-z0-9._-]+)")
 
     def _replace(m: re.Match) -> str:
         repo = m.group(1)
@@ -215,7 +261,7 @@ def main() -> int:
     readme_path = repo_root / "README.md"
 
     print(f"Scanning {repo_root} ...")
-    content = sanitize_links(generate_readme(repo_root))
+    content = sanitize_links(normalize_llm_readme_response(generate_readme(repo_root)))
 
     if args.dry_run:
         print("\n--- GENERATED README ---\n")
