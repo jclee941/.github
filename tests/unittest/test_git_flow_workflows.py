@@ -350,3 +350,38 @@ class TestAutoMergeSelfHeal:
                 f"{wf} must NOT use --admin (never bypass branch protection): "
                 f"{offending}"
             )
+
+
+# ---------------------------------------------------------------------------
+# Branch-name check must allow the bot-created branches
+# ---------------------------------------------------------------------------
+
+class TestBranchNameAllowsBotBranches:
+    """44_reusable-pr-checks.yml's branch-name regex must accept every branch
+    prefix that the automation itself creates, or those bot PRs can never pass
+    the required 'Check Branch Name' status and never auto-merge."""
+
+    # Branches that workflows in this repo actually create and open PRs from.
+    BOT_BRANCHES = [
+        "bot/auto-readme-update",   # 20_readme-gen.yml
+        "bot/template-sync",        # 22_template-sync.yml
+    ]
+
+    def _allowed_regex(self) -> str:
+        import re
+        text = read_workflow("reusable-pr-checks.yml")
+        # The branch-name (not PR-title) regex ends with '\/.+'
+        m = re.search(r"const allowed = /(\^\([^/]*\)\\/\.\+)/", text)
+        assert m, "could not locate the branch-name 'allowed' regex"
+        return m.group(1)
+
+    def test_regex_accepts_bot_branches(self):
+        import re
+        pattern = self._allowed_regex()
+        rx = re.compile(pattern)
+        for br in self.BOT_BRANCHES:
+            assert rx.match(br), (
+                f"branch-name regex {pattern!r} rejects bot-created branch {br!r}; "
+                f"the bot PR can never pass 'Check Branch Name' / auto-merge. "
+                f"Add the 'bot' prefix to the allowed list."
+            )
