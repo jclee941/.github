@@ -99,11 +99,14 @@ jobs:
           set -eu
           git config user.email "bot@jclee.me"
           git config user.name "github-bot"
-          git checkout -b bot/template-sync
+          # checkout -B + --force is idempotent across re-runs: the downstream
+          # bot/template-sync branch persists between runs, so 'checkout -b' +
+          # '--force-with-lease' fails with 'stale info'. The branch is bot-owned.
+          git checkout -B bot/template-sync
           git add CONTRIBUTING.md LICENSE
-          git commit -m "docs: sync CONTRIBUTING/LICENSE templates from jclee941/.github [skip ci]"
+          git commit -m "docs: sync CONTRIBUTING/LICENSE templates from jclee941/.github"
           gh auth setup-git
-          git push -u origin bot/template-sync --force-with-lease
+          git push -u origin bot/template-sync --force
         env:
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
 
