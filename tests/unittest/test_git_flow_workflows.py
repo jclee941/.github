@@ -385,3 +385,45 @@ class TestBranchNameAllowsBotBranches:
                 f"the bot PR can never pass 'Check Branch Name' / auto-merge. "
                 f"Add the 'bot' prefix to the allowed list."
             )
+
+
+# ---------------------------------------------------------------------------
+# Every fixed bot/* branch push must be idempotent across re-runs
+# ---------------------------------------------------------------------------
+
+class TestFixedBotBranchPushIsIdempotent:
+    """Workflows that push to a FIXED bot/* branch on a repo must use
+    'checkout -B' + plain '--force', never 'checkout -b' + '--force-with-lease'.
+    The latter fails on re-runs with 'stale info' (the branch persists) and on
+    first runs with 'cannot parse expected object name' (no remote-tracking ref).
+    """
+
+    # (workflow logical name, fixed branch it pushes to)
+    PUSHERS = [
+        ("readme-gen.yml", "bot/auto-readme-update"),
+        ("template-sync.yml", "bot/template-sync"),
+    ]
+
+    def test_no_checkout_dash_b_for_bot_branch(self):
+        for wf, branch in self.PUSHERS:
+            text = read_workflow(wf)
+            assert f"git checkout -b {branch}" not in text, (
+                f"{wf} uses non-idempotent 'git checkout -b {branch}'; use "
+                f"'git checkout -B {branch}' so re-runs do not fail."
+            )
+            assert f"git checkout -B {branch}" in text, (
+                f"{wf} must use 'git checkout -B {branch}'."
+            )
+
+    def test_no_force_with_lease_push_for_bot_branch(self):
+        for wf, branch in self.PUSHERS:
+            text = read_workflow(wf)
+            push_lines = [
+                ln for ln in text.splitlines()
+                if "git push" in ln or ln.strip().startswith("--force")
+            ]
+            for ln in push_lines:
+                assert "--force-with-lease" not in ln, (
+                    f"{wf} pushes the fixed branch {branch} with --force-with-lease, "
+                    f"which fails 'stale info' on re-runs: {ln.strip()}"
+                )
