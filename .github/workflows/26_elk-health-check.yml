@@ -47,9 +47,21 @@ jobs:
           ELK_USERNAME: ${{ secrets.ELK_USERNAME }}
           ELK_PASSWORD: ${{ secrets.ELK_PASSWORD }}
         run: |
+          set -eu
           echo "Checking github-bot-logs indices..."
+          # The bot's own logs must reach ELK. Zero github-bot-logs-* indices means
+          # filebeat on the app host is not shipping (broken log pipeline), which is
+          # exactly the failure mode a health check must surface, not hide.
+          COUNT=$(curl -sS --connect-timeout 10 -m 15 -u "${ELK_USERNAME}:${ELK_PASSWORD}" \
+            "http://${ELK_HOST}/_cat/indices/github-bot-logs-*?h=index" 2>/dev/null | grep -c . || true)
+          echo "github-bot-logs-* index count: ${COUNT}"
           curl -sS --connect-timeout 10 -m 15 -u "${ELK_USERNAME}:${ELK_PASSWORD}" \
-            "http://${ELK_HOST}/_cat/indices/github-bot-logs-*?v&health=yellow,red" 2>/dev/null || true
+            "http://${ELK_HOST}/_cat/indices/github-bot-logs-*?v" 2>/dev/null || true
+          if [ "${COUNT}" -eq 0 ]; then
+            echo "❌ No github-bot-logs-* indices found — filebeat log shipping is broken on the app host"
+            exit 1
+          fi
+          echo "✅ github-bot-logs indices present"
 
       - name: Check Filebeat indices
         env:

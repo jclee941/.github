@@ -43,6 +43,7 @@ func main() {
 		{"workflows follow naming convention", v.workflowsNamingConvention, nil},
 		{"extraFiles have allowed extensions", v.extraFilesExtensions, nil},
 		{"required status checks match workflow check-run names", v.requiredStatusChecksMatchWorkflowContexts, nil},
+		{"notify-on-failure jobs checkout local actions first", v.notifyOnFailureRequiresCheckout, nil},
 	}
 
 	failed := 0
@@ -676,6 +677,100 @@ type workflowJob struct {
 	Key  string
 	Name string
 	Uses string
+}
+
+// notifyOnFailureRequiresCheckout enforces a deployment invariant: any job that
+// uses the local composite action ./.github/actions/notify-on-failure MUST run
+// an actions/checkout step (to a non-custom path) BEFORE it, otherwise the
+// composite action file is absent on the runner workspace and the notify step
+// itself fails. A custom `path:` checkout (e.g. path: pr-agent-src) does NOT
+// satisfy this because the action is resolved from the workspace root.
+func (v *validator) notifyOnFailureRequiresCheckout() error {
+	dirs := []string{
+		filepath.Join(v.rootDir, ".github", "workflows"),
+		filepath.Join(v.rootDir, ".github", "workflows", "security"),
+	}
+	var files []string
+	for _, d := range dirs {
+		entries, err := os.ReadDir(d)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			if strings.HasSuffix(e.Name(), ".yml") || strings.HasSuffix(e.Name(), ".yaml") {
+				files = append(files, filepath.Join(d, e.Name()))
+			}
+		}
+	}
+	sort.Strings(files)
+
+	jobRe := regexp.MustCompile(`^  ([A-Za-z0-9_-]+):\s*$`)
+	stepRe := regexp.MustCompile(`^      - `)
+	checkoutRe := regexp.MustCompile(`uses:\s*actions/checkout@`)
+	pathRe := regexp.MustCompile(`^          path:\s*\S`)
+	notifyRe := regexp.MustCompile(`uses:\s*\./\.github/actions/notify-on-failure`)
+
+	var offenders []string
+	for _, f := range files {
+		content, err := os.ReadFile(f)
+		if err != nil {
+			return fmt.Errorf("read workflow %s: %w", f, err)
+		}
+		lines := strings.Split(string(content), "\n")
+		inJobs := false
+		currentJob := ""
+		// per-job state
+		sawDefaultCheckout := false
+		inCheckoutStep := false
+		checkoutHasPath := false
+		flushCheckout := func() {
+			if inCheckoutStep && !checkoutHasPath {
+				sawDefaultCheckout = true
+			}
+			inCheckoutStep = false
+			checkoutHasPath = false
+		}
+		for _, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "jobs:" {
+				inJobs = true
+				continue
+			}
+			if !inJobs {
+				continue
+			}
+			if m := jobRe.FindStringSubmatch(line); len(m) == 2 {
+				flushCheckout()
+				currentJob = m[1]
+				sawDefaultCheckout = false
+				continue
+			}
+			if currentJob == "" {
+				continue
+			}
+			if stepRe.MatchString(line) {
+				flushCheckout()
+			}
+			if checkoutRe.MatchString(line) {
+				inCheckoutStep = true
+			}
+			if inCheckoutStep && pathRe.MatchString(line) {
+				checkoutHasPath = true
+			}
+			if notifyRe.MatchString(line) && !sawDefaultCheckout {
+				offenders = append(offenders, fmt.Sprintf("%s :: job %q", filepath.Base(f), currentJob))
+			}
+		}
+		flushCheckout()
+	}
+
+	if len(offenders) > 0 {
+		return fmt.Errorf("jobs use ./.github/actions/notify-on-failure without a prior default-path checkout: %s", strings.Join(offenders, "; "))
+	}
+	return nil
 }
 
 func parseWorkflowJobs(filePath string) (map[string]workflowJob, error) {
