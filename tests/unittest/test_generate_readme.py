@@ -67,3 +67,32 @@ def test_module_imports_without_api_key(monkeypatch):
     mod = _load_module()
     assert callable(mod.generate_readme)
     assert callable(mod.read_key_files)
+
+
+def test_sanitize_links_strips_nonexistent_jclee_repos():
+    """The LLM hallucinates GitHub repo URLs (e.g. jclee941/CLIProxyAPI,
+    jclee941/github-bot) that 404 and fail docs-sync link-check. The generator
+    must neutralize links to non-existent jclee941 repos."""
+    mod = _load_module()
+    assert hasattr(mod, "sanitize_links"), (
+        "generate_readme.py must define sanitize_links(text) to remove "
+        "hallucinated/non-existent GitHub repo links before writing README."
+    )
+    md = (
+        "See [CLIProxyAPI](https://github.com/jclee941/CLIProxyAPI) and "
+        "[badge](https://github.com/jclee941/github-bot) plus the real "
+        "[upstream](https://github.com/qodo-ai/pr-agent) and [self](https://github.com/jclee941/.github)."
+    )
+    out = mod.sanitize_links(md)
+    # Hallucinated repo URLs must be gone (rewritten to the canonical repo).
+    assert "github.com/jclee941/CLIProxyAPI" not in out, out
+    assert "github.com/jclee941/github-bot" not in out, out
+    # Real/allowed links must survive untouched.
+    assert "github.com/qodo-ai/pr-agent" in out, out
+    assert "github.com/jclee941/.github" in out, out
+
+    # Badge form (nested brackets) must also be handled.
+    badge = "[![v](https://img.shields.io/badge/x.svg)](https://github.com/jclee941/github-bot)"
+    bout = mod.sanitize_links(badge)
+    assert "jclee941/github-bot" not in bout, bout
+    assert "img.shields.io" in bout, "badge image/label must be preserved"
