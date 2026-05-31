@@ -54,7 +54,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: jclee941/${{ matrix.repo }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           fetch-depth: 1
 
       - name: Check out source templates
@@ -105,12 +105,12 @@ jobs:
           gh auth setup-git
           git push -u origin bot/template-sync --force-with-lease
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
 
       - name: Create or update PR
         if: steps.diff.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
           set -eu
           existing=$(gh pr list --repo jclee941/${{ matrix.repo }} \

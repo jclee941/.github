@@ -36,6 +36,12 @@ jobs:
         uses: step-security/harden-runner@v2
         with:
           egress-policy: audit
+      - name: Checkout local actions
+        uses: actions/checkout@v6
+        with:
+          repository: jclee941/.github
+          ref: master
+          fetch-depth: 1
       - name: Check out pr-agent source from jclee941/.github
         uses: actions/checkout@v6
         with:
