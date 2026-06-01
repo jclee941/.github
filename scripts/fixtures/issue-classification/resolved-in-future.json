@@ -1,0 +1,7 @@
+{
+  "number": 81,
+  "title": "Pagination off by one",
+  "body": "Can this be resolved in v2? This should be resolved in a future release, it needs to be resolved in the query builder and will be resolved in version 3.",
+  "state": "open",
+  "labels": [{ "name": "bug" }]
+}

@@ -60,6 +60,7 @@ var downstreamWorkflowAllowlist = map[string]struct{}{
 	".github/workflows/45_reusable-gitleaks.yml":         {},
 	".github/workflows/60_ci-auto-heal.yml":              {},
 	".github/workflows/security/11_pr-review.yml":        {},
+	".github/workflows/91_issue-classification.yml":      {},
 // sanity.yml + auto-hardcode-scan + auto-deploy + release-drafter are fork-specific.
 }
 
@@ -79,6 +80,7 @@ var extraFiles = []string{
 	".github/ISSUE_TEMPLATE/3-security-vulnerability.yml",
 	".github/ISSUE_TEMPLATE/config.yml",
 	".github/renovate.json",
+	".github/scripts/issue-classifier.js",
 }
 
 // removedWorkflows lists workflows that were previously deployed but are no longer

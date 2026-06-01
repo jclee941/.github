@@ -519,6 +519,7 @@ func (v *validator) extraFilesExtensions() error {
 		".yaml": true,
 		".md":   true,
 		".json": true,
+		".js":   true,
 		"":      true,
 	}
 

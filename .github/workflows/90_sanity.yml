@@ -108,6 +108,15 @@ jobs:
           # embedded script so a missing brace can never ship again.
           python scripts/check_workflow_scripts.py
 
+      - name: Validate issue classifier module + unit tests
+        run: |
+          set -eu
+          # The issue-classification workflow (91) runs this deterministic,
+          # dependency-free module inside github-script. Validate its syntax and
+          # exercise the duplicate/resolved logic via its CLI from pytest.
+          node --check .github/scripts/issue-classifier.js
+          python -m pytest scripts/issue_classifier_js_test.py scripts/issue_classification_workflow_test.py scripts/readme_mermaid_test.py -v
+
       - name: Verify LLM model config consistency across surfaces
         run: |
           set -eu

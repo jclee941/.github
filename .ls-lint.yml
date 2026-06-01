@@ -33,6 +33,10 @@ ls:
     CODEOWNERS: regex:^CODEOWNERS$
     PULL_REQUEST_TEMPLATE.md: regex:^PULL_REQUEST_TEMPLATE\.md$
 
+  # Embedded github-script helper modules (required by workflows): kebab-case.
+  .github/scripts:
+    .js: kebab-case
+
   # General directories — upstream fork files keep their original case.
   docs:
     .md: regex:^([a-z0-9]+(-[a-z0-9]+)*|pr-agent-upstream-README)$

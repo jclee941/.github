@@ -1,0 +1,7 @@
+{
+  "number": 56,
+  "title": "Crash when opening settings",
+  "body": "I still get a crash when opening the settings page on the latest version. This is not resolved.",
+  "state": "open",
+  "labels": [{ "name": "bug" }]
+}

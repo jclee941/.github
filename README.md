@@ -155,8 +155,8 @@ flowchart TB
     end
 
     subgraph External["External Services"]
-        CLIProxy[<homelab-host>:8317<br/>CLIProxyAPI<br/><https://cliproxy.jclee.me/v1>]
-        ELK[<homelab-elk><br/>ELK Stack]
+        CLIProxy["&lt;homelab-host&gt;:8317<br/>CLIProxyAPI<br/>https://cliproxy.jclee.me/v1"]
+        ELK["&lt;homelab-elk&gt;<br/>ELK Stack"]
     end
 
     subgraph Models["LLM Models"]

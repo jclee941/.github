@@ -22,6 +22,7 @@ var allowedDeployExtensions = map[string]struct{}{
 	".yaml": {},
 	".md":   {},
 	".json": {},
+	".js":   {},
 	"":      {}, // CODEOWNERS has no extension
 }
 
@@ -83,6 +84,7 @@ func TestDownstreamAllowlistContainsRequired(t *testing.T) {
 		".github/workflows/03_pr-checks.yml",
 		".github/workflows/10_pr-review.yml",
 		".github/workflows/security/11_pr-review.yml",
+		".github/workflows/91_issue-classification.yml",
 	}
 
 	for _, w := range required {
@@ -130,6 +132,7 @@ func TestExtraFilesAreSafePaths(t *testing.T) {
 		".github/ISSUE_TEMPLATE/2-feature-request.yml":        {},
 		".github/ISSUE_TEMPLATE/3-security-vulnerability.yml": {},
 		".github/ISSUE_TEMPLATE/config.yml":                   {},
+		".github/scripts/issue-classifier.js":                {},
 	}
 
 	seen := make(map[string]struct{}, len(extraFiles))

@@ -1,0 +1,8 @@
+{
+  "number": 101,
+  "title": "Improve login error handling",
+  "body": "General improvements to the login flow. No closing keywords in the body.",
+  "merged": true,
+  "state": "closed",
+  "head": { "ref": "fix/issue-42-login-error" }
+}
