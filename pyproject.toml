@@ -49,13 +49,13 @@ pr-agent = "pr_agent.cli:run"
 line-length = 120
 
 # Inherited upstream fork code (pr_agent/ and its upstream unittest suite) is
-# audited at fork time, not restyled. Broad ruff rewrites there only create
-# upstream-merge pain without improving fork-owned automation. `make lint`
-# (ruff check .) is the documented local gate and must stay green by design,
-# so the upstream trees are excluded from discovery here. Fork-owned code
-# (scripts/, tests/e2e/, tests/e2e_live/) is NOT excluded and is held to the
-# full ruleset.
-extend-exclude = ["pr_agent", "tests/unittest"]
+# now linted for CORRECTNESS-class rules (the full E/F/B/I ruleset), but the
+# purely cosmetic findings (E501 line-wrapping, F541 f-strings without
+# placeholders) are suppressed per-file below rather than mass-rewritten:
+# restyling hundreds of upstream lines only creates merge conflicts with the
+# `upstream` remote without improving runtime safety. Fork-owned code
+# (scripts/, tests/e2e/, tests/e2e_live/) is held to the full ruleset with no
+# such suppression. See [tool.ruff.lint.per-file-ignores] below.
 
 lint.select = [
   "E",    # Pyflakes
@@ -81,7 +81,18 @@ lint.ignore = ["B008"]
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = [
   "E402",
-] # Ignore `E402` (import violations) in all `__init__.py` files, and in `path/to/file.py`.
+] # Ignore `E402` (import violations) in all `__init__.py` files.
+
+# Upstream fork trees: lint for correctness, but do not enforce cosmetic
+# line-length (E501) or f-string-without-placeholder (F541) rewrites.
+"pr_agent/**/*.py" = ["E501", "F541"]
+"tests/unittest/**/*.py" = [
+  "E501",
+  "F541",
+  # get_max_tokens() raises a bare Exception for unknown models upstream;
+  # this test intentionally asserts on it until the production type narrows.
+  "B017",
+]
 
 [tool.bandit]
 exclude_dirs = ["tests"]
