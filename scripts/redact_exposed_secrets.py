@@ -38,7 +38,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Iterable
 
 import requests
 
@@ -47,7 +47,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from pr_agent.algo.secret_masking import REDACTION, mask_text  # noqa: E402
+from pr_agent.algo.secret_masking import mask_text  # noqa: E402
 
 GITHUB_API = "https://api.github.com"
 
@@ -102,7 +102,7 @@ class GitHub:
 
     def _request(self, method: str, url: str, **kw) -> requests.Response:
         # Tolerate secondary rate limits.
-        for attempt in range(5):
+        for _attempt in range(5):
             r = self.s.request(method, url, **kw)
             if r.status_code == 403 and "rate limit" in r.text.lower():
                 reset = int(r.headers.get("X-RateLimit-Reset", "0"))
@@ -258,10 +258,10 @@ def scan_body(
     ok = _apply_edit(gh, owner, repo, kind, number, item_id, redacted)
     if ok:
         stats.edits_applied += 1
-        print(f"        -> redacted on GitHub", flush=True)
+        print("        -> redacted on GitHub", flush=True)
     else:
         stats.edits_failed += 1
-        print(f"        -> EDIT FAILED", flush=True)
+        print("        -> EDIT FAILED", flush=True)
 
 
 def _apply_edit(
