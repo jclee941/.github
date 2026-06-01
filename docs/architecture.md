@@ -345,9 +345,9 @@ flowchart LR
     
     ISSUE --> ISSUE_BRANCH["02_issue-to-branch.yml"]
     
-    PR_CHECK --> REUSABLE1["reusable-03_pr-checks.yml"]
-    DOCS --> REUSABLE2["reusable-21_docs-sync.yml"]
-    ISSUE_MGMT --> REUSABLE3["reusable-18_issue-management.yml"]
+    PR_CHECK --> REUSABLE1["44_reusable-pr-checks.yml"]
+    DOCS --> REUSABLE2["42_reusable-docs-sync.yml"]
+    ISSUE_MGMT --> REUSABLE3["43_reusable-issue-management.yml"]
     
     style PR fill:#6ba06a,stroke:#333,color:#fff
     style PUSH fill:#4a90d9,stroke:#333,color:#fff

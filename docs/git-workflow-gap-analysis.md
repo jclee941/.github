@@ -19,12 +19,12 @@
 | 파일 | 트리거 | 역할 | 평가 |
 |---|---|---|---|
 | `10_pr-review.yml` | `pull_request` | cli_proxy 기반 AI 코드 리뷰 (Kimi-k2.6) | ✅ 잘 구성됨 |
-| `03_pr-checks.yml` → `reusable-03_pr-checks.yml` | `pull_request` | 6개 검사 (size/title/branch/desc/large/sensitive) | ✅ 안정적 |
+| `03_pr-checks.yml` → `44_reusable-pr-checks.yml` | `pull_request` | 6개 검사 (size/title/branch/desc/large/sensitive) | ✅ 안정적 |
 | `12_dependabot-auto-merge.yml` | `pull_request` (dependabot 한정) | patch/minor/gha 자동 머지 | ✅ 정책 명확 |
 | `34_auto-deploy.yml` | `push` to master | `deploy-to-repos.go` 실행 → 11개 다운스트림 동기화 | ⚠️ 타임아웃/concurrency 없음 |
 | `35_auto-hardcode-scan.yml` | `schedule` weekly + dispatch | 하드코드 정규식 스캔 | ⚠️ `self-hosted` 종속 |
-| `21_docs-sync.yml` → `reusable-21_docs-sync.yml` | `pull_request` md/docs | 링크 검사 + markdownlint | ✅ |
-| `18_issue-management.yml` → `reusable-18_issue-management.yml` | issues + schedule | stale 정리 + 자동 라벨 | ✅ |
+| `21_docs-sync.yml` → `42_reusable-docs-sync.yml` | `pull_request` md/docs | 링크 검사 + markdownlint | ✅ |
+| `18_issue-management.yml` → `43_reusable-issue-management.yml` | issues + schedule | stale 정리 + 자동 라벨 | ✅ |
 | `90_sanity.yml` | push/PR | import 스모크 + TOML/YAML parse | ✅ but required check 아님 |
 | `security/11_pr-review.yml` | `pull_request_target` + 라벨 | 심층 보안 리뷰 | ⚠️ 가드 보강 필요 |
 

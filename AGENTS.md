@@ -385,7 +385,7 @@ pr-agent loads its settings via `Dynaconf(envvar_prefix=False, ...)` (see `pr_ag
 
 **Special case — `security/11_pr-review.yml` only**: that workflow invokes `pr_agent.servers.github_action_runner` directly, which manually translates `GITHUB_TOKEN` → `settings.github.user_token` and `OPENAI_KEY` → `settings.openai.key` at `pr_agent/servers/github_action_runner.py:55-61`. Both env-var styles work there, but for consistency the fork uses the same `OPENAI.KEY` / `GITHUB__USER_TOKEN` everywhere.
 
-**Silent-failure guard** (`pr-review.yml:141`): pr-agent's CLI catches its own exceptions in `pr_reviewer.py:184` and **returns exit code 0 even on fatal failures**. The workflow `tee`s output to `/tmp/pr-agent.log` and `grep`s for known fatal patterns (`Failed to generate prediction with any model`, `Failed to review PR`, `AuthenticationError`, etc.) — known no-op patterns (`Empty diff for PR:`, `PR has no files:`, `Review output is not published`) are subtracted to avoid false positives. The full pattern list is in the workflow's run-step.
+**Silent-failure guard** (`10_pr-review.yml:141`): pr-agent's CLI catches its own exceptions in `pr_reviewer.py:184` and **returns exit code 0 even on fatal failures**. The workflow `tee`s output to `/tmp/pr-agent.log` and `grep`s for known fatal patterns (`Failed to generate prediction with any model`, `Failed to review PR`, `AuthenticationError`, etc.) — known no-op patterns (`Empty diff for PR:`, `PR has no files:`, `Review output is not published`) are subtracted to avoid false positives. The full pattern list is in the workflow's run-step.
 
 **Phase 3 rollout completed (2026-05-03)**: Branch protection on all 12 public repos now enforces `Gitleaks / scan` as a third required status check. To re-apply after editing `branch-protection.go`, run `(cd scripts && go run ./cmd/branch-protection)` from this repo.
 
@@ -568,5 +568,3 @@ Review posted as PR comment (markdown tables + code blocks)
 **Automated validation**: `scripts/cmd/validate-naming` checks cross-file invariants (deploy constants match E2E tests, auto-deploy paths cover extraFiles, CODEOWNERS coverage, kebab-case compliance). Run with `(cd scripts && go run ./cmd/validate-naming)`. Use `--fix` for auto-correction where supported.
 
 **File naming lint**: `.ls-lint.yml` enforces directory-specific conventions via `ls-lint`. Integrated into `90_sanity.yml` CI.
-pos
-396#MS
