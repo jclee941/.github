@@ -41,8 +41,8 @@ Fork-specific modifications in this repository include:
       - Added [config] section with fork model/fallback pinned
       - Added [openai] section with `api_base = http://<homelab-host>:8317/v1`
 
-  * .github/workflows/pr-review.yml  (NEW)
-      - Self-hosted runner workflow targeting `[self-hosted, homelab]`
+  * .github/workflows/10_pr-review.yml  (NEW)
+      - Runs on `ubuntu-latest` (public) / `self-hosted` (private) via repository_visibility
       - Injects cli_proxy endpoint and API key via env vars
 
   * README.md                         (REPLACED)
