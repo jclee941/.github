@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from check_private_ips import count_scanned, find_private_ips, scan_paths
 
 

@@ -1,12 +1,10 @@
 """E2E test fixtures for the GitHub App."""
 
-import json
 import os
-from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock, patch
 
 # Ensure we use test settings
 os.environ.setdefault("CONFIG.LOG_LEVEL", "DEBUG")

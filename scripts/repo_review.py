@@ -15,7 +15,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -155,7 +154,8 @@ def main() -> int:
         print(f"::error::failed to prepare base branch: {e.stderr}", file=sys.stderr)
         return 3
     print(
-        f"prepared base: {base_branch}={base_sha[:12]} total_commits={total} requested_since={args.since_commits} actual_scope={scope_used}"
+        f"prepared base: {base_branch}={base_sha[:12]} total_commits={total} "
+        f"requested_since={args.since_commits} actual_scope={scope_used}"
     )
 
     # Step 2: diff size guard
@@ -198,7 +198,7 @@ def main() -> int:
         return 4
 
     if not review_path.exists() or review_path.stat().st_size == 0:
-        print(f"::error::review.md is empty after review run", file=sys.stderr)
+        print("::error::review.md is empty after review run", file=sys.stderr)
         return 5
 
     # Prepend metadata so the issue body has clear provenance.

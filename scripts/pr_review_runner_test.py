@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import json
-import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from pr_review_runner import (
     PRMeta,
     check_silent_failures,

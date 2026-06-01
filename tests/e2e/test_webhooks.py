@@ -1,10 +1,5 @@
 """E2E tests for GitHub webhook handling."""
 
-from unittest.mock import patch
-
-import pytest
-
-
 class TestWebhookPRReviewFlow:
     """Test the full PR webhook flow."""
 

@@ -48,6 +48,15 @@ pr-agent = "pr_agent.cli:run"
 [tool.ruff]
 line-length = 120
 
+# Inherited upstream fork code (pr_agent/ and its upstream unittest suite) is
+# audited at fork time, not restyled. Broad ruff rewrites there only create
+# upstream-merge pain without improving fork-owned automation. `make lint`
+# (ruff check .) is the documented local gate and must stay green by design,
+# so the upstream trees are excluded from discovery here. Fork-owned code
+# (scripts/, tests/e2e/, tests/e2e_live/) is NOT excluded and is held to the
+# full ruleset.
+extend-exclude = ["pr_agent", "tests/unittest"]
+
 lint.select = [
   "E",    # Pyflakes
   "F",    # Pyflakes
@@ -67,7 +76,7 @@ lint.unfixable = [
 
 lint.exclude = ["api/code_completions"]
 
-lint.ignore = ["E999", "B008"]
+lint.ignore = ["B008"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = [
