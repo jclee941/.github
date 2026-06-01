@@ -17,9 +17,12 @@ from unittest.mock import patch
 import pytest
 from dynaconf import Dynaconf
 
-# Import get_settings at module level to complete the import chain and avoid circular import issues
-# This ensures pr_agent.config_loader is fully loaded before custom_merge_loader is used in tests
-from pr_agent.config_loader import get_settings  # noqa: F401
+# Import get_settings at module level to complete the import chain and avoid circular import issues.
+# This ensures pr_agent.config_loader is fully loaded before custom_merge_loader is used in tests.
+# Re-exported via __all__ so the side-effect import is genuinely "used" (no F401 suppression).
+from pr_agent.config_loader import get_settings
+
+__all__ = ["get_settings"]
 
 
 # Module-level helper function

@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import traceback
 
-from pr_agent.algo.types import EDIT_TYPE, FilePatchInfo
+from pr_agent.algo.types import EDIT_TYPE
 from pr_agent.config_loader import get_settings
 from pr_agent.log import get_logger
 
@@ -86,7 +86,13 @@ def process_patch_lines(patch_str, original_file_str, patch_extra_lines_before, 
                     is_valid_hunk = check_if_hunk_lines_matches_to_file(i, file_original_lines, patch_lines, start1)
 
                     if is_valid_hunk and (patch_extra_lines_before > 0 or patch_extra_lines_after > 0):
-                        def _calc_context_limits(patch_lines_before):
+                        def _calc_context_limits(
+                            patch_lines_before,
+                            start1=start1,
+                            size1=size1,
+                            start2=start2,
+                            size2=size2,
+                        ):
                             extended_start1 = max(1, start1 - patch_lines_before)
                             extended_size1 = size1 + (start1 - extended_start1) + patch_extra_lines_after
                             extended_start2 = max(1, start2 - patch_lines_before)
@@ -203,13 +209,13 @@ def check_if_hunk_lines_matches_to_file(i, original_lines, patch_lines, start1):
                         if original_line.encode(encoding).decode().strip() == patch_lines[i + 1].strip():
                             get_logger().info(f"Detected different encoding in hunk header line {start1}, needed encoding: {encoding}")
                             return False # we still want to avoid extending the hunk. But we don't want to log an error
-                    except:
+                    except Exception:
                         pass
 
                 is_valid_hunk = False
                 get_logger().info(
                     f"Invalid hunk in PR, line {start1} in hunk header doesn't match the original file content")
-    except:
+    except Exception:
         pass
     return is_valid_hunk
 
@@ -221,7 +227,7 @@ def extract_hunk_headers(match):
             res[i] = 0
     try:
         start1, size1, start2, size2 = map(int, res[:4])
-    except:  # '@@ -0,0 +1 @@' case
+    except Exception:  # '@@ -0,0 +1 @@' case
         start1, size1, size2 = map(int, res[:3])
         start2 = 0
     section_header = res[4]

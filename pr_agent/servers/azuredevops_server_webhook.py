@@ -15,7 +15,6 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from starlette import status
 from starlette.background import BackgroundTasks
 from starlette.middleware import Middleware
-from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette_context.middleware import RawContextMiddleware
 

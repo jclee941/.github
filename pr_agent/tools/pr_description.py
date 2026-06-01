@@ -28,14 +28,12 @@ from pr_agent.algo.utils import (
     show_relevant_configurations,
 )
 from pr_agent.config_loader import get_settings
-from pr_agent.git_providers import GithubProvider, get_git_provider, get_git_provider_with_context
+from pr_agent.git_providers import GithubProvider, get_git_provider_with_context
 from pr_agent.git_providers.git_provider import get_main_pr_language
 from pr_agent.log import get_logger
 from pr_agent.servers.help import HelpMessage
 from pr_agent.tools.ticket_pr_compliance_check import (
     extract_and_cache_pr_tickets,
-    extract_ticket_links_from_pr_description,
-    extract_tickets,
 )
 
 
@@ -481,14 +479,14 @@ class PRDescription:
 
         # If the 'PR Type' key is present in the dictionary, split its value by comma and assign it to 'pr_types'
         if 'labels' in self.data and self.data['labels']:
-            if type(self.data['labels']) == list:
+            if type(self.data['labels']) is list:
                 pr_labels = self.data['labels']
-            elif type(self.data['labels']) == str:
+            elif type(self.data['labels']) is str:
                 pr_labels = self.data['labels'].split(',')
         elif 'type' in self.data and self.data['type'] and get_settings().pr_description.publish_labels:
-            if type(self.data['type']) == list:
+            if type(self.data['type']) is list:
                 pr_labels = self.data['type']
-            elif type(self.data['type']) == str:
+            elif type(self.data['type']) is str:
                 pr_labels = self.data['type'].split(',')
         pr_labels = [label.strip() for label in pr_labels]
 
@@ -659,7 +657,7 @@ class PRDescription:
                 if label not in file_label_dict:
                     file_label_dict[label] = []
                 file_label_dict[label].append((filename, changes_title, changes_summary))
-            except Exception as e:
+            except Exception:
                 get_logger().exception(f"Error preparing file label dict {self.pr_id}")
                 pass
         return file_label_dict

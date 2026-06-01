@@ -221,8 +221,7 @@ class GitProvider(ABC):
         except Exception as e:
             get_logger().exception(f"Clone failed: Could not clone url.",
                 artifact={"error": str(e), "url": clone_url, "dest_folder": dest_folder})
-        finally:
-            return returned_obj
+        return returned_obj
 
     @abstractmethod
     def get_files(self) -> list:
@@ -233,7 +232,7 @@ class GitProvider(ABC):
         pass
 
     def get_incremental_commits(self, is_incremental):
-        pass
+        return None
 
     @abstractmethod
     def publish_description(self, pr_title: str, pr_body: str):
@@ -260,16 +259,16 @@ class GitProvider(ABC):
         pass
 
     def edit_comment(self, comment, body: str):
-        pass
+        return None
 
     def edit_comment_from_comment_id(self, comment_id: int, body: str):
-        pass
+        return None
 
     def get_comment_body_from_comment_id(self, comment_id: int) -> str:
-        pass
+        return None
 
     def reply_to_comment_from_comment_id(self, comment_id: int, body: str):
-        pass
+        return None
 
     def get_pr_description(self, full: bool = True, split_changes_walkthrough=False) -> str | tuple:
         from pr_agent.algo.utils import clip_tokens
@@ -287,7 +286,7 @@ class GitProvider(ABC):
             return description
 
     def get_user_description(self) -> str:
-        if hasattr(self, 'user_description') and not (self.user_description is None):
+        if hasattr(self, 'user_description') and self.user_description is not None:
             return self.user_description
 
         description = (self.get_pr_description_full() or "").strip()
@@ -424,7 +423,7 @@ class GitProvider(ABC):
         return ""
 
     def get_review_thread_comments(self, comment_id: int) -> list[dict]:
-        pass
+        return None
 
     #### labels operations ####
     @abstractmethod
@@ -436,7 +435,7 @@ class GitProvider(ABC):
         pass
 
     def get_repo_labels(self):
-        pass
+        return None
 
     @abstractmethod
     def add_eyes_reaction(self, issue_comment_id: int, disable_eyes: bool = False) -> Optional[int]:
@@ -468,7 +467,7 @@ class GitProvider(ABC):
     def get_num_of_files(self):
         try:
             return len(self.get_diff_files())
-        except Exception as e:
+        except Exception:
             return -1
 
     def limit_output_characters(self, output: str, max_chars: int):

@@ -95,7 +95,7 @@ class TestHandlePushTrigger:
     async def test_invokes_push_commands_and_minimax_subprocess(self, fake_settings, mock_agent, mock_log_context):
         body = make_push_body()
 
-        with patch.object(github_app, "apply_repo_settings") as mock_apply, \
+        with patch.object(github_app, "apply_repo_settings"), \
              patch.object(github_app, "get_settings", return_value=fake_settings), \
              patch.object(github_app, "get_identity_provider") as mock_idp, \
              patch.object(github_app, "_perform_auto_commands_github", new_callable=AsyncMock) as mock_perform, \
@@ -138,7 +138,7 @@ class TestHandlePushTrigger:
              patch.object(github_app, "_perform_auto_commands_github", new_callable=AsyncMock) as mock_perform, \
              patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_subprocess:
 
-            result = await github_app.handle_push_trigger_for_new_commits(
+            await github_app.handle_push_trigger_for_new_commits(
                 body, "push", "sender", "sender-id", "synchronize", mock_log_context, mock_agent
             )
 
@@ -154,7 +154,7 @@ class TestHandlePushTrigger:
              patch.object(github_app, "_perform_auto_commands_github", new_callable=AsyncMock) as mock_perform, \
              patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_subprocess:
 
-            result = await github_app.handle_push_trigger_for_new_commits(
+            await github_app.handle_push_trigger_for_new_commits(
                 body, "push", "sender", "sender-id", "synchronize", mock_log_context, mock_agent
             )
 
@@ -170,7 +170,7 @@ class TestHandlePushTrigger:
              patch.object(github_app, "get_settings", return_value=fake_settings), \
              patch.object(github_app, "_perform_auto_commands_github", new_callable=AsyncMock) as mock_perform:
 
-            result = await github_app.handle_push_trigger_for_new_commits(
+            await github_app.handle_push_trigger_for_new_commits(
                 body, "push", "sender", "sender-id", "synchronize", mock_log_context, mock_agent
             )
 
@@ -187,7 +187,7 @@ class TestHandlePushTrigger:
 
             mock_idp.return_value.verify_eligibility.return_value = Eligibility.NOT_ELIGIBLE
 
-            result = await github_app.handle_push_trigger_for_new_commits(
+            await github_app.handle_push_trigger_for_new_commits(
                 body, "push", "sender", "sender-id", "synchronize", mock_log_context, mock_agent
             )
 
@@ -223,7 +223,7 @@ class TestHandlePushTrigger:
              patch.object(github_app, "get_settings", return_value=fake_settings), \
              patch.object(github_app, "get_identity_provider") as mock_idp, \
              patch.object(github_app, "_perform_auto_commands_github", new_callable=AsyncMock), \
-             patch("asyncio.create_subprocess_exec", side_effect=RuntimeError("boom")) as mock_subprocess:
+             patch("asyncio.create_subprocess_exec", side_effect=RuntimeError("boom")):
 
             mock_idp.return_value.verify_eligibility.return_value = Eligibility.ELIGIBLE
 
@@ -254,7 +254,7 @@ class TestShouldProcessPrLogic:
             "repository": {"full_name": repo},
             "pull_request": {
                 "title": title,
-                "labels": [{"name": l} for l in (labels or [])],
+                "labels": [{"name": label} for label in (labels or [])],
                 "head": {"ref": source_branch},
                 "base": {"ref": target_branch},
             },

@@ -16,6 +16,7 @@ Design goals:
 """
 from __future__ import annotations
 
+import os as _os
 import re
 from typing import Any, Iterable
 
@@ -167,9 +168,6 @@ _PATTERNS: list[tuple[str, re.Pattern[str]]] = [
 # PR_AGENT_MASK_SECRETS=0 disables masking entirely; setting
 # PR_AGENT_MASK_SECRETS_SKIP_CONFIG=1 keeps regex masking on but skips the
 # Dynaconf-backed collect_config_secrets path (no live secret values are added).
-import os as _os
-
-
 def _enabled() -> bool:
     """Return True if masking is enabled (default ON)."""
     env = _os.environ.get("PR_AGENT_MASK_SECRETS")

@@ -46,7 +46,7 @@ class BitbucketProvider(GitProvider):
             elif self.auth_type == "bearer":
                 try:
                     self.bearer_token = context.get("bitbucket_bearer_token", None)
-                except:
+                except Exception:
                     self.bearer_token = None
 
                 if not self.bearer_token:
@@ -93,7 +93,7 @@ class BitbucketProvider(GitProvider):
         try:
             parsed_url = urlparse(self.pr_url)
             return f"{parsed_url.scheme}://{parsed_url.netloc}/{self.workspace_slug}/{self.repo_slug}.git"
-        except Exception as e:
+        except Exception:
             get_logger().exception(f"url is not a valid merge requests url: {self.pr_url}")
             return ""
 
@@ -228,7 +228,7 @@ class BitbucketProvider(GitProvider):
                     'names_filtered': names_filtered
 
                 })
-            except Exception as e:
+            except Exception:
                 pass
 
         # get the pr patches
@@ -248,7 +248,7 @@ class BitbucketProvider(GitProvider):
                     continue
 
             if pr_patches is None:
-                raise ValueError(f"Failed to decode PR patch with encodings {encodings_to_try}")
+                raise ValueError(f"Failed to decode PR patch with encodings {encodings_to_try}") from e
 
         diff_split = ["diff --git" + x for x in pr_patches.split("diff --git") if x.strip()]
         # filter all elements of 'diff_split' that are of indices in 'diffs_original' that are not in 'diffs'
@@ -367,7 +367,7 @@ class BitbucketProvider(GitProvider):
                         pr_comment_updated = pr_comment
                     get_logger().info(f"Persistent mode - updating comment {comment_url} to latest {name} message")
                     d = {"content": {"raw": pr_comment_updated}}
-                    response = comment._update_data(comment.put(None, data=d))
+                    comment._update_data(comment.put(None, data=d))
                     if final_update_message:
                         self.publish_comment(
                             f"**[Persistent {name}]({comment_url})** updated to latest commit {latest_commit_url}")
@@ -496,7 +496,7 @@ class BitbucketProvider(GitProvider):
             url_repo = f"https://api.bitbucket.org/2.0/repositories/{self.workspace_slug}/{self.repo_slug}/"
             response_repo = requests.request("GET", url_repo, headers=self.headers).json()
             return response_repo['mainbranch']['name']
-        except:
+        except Exception:
             return self.pr.destination_branch
 
     def get_pr_owner_id(self) -> str | None:
@@ -611,7 +611,7 @@ class BitbucketProvider(GitProvider):
         try:
             if response.status_code != 200:
                 get_logger().info(f"Failed to update description, error code: {response.status_code}")
-        except:
+        except Exception:
             pass
         return response
 

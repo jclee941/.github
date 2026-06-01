@@ -3,6 +3,7 @@
 # pyright: reportUnknownParameterType=false, reportUnknownVariableType=false, reportUnannotatedClassAttribute=false
 # pyright: reportUnusedCallResult=false, reportUnusedParameter=false
 import sys
+from importlib import import_module
 from types import ModuleType, SimpleNamespace
 
 try:
@@ -124,8 +125,8 @@ help_module = ModuleType("pr_agent.servers.help")
 help_module.HelpMessage = type("HelpMessage", (), {})
 sys.modules.setdefault("pr_agent.servers.help", help_module)
 
-from pr_agent.tools import pr_code_suggestions as pr_code_suggestions_module
-from pr_agent.tools.pr_code_suggestions import PRCodeSuggestions
+pr_code_suggestions_module = import_module("pr_agent.tools.pr_code_suggestions")
+PRCodeSuggestions = pr_code_suggestions_module.PRCodeSuggestions
 
 
 def _api_error(message="chunk failed"):

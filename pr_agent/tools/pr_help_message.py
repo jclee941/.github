@@ -20,7 +20,6 @@ def extract_header(snippet):
     res = ''
     lines = snippet.split('===Snippet content===')[0].split('\n')
     highest_header = ''
-    highest_level = float('inf')
     for line in lines[::-1]:
         line = line.strip()
         if line.startswith('Header '):
@@ -274,11 +273,9 @@ class PRHelpMessage:
         relevant_snippets_full = []
         relevant_pages_full = []
         relevant_snippets_full_header = []
-        th = 0.75
         for s in sim_results:
             page = s[0].metadata['source']
             content = s[0].page_content
-            score = s[1]
             relevant_snippets_full.append(content)
             relevant_snippets_full_header.append(extract_header(content))
             relevant_pages_full.append(page)
