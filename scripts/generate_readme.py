@@ -16,8 +16,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 import re
+import sys
 import urllib.request
 from pathlib import Path
 
@@ -101,6 +101,33 @@ def sanitize_links(text: str) -> str:
         return canonical  # hallucinated repo, rewrite to the canonical repo
 
     return url_re.sub(_replace, text)
+
+
+def redact_private_ips(text: str) -> str:
+    """Replace any RFC1918 private IP (with optional :port) in generated README
+    text with placeholders, so internal homelab addresses never leak even if the
+    LLM ignores the system prompt. Public IPs are left untouched."""
+    ip_re = re.compile(r"\b(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(:\d+)?\b")
+
+    def _is_private(o1: int, o2: int, o3: int, o4: int) -> bool:
+        if any(o > 255 for o in (o1, o2, o3, o4)):
+            return False
+        if o1 == 10:
+            return True
+        if o1 == 172 and 16 <= o2 <= 31:
+            return True
+        if o1 == 192 and o2 == 168:
+            return True
+        return False
+
+    def _replace(m: re.Match) -> str:
+        octets = tuple(int(m.group(i)) for i in range(1, 5))
+        if not _is_private(*octets):
+            return m.group(0)
+        port = m.group(5) or ""
+        return f"<homelab-host>{port}"
+
+    return ip_re.sub(_replace, text)
 
 
 def run_tree(repo_root: Path) -> str:
@@ -217,6 +244,20 @@ def generate_readme(repo_root: Path) -> str:
         "automation inventory (workflows + tools), quick start, local development, "
         "commands reference, and contribution guide. "
         "Be specific about what automation exists - list workflow names and tool names. "
+        "When listing workflow files, use their REAL on-disk names including the numeric "
+        "prefix (e.g. 10_pr-review.yml, 03_pr-checks.yml, 90_sanity.yml); never strip the "
+        "prefix and never invent bare names. "
+        "For the architecture section, draw the diagram as a GitHub-native Mermaid "
+        "flowchart inside a ```mermaid fenced block. Do NOT hand-draw ASCII/box-drawing "
+        "diagrams (┌ │ └ etc.) - they render misaligned. "
+        "For the repository structure tree, reflect the ACTUAL top-level layout provided "
+        "below; never invent directories such as _bot-scripts/ (that name only ever appears "
+        "as a transient CI checkout path, not a real directory). "
+        "NEVER include hardcoded private/internal IP addresses (RFC1918: 192.168.x.x, "
+        "10.x.x.x, 172.16-31.x.x) or LXC container numbers; use placeholders like "
+        "<homelab-host> / <homelab-elk> and the public endpoint https://cliproxy.jclee.me/v1 instead. "
+        "Do NOT use bold/emphasis text as a substitute for a heading (markdownlint MD036); "
+        "use real '#' headings. "
         "Current README-gen models: minimax-m2.7 with fallback gpt-5.5 (via CLIProxyAPI). "
         "Do NOT invent GitHub repository URLs: never link to non-existent repos such as "
         "github.com/jclee941/CLIProxyAPI or github.com/jclee941/github-bot. For external "
@@ -261,7 +302,7 @@ def main() -> int:
     readme_path = repo_root / "README.md"
 
     print(f"Scanning {repo_root} ...")
-    content = sanitize_links(normalize_llm_readme_response(generate_readme(repo_root)))
+    content = redact_private_ips(sanitize_links(normalize_llm_readme_response(generate_readme(repo_root))))
 
     if args.dry_run:
         print("\n--- GENERATED README ---\n")
