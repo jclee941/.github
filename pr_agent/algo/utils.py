@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import ast
 import copy
 import difflib
 import hashlib
@@ -166,7 +165,7 @@ def convert_to_markdown_v2(output_data: dict,
     if gfm_supported:
         markdown_text += "<table>\n"
 
-    todo_summary = output_data['review'].pop('todo_summary', '')
+    output_data['review'].pop('todo_summary', '')
     for key, value in output_data['review'].items():
         if value is None or value == '' or value == {} or value == []:
             if key.lower() not in ['can_be_split', 'key_issues_to_review']:
@@ -272,7 +271,7 @@ def convert_to_markdown_v2(output_data: dict,
                     markdown_text += f"{emoji}&nbsp;<strong>검토 권장 영역</strong><br><br>\n\n"
                 else:
                     markdown_text += f"### {emoji} 검토 권장 영역\n\n#### \n"
-                for i, issue in enumerate(issues):
+                for _i, issue in enumerate(issues):
                     try:
                         if not issue or not isinstance(issue, dict):
                             continue
@@ -462,7 +461,6 @@ def ticket_markdown_logic(emoji, markdown_text, value, gfm_supported) -> str:
 def process_can_be_split(emoji, value):
     try:
         # key_nice = "Can this PR be split?"
-        key_nice = "Multiple PR themes"
         markdown_text = ""
         if not value or isinstance(value, list) and len(value) == 1:
             value = "No"
@@ -471,7 +469,7 @@ def process_can_be_split(emoji, value):
             markdown_text += f"{emoji} <strong>복수 PR 주제 없음</strong>\n\n"
         else:
             markdown_text += f"{emoji} <strong>복수 PR 주제</strong><br><br>\n\n"
-            for i, split in enumerate(value):
+            for _i, split in enumerate(value):
                 title = split.get('title', '')
                 relevant_files = split.get('relevant_files', [])
                 markdown_text += f"<details><summary>\n하위 PR 주제: <b>{title}</b></summary>\n\n"
@@ -695,7 +693,7 @@ def load_large_diff(filename, new_file_content_str: str, original_file_content_s
             get_logger().info(f"File was modified, but no patch was found. Manually creating patch: {filename}.")
         patch = ''.join(diff)
         return patch
-    except Exception as e:
+    except Exception:
         get_logger().exception(f"Failed to generate patch for file: {filename}")
         return ""
 
@@ -746,7 +744,9 @@ def _fix_key_value(key: str, value: str):
     return key, value
 
 
-def load_yaml(response_text: str, keys_fix_yaml: List[str] = [], first_key="", last_key="") -> dict:
+def load_yaml(response_text: str, keys_fix_yaml: List[str] = None, first_key="", last_key="") -> dict:
+    if keys_fix_yaml is None:
+        keys_fix_yaml = []
     response_text_original = copy.deepcopy(response_text)
     response_text = response_text.strip('\n').removeprefix('yaml').removeprefix('```yaml').rstrip().removesuffix('```')
     try:
@@ -777,10 +777,12 @@ def load_yaml(response_text: str, keys_fix_yaml: List[str] = [], first_key="", l
 
 
 def try_fix_yaml(response_text: str,
-                 keys_fix_yaml: List[str] = [],
+                 keys_fix_yaml: List[str] = None,
                  first_key="",
                  last_key="",
                  response_text_original="") -> dict:
+    if keys_fix_yaml is None:
+        keys_fix_yaml = []
     response_text_lines = response_text.split('\n')
 
     keys_yaml = ['relevant line:', 'suggestion content:', 'relevant file:', 'existing code:',
@@ -791,14 +793,14 @@ def try_fix_yaml(response_text: str,
     response_text_lines_copy = response_text_lines.copy()
     for i in range(0, len(response_text_lines_copy)):
         for key in keys_yaml:
-            if key in response_text_lines_copy[i] and not '|' in response_text_lines_copy[i]:
+            if key in response_text_lines_copy[i] and '|' not in response_text_lines_copy[i]:
                 response_text_lines_copy[i] = response_text_lines_copy[i].replace(f'{key}',
                                                                                   f'{key} |\n        ')
     try:
         data = yaml.safe_load('\n'.join(response_text_lines_copy))
         get_logger().info(f"Successfully parsed AI prediction after adding |-\n")
         return data
-    except:
+    except Exception:
         pass
 
     # 1.5 fallback - try to convert '|' to '|2'. Will solve cases of indent decreasing during the code
@@ -808,7 +810,7 @@ def try_fix_yaml(response_text: str,
         data = yaml.safe_load(response_text_copy)
         get_logger().info(f"Successfully parsed AI prediction after replacing | with |2")
         return data
-    except:
+    except Exception:
         # if it fails, we can try to add spaces to the lines that are not indented properly, and contain '}'.
         response_text_lines_copy = response_text_copy.split('\n')
         for i in range(0, len(response_text_lines_copy)):
@@ -819,7 +821,7 @@ def try_fix_yaml(response_text: str,
             data = yaml.safe_load('\n'.join(response_text_lines_copy))
             get_logger().info(f"Successfully parsed AI prediction after replacing | with |2 and adding spaces")
             return data
-        except:
+        except Exception:
             pass
 
     # second fallback - try to extract only range from first ```yaml to the last ```
@@ -833,7 +835,7 @@ def try_fix_yaml(response_text: str,
             data = yaml.safe_load(snippet_text.removeprefix('```yaml').rstrip('`'))
             get_logger().info(f"Successfully parsed AI prediction after extracting yaml snippet")
             return data
-        except:
+        except Exception:
             pass
 
 
@@ -843,7 +845,7 @@ def try_fix_yaml(response_text: str,
         data = yaml.safe_load(response_text_copy)
         get_logger().info(f"Successfully parsed AI prediction after removing curly brackets")
         return data
-    except:
+    except Exception:
         pass
 
 
@@ -858,13 +860,13 @@ def try_fix_yaml(response_text: str,
         index_end = response_text.find("\n\n", index_last_code) # look for newlines after last_key
         if index_end == -1:
             index_end = len(response_text)
-        response_text_copy = response_text[index_start:index_end].strip().strip('```yaml').strip('`').strip()
+        response_text_copy = response_text[index_start:index_end].strip().removeprefix('```yaml').strip('`').strip()
         if response_text_copy:
             try:
                 data = yaml.safe_load(response_text_copy)
                 get_logger().info(f"Successfully parsed AI prediction after extracting yaml snippet")
                 return data
-            except:
+            except Exception:
                 pass
 
     # fifth fallback - try to remove leading '+' (sometimes added by AI for 'existing code' and 'improved code')
@@ -876,7 +878,7 @@ def try_fix_yaml(response_text: str,
         data = yaml.safe_load('\n'.join(response_text_lines_copy))
         get_logger().info(f"Successfully parsed AI prediction after removing leading '+'")
         return data
-    except:
+    except Exception:
         pass
 
     # sixth fallback - replace tabs with spaces
@@ -887,7 +889,7 @@ def try_fix_yaml(response_text: str,
             data = yaml.safe_load(response_text_copy)
             get_logger().info(f"Successfully parsed AI prediction after replacing tabs with spaces")
             return data
-        except:
+        except Exception:
             pass
 
     # seventh fallback - add indent for sections of code blocks
@@ -910,7 +912,7 @@ def try_fix_yaml(response_text: str,
         data = yaml.safe_load(response_text_copy)
         get_logger().info(f"Successfully parsed AI prediction after adding indent for sections of code blocks")
         return data
-    except:
+    except Exception:
         pass
 
     # eighth fallback - try to remove pipe chars at the root-level dicts
@@ -920,7 +922,7 @@ def try_fix_yaml(response_text: str,
         data = yaml.safe_load(response_text_copy)
         get_logger().info(f"Successfully parsed AI prediction after removing pipe chars")
         return data
-    except:
+    except Exception:
         pass
 
     # ninth fallback - try to decode the response text with different encodings. GPT-5 can return text that is not utf-8 encoded.
@@ -931,7 +933,7 @@ def try_fix_yaml(response_text: str,
             if data:
                 get_logger().info(f"Successfully parsed AI prediction after decoding with {encoding} encoding")
                 return data
-        except:
+        except Exception:
             pass
 
     # # sixth fallback - try to remove last lines

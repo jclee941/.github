@@ -70,7 +70,7 @@ def sort_files_by_main_languages(languages: Dict, files: list):
     for ext in main_extensions:
         main_extensions_flat.extend(ext)
 
-    for extensions, lang in zip(main_extensions, languages_sorted_list):  # noqa: B905
+    for extensions, lang in zip(main_extensions, languages_sorted_list, strict=False):
         tmp = []
         for file in files_filtered:
             extension_str = f".{file.filename.split('.')[-1]}"

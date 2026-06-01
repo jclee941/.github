@@ -1,5 +1,4 @@
-import hashlib
-from base64 import b64decode, b64encode, encode
+from base64 import b64decode
 
 
 class CliArgs:
@@ -33,5 +32,4 @@ class CliArgs:
             return True, ""
         except Exception as e:
             return False, str(e)
-
 

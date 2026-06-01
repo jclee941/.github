@@ -1,6 +1,6 @@
-from threading import Lock
-from math import ceil
 import re
+from math import ceil
+from threading import Lock
 
 from jinja2 import Environment, StrictUndefined
 from tiktoken import encoding_for_model, get_encoding
@@ -34,7 +34,7 @@ class TokenEncoder:
                     try:
                         cls._encoder_instance = encoding_for_model(cls._model) if "gpt" in cls._model else get_encoding(
                             "o200k_base")
-                    except:
+                    except Exception:
                         cls._encoder_instance = get_encoding("o200k_base")
         return cls._encoder_instance
 
@@ -101,6 +101,7 @@ class TokenHandler:
     def _calc_claude_tokens(self, patch: str) -> int:
         try:
             import anthropic
+
             from pr_agent.algo import MAX_TOKENS
             
             client = anthropic.Anthropic(api_key=get_settings(use_context=False).get('anthropic.key'))
