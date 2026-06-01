@@ -32,10 +32,7 @@ from pr_agent.algo.utils import (
 )
 from pr_agent.config_loader import get_settings
 from pr_agent.git_providers import (
-    AzureDevopsProvider,
     GithubProvider,
-    GitLabProvider,
-    get_git_provider,
     get_git_provider_with_context,
 )
 from pr_agent.git_providers.git_provider import GitProvider, get_main_pr_language
@@ -281,15 +278,12 @@ class PRCodeSuggestions:
         else:
             latest_suggestion_header = f"Latest suggestions up to {last_commit_num}"
         latest_commit_html_comment = f"<!-- {last_commit_num} -->"
-        found_comment = None
-
         if max_previous_comments > 0:
             try:
                 prev_comments = list(git_provider.get_issue_comments())
                 for comment in prev_comments:
                     if comment.body.startswith(initial_header):
                         prev_suggestions = comment.body
-                        found_comment = comment
                         comment_url = git_provider.get_comment_url(comment)
 
                         if history_header.strip() not in comment.body:
@@ -427,7 +421,7 @@ class PRCodeSuggestions:
             await self.analyze_self_reflection_response(data, response_reflect)
         else:
             # get_logger().error(f"Could not self-reflect on suggestions. using default score 7")
-            for i, suggestion in enumerate(data["code_suggestions"]):
+            for _i, suggestion in enumerate(data["code_suggestions"]):
                 suggestion["score"] = 7
                 suggestion["score_why"] = ""
 
@@ -466,7 +460,7 @@ class PRCodeSuggestions:
                         get_logger().error(f"Failed to log suggestion statistics, error: {e}")
                         pass
 
-                except Exception as e:  #
+                except Exception:  #
                     get_logger().error(f"Error processing suggestion score {i}",
                                        artifact={"suggestion": suggestion,
                                                  "code_suggestions_feedback": code_suggestions_feedback[i]})
@@ -717,11 +711,13 @@ class PRCodeSuggestions:
                 prediction_list = await asyncio.gather(
                     *[self._get_prediction(model, patches_diff, patches_diff_no_line_numbers) for
                       patches_diff, patches_diff_no_line_numbers in
-                      zip(self.patches_diff_list, self.patches_diff_list_no_line_numbers)],
+                      zip(self.patches_diff_list, self.patches_diff_list_no_line_numbers, strict=False)],
                     return_exceptions=True)
             else:
                 prediction_list = []
-                for patches_diff, patches_diff_no_line_numbers in zip(self.patches_diff_list, self.patches_diff_list_no_line_numbers):
+                for patches_diff, patches_diff_no_line_numbers in zip(
+                    self.patches_diff_list, self.patches_diff_list_no_line_numbers, strict=False
+                ):
                     try:
                         prediction = await self._get_prediction(model, patches_diff, patches_diff_no_line_numbers)
                         prediction_list.append(prediction)
@@ -795,7 +791,7 @@ class PRCodeSuggestions:
                         patch_final = clip_tokens(patch_final, max_tokens_full - delta_output)
                     patches_diff_list.append(patch_final)
                 return patches_diff_list
-            except Exception as e:
+            except Exception:
                 get_logger().exception(f"Error converting to decoupled with line numbers",
                                        artifact={'patches_diff_list_no_line_numbers': patches_diff_list_no_line_numbers})
                 return []
@@ -856,7 +852,7 @@ class PRCodeSuggestions:
                     try:
                         code_snippet_link = self.git_provider.get_line_link(relevant_file, relevant_lines_start,
                                                                             relevant_lines_end)
-                    except:
+                    except Exception:
                         code_snippet_link = ""
                     # add html table for each suggestion
 

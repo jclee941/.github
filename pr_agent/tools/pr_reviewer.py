@@ -1,11 +1,6 @@
 import copy
 import datetime
 import hashlib
-import re
-import traceback
-import datetime
-import traceback
-from collections import OrderedDict
 from functools import partial
 from typing import List, Tuple
 
@@ -24,11 +19,11 @@ from pr_agent.algo.utils import (
     show_relevant_configurations,
 )
 from pr_agent.config_loader import get_settings
-from pr_agent.git_providers import get_git_provider, get_git_provider_with_context
+from pr_agent.git_providers import get_git_provider_with_context
 from pr_agent.git_providers.git_provider import IncrementalPR, get_main_pr_language
 from pr_agent.log import get_logger
 from pr_agent.servers.help import HelpMessage
-from pr_agent.tools.ticket_pr_compliance_check import extract_and_cache_pr_tickets, extract_tickets
+from pr_agent.tools.ticket_pr_compliance_check import extract_and_cache_pr_tickets
 
 
 class PRReviewer:
@@ -312,7 +307,7 @@ class PRReviewer:
         # Add custom labels from the review prediction (effort, security)
         self.set_review_labels(data)
 
-        if markdown_text == None or len(markdown_text) == 0:
+        if markdown_text is None or len(markdown_text) == 0:
             markdown_text = ""
 
         return markdown_text
