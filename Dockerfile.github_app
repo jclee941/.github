@@ -1,4 +1,4 @@
-# GitHub App webhook server (self-hosted on LXC 100)
+# GitHub App webhook server (self-hosted on the homelab host)
 # Listens on port 3000, served by gunicorn with uvicorn workers.
 # Fork-specific: routes LLM via CLIProxyAPI at https://cliproxy.jclee.me/v1
 FROM python:3.12.13-slim AS base

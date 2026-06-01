@@ -1,7 +1,7 @@
-# Deploy on LXC 114 alongside cliproxyapi (LXC 100).
+# Deploy on the homelab host alongside cliproxyapi.
 # Public URL via Cloudflare Tunnel: https://bot.jclee.me
 #
-# Usage (on LXC 114 root):
+# Usage (on the homelab host as root):
 #   cd /opt/github-bot && docker compose -f docker-compose.github_app.yml up -d
 #
 # Required: /opt/github-bot/.env with secrets (see below).
@@ -71,10 +71,9 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - filebeat-data:/usr/share/filebeat/data
     environment:
-      # Elasticsearch lives at 192.168.50.105:9200 (homelab-elk). The old
-      # 192.168.50.102 address is dead -> connection refused -> zero
-      # github-bot-logs-* indices. Credentials are required (security enabled).
-      - ELASTICSEARCH_HOSTS=http://192.168.50.105:9200
+      # Elasticsearch host (homelab-elk). Set ELASTICSEARCH_HOSTS in .env to the
+      # live node URL; credentials are required (security enabled).
+      - ELASTICSEARCH_HOSTS=${ELASTICSEARCH_HOSTS}
       - ELASTICSEARCH_USERNAME=${ELK_USERNAME}
       - ELASTICSEARCH_PASSWORD=${ELK_PASSWORD}
     networks:
@@ -109,7 +108,7 @@ services:
 networks:
   cliproxy_net:
     external: true
-    name: cliproxyapi_backend   # piggyback on existing cliproxy network on LXC 100
+    name: cliproxyapi_backend   # piggyback on existing cliproxy network on the homelab host
 
 volumes:
   filebeat-data:

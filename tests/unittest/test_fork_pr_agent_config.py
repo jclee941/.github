@@ -106,7 +106,7 @@ class TestForkPrAgentConfig:
         registered in command2class.
 
         Regression guard: c6fbb70e removed `agentic_review` from the workflow
-        runner but left it in .pr_agent.toml. The GitHub App (LXC 100) reads
+        runner but left it in .pr_agent.toml. The GitHub App (homelab host) reads
         this file, so it silently logged \"Unknown command: agentic_review\"
         and returned False on every PR open and every push. This test fails
         if any auto-command does not resolve to a real handler.

@@ -39,7 +39,7 @@ Fork-specific modifications in this repository include:
 
   * .pr_agent.toml
       - Added [config] section with fork model/fallback pinned
-      - Added [openai] section with `api_base = http://192.168.50.114:8317/v1`
+      - Added [openai] section with `api_base = http://<homelab-host>:8317/v1`
 
   * .github/workflows/pr-review.yml  (NEW)
       - Self-hosted runner workflow targeting `[self-hosted, homelab]`

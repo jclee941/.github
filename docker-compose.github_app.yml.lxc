@@ -1,8 +1,8 @@
-# Deploy on LXC 100 (192.168.50.114) alongside cliproxyapi.
+# Deploy on the homelab host alongside cliproxyapi.
 # Public URL via Cloudflare Tunnel: https://bot.jclee.me
 # WARNING: This file must NOT contain secrets. All secrets come from .env.
 #
-# Usage (on LXC 100 root):
+# Usage (on the homelab host as root):
 #   cd /opt/github-bot && docker compose -f docker-compose.github_app.yml.lxc up -d
 #
 # Required: /opt/github-bot/.env with secrets (see below).

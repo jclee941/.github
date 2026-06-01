@@ -36,11 +36,9 @@ filebeat.inputs:
               message: '^\{'
 
 output.elasticsearch:
-  # 192.168.50.105:9200 is the live homelab-elk node. The previous
-  # 192.168.50.102 address is dead (connection refused), which silently
-  # broke github-bot-logs-* shipping. Host/credentials are overridable via the
-  # ELASTICSEARCH_HOSTS / ELASTICSEARCH_USERNAME / ELASTICSEARCH_PASSWORD env.
-  hosts: ["${ELASTICSEARCH_HOSTS:http://192.168.50.105:9200}"]
+  # Host/credentials are provided via the ELASTICSEARCH_HOSTS /
+  # ELASTICSEARCH_USERNAME / ELASTICSEARCH_PASSWORD env vars (set in .env).
+  hosts: ["${ELASTICSEARCH_HOSTS}"]
   username: "${ELASTICSEARCH_USERNAME:elastic}"
   password: "${ELASTICSEARCH_PASSWORD:}"
   index: "github-bot-logs-%{+yyyy.MM.dd}"
