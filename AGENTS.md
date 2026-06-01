@@ -11,7 +11,7 @@
 
 ## OVERVIEW
 
-AI-powered PR reviewer for `jclee941/*` repos. Hard fork of [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent) (AGPL-3.0), rewired to use the homelab `CLIProxyAPI` at `192.168.50.114:8317` as the LLM backend. Workflows run on GitHub-hosted `ubuntu-latest` runners (the homelab is reached over the public internet via `https://cliproxy.jclee.me/v1`).
+AI-powered PR reviewer for `jclee941/*` repos. Hard fork of [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent) (AGPL-3.0), rewired to use the homelab `CLIProxyAPI` at `<homelab-host>:8317` as the LLM backend. Workflows run on GitHub-hosted `ubuntu-latest` runners (the homelab is reached over the public internet via `https://cliproxy.jclee.me/v1`).
 
 All upstream pr-agent features are preserved: `/review`, `/improve`, `/describe`, `/ask`, `/update_changelog`, PR compression, dynamic context, multi-model fallback, slash commands.
 
@@ -23,22 +23,22 @@ All upstream pr-agent features are preserved: `/review`, `/improve`, `/describe`
 | `.pr_agent.toml` | Prepended `[config]`, `[openai]`, `[litellm]` sections | Pin fork-level model and `api_base` to cli_proxy |
 | `.github/workflows/10_pr-review.yml` | **NEW** | ubuntu-latest runner + cli_proxy env vars |
 | `.github/workflows/security/11_pr-review.yml` | **NEW** | Deep security review (Korean, `pull_request_target`, label-triggered) |
-| `.github/workflows/sanity.yml` | **NEW** | Fork CI gate (replaces upstream CI) |
-| `.github/workflows/codeql.yml` | **NEW** | Python SAST (security-extended + quality queries) |
+| `.github/workflows/90_sanity.yml` | **NEW** | Fork CI gate (replaces upstream CI) |
+| `.github/workflows/06_codeql.yml` | **NEW** | Python SAST (security-extended + quality queries) |
 | `.github/workflows/05_gitleaks.yml` | **NEW** | Secret-pattern scan on every PR/push |
 | `.github/workflows/04_actionlint.yml` | **NEW** | GitHub Actions YAML semantic linter |
-| `.github/workflows/auto-hardcode-scan.yml` | **NEW** | Weekly hardcode-pattern scan on `ubuntu-latest` (was self-hosted) |
+| `.github/workflows/35_auto-hardcode-scan.yml` | **NEW** | Weekly hardcode-pattern scan on `ubuntu-latest` (was self-hosted) |
 | `.github/CODEOWNERS` | **NEW** | Auto-reviewer assignment |
 | `.github/PULL_REQUEST_TEMPLATE.md` | **NEW** | Bilingual PR template (Korean + English) |
 | `docs/git-workflow-gap-analysis.md` | **NEW** | Workflow automation gap analysis report |
 | `.github/ISSUE_TEMPLATE/` | **NEW** | Bug / Feature / Security issue templates (replaces upstream) |
 | `CONTRIBUTING.md` | **NEW** | Fork-specific contributor guide (replaces upstream) |
-| `.github/release-drafter.yml` + `.github/workflows/release-drafter.yml` | **NEW** | Conventional-Commits-aware release draft automation |
+| `.github/release-drafter.yml` + `.github/workflows/23_release-drafter.yml` | **NEW** | Conventional-Commits-aware release draft automation |
 | `.markdownlint.json` | **NEW** | Local markdownlint overrides (line_length=120, tables/code blocks exempt) |
 | `.gitleaksignore` | **NEW** | Fingerprint allowlist for upstream pr-agent test fixtures |
 | `scripts/go.mod` + `scripts/cmd/{branch-protection,deploy-to-repos,sync-secrets,repo-review}/main.go` | **NEW** | Module-restructured Go scripts to enable `go test`. Invoke via `(cd scripts && go run ./cmd/<name>)`. |
 | `scripts/cmd/branch-protection/main_test.go` + `scripts/cmd/deploy-to-repos/main_test.go` | **NEW** | Table-driven tests for pure-logic helpers (16 test cases) |
-| `scripts/cmd/deploy-to-repos/main.go` | **NEW** | Deploy `pr-review.yml` to `jclee941/*` repos |
+| `scripts/cmd/deploy-to-repos/main.go` | **NEW** | Deploy `10_pr-review.yml` to `jclee941/*` repos |
 | `scripts/cmd/rulesets-manager/main.go` | **NEW** | GitHub Rulesets manager — supplements branch protection with ruleset-based controls (list/apply/delete) |
 | `README.md` | **REPLACED** | Fork-specific readme (upstream moved to `docs/pr-agent-upstream-README.md`) |
 | `AGENTS.md` | **REPLACED** | This file |
@@ -91,22 +91,28 @@ github-bot/
 │       ├── pr_reviewer_prompts.toml
 │       └── ...                    # other prompt templates
 ├── .github/workflows/
-│   ├── pr-review.yml              # FORK: ubuntu-latest + cli_proxy (kimi-k2.6)
-│   ├── security/11_pr-review.yml     # FORK: deep security review (Korean, label-gated)
-│   ├── sanity.yml                 # FORK: CI gate (replaces upstream CI)
-│   ├── pr-checks.yml              # PR validation (size, title, branch, description)
-│   ├── gitleaks.yml               # Secret scanning
-│   ├── codeql.yml                 # Python SAST
-│   ├── actionlint.yml             # Workflow YAML linter
-│   ├── dependabot-auto-merge.yml  # Auto-merge patch/minor updates
-│   ├── auto-deploy.yml            # Deploy workflows to downstream repos
-│   └── ...                        # 17 more workflows (see .github/workflows/)
+│   ├── 10_pr-review.yml               # FORK: ubuntu-latest + cli_proxy (kimi-k2.6)
+│   ├── security/11_pr-review.yml      # FORK: deep security review (Korean, label-gated)
+│   ├── 90_sanity.yml                  # FORK: CI gate (replaces upstream CI)
+│   ├── 03_pr-checks.yml               # PR validation (size, title, branch, description)
+│   ├── 05_gitleaks.yml                # Secret scanning
+│   ├── 06_codeql.yml                  # Python SAST
+│   ├── 04_actionlint.yml              # Workflow YAML linter
+│   ├── 12_dependabot-auto-merge.yml   # Auto-merge patch/minor updates
+│   ├── 34_auto-deploy.yml             # Deploy workflows to downstream repos
+│   └── ...                            # 47 more workflows (56 total; see .github/workflows/)
 ├── scripts/
-│   └── cmd/                        # Module-restructured Go scripts
-│       ├── branch-protection/main.go
-│       ├── deploy-to-repos/main.go
-│       ├── sync-secrets/main.go
-│       └── repo-review/main.go
+│   ├── cmd/                         # Go tool entry points (8 tools)
+│   │   ├── branch-protection/main.go
+│   │   ├── deploy-to-repos/main.go
+│   │   ├── drift-detector/main.go
+│   │   ├── repo-metadata/main.go
+│   │   ├── repo-review/main.go
+│   │   ├── rulesets-manager/main.go
+│   │   ├── sync-secrets/main.go
+│   │   └── validate-naming/main.go
+│   ├── internal/                    # Shared Go packages
+│   └── *.py                         # Python runners (pr_review_runner, repo_review, ...)
 ├── github_action/
 │   └── entrypoint.sh             # Docker entrypoint for GitHub Action
 ├── .pr_agent.toml                 # FORK: cli_proxy config + existing pr-agent overrides
@@ -138,13 +144,13 @@ github-bot/
 | Edit improve prompts | `pr_agent/settings/code_suggestions/` | |
 | Workflow triggers | `.github/workflows/10_pr-review.yml` | PR events + slash commands |
 | Security review config | `.github/workflows/security/11_pr-review.yml` | Triggered by `security-review` label |
-| CI gate | `.github/workflows/sanity.yml` | TOML parse + pytest gate |
-| Hardcode pattern scan | `.github/workflows/auto-hardcode-scan.yml` | Weekly cron + manual dispatch on `ubuntu-latest`, 15-minute timeout |
+| CI gate | `.github/workflows/90_sanity.yml` | TOML parse + pytest gate |
+| Hardcode pattern scan | `.github/workflows/35_auto-hardcode-scan.yml` | Weekly cron + manual dispatch on `ubuntu-latest`, 15-minute timeout |
 | Slash command handling | `pr_agent/servers/github_app.py`, `github_action_runner.py` | |
 | Add a git provider | `pr_agent/git_providers/` | implement base class |
 | Deploy to another repo | `scripts/cmd/deploy-to-repos/main.go` | Automates workflow + dependabot config sync to 11 downstream public repos (excludes `.github` source and `pr-agent` fork) |
 | Apply branch protection | `scripts/cmd/branch-protection/main.go` | Enables auto-merge + safe protection on default branches of 12 public repos (includes `.github`) |
-| Dependabot auto-merge config | `.github/workflows/dependabot-auto-merge.yml` | Auto-approves + merges patch/minor + github-actions PRs; majors flagged for review |
+| Dependabot auto-merge config | `.github/workflows/12_dependabot-auto-merge.yml` | Auto-approves + merges patch/minor + github-actions PRs; majors flagged for review |
 | Dependabot updates schedule | `.github/dependabot.yml` | Weekly `github-actions` + `pip` ecosystem PRs |
 || Upstream sync | `git fetch upstream && git merge upstream/main` | resolve conflicts in configuration.toml, .pr_agent.toml |
 | Edit review templates | `docs/review-templates/` | Review output in Korean. PR/issue templates are bilingual (Korean + English) |
@@ -158,7 +164,7 @@ github-bot/
 | Edit PR templates | `templates/` | Bilingual KO/EN PR/issue templates |
 | View contributor guide | `CONTRIBUTING.md` | Fork scope, commit conventions, rollout phases |
 | Run mocked E2E tests | `tests/e2e/` | FastAPI TestClient webhook tests |
-| Configure Docker App | `docker-compose.github_app.yml` | LXC 114 deployment compose |
+| Configure Docker App | `docker-compose.github_app.yml` | homelab deployment compose |
 
 ## GIT FLOW AUTOMATION
 
@@ -196,32 +202,32 @@ github-bot/
 | Auto-merge enable | repo settings | `allow_auto_merge=true`, `delete_branch_on_merge=true` |
 | Branch protection | default branch | **3 required contexts**: `pr-checks / Check PR Title` (Conventional Commits), `pr-checks / Check Branch Name` (standard prefixes), `Gitleaks / scan` (secret-pattern detection). 4 advisory contexts (Size, Description, Large Files, Sensitive Files) comment-only. CodeQL surfaces results via Security tab, not as a required check. No force-push, no deletion, no admin enforcement. |
 | Dependency updates | `.github/dependabot.yml` | Weekly `github-actions` + `pip` ecosystem PRs (pip groups minor+patch) |
-| Auto-merge policy | `.github/workflows/dependabot-auto-merge.yml` | patch + minor + github_actions → squash auto-merge after required checks pass; major → manual review comment; null update-type → manual review comment |
+| Auto-merge policy | `.github/workflows/12_dependabot-auto-merge.yml` | patch + minor + github_actions → squash auto-merge after required checks pass; major → manual review comment; null update-type → manual review comment |
 | PR validation | `.github/workflows/03_pr-checks.yml` | sanity gates before merge |
 | Auto-review | `.github/workflows/10_pr-review.yml` | Runs on every PR opened by anyone except `dependabot[bot]` and drafts (Dependabot has its own auto-merge path). Posts review via `pr-agent` against cli_proxy. |
 | Secret scanning | `.github/workflows/05_gitleaks.yml` | Required check on every PR/push; full-history scan on master |
 | Workflow lint | `.github/workflows/04_actionlint.yml` | Validates GHA YAML semantics on workflow changes |
-| Dependency Review | `.github/workflows/dependency-review.yml` | PR open/edit | Scans PR dependencies for known vulnerabilities (moderate+) |
-| Release Notes | `.github/workflows/release-notes.yml` | Tag push | Auto-generates categorized release notes from conventional commits |
-| Documentation sync | `.github/workflows/docs-sync.yml` | PR open/edit/push | Markdown lint, link check, README sync validation, API docs check |
-| README generator | `.github/workflows/readme-gen.yml` | Weekly (Sundays) + manual | Auto-generates README.md via CLIProxyAPI (minimax-m2.7 → gpt-5.5 fallback). |
-| Template sync | `.github/workflows/template-sync.yml` | Weekly (Sundays) + manual | Deploys standard `README.md`, `CONTRIBUTING.md`, `LICENSE` templates to downstream repos |
-| Security scoring | `.github/workflows/scorecard.yml` | PR open/push | OpenSSF Scorecard security scoring with harden-runner |
-| Semantic PR validation | `.github/workflows/semantic-pr.yml` | PR open/edit/synchronize | Enforces Conventional Commits format via amannn/action-semantic-pull-request |
+| Dependency Review | `.github/workflows/07_dependency-review.yml` | PR open/edit | Scans PR dependencies for known vulnerabilities (moderate+) |
+| Release Notes | `.github/workflows/24_release-notes.yml` | Tag push | Auto-generates categorized release notes from conventional commits |
+| Documentation sync | `.github/workflows/21_docs-sync.yml` | PR open/edit/push | Markdown lint, link check, README sync validation, API docs check |
+| README generator | `.github/workflows/20_readme-gen.yml` | Weekly (Sundays) + manual | Auto-generates README.md via CLIProxyAPI (minimax-m2.7 → gpt-5.5 fallback). |
+| Template sync | `.github/workflows/22_template-sync.yml` | Weekly (Sundays) + manual | Deploys standard `README.md`, `CONTRIBUTING.md`, `LICENSE` templates to downstream repos |
+| Security scoring | `.github/workflows/08_scorecard.yml` | PR open/push | OpenSSF Scorecard security scoring with harden-runner |
+| Semantic PR validation | `.github/workflows/09_semantic-pr.yml` | PR open/edit/synchronize | Enforces Conventional Commits format via amannn/action-semantic-pull-request |
 | Runtime security | all workflows | every run | step-security/harden-runner@v2 with egress-policy: audit |
-| ELK health monitoring | `.github/workflows/elk-health-check.yml` | Daily 06:00 UTC | Checks Elasticsearch connectivity, index health, creates issues on failure |
-| ELK setup | `.github/workflows/elk-setup.yml` | Weekly (Sundays) + manual | Deploys index templates and ILM policies to Elasticsearch |
+| ELK health monitoring | `.github/workflows/26_elk-health-check.yml` | Daily 06:00 UTC | Checks Elasticsearch connectivity, index health, creates issues on failure |
+| ELK setup | `.github/workflows/27_elk-setup.yml` | Weekly (Sundays) + manual | Deploys index templates and ILM policies to Elasticsearch |
 
 ### Autonomous Bot Workflows
 
 | Workflow | File | Schedule | Behavior |
 |----------|------|----------|----------|
-| Bot Auto-Fix | `.github/workflows/bot-auto-fix.yml` | PR open/edit | Auto-fixes naming violations on PRs via `validate-naming --fix` |
-| Drift Detector | `.github/workflows/drift-detector.yml` | Daily 06:00 UTC | Detects downstream drift from source workflows; self-healing matrix with `--self_heal=true` |
-| Bot Health Monitor | `.github/workflows/bot-health-monitor.yml` | Daily 06:00 UTC | Checks CLIProxyAPI connectivity and jclee-bot review activity; creates critical alerts |
-| Org Health Report | `.github/workflows/org-health-report.yml` | Weekly Monday 09:00 UTC | Generates comprehensive health report: open PRs/issues, stale PRs, last commits per repo |
-| Repo Health Check | `.github/workflows/repo-health.yml` | Weekly (Mondays 02:00 UTC) | Checks all repos for required documentation files (README.md, CONTRIBUTING.md, LICENSE); creates issues for gaps |
-| Org Health Report | `.github/workflows/org-health-report.yml` | Weekly Monday 09:00 UTC | Generates comprehensive health report: open PRs/issues, stale PRs, last commits per repo |
+| Bot Auto-Fix | `.github/workflows/14_bot-auto-fix.yml` | PR open/edit | Auto-fixes naming violations on PRs via `validate-naming --fix` |
+| Drift Detector | `.github/workflows/33_drift-detector.yml` | Daily 06:00 UTC | Detects downstream drift from source workflows; self-healing matrix with `--self_heal=true` |
+| Bot Health Monitor | `.github/workflows/28_bot-health-monitor.yml` | Daily 06:00 UTC | Checks CLIProxyAPI connectivity and jclee-bot review activity; creates critical alerts |
+| Org Health Report | `.github/workflows/32_org-health-report.yml` | Weekly Monday 09:00 UTC | Generates comprehensive health report: open PRs/issues, stale PRs, last commits per repo |
+| Repo Health Check | `.github/workflows/31_repo-health.yml` | Weekly (Mondays 02:00 UTC) | Checks all repos for required documentation files (README.md, CONTRIBUTING.md, LICENSE); creates issues for gaps |
+| Org Health Report | `.github/workflows/32_org-health-report.yml` | Weekly Monday 09:00 UTC | Generates comprehensive health report: open PRs/issues, stale PRs, last commits per repo |
 
 ### Operations
 
@@ -256,7 +262,7 @@ CLIPROXY_API_KEY=$(grep '^CLIPROXY_API_KEY=' .env | cut -d= -f2-) \
 
 ### Why pr-agent is handled separately
 
-`jclee941/pr-agent` is a hard fork of `qodo-ai/pr-agent`. It carries upstream's own workflows (build-and-test.yaml, codeql.yml, release-drafter.yml, etc.) which would be overwritten by the deploy script. The fork is therefore excluded from `deploy-to-repos.go` (→ `scripts/cmd/deploy-to-repos/main.go`), but it has its own fork-local `.github/dependabot.yml` (github-actions + pip ecosystems) and `.github/workflows/dependabot-auto-merge.yml` that are maintained directly on a `fork/*` branch. Sync upstream via `git fetch upstream && git merge upstream/main`.
+`jclee941/pr-agent` is a hard fork of `qodo-ai/pr-agent`. It carries upstream's own workflows (build-and-test.yaml, codeql.yml, release-drafter.yml, etc.) which would be overwritten by the deploy script. The fork is therefore excluded from `deploy-to-repos.go` (→ `scripts/cmd/deploy-to-repos/main.go`), but it has its own fork-local `.github/dependabot.yml` (github-actions + pip ecosystems) and `.github/workflows/12_dependabot-auto-merge.yml` that are maintained directly on a `fork/*` branch. Sync upstream via `git fetch upstream && git merge upstream/main`.
 
 ## PR REVIEW WORKFLOW BEHAVIOR
 
@@ -267,24 +273,24 @@ CLIPROXY_API_KEY=$(grep '^CLIPROXY_API_KEY=' .env | cut -d= -f2-) \
 The actual production PR review path:
 
 1. `jclee-bot` GitHub App receives webhooks for all `jclee941/*` repos
-2. App server on LXC 114 (`bot.jclee.me`) runs pr-agent directly
+2. App server on the homelab host (`bot.jclee.me`) runs pr-agent directly
 3. Reviews are posted via the GitHub App installation token
 
-Therefore, high skip counts in the `pr-review.yml` workflow are **expected and by design** — most PRs occur in downstream repos where this workflow file does not exist.
+Therefore, high skip counts in the `10_pr-review.yml` workflow are **expected and by design** — most PRs occur in downstream repos where this workflow file does not exist.
 
 ### Monitoring Bot Health
 
 To check if the bot is actually reviewing PRs:
 
 - Check GitHub App webhook delivery logs: `https://github.com/settings/apps/jclee-bot/advanced`
-- Check container logs on LXC 114: `ssh root@192.168.50.114 "docker logs github-bot-app"`
+- Check container logs on the homelab host: `ssh root@<homelab-host> "docker logs github-bot-app"`
 - Check PR comments by `jclee-bot[bot]` in downstream repos
 
 ## ELK INTEGRATION
 
 | Component | Details |
 |-----------|---------|
-| **Elasticsearch** | `http://192.168.50.102:9200` — homelab ELK stack |
+| **Elasticsearch** | `http://<homelab-elk>:9200` — homelab ELK stack |
 | **Filebeat** | Ships github-bot-app container logs + Docker container logs |
 | **Index** | `github-bot-logs-%{+yyyy.MM.dd}` — daily indices |
 | **ILM Policy** | `github-bot-logs`: 7-day hot rollover → warm shrink → 30-day delete |
@@ -301,23 +307,23 @@ GitHub App (docker container) → Docker JSON logs → Filebeat → Elasticsearc
 
 | Workflow | Schedule | Purpose |
 |----------|----------|---------|
-| `elk-health-check.yml` | Daily 06:00 UTC | Checks Elasticsearch connectivity and index health; creates issues on failure |
-| `elk-setup.yml` | Weekly (Sundays) + manual | Deploys index templates and ILM policies to Elasticsearch |
+| `26_elk-health-check.yml` | Daily 06:00 UTC | Checks Elasticsearch connectivity and index health; creates issues on failure |
+| `27_elk-setup.yml` | Weekly (Sundays) + manual | Deploys index templates and ILM policies to Elasticsearch |
 
 ### Manual Operations
 
 ```bash
-# Check Filebeat status on LXC 114
-ssh root@192.168.50.114 "docker logs filebeat-github-bot"
+# Check Filebeat status on the homelab host
+ssh root@<homelab-host> "docker logs filebeat-github-bot"
 
 # Check Elasticsearch cluster health
-curl -sS http://192.168.50.102:9200/_cluster/health?pretty
+curl -sS http://<homelab-elk>:9200/_cluster/health?pretty
 
 # View recent indices
-curl -sS http://192.168.50.102:9200/_cat/indices/github-bot-logs-*?v
+curl -sS http://<homelab-elk>:9200/_cat/indices/github-bot-logs-*?v
 
 # Query recent logs
-curl -sS http://192.168.50.102:9200/github-bot-logs-*/_search?pretty -H 'Content-Type: application/json' -d '{"size": 5, "sort": [{"@timestamp": {"order": "desc"}}]}'
+curl -sS http://<homelab-elk>:9200/github-bot-logs-*/_search?pretty -H 'Content-Type: application/json' -d '{"size": 5, "sort": [{"@timestamp": {"order": "desc"}}]}'
 ```
 
 ## CLI_PROXY INTEGRATION DETAILS
@@ -326,10 +332,10 @@ curl -sS http://192.168.50.102:9200/github-bot-logs-*/_search?pretty -H 'Content
 |------|-------|
 | **Service** | [`router-for-me/CLIProxyAPI`](https://github.com/router-for-me/CLIProxyAPI) |
 | **Docker image** | `eceasy/cli-proxy-api:latest` |
-| **Host** | LXC 100 on `pve3`, hostname `cliproxy.homelab.local` |
-| **IP:port** | `192.168.50.114:8317` (primary) |
+| **Host** | homelab host on `pve3`, hostname `cliproxy.homelab.local` |
+| **IP:port** | `<homelab-host>:8317` (primary) |
 | **Additional ports** | `1455`, `8085`, `11451`, `51121`, `54545` (see `docker ps` on host) |
-| **Config file** | `/opt/cli-proxy-api/config.yaml` (on LXC 100) |
+| **Config file** | `/opt/cli-proxy-api/config.yaml` (on the homelab host) |
 | **Auth dir** | `/root/.cli-proxy-api/` (OAuth tokens for Codex, Antigravity) |
 | **Auth method** | Bearer token in `Authorization` header |
 | **API format** | OpenAI-compatible: `/v1/chat/completions`, `/v1/completions`, `/v1/models` |
@@ -346,26 +352,26 @@ curl -sS http://192.168.50.102:9200/github-bot-logs-*/_search?pretty -H 'Content
 Get the full list:
 
 ```bash
-curl -sS http://192.168.50.114:8317/v1/models \
+curl -sS http://<homelab-host>:8317/v1/models \
   -H "Authorization: Bearer $CLIPROXY_API_KEY" | jq -r '.data[].id'
 ```
 
 ### Retrieving the API key
 
 ```bash
-ssh root@192.168.50.114 \
+ssh root@<homelab-host> \
   "python3 -c 'import yaml; print(yaml.safe_load(open(\"/opt/cli-proxy-api/config.yaml\"))[\"api-keys\"][0])'"
 ```
 
-Rotate: edit `/opt/cli-proxy-api/config.yaml` on LXC 100, restart the docker container:
+Rotate: edit `/opt/cli-proxy-api/config.yaml` on the homelab host, restart the docker container:
 
 ```bash
-ssh root@192.168.50.114 "docker restart cli-proxy-api"
+ssh root@<homelab-host> "docker restart cli-proxy-api"
 ```
 
 ## PR-AGENT WORKFLOW ENV VAR CONVENTIONS
 
-pr-agent loads its settings via `Dynaconf(envvar_prefix=False, ...)` (see `pr_agent/config_loader.py:18`). With no prefix, **only specific env-var spellings reach the nested settings tree** — the bug-fix history is non-obvious. Memorise this table before adding any new env var to `pr-review.yml` or `security/11_pr-review.yml`:
+pr-agent loads its settings via `Dynaconf(envvar_prefix=False, ...)` (see `pr_agent/config_loader.py:18`). With no prefix, **only specific env-var spellings reach the nested settings tree** — the bug-fix history is non-obvious. Memorise this table before adding any new env var to `10_pr-review.yml` or `security/11_pr-review.yml`:
 
 | Setting key (used in pr-agent code) | Wrong env name | Correct env name | Why |
 |------|----------------|------------------|-----|
@@ -413,7 +419,7 @@ python -m pr_agent.cli --pr_url https://github.com/jclee941/<repo>/pull/<N> revi
 # Test cli_proxy connectivity
 # ==================
 source .env
-curl -sS http://192.168.50.114:8317/v1/chat/completions \
+curl -sS http://<homelab-host>:8317/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $CLIPROXY_API_KEY" \
   -d '{"model":"kimi-k2.6","messages":[{"role":"user","content":"ping"}],"max_tokens":10}'
@@ -461,13 +467,13 @@ These conventions are enforced by `scripts/cmd/deploy-to-repos/main.go` and its 
 | **`.yml` preferred** | Workflow and issue template extensions | `1-bug-report.yml` (not `.yaml`) |
 
 **Issue templates** follow the `{number}-{type}-report.yml` pattern with numeric prefix for display ordering: `1-bug-report.yml`, `2-feature-request.yml`, `3-security-vulnerability.yml` (next.js style).
-.github/ISSUE_TEMPLATE/config.yml` is exempt from numeric prefix (GitHub standard).
+`.github/ISSUE_TEMPLATE/config.yml` is exempt from numeric prefix (GitHub standard).
 
 **Deployment branch naming**: `chore/sync-automation-workflows` (reflects full scope: workflows + dependabot + templates).
 
 **Deployment PR title**: `chore: sync automation workflows, dependabot, and templates`.
 
-**`templates/` directory**: Contains `CONTRIBUTING.md`, `LICENSE`, `README.md`. These are deployed to downstream repos by `.github/workflows/template-sync.yml` on a weekly schedule.
+**`templates/` directory**: Contains `CONTRIBUTING.md`, `LICENSE`, `README.md`. These are deployed to downstream repos by `.github/workflows/22_template-sync.yml` on a weekly schedule.
 
 ### Workflow Standardization Conventions
 
@@ -499,7 +505,7 @@ Enforced across all `.github/workflows/*.yml` (and `security/`); verified by `90
 
 - `CLIPROXY_API_KEY` is stored as GitHub repo secret AND locally in `.env` (chmod 600)
 - GitHub-hosted `ubuntu-latest` runners read `CLIPROXY_API_KEY` from repo secrets; the homelab cli_proxy is reached over the public internet at `https://cliproxy.jclee.me/v1`. Treat the secret as compromised if it is ever printed to a workflow log.
-- cli_proxy has no network ACL — any workstation on `192.168.50.0/24` with the key can call it
+- cli_proxy has no network ACL — any workstation on `<homelab-subnet>` with the key can call it
 - AGPL-3.0 compliance: this is a private deployment serving only jclee941; source access is provided via this repo itself to authorized users (which is just jclee941)
 
 ## FORK ATTRIBUTION
@@ -519,20 +525,20 @@ Located in `docs/review-templates/` and referenced from `.pr_agent.toml`.
 
 ```
 PR opened / labeled
-    │
-    ▼
+│
+▼
 GitHub App receives webhook
-    │
-    ▼
+│
+▼
 pr_agent reads .pr_agent.toml
-    │
-    ▼
+│
+▼
 extra_instructions loaded (compact rules from templates)
-    │
-    ▼
+│
+▼
 LLM (kimi-k2.6) generates Korean review
-    │
-    ▼
+│
+▼
 Review posted as PR comment (markdown tables + code blocks)
 ```
 
@@ -561,6 +567,6 @@ Review posted as PR comment (markdown tables + code blocks)
 
 **Automated validation**: `scripts/cmd/validate-naming` checks cross-file invariants (deploy constants match E2E tests, auto-deploy paths cover extraFiles, CODEOWNERS coverage, kebab-case compliance). Run with `(cd scripts && go run ./cmd/validate-naming)`. Use `--fix` for auto-correction where supported.
 
-**File naming lint**: `.ls-lint.yml` enforces directory-specific conventions via `ls-lint`. Integrated into `sanity.yml` CI.
+**File naming lint**: `.ls-lint.yml` enforces directory-specific conventions via `ls-lint`. Integrated into `90_sanity.yml` CI.
 pos
 396#MS

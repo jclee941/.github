@@ -19,13 +19,13 @@
 | 파일 | 트리거 | 역할 | 평가 |
 |---|---|---|---|
 | `10_pr-review.yml` | `pull_request` | cli_proxy 기반 AI 코드 리뷰 (Kimi-k2.6) | ✅ 잘 구성됨 |
-| `pr-checks.yml` → `reusable-pr-checks.yml` | `pull_request` | 6개 검사 (size/title/branch/desc/large/sensitive) | ✅ 안정적 |
-| `dependabot-auto-merge.yml` | `pull_request` (dependabot 한정) | patch/minor/gha 자동 머지 | ✅ 정책 명확 |
+| `03_pr-checks.yml` → `reusable-03_pr-checks.yml` | `pull_request` | 6개 검사 (size/title/branch/desc/large/sensitive) | ✅ 안정적 |
+| `12_dependabot-auto-merge.yml` | `pull_request` (dependabot 한정) | patch/minor/gha 자동 머지 | ✅ 정책 명확 |
 | `34_auto-deploy.yml` | `push` to master | `deploy-to-repos.go` 실행 → 11개 다운스트림 동기화 | ⚠️ 타임아웃/concurrency 없음 |
 | `35_auto-hardcode-scan.yml` | `schedule` weekly + dispatch | 하드코드 정규식 스캔 | ⚠️ `self-hosted` 종속 |
-| `docs-sync.yml` → `reusable-docs-sync.yml` | `pull_request` md/docs | 링크 검사 + markdownlint | ✅ |
-| `issue-management.yml` → `reusable-issue-management.yml` | issues + schedule | stale 정리 + 자동 라벨 | ✅ |
-| `sanity.yml` | push/PR | import 스모크 + TOML/YAML parse | ✅ but required check 아님 |
+| `21_docs-sync.yml` → `reusable-21_docs-sync.yml` | `pull_request` md/docs | 링크 검사 + markdownlint | ✅ |
+| `18_issue-management.yml` → `reusable-18_issue-management.yml` | issues + schedule | stale 정리 + 자동 라벨 | ✅ |
+| `90_sanity.yml` | push/PR | import 스모크 + TOML/YAML parse | ✅ but required check 아님 |
 | `security/11_pr-review.yml` | `pull_request_target` + 라벨 | 심층 보안 리뷰 | ⚠️ 가드 보강 필요 |
 
 (reusable workflow 3개는 별도 파일로 존재하지만 직접 트리거되지 않음)
@@ -316,32 +316,32 @@ push to master (.github)
    └─► 34_auto-deploy.yml (concurrency=auto-deploy, timeout=30m)
         └─► scripts/cmd/deploy-to-repos/main.go
              └─► PR in 11 downstream repos
-                  ├─► pr-checks.yml          (required: Title, Branch)
-                  ├─► 05_gitleaks.yml           (advisory until Phase 3, **required after** branch-protection.go re-applied) ← NEW
-                  ├─► 10_pr-review.yml          (advisory AI review)
-                  ├─► 06_codeql.yml             (advisory, .py only)        ← NEW
-                  ├─► 04_actionlint.yml         (advisory, on workflow change) ← NEW
-                  ├─► docs-sync.yml          (advisory)
-                  └─► dependabot-auto-merge.yml (if dependabot[bot])
+                  ├─► 03_pr-checks.yml              (required: Title, Branch)
+                  ├─► 05_gitleaks.yml               (advisory until Phase 3, required after branch-protection re-applied) ← NEW
+                  ├─► 10_pr-review.yml              (advisory AI review)
+                  ├─► 06_codeql.yml                 (advisory, .py only) ← NEW
+                  ├─► 04_actionlint.yml             (advisory, on workflow change) ← NEW
+                  ├─► 21_docs-sync.yml              (advisory)
+                  └─► 12_dependabot-auto-merge.yml  (if dependabot[bot])
                        └─► auto-merge once all required contexts green
-                            (Phase 1–2: 2 required → Phase 3+: 3 required incl. Gitleaks)
+                            (Phase 1-2: 2 required → Phase 3+: 3 required incl. Gitleaks)
 
 PR opened in `jclee941/.github` (source/fork)
-   ├─► sanity.yml         (fork-only: import smoke + TOML/YAML parse)
-   ├─► pr-checks.yml      (6 checks; 2 required)
-   ├─► 10_pr-review.yml      (AI review, concurrency-bounded)
-   ├─► docs-sync.yml      (markdown lint + link check)
-   ├─► 06_codeql.yml         (Python SAST)                                  ← NEW
-   ├─► 05_gitleaks.yml       (secret scan; required after Phase 3 rollout)        ← NEW
-   └─► 04_actionlint.yml     (when .github/workflows/ touched)              ← NEW
+   ├─► 90_sanity.yml      (fork-only: import smoke + TOML/YAML parse)
+   ├─► 03_pr-checks.yml   (6 checks; 2 required)
+   ├─► 10_pr-review.yml   (AI review, concurrency-bounded)
+   ├─► 21_docs-sync.yml   (markdown lint + link check)
+   ├─► 06_codeql.yml      (Python SAST) ← NEW
+   ├─► 05_gitleaks.yml    (secret scan; required after Phase 3 rollout) ← NEW
+   └─► 04_actionlint.yml  (when .github/workflows/ touched) ← NEW
 
-PR opened in 11 downstream repos (no sanity.yml — it's fork-only)
-   ├─► pr-checks.yml      (6 checks; 2 required)
-   ├─► 10_pr-review.yml      (AI review, concurrency-bounded)
-   ├─► docs-sync.yml      (markdown lint + link check)
-   ├─► 06_codeql.yml         (Python SAST, .py only)                       ← NEW
-   ├─► 05_gitleaks.yml       (secret scan; required after Phase 3 rollout) ← NEW
-   └─► 04_actionlint.yml     (when .github/workflows/ touched)             ← NEW
+PR opened in 11 downstream repos (no 90_sanity.yml — it's fork-only)
+   ├─► 03_pr-checks.yml   (6 checks; 2 required)
+   ├─► 10_pr-review.yml   (AI review, concurrency-bounded)
+   ├─► 21_docs-sync.yml   (markdown lint + link check)
+   ├─► 06_codeql.yml      (Python SAST, .py only) ← NEW
+   ├─► 05_gitleaks.yml    (secret scan; required after Phase 3 rollout) ← NEW
+   └─► 04_actionlint.yml  (when .github/workflows/ touched) ← NEW
 
 Label "security-review"
    └─► security/11_pr-review.yml (now requires head_repo == base_repo)      ← HARDENED

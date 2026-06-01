@@ -18,8 +18,8 @@
 - [Features | 기능](#features--기능)
 - [Architecture | 아키텍처](#architecture--아키텍처)
 - [Automation Inventory | 자동화 인벤토리](#automation-inventory--자동화-인벤토리)
-  - [GitHub Workflows (56 total)](#github-workflows-56-total)
-  - [Go Automation Tools (8 total)](#go-automation-tools-8-total)
+  - [GitHub Workflows (56 total) | GitHub 워크플로우 (56개)](#github-workflows-56-total--github-워크플로우-56개)
+  - [Go Automation Tools (8 total) | Go 자동화 도구 (8개)](#go-automation-tools-8-total--go-자동화-도구-8개)
 - [Quick Start | 빠른 시작](#quick-start--빠른-시작)
 - [Local Development | 로컬 개발](#local-development--로컬-개발)
 - [Commands Reference | 명령어 참조](#commands-reference--명령어-참조)
@@ -29,9 +29,9 @@
 
 ## Overview | 개요
 
-This repository is a hard fork of [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent), customized for `jclee941/*` repositories. It uses a homelab-hosted CLIProxyAPI (`192.168.50.114:8317`) as the primary LLM backend, accessible externally via `https://cliproxy.jclee.me/v1`.
+This repository is a hard fork of [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent), customized for `jclee941/*` repositories. It uses a homelab-hosted CLIProxyAPI (`<homelab-host>:8317`) as the primary LLM backend, accessible externally via `https://cliproxy.jclee.me/v1`.
 
-이 저장소는 `jclee941/*` 저장소를 위해 커스터마이징된 [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent)의 하드 포크입니다. 개인 homelab에 호스팅된 CLIProxyAPI (`192.168.50.114:8317`)를 주요 LLM 백엔드로 사용하며, 외부에서는 `https://cliproxy.jclee.me/v1`를 통해 접근합니다.
+이 저장소는 `jclee941/*` 저장소를 위해 커스터마이징된 [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent)의 하드 포크입니다. 개인 homelab에 호스팅된 CLIProxyAPI (`<homelab-host>:8317`)를 주요 LLM 백엔드로 사용하며, 외부에서는 `https://cliproxy.jclee.me/v1`를 통해 접근합니다.
 
 ### Key Models | 주요 모델
 
@@ -90,44 +90,35 @@ This repository is a hard fork of [qodo-ai/pr-agent](https://github.com/qodo-ai/
 
 ## Architecture | 아키텍처
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         GitHub Repositories                          │
-│                      jclee941/* (6 providers)                        │
-└─────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                      GitHub Actions (ubuntu-latest)                  │
-│                                                                       │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐               │
-│  │  PR Checks   │  │ Issue Mgmt   │  │  Release     │               │
-│  │  03, 09, 44  │  │  18, 43, 83  │  │  23, 24, 25  │               │
-│  └──────────────┘  └──────────────┘  └──────────────┘               │
-│                                                                       │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐               │
-│  │  Security    │  │  Docs Sync   │  │  Health      │               │
-│  │  05, 06, 86  │  │  21, 42      │  │  28, 30, 31  │               │
-│  └──────────────┘  └──────────────┘  └──────────────┘               │
-└─────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                        CLIProxyAPI Gateway                           │
-│                   https://cliproxy.jclee.me/v1                       │
-│                                                                       │
-│  ┌──────────────────────────────────────────────────────────────┐    │
-│  │                    Model Routing Layer                        │    │
-│  │                                                               │    │
-│  │   Primary: kimi-k2.6                                         │    │
-│  │   Fallback: minimax-m2.7 → gpt-5.5                           │    │
-│  └──────────────────────────────────────────────────────────────┘    │
-│                                    │                                 │
-│                                    ▼                                 │
-│  ┌──────────────────────────────────────────────────────────────┐    │
-│  │              Homelab CLIProxyAPI (192.168.50.114:8317)        │    │
-│  └──────────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Repos["GitHub Repositories"]
+        GH["jclee941/*<br/>(6 providers)"]
+    end
+
+    subgraph Actions["GitHub Actions (ubuntu-latest)"]
+        direction LR
+        PRC["PR Checks<br/>03, 09, 44"]
+        ISS["Issue Mgmt<br/>18, 43, 83"]
+        REL["Release<br/>23, 24, 25"]
+        SEC["Security<br/>05, 06, 86"]
+        DOC["Docs Sync<br/>21, 42"]
+        HLT["Health<br/>28, 30, 31"]
+    end
+
+    subgraph Gateway["CLIProxyAPI Gateway<br/>https://cliproxy.jclee.me/v1"]
+        ROUTE["Model Routing Layer<br/>Primary: kimi-k2.6<br/>Fallback: minimax-m2.7 → gpt-5.5"]
+        HOMELAB["Homelab CLIProxyAPI<br/>(<homelab-host>:8317)"]
+        ROUTE --> HOMELAB
+    end
+
+    Repos --> Actions
+    Actions --> Gateway
+
+    style GH fill:#6ba06a,stroke:#333,color:#fff
+    style ROUTE fill:#9b59b6,stroke:#333,color:#fff
+    style HOMELAB fill:#4a90d9,stroke:#333,color:#fff
+    style SEC fill:#e74c3c,stroke:#333,color:#fff
 ```
 
 ### Key Architecture Decisions | 주요 아키텍처 결정
@@ -161,7 +152,7 @@ This repository is a hard fork of [qodo-ai/pr-agent](https://github.com/qodo-ai/
 | **PR Stale Bot** | `17_pr-stale-bot.yml` | Mark stale PRs | 오래된 PR 표시 |
 | **Dependabot Auto-Merge** | `12_dependabot-auto-merge.yml` | Auto-merge dependency updates | 의존성 업데이트 자동 병합 |
 | **CI Auto-Heal** | `60_ci-auto-heal.yml` | Automatic CI failure recovery | CI 실패 자동 복구 |
-| **Auto-Merge** | `81_auto-merge.yml` | Generic auto-merge workflow | 범용 자동 병合 워크플로우 |
+| **Auto-Merge** | `81_auto-merge.yml` | Generic auto-merge workflow | 범용 자동 병합 워크플로우 |
 | **PR Normalize** | `85_pr-normalize.yml` | Standardize PR format | PR 형식 표준화 |
 | **PR Size** | `87_pr-size.yml` | Track PR size metrics | PR 크기 메트릭 추적 |
 
@@ -480,33 +471,34 @@ For security vulnerabilities, please read [SECURITY.md](SECURITY.md).
 ### Repository Structure | 저장소 구조
 
 ```
-pr-agent/
-├── _bot-scripts/          # Bot automation scripts
-│   ├── scripts/           # Go automation tools source
-│   │   └── cmd/           # Individual Go tool commands
-│   └── ...                # Package manifest files
+.github/                       # this repository (jclee941/.github)
 ├── .github/
-│   ├── workflows/         # GitHub Actions workflows (56 total)
-│   ├── CODEOWNERS         # Auto-reviewer assignment
+│   ├── workflows/             # GitHub Actions workflows (56 total)
+│   ├── CODEOWNERS             # Auto-reviewer assignment
 │   ├── PULL_REQUEST_TEMPLATE.md
-│   └── ISSUE_TEMPLATE/    # Bug / Feature / Security templates
-├── docs/                  # Documentation
-│   ├── architecture.md
-│   ├── review-templates/  # Code review, security, documentation templates
-│   └── assets/            # Images and static assets
-├── config/
-│   └── repos.yaml         # Repository configuration
-├── pr_agent/              # Python package source
-├── scripts/               # Python scripts
+│   └── ISSUE_TEMPLATE/        # Bug / Feature / Security templates
+├── pr_agent/                  # Python package source (upstream fork)
+├── scripts/                   # Go automation tools + Python runners
+│   ├── cmd/                   # Go tool entry points (8 tools)
+│   ├── internal/              # Shared Go packages
+│   ├── go.mod
 │   ├── generate_readme.py
 │   ├── pr_review_runner.py
 │   └── repo_review.py
-├── tests/
-│   ├── unittest/          # Unit tests (50+ test files)
-│   └── e2e/               # End-to-end tests
+├── github_action/
+│   └── entrypoint.sh          # Docker entrypoint for GitHub Action
+├── docs/                      # Documentation
+│   ├── architecture.md
+│   ├── review-templates/      # Code review, security, documentation templates
+│   └── assets/                # Images and static assets
+├── config/
+│   └── repos.yaml             # Repository configuration
+├── templates/                 # Bilingual PR/issue/contributing templates
+├── tests/                     # pytest suite (unit + e2e)
 ├── Dockerfile.github_action
 ├── Dockerfile.github_app
 ├── docker-compose.github_app.yml
+├── .pr_agent.toml             # Fork config (CLIProxyAPI + review overrides)
 ├── pyproject.toml
 ├── requirements.txt
 ├── requirements-dev.txt

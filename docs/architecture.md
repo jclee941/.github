@@ -14,17 +14,17 @@ flowchart TB
         CF["Cloudflare Tunnel<br/>(bot.jclee.me)"]
     end
 
-    subgraph 홈랩_LXC100["🏠 홈랩 LXC 100"]
+    subgraph 홈랩["🏠 홈랩 (<homelab-host>)"]
         WEB["github-bot-app<br/>(localhost:3001)"]
         PROXY["CLIProxyAPI<br/>(localhost:8317)"]
         LLM["Claude / Codex / Gemini<br/>CLI"]
         FB["Filebeat<br/>(로그 수집)"]
-        ES["Elasticsearch<br/>(192.168.50.105:9200)"]
+        ES["Elasticsearch<br/>(<homelab-elk>:9200)"]
     end
 
     GH -->|"Webhook<br/>pull_request.opened"| CF
     CF -->|"TLS Reverse Proxy"| WEB
-    WEB -->|"litellm.completion<br/>model=minimax-m2.7"| PROXY
+    WEB -->|"litellm.completion<br/>model=kimi-k2.6"| PROXY
     WEB -->|"Docker JSON logs"| FB
     FB -->|"로그 전송"| ES
     PROXY -->|"OpenAI-compatible API"| LLM
@@ -34,11 +34,11 @@ flowchart TB
 
     style GH fill:#6ba06a,stroke:#333,color:#fff
     style CF fill:#f48120,stroke:#333,color:#fff
-style WEB fill:#4a90d9,stroke:#333,color:#fff
-style PROXY fill:#9b59b6,stroke:#333,color:#fff
-style LLM fill:#e74c3c,stroke:#333,color:#fff
-style FB fill:#f39c12,stroke:#333,color:#fff
-style ES fill:#27ae60,stroke:#333,color:#fff
+    style WEB fill:#4a90d9,stroke:#333,color:#fff
+    style PROXY fill:#9b59b6,stroke:#333,color:#fff
+    style LLM fill:#e74c3c,stroke:#333,color:#fff
+    style FB fill:#f39c12,stroke:#333,color:#fff
+    style ES fill:#27ae60,stroke:#333,color:#fff
 ```
 
 ### 구성 요소 설명
@@ -47,11 +47,11 @@ style ES fill:#27ae60,stroke:#333,color:#fff
 |-----------|------|------|
 | **GitHub** | PR 이벤트 발생, 리뷰 코멘트 표시 | Public Cloud |
 | **Cloudflare Tunnel** | 홈랩 남부 네트워크에 퍼블릭 HTTPS 엔드포인트 제공 | Cloudflare Edge |
-| **github-bot-app** | Webhook 수신, pr-agent 실행, GitHub API 호출 | LXC 114 (192.168.50.114) |
-| **CLIProxyAPI** | Claude/Codex/Gemini CLI를 OpenAI API로 래핑 | LXC 114 (localhost:8317) |
-| **AI CLI** | 실제 LLM 추론 수행 (Claude Code / Codex CLI / Gemini CLI) | LXC 114 (로컬 실행) |
-| **Filebeat** | Docker 컨테이너 로그 수집 및 전송 | LXC 114 (localhost) |
-| **Elasticsearch** | 중앙 로그 저장 및 검색 | LXC 105 (192.168.50.105) |
+| **github-bot-app** | Webhook 수신, pr-agent 실행, GitHub API 호출 | <homelab-host> (:3001) |
+| **CLIProxyAPI** | Claude/Codex/Gemini CLI를 OpenAI API로 래핑 | <homelab-host> (:8317) |
+| **AI CLI** | 실제 LLM 추론 수행 (Claude Code / Codex CLI / Gemini CLI) | <homelab-host> (로컬 실행) |
+| **Filebeat** | Docker 컨테이너 로그 수집 및 전송 | <homelab-host> (로컬) |
+| **Elasticsearch** | 중앙 로그 저장 및 검색 | <homelab-elk> (:9200) |
 
 ---
 
@@ -59,23 +59,23 @@ style ES fill:#27ae60,stroke:#333,color:#fff
 
 ```mermaid
 flowchart TD
-    START(("PR 열림")) --> CHECKS["pr-checks.yml<br/>(6가지 검증)"]
+    START(("PR 열림")) --> CHECKS["03_pr-checks.yml<br/>(6가지 검증)"]
     
     CHECKS --> TITLE{제목 OK?}
     TITLE -->|No| FAIL1["❌ Check PR Title<br/>Required"]
     TITLE -->|Yes| BRANCH{브랜치명 OK?}
     
     BRANCH -->|No| FAIL2["❌ Check Branch Name<br/>Required"]
-    BRANCH -->|Yes| REVIEW["pr-review.yml<br/>(AI 리뷰)"]
+    BRANCH -->|Yes| REVIEW["10_pr-review.yml<br/>(AI 리뷰)"]
     
-    REVIEW --> GITLEAKS["gitleaks.yml<br/>(Secret 스캔)"]
+    REVIEW --> GITLEAKS["05_gitleaks.yml<br/>(Secret 스캔)"]
     GITLEAKS --> SECRET{Secret 발견?}
     SECRET -->|Yes| FAIL3["❌ Gitleaks / scan<br/>Required"]
     SECRET -->|No| OPTIONAL["선택적 검증"]
     
-    OPTIONAL --> CODEQL["codeql.yml<br/>(Python SAST)"]
-    OPTIONAL --> ACTIONLINT["actionlint.yml<br/>(워크플로우 문법)"]
-    OPTIONAL --> DOCS["docs-sync.yml<br/>(문서 품질)"]
+    OPTIONAL --> CODEQL["06_codeql.yml<br/>(Python SAST)"]
+    OPTIONAL --> ACTIONLINT["04_actionlint.yml<br/>(워크플로우 문법)"]
+    OPTIONAL --> DOCS["21_docs-sync.yml<br/>(문서 품질)"]
     
     OPTIONAL --> SECURITY{"security-review<br/>라벨?"}
     SECURITY -->|Yes| DEEP["security/11_pr-review.yml<br/>(심층 보안 감사)"]
@@ -85,8 +85,8 @@ flowchart TD
     MERGE_CHECK -->|No| WAIT["⏳ 대기 중"]
     MERGE_CHECK -->|Yes| MERGED["✅ 머지 완료"]
     
-    MERGED --> CLEANUP["merged-pr-cleanup.yml<br/>(이슈 종료 + 브랜치 삭제)"]
-    MERGED --> RELEASE["release-drafter.yml<br/>(릴리즈 노트 초안)"]
+    MERGED --> CLEANUP["15_merged-pr-cleanup.yml<br/>(이슈 종료 + 브랜치 삭제)"]
+    MERGED --> RELEASE["23_release-drafter.yml<br/>(릴리즈 노트 초안)"]
     
     FAIL1 --> END1(("종료"))
     FAIL2 --> END1
@@ -175,7 +175,7 @@ sequenceDiagram
 flowchart LR
     subgraph 생성["📝 이슈 생성"]
         A["Issue Opened"] --> B{"in-progress 라벨?"}
-        B -->|Yes| C["issue-to-branch.yml<br/>브랜치 생성"]
+        B -->|Yes| C["02_issue-to-branch.yml<br/>브랜치 생성"]
         B -->|No| D["수동 할당 대기"]
     end
     
@@ -184,7 +184,7 @@ flowchart LR
     end
     
     subgraph 백필["🔄 백필"]
-        F["issue-backfill.yml<br/>(매일 09:00 UTC)"] --> G["오래된 이슈에<br/>in-progress 라벨"]
+        F["19_issue-backfill.yml<br/>(매일 09:00 UTC)"] --> G["오래된 이슈에<br/>in-progress 라벨"]
         G --> C
     end
     
@@ -192,11 +192,11 @@ flowchart LR
         C --> H["개발 진행"]
         H --> I["PR 생성"]
         I --> J["PR 머지"]
-        J --> K["merged-pr-cleanup.yml<br/>이슈 자동 종료"]
+        J --> K["15_merged-pr-cleanup.yml<br/>이슈 자동 종료"]
     end
     
     subgraph 스테일["⏰ 스테일 관리"]
-        L["issue-management.yml<br/>(매일 00:00 UTC)"] --> M{"30일 활동 없음?"}
+        L["18_issue-management.yml<br/>(매일 00:00 UTC)"] --> M{"30일 활동 없음?"}
         M -->|Yes| N["stale 라벨 부착"]
         N --> O{"7일 추가 경과?"}
         O -->|Yes| P["이슈 자동 종료"]
@@ -325,29 +325,29 @@ flowchart LR
         ISSUE["issues"]
     end
     
-    PR --> PR_CHECK["pr-checks.yml"]
-    PR --> PR_REVIEW["pr-review.yml"]
-    PR --> GITLEAKS["gitleaks.yml"]
-    PR --> CODEQL["codeql.yml<br/>(조건부)"]
-    PR --> ACTIONLINT["actionlint.yml<br/>(조건부)"]
-    PR --> DOCS["docs-sync.yml"]
-    PR --> DEPENDABOT["dependabot-auto-merge.yml<br/>(dependabot만)"]
+    PR --> PR_CHECK["03_pr-checks.yml"]
+    PR --> PR_REVIEW["10_pr-review.yml"]
+    PR --> GITLEAKS["05_gitleaks.yml"]
+    PR --> CODEQL["06_codeql.yml<br/>(조건부)"]
+    PR --> ACTIONLINT["04_actionlint.yml<br/>(조건부)"]
+    PR --> DOCS["21_docs-sync.yml"]
+    PR --> DEPENDABOT["12_dependabot-auto-merge.yml<br/>(dependabot만)"]
     
     PUSH --> AUTO_DEPLOY["34_auto-deploy.yml<br/>(조건부)"]
-    PUSH --> RELEASE_D["release-drafter.yml"]
-    PUSH --> RELEASE_P["release-publish.yml"]
+    PUSH --> RELEASE_D["23_release-drafter.yml"]
+    PUSH --> RELEASE_P["25_release-publish.yml"]
     PUSH --> GITLEAKS
     
-    CRON --> HARDSCAN["auto-hardcode-scan.yml<br/>(월요일 00:00)"]
-    CRON --> ISSUE_MGMT["issue-management.yml<br/>(매일 00:00)"]
-    CRON --> ISSUE_BACK["issue-backfill.yml<br/>(매일 09:00)"]
-    CRON --> CODEQL_S["codeql.yml<br/>(월요일 04:23)"]
+    CRON --> HARDSCAN["35_auto-hardcode-scan.yml<br/>(월요일 00:00)"]
+    CRON --> ISSUE_MGMT["18_issue-management.yml<br/>(매일 00:00)"]
+    CRON --> ISSUE_BACK["19_issue-backfill.yml<br/>(매일 09:00)"]
+    CRON --> CODEQL_S["06_codeql.yml<br/>(월요일 04:23)"]
     
-    ISSUE --> ISSUE_BRANCH["issue-to-branch.yml"]
+    ISSUE --> ISSUE_BRANCH["02_issue-to-branch.yml"]
     
-    PR_CHECK --> REUSABLE1["reusable-pr-checks.yml"]
-    DOCS --> REUSABLE2["reusable-docs-sync.yml"]
-    ISSUE_MGMT --> REUSABLE3["reusable-issue-management.yml"]
+    PR_CHECK --> REUSABLE1["reusable-03_pr-checks.yml"]
+    DOCS --> REUSABLE2["reusable-21_docs-sync.yml"]
+    ISSUE_MGMT --> REUSABLE3["reusable-18_issue-management.yml"]
     
     style PR fill:#6ba06a,stroke:#333,color:#fff
     style PUSH fill:#4a90d9,stroke:#333,color:#fff
@@ -395,9 +395,9 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    MERGED["PR 머지"] --> DRAFTER["release-drafter.yml<br/>릴리즈 노트 초안"]
+    MERGED["PR 머지"] --> DRAFTER["23_release-drafter.yml<br/>릴리즈 노트 초안"]
     
-    DRAFTER --> TAG["release-publish.yml<br/>태그 생성"]
+    DRAFTER --> TAG["25_release-publish.yml<br/>태그 생성"]
     TAG --> SEMVER{"Conventional Commits<br/>분석"}
     
     SEMVER -->|fix:| PATCH["vX.Y.Z+1<br/>Patch"]

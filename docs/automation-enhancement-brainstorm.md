@@ -51,7 +51,7 @@
 |---|----------|-----------------|---------------|
 | **M1** | `sync-secrets`가 repo 목록을 **하드코딩** — `config/repos.yaml` 단일 소스 미사용 (신규 도구들과 불일치) | `scripts/cmd/sync-secrets/main.go:30-49` (`publicRepos` 16개) | repo 추가/제거 시 누락 드리프트 위험 |
 | **M2** | `sync-secrets`·`repo-review`에 `_test.go` 없음 | 해당 디렉터리에 `main.go`만 존재 | 고-blast-radius 스크립트의 회귀 무방비 |
-| **M3** | 프로필 README(`jclee941/jclee941`) 미구현 — `profile-readme-sync.yml` 제안만 존재 | `docs/github-profile-enhancement-brainstorm.md:81` | 계정 디스커버리/첫인상 미흡 (라이브 미확인) |
+| **M3** | 프로필 README(`jclee941/jclee941`) 미구현 — `profile-readme-sync.yml` 제안만 존재 (아직 파일 없음) | 참고: `docs/github-profile-enhancement-brainstorm.md` | 계정 디스커버리/첫인상 미흡 (라이브 미확인) |
 | **M4** | 운영 설정 하드코딩 — `ELASTICSEARCH_HOSTS`, healthcheck 30s 간격(≈90s 탐지 지연) | `docker-compose.github_app.yml:45-50`, `:72-74` | ELK 호스트 변경 시 수동 수정, 장애 탐지 지연 |
 | **M5** | 월요일 cron 군집 (00:00~09:30 UTC) | `35_auto-hardcode-scan.yml:4`(00:00), `31_repo-health.yml:8`(02:00), `08_scorecard.yml:5`(09:00), `32_org-health-report.yml:5`(09:15), `33_drift-detector.yml:5`(09:30) | 일부 offset 적용됨. ubuntu-latest 큐 지연 관측 시에만 문제 |
 
