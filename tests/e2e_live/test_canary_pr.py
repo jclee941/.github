@@ -146,7 +146,10 @@ def wait_for_checks(
             empty_poll_count += 1
             # Only skip if empty checks persist across multiple polls
             if empty_poll_count >= 3:
-                pytest.skip(f"{repo}#{pr_number}: no checks found after {empty_poll_count} polls — workflows not deployed to canary")
+                pytest.skip(
+                    f"{repo}#{pr_number}: no checks found after "
+                    f"{empty_poll_count} polls — workflows not deployed to canary"
+                )
             time.sleep(5)
             continue
         empty_poll_count = 0
