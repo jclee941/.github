@@ -48,8 +48,8 @@ def normalize_llm_readme_response(text: str) -> str:
     if not text:
         return text
     s = text
-    # 1. Remove <think>...</think> reasoning blocks.
-    s = re.sub(r"<think\b[^>]*>.*?</think>", "", s, flags=re.DOTALL | re.IGNORECASE)
+    # 1. Remove <think>/<thinking> reasoning blocks.
+    s = re.sub(r"<(think|thinking)\b[^>]*>.*?</\1>", "", s, flags=re.DOTALL | re.IGNORECASE)
     s = s.strip()
     # 2. Strip an opening code fence (```json / ```markdown). Handle BOTH closed
     #    fences and unclosed ones (truncated output that hit max_tokens).

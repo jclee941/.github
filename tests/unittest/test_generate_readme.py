@@ -169,3 +169,12 @@ def test_sanitize_links_handles_http_and_www():
     assert "jclee941/github-bot" not in out, out
     assert "jclee941/CLIProxyAPI" not in out, out
     assert "jclee941/.github" in out, out
+
+
+def test_normalize_strips_thinking_variant():
+    """The <thinking>...</thinking> tag variant must also be stripped."""
+    mod = _load_module()
+    raw = "<thinking>\nplan\n</thinking>\n\n# Title\n\nbody"
+    out = mod.normalize_llm_readme_response(raw)
+    assert "<thinking>" not in out and "plan" not in out, out
+    assert out.lstrip().startswith("# Title"), out
