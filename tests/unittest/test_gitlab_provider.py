@@ -1,9 +1,8 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from gitlab import Gitlab
 from gitlab.exceptions import GitlabGetError
-from gitlab.v4.objects import Project, ProjectFile
+from gitlab.v4.objects import ProjectFile
 
 from pr_agent.git_providers.gitlab_provider import GitLabProvider
 
@@ -110,16 +109,16 @@ class TestGitLabProvider:
         mock_file.save.assert_called_once_with(branch="feature-branch", commit_message=commit_message)
 
     def test_create_or_update_pr_file_update_exception(self, gitlab_provider, mock_project):
-        mock_project.files.get.side_effect = Exception("Network error")
+        mock_project.files.get.side_effect = RuntimeError("Network error")
 
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError):
             gitlab_provider.create_or_update_pr_file(
                 "CHANGELOG.md", "feature-branch", "content", "message"
             )
 
     def test_has_create_or_update_pr_file_method(self, gitlab_provider):
         assert hasattr(gitlab_provider, "create_or_update_pr_file")
-        assert callable(getattr(gitlab_provider, "create_or_update_pr_file"))
+        assert callable(gitlab_provider.create_or_update_pr_file)
 
     def test_method_signature_compatibility(self, gitlab_provider):
         import inspect
