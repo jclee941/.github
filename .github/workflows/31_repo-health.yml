@@ -134,6 +134,7 @@ jobs:
                 labels: ['documentation', 'repo-health'],
               });
               console.log(`📝 Created health issue in ${repo}`);
+            }
       - name: Checkout (for composite action resolution)
         if: failure()
         uses: actions/checkout@v6

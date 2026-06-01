@@ -51,7 +51,10 @@ jobs:
               "secret": re.compile(
                   r'(?i)(secret|password|passwd|pwd|token)\s*[:=]\s*["\']'
                   r'(?![${<{])'
-                  r'[^"\']{4,}["\']'
+                  # Exclude quoted sentinel/boolean literals (feature flags,
+                  # not secrets) like "false"/"true"/"null"; require >=8 chars.
+                  r'(?!(?:true|false|null|none|yes|no|0|1)["\'])'
+                  r'[^"\']{8,}["\']'
               ),
           }
           NOISY_PATTERNS = {
@@ -75,6 +78,9 @@ jobs:
               "docker-compose.github_app.yml.lxc",
               "Dockerfile.github_app", "Dockerfile.github_action",
               "pyproject.toml", "MANIFEST.in", "CONTRIBUTING.md",
+              # legitimate public URLs (docs/config/templates), not secrets
+              ".ls-lint.yml", "CODE_OF_CONDUCT.md", "config/repos.yaml",
+              "templates/README.md", "templates/CONTRIBUTING.md",
           }
           NOISY_ALLOWLIST_PREFIXES = (
               # upstream fork source — audited at fork time, not rewritten
@@ -88,10 +94,21 @@ jobs:
           )
 
           findings = []
-          for p in Path(".").rglob("*"):
-              if not p.is_file():
+          # Scan only git-tracked files: this is the committed-secret universe
+          # (gitignored debris like .env / .omo/ / .sisyphus/ is NOT PR risk and
+          # only creates noise). Fail closed if git is unavailable.
+          try:
+              tracked = subprocess.run(
+                  ["git", "ls-files", "-z"],
+                  check=True, capture_output=True,
+              ).stdout.split(b"\0")
+          except (subprocess.CalledProcessError, FileNotFoundError) as e:
+              raise SystemExit(f"hardcode-scan: 'git ls-files' failed: {e}")
+          for raw in tracked:
+              if not raw:
                   continue
-              if any(part in IGNORE_DIRS for part in p.parts):
+              p = Path(os.fsdecode(raw))
+              if not p.is_file():
                   continue
               path_str = str(p)
               try:
@@ -104,7 +121,7 @@ jobs:
               # 'token="token_v1"' as part of mock state.
               # The auto-hardcode-scan workflow itself contains regex literals
               # and inline doc-comment examples that match the patterns; skip it.
-              if not (path_str.startswith("tests/") or path_str == ".github/workflows/auto-hardcode-scan.yml"):
+              if not (path_str.startswith("tests/") or path_str == ".github/workflows/35_auto-hardcode-scan.yml"):
                   for name, pattern in HIGH_SIGNAL_PATTERNS.items():
                       for m in pattern.finditer(content):
                           line_num = content[: m.start()].count("\n") + 1

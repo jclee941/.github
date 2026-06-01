@@ -100,6 +100,14 @@ jobs:
                       raise SystemExit(1)
           "
 
+      - name: Validate embedded github-script JavaScript syntax
+        run: |
+          set -eu
+          # actionlint validates workflow structure but NOT the JS inside
+          # actions/github-script steps. This guard runs `node --check` on every
+          # embedded script so a missing brace can never ship again.
+          python scripts/check_workflow_scripts.py
+
       - name: Verify LLM model config consistency across surfaces
         run: |
           set -eu
