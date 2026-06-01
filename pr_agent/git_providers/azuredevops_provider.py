@@ -8,7 +8,7 @@ from pr_agent.algo.types import EDIT_TYPE, FilePatchInfo
 
 from ..algo.file_filter import filter_ignored
 from ..algo.language_handler import is_valid_file
-from ..algo.utils import PRDescriptionHeader, clip_tokens, find_line_number_of_relevant_line_in_file, load_large_diff
+from ..algo.utils import PRDescriptionHeader, find_line_number_of_relevant_line_in_file, load_large_diff
 from ..config_loader import get_settings
 from ..log import get_logger
 from .git_provider import GitProvider
@@ -66,7 +66,6 @@ class AzureDevopsProvider(GitProvider):
         """
         Publishes code suggestions as comments on the PR.
         """
-        post_parameters_list = []
         status = get_settings().azure_devops.get("default_comment_status", "closed")
         for suggestion in code_suggestions:
             body = suggestion['body']

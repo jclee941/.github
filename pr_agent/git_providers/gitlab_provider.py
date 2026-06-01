@@ -1,12 +1,10 @@
 import difflib
-import hashlib
 import re
 import urllib.parse
-from typing import Any, Optional, Tuple, Union
-from urllib.parse import parse_qs, urlparse
+from typing import Optional, Tuple
+from urllib.parse import urlparse
 
 import gitlab
-import requests
 from gitlab import GitlabAuthenticationError, GitlabCreateError, GitlabGetError, GitlabUpdateError
 
 from pr_agent.algo.types import EDIT_TYPE, FilePatchInfo
@@ -59,7 +57,7 @@ class GitLabProvider(GitProvider):
                 )
         except Exception as e:
             get_logger().error(f"Failed to create GitLab instance: {e}")
-            raise ValueError(f"Unable to authenticate with GitLab: {e}")
+            raise ValueError(f"Unable to authenticate with GitLab: {e}") from e
         self.max_comment_chars = 65000
         self.id_project = None
         self.id_mr = None
@@ -321,7 +319,7 @@ class GitLabProvider(GitProvider):
             repo_path = self._get_project_path_from_pr_or_issue_url(self.pr_url)
             try:
                 desired_branch = self.gl.projects.get(self.id_project).default_branch
-            except Exception as e:
+            except Exception:
                 get_logger().exception(f"Cannot get PR: {self.pr_url} default branch. Tried project ID: {self.id_project}")
                 return ("", "")
         else: #Use repo git url
@@ -415,7 +413,7 @@ class GitLabProvider(GitProvider):
                     'original_files': names_original,
                     'filtered_files': names_filtered
                 })
-            except Exception as e:
+            except Exception:
                 pass
 
         diff_files = []
@@ -575,7 +573,7 @@ class GitLabProvider(GitProvider):
             get_logger().debug(f"Creating comment in MR {self.id_mr} with body {body} and position {pos_obj}")
             try:
                 self.mr.discussions.create({'body': body, 'position': pos_obj})
-            except Exception as e:
+            except Exception:
                 try:
                     # fallback - create a general note on the file in the MR
                     if 'suggestion_orig_location' in original_suggestion:
@@ -598,10 +596,6 @@ class GitLabProvider(GitProvider):
                         label = original_suggestion['label']
                         score = original_suggestion.get('score', 7)
 
-                    if hasattr(self, 'main_language'):
-                        language = self.main_language
-                    else:
-                        language = ''
                     link = self.get_line_link(relevant_file, line_start, line_end)
                     body_fallback =f"**Suggestion:** {content} [{label}, importance: {score}]\n\n"
                     body_fallback +=f"\n\n<details><summary>[{target_file.filename} [{line_start}-{line_end}]]({link}):</summary>\n\n"
@@ -629,7 +623,7 @@ class GitLabProvider(GitProvider):
 
                     # get_logger().debug(
                     #     f"Failed to create comment in MR {self.id_mr} with position {pos_obj} (probably not a '+' line)")
-                except Exception as e:
+                except Exception:
                     get_logger().exception(f"Failed to create comment in MR {self.id_mr}")
 
     def get_relevant_diff(self, relevant_file: str, relevant_line_in_file: str) -> Optional[dict]:
@@ -914,7 +908,7 @@ class GitLabProvider(GitProvider):
         try:
             pr_id = self.mr.web_url
             return pr_id
-        except:
+        except Exception:
             return ""
 
     def get_line_link(self, relevant_file: str, relevant_line_start: int, relevant_line_end: int = None) -> str:
