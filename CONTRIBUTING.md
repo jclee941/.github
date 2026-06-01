@@ -1,6 +1,6 @@
 # Contributing
 
-`jclee941/.github` is the source of truth for the standard automation that gets deployed across all `jclee941/*` public repositories. Changes here propagate via `auto-deploy.yml` to 11 downstream public repos (excludes `pr-agent` fork).
+`jclee941/.github` is the source of truth for the standard automation that gets deployed across all `jclee941/*` public repositories. Changes here propagate via `34_auto-deploy.yml` to 11 downstream public repos (excludes `pr-agent` fork).
 
 ## Scope
 
@@ -86,7 +86,7 @@ When you change behavior, also update:
 
 ## Rolling out workflow changes downstream
 
-`auto-deploy.yml` runs on every push to `master` that touches `.github/workflows/**` (or files in `extraFiles`). It opens a PR titled `chore: standardize automation workflows + dependabot config` in each of the 11 downstream public repos (excludes `pr-agent` fork). Required checks must pass downstream before auto-merge fires.
+`34_auto-deploy.yml` runs on every push to `master` that touches `.github/workflows/**` (or files in `extraFiles`). It opens a PR titled `chore: standardize automation workflows + dependabot config` in each of the 11 downstream public repos (excludes `pr-agent` fork). Required checks must pass downstream before auto-merge fires.
 
 For new required checks, follow the **3-phase rollout** documented in `docs/git-workflow-gap-analysis.md` §7:
 

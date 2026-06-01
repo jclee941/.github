@@ -235,7 +235,7 @@ github-bot/
 # 1. Edit a workflow in .github/workflows/, or .github/dependabot.yml,
 #    or .github/CODEOWNERS, or .github/PULL_REQUEST_TEMPLATE.md, or scripts/cmd/deploy-to-repos/main.go
 # 2. Commit + push to master
-# 3. auto-deploy.yml runs deploy-to-repos.go (→ scripts/cmd/deploy-to-repos/main.go) on a GitHub-hosted ubuntu-latest runner
+# 3. 34_auto-deploy.yml runs deploy-to-repos.go (→ scripts/cmd/deploy-to-repos/main.go) on a GitHub-hosted ubuntu-latest runner
 #    → opens/updates PR "chore: standardize automation workflows + dependabot config"
 #    in each downstream repo (force-push branch via --force-with-lease)
 # 4. Each downstream PR auto-merges once its required branch-protection contexts pass (Title + Branch [+ Gitleaks after Phase 3])

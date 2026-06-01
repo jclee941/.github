@@ -83,7 +83,7 @@
 | G19 | 액션 SHA pinning 없음 | 🟡 P2 | 공급망 공격 가능 | 보안 워크플로 SHA pin | ⏸️ |
 | G20 | `.git/hooks/post-commit` 무력 상태 | 🟡 P2 | 의도 불명 | 삭제 또는 명확화 | ⏸️ |
 
-> **G16 명확화**: 분석 단계에서는 sanity + gitleaks 두 컨텍스트를 required로 격상 검토했으나, **sanity.yml은 fork-only** (pr_agent import 검증)이며 `deploy-to-repos.go`의 `downstreamWorkflowAllowlist`에 포함되지 않음. 따라서 다운스트림 required는 `Gitleaks / scan`만 추가. sanity는 본 리포(`jclee941/.github`)에서만 advisory로 유지됨.
+> **G16 명확화**: 분석 단계에서는 sanity + gitleaks 두 컨텍스트를 required로 격상 검토했으나, **90_sanity.yml은 fork-only** (pr_agent import 검증)이며 `deploy-to-repos.go`의 `downstreamWorkflowAllowlist`에 포함되지 않음. 따라서 다운스트림 required는 `Gitleaks / scan`만 추가. sanity는 본 리포(`jclee941/.github`)에서만 advisory로 유지됨.
 
 ---
 
