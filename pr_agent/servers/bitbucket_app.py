@@ -233,7 +233,7 @@ def should_process_pr_logic(data) -> bool:
 
 
 @router.post("/webhook")
-async def handle_github_webhooks(background_tasks: BackgroundTasks, request: Request):
+async def handle_bitbucket_webhook(background_tasks: BackgroundTasks, request: Request):
     app_name = get_settings().get("CONFIG.APP_NAME", "Unknown")
     log_context = {"server_type": "bitbucket_app", "app_name": app_name}
     get_logger().debug(request.headers)
@@ -309,7 +309,7 @@ async def handle_github_webhooks(background_tasks: BackgroundTasks, request: Req
     return "OK"
 
 @router.get("/webhook")
-async def handle_github_webhooks(request: Request, response: Response):
+async def handle_bitbucket_webhook_get(request: Request, response: Response):
     return "Webhook server online!"
 
 @router.post("/installed")

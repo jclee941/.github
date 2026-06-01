@@ -17,7 +17,6 @@ from pr_agent.agent.pr_agent import PRAgent
 from pr_agent.algo.utils import update_settings_from_args
 from pr_agent.config_loader import get_settings, global_settings
 from pr_agent.git_providers import get_git_provider, get_git_provider_with_context
-from pr_agent.git_providers.git_provider import IncrementalPR
 from pr_agent.git_providers.utils import apply_repo_settings
 from pr_agent.identity_providers import get_identity_provider
 from pr_agent.identity_providers.identity_provider import Eligibility
@@ -182,8 +181,6 @@ async def handle_new_pr_opened(
     log_context: Dict[str, Any],
     agent: PRAgent,
 ):
-    title = body.get("pull_request", {}).get("title", "")
-
     pull_request, api_url = _check_pull_request_event(action, body, log_context)
     if not (pull_request and api_url):
         get_logger().info(f"Invalid PR event: {action=} {api_url=}")

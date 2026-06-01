@@ -5,7 +5,6 @@ Provides Prometheus metrics, health checks, and ELK-ready log enrichment.
 
 import time
 from pathlib import Path
-from typing import Any, Dict
 
 import httpx
 from fastapi import APIRouter
