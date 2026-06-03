@@ -548,6 +548,22 @@ class TestStaleFailureIssueAutoRecovery:
                 "stale failure issue auto-closes on recovery."
             )
 
+    def test_event_driven_close_maps_health_workflow_titles(self):
+        text = read_workflow("ci-failure-issues.yml")
+        # On workflow_run success, the health/scan workflows' stable issue
+        # titles must be closed immediately (event-driven), not only by the
+        # daily sweep. Guard that the success path maps these workflow names.
+        for sub in [
+            "Gitleaks Scan Failed",
+            "ELK Health Check Failed",
+            "CLIProxyAPI unreachable",
+            "Downstream workflow failures detected",
+        ]:
+            assert sub in text, (
+                f"ci-failure-issues.yml event-driven success path must close "
+                f"issues titled '{sub}' when the workflow recovers."
+            )
+
     def test_has_scheduled_sweep(self):
         text = read_workflow("ci-failure-issues.yml")
         # A scheduled trigger is required for the periodic stale-issue sweep.
