@@ -19,6 +19,8 @@ import json
 import os
 import re
 import sys
+import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -26,6 +28,31 @@ API_BASE = os.environ.get("OPENAI_BASE_URL", "https://cliproxy.jclee.me/v1")
 API_KEY = os.environ.get("CLIPROXY_API_KEY", "")
 MODELS = ["minimax-m2.7"]
 MAX_TOKENS = 16000  # README is long; 4000 truncated the JSON mid-string
+
+# Backoff (seconds) between retry attempts for a single model on transient
+# backend errors (Cloudflare 524, 502/503, 429, connection/timeouts). The
+# length of this list determines the number of EXTRA attempts per model.
+_RETRY_BACKOFF_SECONDS = [2, 5, 10]
+# HTTP status codes that indicate a transient backend condition worth retrying.
+_TRANSIENT_HTTP_CODES = {429, 500, 502, 503, 504, 520, 522, 524}
+
+
+class TransientLLMError(RuntimeError):
+    """Raised when every model+retry hit a transient backend failure. The
+    caller can catch this to degrade gracefully (skip the README update)
+    instead of hard-failing CI on a temporary LLM outage."""
+
+
+def _is_transient(error: Exception) -> bool:
+    """Classify whether an exception from the LLM call is transient/retryable."""
+    if isinstance(error, urllib.error.HTTPError):
+        return error.code in _TRANSIENT_HTTP_CODES
+    if isinstance(error, (urllib.error.URLError, TimeoutError, ConnectionError)):
+        return True
+    # Socket timeouts surface as OSError on some Python builds.
+    if isinstance(error, OSError):
+        return True
+    return False
 
 # Repos that actually exist under github.com/jclee941. Links to any OTHER
 # jclee941 repo are LLM hallucinations (e.g. jclee941/CLIProxyAPI,
@@ -175,11 +202,19 @@ def read_key_files(repo_root: Path) -> dict[str, str]:
 
 
 def call_llm(system: str, user: str) -> str:
-    """Call CLIProxyAPI (OpenAI-compatible) with fallback models."""
+    """Call CLIProxyAPI (OpenAI-compatible) with fallback models.
+
+    Each model is attempted up to len(_RETRY_BACKOFF_SECONDS)+1 times, sleeping
+    between attempts on transient backend errors (524/502/503/429/timeout/
+    connection). If EVERY model+retry hit a transient error, raise
+    TransientLLMError so the caller can degrade gracefully. A non-transient
+    error (bad request, auth) still raises SystemExit immediately.
+    """
     if not API_KEY:
         raise SystemExit("ERROR: CLIPROXY_API_KEY environment variable is required.")
 
     last_error = None
+    all_transient = True
     for model in MODELS:
         payload = {
             "model": model,
@@ -199,17 +234,32 @@ def call_llm(system: str, user: str) -> str:
             },
             method="POST",
         )
-        try:
-            with urllib.request.urlopen(req, timeout=300) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            content = data["choices"][0]["message"]["content"]
-            print(f"Generated with model: {model}")
-            return content
-        except Exception as e:
-            last_error = e
-            print(f"Model {model} failed: {e}")
-            continue
+        # attempt 0 = initial try; subsequent attempts use the backoff list.
+        for attempt in range(len(_RETRY_BACKOFF_SECONDS) + 1):
+            try:
+                with urllib.request.urlopen(req, timeout=300) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                content = data["choices"][0]["message"]["content"]
+                print(f"Generated with model: {model}")
+                return content
+            except Exception as e:  # noqa: BLE001 - boundary; classified below
+                last_error = e
+                transient = _is_transient(e)
+                all_transient = all_transient and transient
+                print(f"Model {model} attempt {attempt + 1} failed: {e}")
+                if transient and attempt < len(_RETRY_BACKOFF_SECONDS):
+                    delay = _RETRY_BACKOFF_SECONDS[attempt]
+                    print(f"  transient error; retrying in {delay}s")
+                    time.sleep(delay)
+                    continue
+                # Non-transient, or retries exhausted for this model: move on
+                # to the next model (if any).
+                break
 
+    if all_transient:
+        raise TransientLLMError(
+            f"All models failed with transient backend errors. Last error: {last_error}"
+        )
     raise SystemExit(f"ERROR: All models failed. Last error: {last_error}")
 
 
@@ -310,7 +360,13 @@ def main() -> int:
     readme_path = repo_root / "README.md"
 
     print(f"Scanning {repo_root} ...")
-    content = redact_private_ips(sanitize_links(normalize_llm_readme_response(generate_readme(repo_root))))
+    try:
+        content = redact_private_ips(sanitize_links(normalize_llm_readme_response(generate_readme(repo_root))))
+    except TransientLLMError as e:
+        # Transient backend outage (e.g. Cloudflare 524): do NOT hard-fail CI.
+        # Leave the existing README untouched; the next scheduled run regenerates.
+        print(f"::warning::README generation skipped due to transient LLM outage: {e}")
+        return 0
 
     if args.dry_run:
         print("\n--- GENERATED README ---\n")

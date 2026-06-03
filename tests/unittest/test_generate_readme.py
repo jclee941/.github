@@ -188,3 +188,91 @@ def test_normalize_strips_thinking_variant():
     out = mod.normalize_llm_readme_response(raw)
     assert "<thinking>" not in out and "plan" not in out, out
     assert out.lstrip().startswith("# Title"), out
+
+
+def test_is_transient_error_classification():
+    """Transient backend errors (524/502/503/timeout/connection) must be
+    classified as retryable; genuine client errors (4xx other than 429) must
+    not."""
+    import urllib.error
+    mod = _load_module()
+    # 524/502/503 + 429 are transient
+    for code in (524, 502, 503, 429, 500):
+        e = urllib.error.HTTPError("u", code, "x", {}, None)
+        assert mod._is_transient(e), f"HTTP {code} should be transient"
+    # 400/401/403/404 are NOT transient
+    for code in (400, 401, 403, 404):
+        e = urllib.error.HTTPError("u", code, "x", {}, None)
+        assert not mod._is_transient(e), f"HTTP {code} should NOT be transient"
+    # URLError (connection) and timeout are transient
+    assert mod._is_transient(urllib.error.URLError("connection refused"))
+    assert mod._is_transient(TimeoutError("timed out"))
+
+
+def test_call_llm_retries_transient_then_succeeds(monkeypatch):
+    """call_llm must retry a transient 524 and succeed on a later attempt
+    without raising."""
+    import urllib.error
+    mod = _load_module()
+    monkeypatch.setattr(mod, "API_KEY", "test-key")
+    monkeypatch.setattr(mod, "MODELS", ["m1"])
+    monkeypatch.setattr(mod, "_RETRY_BACKOFF_SECONDS", [0, 0, 0])  # no real sleeping
+
+    calls = {"n": 0}
+
+    class FakeResp:
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+        def read(self):
+            return b'{"choices": [{"message": {"content": "# OK"}}]}'
+
+    def fake_urlopen(req, timeout=0):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise urllib.error.HTTPError("u", 524, "timeout", {}, None)
+        return FakeResp()
+
+    monkeypatch.setattr(mod.urllib.request, "urlopen", fake_urlopen)
+    out = mod.call_llm("sys", "user")
+    assert out == "# OK", out
+    assert calls["n"] == 3, f"expected 3 attempts (2 retries), got {calls['n']}"
+
+
+def test_call_llm_raises_transient_error_after_exhausting_retries(monkeypatch):
+    """When all attempts hit transient errors, call_llm must raise the
+    dedicated TransientLLMError (so the caller can degrade gracefully), NOT a
+    bare SystemExit that hard-fails CI."""
+    import urllib.error
+    mod = _load_module()
+    monkeypatch.setattr(mod, "API_KEY", "test-key")
+    monkeypatch.setattr(mod, "MODELS", ["m1"])
+    monkeypatch.setattr(mod, "_RETRY_BACKOFF_SECONDS", [0, 0])
+
+    def fake_urlopen(req, timeout=0):
+        raise urllib.error.HTTPError("u", 524, "timeout", {}, None)
+
+    monkeypatch.setattr(mod.urllib.request, "urlopen", fake_urlopen)
+    import pytest
+    with pytest.raises(mod.TransientLLMError):
+        mod.call_llm("sys", "user")
+
+
+def test_main_degrades_gracefully_on_transient_failure(monkeypatch, tmp_path, capsys):
+    """main() must NOT hard-fail (exit non-zero) on a transient LLM outage; it
+    must leave the existing README untouched and return 0 with a warning."""
+    mod = _load_module()
+    readme = tmp_path / "README.md"
+    readme.write_text("# Existing README\n\nkeep me\n", encoding="utf-8")
+
+    def boom(repo_root):
+        raise mod.TransientLLMError("all models 524")
+
+    monkeypatch.setattr(mod, "generate_readme", boom)
+    monkeypatch.setattr(mod.sys, "argv", ["generate_readme.py", "--repo", str(tmp_path)])
+    rc = mod.main()
+    assert rc == 0, f"transient failure must not hard-fail CI, got rc={rc}"
+    assert readme.read_text(encoding="utf-8") == "# Existing README\n\nkeep me\n", (
+        "existing README must be left untouched on transient failure"
+    )
