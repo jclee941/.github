@@ -1,6 +1,6 @@
 # pr-agent Fork for jclee941 | jclee941용 pr-agent 포크
 
-> AI-powered PR reviewer and GitHub automation platform for `jclee941/*` repositories, backed by a homelab CLIProxyAPI deployment.  
+> AI-powered PR reviewer and GitHub automation platform for `jclee941/*` repositories, backed by a homelab CLIProxyAPI deployment.
 > homelab CLIProxyAPI 배포를 기반으로 `jclee941/*` 저장소를 자동화하는 AI PR 리뷰어 및 GitHub 자동화 플랫폼입니다.
 
 [![Version](https://img.shields.io/badge/version-0.3.1-blue.svg)](pyproject.toml)
@@ -31,606 +31,558 @@
 
 ## Overview | 개요
 
-This repository is a private hard fork of [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent), customized for the `jclee941/*` repository ecosystem. It preserves the upstream PR-Agent capabilities while adding repository-wide GitHub automation, security checks, release workflows, issue lifecycle automation, health monitoring, and homelab-backed LLM routing.
+This repository is a private hard fork of [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent), customized for the `jclee941/*` repository ecosystem. It preserves the upstream PR-Agent capabilities while adding repository-wide GitHub automation, security checks, release workflows, issue lifecycle automation, and a homelab-backed LLM gateway.
 
-이 저장소는 [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent)의 private hard fork이며, `jclee941/*` 저장소 생태계에 맞게 커스터마이징되어 있습니다. upstream PR-Agent 기능을 유지하면서 저장소 전반의 GitHub 자동화, 보안 검사, 릴리스 워크플로우, 이슈 라이프사이클 자동화, 헬스 모니터링, homelab 기반 LLM 라우팅을 추가합니다.
+### Key Characteristics | 주요 특징
 
-### Primary responsibilities | 주요 역할
-
-- AI-assisted pull request review and improvement suggestions.
-- Slash-command based PR operations such as `/review`, `/improve`, `/describe`, `/ask`, and `/update_changelog`.
-- Automated repository governance for branches, labels, rulesets, naming, metadata, secrets, and release hygiene.
-- GitHub Actions workflow automation for CI, security, stale handling, issue classification, auto-merge, documentation sync, and deployment.
-- LLM access through an OpenAI-compatible CLIProxyAPI endpoint.
-
-- AI 기반 Pull Request 리뷰 및 개선 제안.
-- `/review`, `/improve`, `/describe`, `/ask`, `/update_changelog` 등 slash command 기반 PR 작업.
-- 브랜치, 라벨, ruleset, naming, metadata, secrets, release hygiene에 대한 저장소 거버넌스 자동화.
-- CI, 보안, stale 처리, 이슈 분류, auto-merge, 문서 동기화, 배포를 위한 GitHub Actions 자동화.
-- OpenAI 호환 CLIProxyAPI endpoint를 통한 LLM 접근.
-
-### Runtime model routing | 런타임 모델 라우팅
-
-- PR-Agent runtime is routed through CLIProxyAPI.
-- README generation automation currently uses:
-  - Primary model: `minimax-m2.7`
-  - Fallback model: `gpt-5.5`
-- Public API base endpoint: `https://cliproxy.jclee.me/v1`
-- Internal homelab hosts are intentionally represented with placeholders such as `<homelab-host>` and `<homelab-elk>`.
+| Attribute | Value |
+|-----------|-------|
+| **Version** | 0.3.1 |
+| **Language** | Python 3.12+ |
+| **License** | AGPL-3.0 (upstream) + proprietary fork |
+| **LLM Backend** | CLIProxyAPI (`https://cliproxy.jclee.me/v1`) |
+| **Upstream** | [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent) |
+| **Workflows** | 57 GitHub Actions workflows |
+| **Go Tools** | 8 automation CLI tools |
+| **Runner** | GitHub-hosted `ubuntu-latest` + homelab self-hosted |
 
 ---
 
 ## Features | 기능
 
-### AI pull request automation | AI Pull Request 자동화
+### Core PR Agent Features (Upstream Preserved)
 
-- Automated PR review comments.
-- Code improvement suggestions.
-- PR description generation.
-- Interactive Q&A over pull request context.
-- Changelog update support.
-- Multi-model fallback support through CLIProxyAPI.
-- Dynamic context and PR compression inherited from upstream PR-Agent.
+- **`/review`** — AI-powered PR review with inline comments
+- **`/improve`** — Suggest code improvements
+- **`/describe`** — Auto-generate PR description
+- **`/ask`** — Question answering on code
+- **`/update_changelog`** — Changelog generation
+- **Multi-model fallback** — Supports `kimi-k2.6`, `minimax-m2.7`, `gpt-5.5`
+- **Dynamic context** — Adaptive token budgeting
+- **Slash commands** — Interactive PR commands
 
-### GitHub repository automation | GitHub 저장소 자동화
+### Fork-Specific Automation
 
-- Branch-to-PR and issue-to-branch automation.
-- Semantic PR title checks.
-- PR normalization, size labeling, stale handling, and auto-merge.
-- Dependabot auto-merge support.
-- Release draft, release notes, and release publish workflows.
-- Documentation synchronization and template synchronization.
-- Organization and repository health reporting.
-
-### Security automation | 보안 자동화
-
-- Gitleaks secret scanning.
-- CodeQL static analysis.
-- Dependency review.
-- OpenSSF Scorecard.
-- Dedicated security PR review workflow.
-- Auto hardcode scan for private IPs, secrets, and unsafe patterns.
-- Security-focused review templates.
-
-### Operations and observability | 운영 및 관측성
-
-- Runtime health checks.
-- Bot health monitoring.
-- Downstream health checks.
-- ELK setup and health check workflows.
-- CI failure issue creation.
-- Drift detection across managed repositories.
+| Category | Features |
+|----------|----------|
+| **PR Automation** | Auto-review, auto-merge, PR checks, stale bot, size labels |
+| **Issue Automation** | Lifecycle management, backfill, classification, labeling |
+| **Security** | Gitleaks secret scan, CodeQL SAST, dependency review, scorecard |
+| **Release** | Release drafter, semantic versioning, auto-tag, publish |
+| **Repository Health** | Drift detection, health reports, org-wide monitoring |
+| **Documentation** | README generation, docs sync, template sync |
+| **CI/CD** | Auto-deploy, e2e testing, healing, reusable workflows |
 
 ---
 
 ## Architecture | 아키텍처
 
 ```mermaid
-flowchart TD
-    User["Developer / Maintainer<br/>개발자 / 관리자"]
-    GitHub["GitHub Repository<br/>Issues, Pull Requests, Pushes"]
-    Actions["GitHub Actions<br/>ubuntu-latest runners"]
-    PRAgent["pr-agent Fork<br/>Python 3.12 package"]
-    CLIProxy["CLIProxyAPI<br/>https://cliproxy.jclee.me/v1"]
-    Homelab["&lt;homelab-host&gt;:8317<br/>OpenAI-compatible LLM gateway"]
-    Models["LLM Backends<br/>minimax-m2.7 fallback gpt-5.5"]
-    ELK["&lt;homelab-elk&gt;<br/>Logs and health monitoring"]
-    GoTools["Go Automation Tools<br/>branch protection, rulesets, drift, secrets"]
-    Docs["Docs and Templates<br/>README, review templates, release notes"]
+flowchart TB
+    subgraph GitHub["GitHub Platform"]
+        subgraph Workflows["Workflows (57 total)"]
+            PR_WF["10_pr-review.yml<br/>03_pr-checks.yml<br/>13_pr-auto-merge.yml<br/>14_bot-auto-fix.yml"]
+            Issue_WF["02_issue-to-branch.yml<br/>18_issue-management.yml<br/>91_issue-classification.yml<br/>82_issue-label.yml"]
+            Sec_WF["05_gitleaks.yml<br/>06_codeql.yml<br/>07_dependency-review.yml<br/>86_pr-review-security.yml"]
+            Release_WF["23_release-drafter.yml<br/>24_release-notes.yml<br/>25_release-publish.yml"]
+            Health_WF["28_bot-health-monitor.yml<br/>31_repo-health.yml<br/>32_org-health-report.yml"]
+            Deploy_WF["34_auto-deploy.yml<br/>35_auto-hardcode-scan.yml<br/>36_build-and-push-app.yml"]
+        end
+        Actions_Runner["ubuntu-latest<br/>GitHub Hosted Runner"]
+    end
 
-    User --> GitHub
-    GitHub --> Actions
-    Actions --> PRAgent
-    Actions --> GoTools
-    PRAgent --> CLIProxy
-    CLIProxy --> Homelab
-    Homelab --> Models
-    Actions --> ELK
-    GoTools --> GitHub
-    Actions --> Docs
-    PRAgent --> GitHub
+    subgraph Bot["pr-agent Bot (jclee941)"]
+        GitHub_App["GitHub App<br/>pr-agent"]
+        App_DB[(App DB<br/>SQLite)]
+    end
+
+    subgraph Homelab["Homelab Infrastructure"]
+        CLIProxy["CLIProxyAPI<br/>&lt;homelab-host&gt;:8317"]
+        LLM_Model["LLM Models<br/>kimi-k2.6 / minimax-m2.7<br/>/ gpt-5.5"]
+        ELK_Stack["ELK Stack<br/>Monitoring"]
+    end
+
+    subgraph GoTools["Go Automation Tools (8)"]
+        BP["branch-protection"]
+        DTR["deploy-to-repos"]
+        DD["drift-detector"]
+        RM["repo-metadata"]
+        RR["repo-review"]
+        RSM["rulesets-manager"]
+        SS["sync-secrets"]
+        VN["validate-naming"]
+    end
+
+    GitHub -->|webhook events| GitHub_App
+    GitHub -->|triggers| Workflows
+    Workflows -->|runs on| Actions_Runner
+    Actions_Runner -->|LLM calls via https://cliproxy.jclee.me/v1| CLIProxy
+    CLIProxy -->|inference| LLM_Model
+    GoTools -->|REST API| GitHub_API[(GitHub API)]
+    GitHub_API -->|events| GitHub
+    GitHub_App -->|stores| App_DB
+    Actions_Runner -->|metrics| ELK_Stack
+    ELK_Stack -->|log aggregation| CLIProxy
 ```
 
-### Architecture notes | 아키텍처 설명
+### Data Flow | 데이터 흐름
 
-- GitHub events trigger workflow automation on GitHub-hosted runners.
-- PR-Agent executes as a Python package and communicates with CLIProxyAPI through the public endpoint.
-- CLIProxyAPI provides OpenAI-compatible routing to configured models.
-- Go automation tools manage repository-level governance tasks.
-- Health and monitoring workflows report runtime, downstream, bot, and ELK status.
-- Private addresses and container identifiers are intentionally not documented; placeholders are used instead.
+1. **PR/Issue Event** → GitHub Webhook → GitHub App
+2. **Workflow Trigger** → `ubuntu-latest` runner → CLI calls via `https://cliproxy.jclee.me/v1`
+3. **LLM Inference** → Homelab CLIProxy → Model selection (kimi-k2.6 → minimax-m2.7 → gpt-5.5)
+4. **Go Tools** → Direct GitHub API → Repository/Org operations
 
 ---
 
 ## Automation Inventory | 자동화 인벤토리
 
-### GitHub Workflows 57 total | GitHub 워크플로우 57개
+### GitHub Workflows (57 total) | GitHub 워크플로우 57개
 
-The repository contains 57 workflow files. File names below are listed with their real on-disk numeric prefixes.
+#### PR Automation | PR 자동화
 
-아래 목록은 실제 디스크 상의 숫자 prefix가 포함된 워크플로우 파일명입니다.
+| Workflow File | Purpose |
+|---------------|---------|
+| `01_branch-to-pr.yml` | Convert branch to PR |
+| `03_pr-checks.yml` | PR validation checks |
+| `09_semantic-pr.yml` | Semantic PR title enforcement |
+| `10_pr-review.yml` | AI PR review (main) |
+| `13_pr-auto-merge.yml` | Auto-merge on approval |
+| `14_bot-auto-fix.yml` | Auto-fix PR issues |
+| `15_merged-pr-cleanup.yml` | Post-merge cleanup |
+| `17_pr-stale-bot.yml` | Mark stale PRs |
+| `85_pr-normalize.yml` | PR normalization |
+| `86_pr-review-security.yml` | Security-focused review |
+| `87_pr-size.yml` | PR size labeling |
+| `security/11_pr-review.yml` | Deep security review |
 
-#### PR and issue automation | PR 및 이슈 자동화
+#### Issue Automation | 이슈 자동화
 
-| Workflow file | Purpose |
-|---|---|
-| `01_branch-to-pr.yml` | Creates or manages pull requests from branch activity. |
-| `02_issue-to-branch.yml` | Creates working branches from issues. |
-| `03_pr-checks.yml` | Core pull request validation checks. |
-| `09_semantic-pr.yml` | Validates semantic pull request titles. |
-| `10_pr-review.yml` | Main AI PR review workflow using PR-Agent and CLIProxyAPI. |
-| `security/11_pr-review.yml` | Security-focused PR review workflow. |
-| `13_pr-auto-merge.yml` | Pull request auto-merge automation. |
-| `14_bot-auto-fix.yml` | Bot-assisted automatic fixes. |
-| `15_merged-pr-cleanup.yml` | Cleans up merged pull request branches or metadata. |
-| `17_pr-stale-bot.yml` | Stale pull request handling. |
-| `18_issue-management.yml` | General issue lifecycle automation. |
-| `19_issue-backfill.yml` | Backfills issue metadata and labels. |
-| `37_ci-failure-issues.yml` | Creates or updates issues for CI failures. |
-| `81_auto-merge.yml` | Additional auto-merge workflow. |
-| `82_issue-label.yml` | Issue labeling automation. |
-| `83_issue-lifecycle.yml` | Issue lifecycle state management. |
-| `85_pr-normalize.yml` | Normalizes pull request metadata. |
-| `86_pr-review-security.yml` | Security-oriented PR review automation. |
-| `87_pr-size.yml` | Labels pull requests by size. |
-| `88_stale.yml` | Generic stale issue and PR handling. |
-| `89_welcome.yml` | Welcome messages for contributors. |
-| `91_issue-classification.yml` | AI or rule-based issue classification. |
+| Workflow File | Purpose |
+|---------------|---------|
+| `02_issue-to-branch.yml` | Issue to branch creation |
+| `18_issue-management.yml` | Issue management |
+| `19_issue-backfill.yml` | Issue backfill |
+| `82_issue-label.yml` | Auto-labeling |
+| `83_issue-lifecycle.yml` | Lifecycle management |
+| `84_labeler.yml` | Label management |
+| `89_welcome.yml` | New issue welcome |
+| `90_sanity.yml` | Fork CI gate |
+| `91_issue-classification.yml` | Issue classification |
 
-#### CI, linting, and security | CI, 린팅 및 보안
+#### Security & Scanning | 보안 및 스캐닝
 
-| Workflow file | Purpose |
-|---|---|
-| `04_actionlint.yml` | Validates GitHub Actions workflow syntax and semantics. |
-| `05_gitleaks.yml` | Scans for exposed secrets. |
-| `06_codeql.yml` | Runs CodeQL static analysis. |
-| `07_dependency-review.yml` | Reviews dependency changes in pull requests. |
-| `08_scorecard.yml` | Runs OpenSSF Scorecard checks. |
-| `35_auto-hardcode-scan.yml` | Scans for hardcoded private IPs, secrets, and unsafe patterns. |
-| `38_e2e.yml` | End-to-end test workflow. |
-| `39_e2e-live.yml` | Live end-to-end test workflow. |
-| `60_ci-auto-heal.yml` | Attempts automatic remediation for CI failures. |
-| `90_sanity.yml` | Repository sanity and fork CI gate. |
+| Workflow File | Purpose |
+|---------------|---------|
+| `04_actionlint.yml` | YAML linting |
+| `05_gitleaks.yml` | Secret scanning |
+| `06_codeql.yml` | SAST analysis |
+| `07_dependency-review.yml` | Dependency check |
+| `08_scorecard.yml` | Security scorecard |
+| `35_auto-hardcode-scan.yml` | Hardcode pattern scan |
 
-#### Documentation, templates, and releases | 문서, 템플릿 및 릴리스
+#### Release & Deployment | 배포 및 릴리스
 
-| Workflow file | Purpose |
-|---|---|
-| `20_readme-gen.yml` | Generates or refreshes README content. |
-| `21_docs-sync.yml` | Synchronizes documentation across repositories. |
-| `22_template-sync.yml` | Synchronizes shared templates. |
-| `23_release-drafter.yml` | Maintains draft releases. |
-| `24_release-notes.yml` | Generates release notes. |
-| `25_release-publish.yml` | Publishes releases. |
+| Workflow File | Purpose |
+|---------------|---------|
+| `23_release-drafter.yml` | Release draft generation |
+| `24_release-notes.yml` | Release notes generation |
+| `25_release-publish.yml` | Release publishing |
+| `34_auto-deploy.yml` | Auto-deployment |
+| `36_build-and-push-app.yml` | Docker image build/push |
 
-#### Health, deployment, and repository governance | 헬스체크, 배포 및 저장소 거버넌스
+#### Health & Monitoring | 상태 및 모니터링
 
-| Workflow file | Purpose |
-|---|---|
-| `12_dependabot-auto-merge.yml` | Auto-merges eligible Dependabot pull requests. |
-| `16_stale-repo-identifier.yml` | Identifies stale repositories. |
-| `26_elk-health-check.yml` | Checks ELK availability and health. |
-| `27_elk-setup.yml` | Sets up ELK integration. |
-| `28_bot-health-monitor.yml` | Monitors bot health. |
-| `29_downstream-health-check.yml` | Checks downstream service health. |
-| `30_runtime-health-check.yml` | Checks runtime service health. |
-| `31_repo-health.yml` | Generates repository health information. |
-| `32_org-health-report.yml` | Generates organization-level health reports. |
-| `33_drift-detector.yml` | Detects configuration drift. |
-| `34_auto-deploy.yml` | Deploys automation updates. |
-| `36_build-and-push-app.yml` | Builds and pushes the GitHub App image. |
-| `40_repo-review-batch.yml` | Runs batch repository review. |
+| Workflow File | Purpose |
+|---------------|---------|
+| `26_elk-health-check.yml` | ELK stack health |
+| `27_elk-setup.yml` | ELK setup |
+| `28_bot-health-monitor.yml` | Bot health monitoring |
+| `29_downstream-health-check.yml` | Downstream repo health |
+| `30_runtime-health-check.yml` | Runtime health |
+| `31_repo-health.yml` | Repository health |
+| `32_org-health-report.yml` | Organization health |
+| `33_drift-detector.yml` | Drift detection |
 
-#### Reusable workflows | 재사용 워크플로우
+#### Documentation & Sync | 문서화 및 동기화
 
-| Workflow file | Purpose |
-|---|---|
-| `41_reusable-ci.yml` | Reusable CI workflow. |
-| `42_reusable-docs-sync.yml` | Reusable documentation sync workflow. |
-| `43_reusable-issue-management.yml` | Reusable issue management workflow. |
-| `44_reusable-pr-checks.yml` | Reusable PR checks workflow. |
-| `45_reusable-gitleaks.yml` | Reusable Gitleaks workflow. |
+| Workflow File | Purpose |
+|---------------|---------|
+| `20_readme-gen.yml` | README generation |
+| `21_docs-sync.yml` | Documentation sync |
+| `22_template-sync.yml` | Template sync |
 
-#### Labeling and metadata | 라벨 및 메타데이터
+#### CI/CD & Testing | CI/CD 및 테스트
 
-| Workflow file | Purpose |
-|---|---|
-| `84_labeler.yml` | Applies labels based on repository rules. |
+| Workflow File | Purpose |
+|---------------|---------|
+| `38_e2e.yml` | End-to-end tests |
+| `39_e2e-live.yml` | Live e2e tests |
+| `40_repo-review-batch.yml` | Batch repo review |
+| `41_reusable-ci.yml` | Reusable CI template |
+| `42_reusable-docs-sync.yml` | Reusable docs sync |
+| `43_reusable-issue-management.yml` | Reusable issue management |
+| `44_reusable-pr-checks.yml` | Reusable PR checks |
+| `45_reusable-gitleaks.yml` | Reusable gitleaks |
+| `60_ci-auto-heal.yml` | CI auto-healing |
+
+#### Automation & Maintenance | 자동화 및 유지보수
+
+| Workflow File | Purpose |
+|---------------|---------|
+| `12_dependabot-auto-merge.yml` | Dependabot auto-merge |
+| `16_stale-repo-identifier.yml` | Stale repo identification |
+| `37_ci-failure-issues.yml` | CI failure issue creation |
+| `81_auto-merge.yml` | General auto-merge |
+
+#### Stale Management | 만료 관리
+
+| Workflow File | Purpose |
+|---------------|---------|
+| `88_stale.yml` | Generic stale management |
 
 ---
 
-### Go Automation Tools 8 total | Go 자동화 도구 8개
+### Go Automation Tools (8 total) | Go 자동화 도구 8개
 
-The repository includes Go-based automation tools for repository administration and fleet-wide governance.
+| Tool | Purpose | Entry Point |
+|------|---------|-------------|
+| `branch-protection` | Manage branch protection rules | `scripts/cmd/branch-protection/main.go` |
+| `deploy-to-repos` | Deploy workflows to `jclee941/*` repos | `scripts/cmd/deploy-to-repos/main.go` |
+| `drift-detector` | Detect infrastructure drift | `scripts/cmd/drift-detector/main.go` |
+| `repo-metadata` | Manage repository metadata | `scripts/cmd/repo-metadata/main.go` |
+| `repo-review` | Batch repository review | `scripts/cmd/repo-review/main.go` |
+| `rulesets-manager` | GitHub Rulesets management | `scripts/cmd/rulesets-manager/main.go` |
+| `sync-secrets` | Synchronize secrets across repos | `scripts/cmd/sync-secrets/main.go` |
+| `validate-naming` | Validate naming conventions | `scripts/cmd/validate-naming/main.go` |
 
-이 저장소에는 저장소 관리 및 여러 저장소에 대한 거버넌스를 수행하기 위한 Go 기반 자동화 도구가 포함되어 있습니다.
+### Tool Invocation | 도구 호출 방법
 
-| Tool name | Purpose |
-|---|---|
-| `branch-protection` | Applies or validates branch protection settings. |
-| `deploy-to-repos` | Deploys selected automation assets to managed repositories. |
-| `drift-detector` | Detects drift between desired and actual repository configuration. |
-| `repo-metadata` | Reads, validates, or updates repository metadata. |
-| `repo-review` | Reviews repository configuration and automation posture. |
-| `rulesets-manager` | Manages GitHub repository rulesets. |
-| `sync-secrets` | Synchronizes required repository or organization secrets. |
-| `validate-naming` | Validates naming conventions for repositories, branches, labels, or workflows. |
+```bash
+# From scripts/ directory
+cd scripts && go run ./cmd/<tool-name>
+
+# Example: deploy workflow to repos
+cd scripts && go run ./cmd/deploy-to-repos
+
+# Example: manage branch protection
+cd scripts && go run ./cmd/branch-protection
+
+# Example: detect drift
+cd scripts && go run ./cmd/drift-detector
+```
 
 ---
 
 ## Repository Structure | 저장소 구조
 
-Top-level repository layout:
-
-```text
-/
-├── AGENTS.md
-├── CODE_OF_CONDUCT.md
-├── CONTRIBUTING.md
-├── Dockerfile.github_action
-├── Dockerfile.github_app
-├── LICENSE
-├── MANIFEST.in
-├── Makefile
-├── NOTICE
-├── README.md
-├── SECURITY.md
-├── config/
-│   └── repos.yaml
-├── docker-compose.github_app.yml
-├── docker-compose.github_app.yml.lxc
-├── docs/
+```
+.
+├── .github/
+│   ├── workflows/          # 57 workflow YAML files
+│   │   ├── 01_branch-to-pr.yml
+│   │   ├── 02_issue-to-branch.yml
+│   │   ├── 03_pr-checks.yml
+│   │   ├── ...
+│   │   ├── 90_sanity.yml
+│   │   ├── 91_issue-classification.yml
+│   │   └── security/
+│   │       └── 11_pr-review.yml
+│   ├── CODEOWNERS
+│   ├── PULL_REQUEST_TEMPLATE.md
+│   └── ISSUE_TEMPLATE/
+├── pr_agent/               # Upstream pr-agent package (AI PR reviewer)
+│   ├── api/
+│   ├── bins/
+│   ├── clips/
+│   ├── modules/
+│   ├── tools/
+│   └── ...
+├── scripts/                # Go automation tools
+│   ├── cmd/
+│   │   ├── branch-protection/
+│   │   ├── deploy-to-repos/
+│   │   ├── drift-detector/
+│   │   ├── repo-metadata/
+│   │   ├── repo-review/
+│   │   ├── rulesets-manager/
+│   │   ├── sync-secrets/
+│   │   └── validate-naming/
+│   ├── go.mod
+│   └── (test files)
+├── tests/
+│   ├── unittest/           # Unit tests (50+ test files)
+│   ├── e2e/                # End-to-end tests
+│   └── e2e_live/           # Live e2e tests
+├── docs/                   # Documentation
 │   ├── architecture.md
 │   ├── automation-enhancement-brainstorm.md
 │   ├── git-workflow-gap-analysis.md
 │   ├── github-profile-enhancement-brainstorm.md
 │   ├── pr-agent-upstream-README.md
-│   ├── assets/
-│   │   └── jclee-bot-icon.png
 │   └── review-templates/
-│       ├── code-review-template.md
-│       ├── documentation-checklist.md
-│       └── security-review-template.md
-├── filebeat.yml
-├── pyproject.toml
-├── requirements-dev.txt
-├── requirements.txt
-├── setup.py
-└── tests/
-    └── unittest/
+├── config/
+│   └── repos.yaml          # Repository configuration
+├── Dockerfiles/
+│   ├── Dockerfile.github_action
+│   └── Dockerfile.github_app
+├── docker-compose/
+│   ├── github_app.yml
+│   └── github_app.yml.lxc
+├── filebeat.yml            # ELK logging configuration
+├── Makefile                # Development commands
+├── pyproject.toml          # Python project config (v0.3.1)
+├── requirements.txt        # Python dependencies
+├── requirements-dev.txt    # Dev dependencies
+├── setup.py                # Legacy setup compatibility
+├── AGENTS.md               # Project knowledge base
+├── CODE_OF_CONDUCT.md
+├── CONTRIBUTING.md
+├── LICENSE
+├── NOTICE                  # AGPL-3.0 attribution
+├── README.md               # This file
+└── SECURITY.md
 ```
-
-### Important files | 주요 파일
-
-| Path | Description |
-|---|---|
-| `pyproject.toml` | Python package metadata, setuptools configuration, Ruff lint settings. |
-| `requirements.txt` | Runtime Python dependencies. |
-| `requirements-dev.txt` | Development dependencies. |
-| `Makefile` | Local development command shortcuts. |
-| `Dockerfile.github_action` | Dockerfile for GitHub Action execution context. |
-| `Dockerfile.github_app` | Dockerfile for GitHub App deployment. |
-| `docker-compose.github_app.yml` | Docker Compose configuration for GitHub App runtime. |
-| `filebeat.yml` | Filebeat configuration for log shipping. |
-| `config/repos.yaml` | Managed repository configuration. |
-| `docs/pr-agent-upstream-README.md` | Preserved upstream PR-Agent README reference. |
-| `docs/review-templates/` | Code, documentation, and security review templates. |
-| `tests/unittest/` | Unit test suite for providers, parsing, config, GitHub integration, and PR-Agent behavior. |
 
 ---
 
 ## Quick Start | 빠른 시작
 
-### 1. Clone and enter the repository | 저장소 클론
+### Prerequisites | 사전 요구사항
+
+- Python 3.12+
+- GitHub App installed on target repos
+- Access to `https://cliproxy.jclee.me/v1` (LLM gateway)
+
+### Installation | 설치
 
 ```bash
-git clone <repository-url>
-cd <repository-directory>
-```
+# Clone repository
+git clone https://github.com/jclee941/.github
+cd github-bot
 
-### 2. Create a Python 3.12 environment | Python 3.12 환경 생성
+# Create virtual environment
+python3.12 -m venv .venv
+source .venv/bin/activate
 
-```bash
+# Install dependencies
+pip install --upgrade pip
+pip install -e .
+
+# Or use Makefile
 make install
 ```
 
-This command creates `.venv`, upgrades `pip`, and installs the package in editable mode.
-
-이 명령은 `.venv`를 생성하고, `pip`를 업그레이드한 뒤 패키지를 editable mode로 설치합니다.
-
-### 3. Configure environment variables | 환경 변수 설정
-
-Create a local `.env` file or export the required variables in your shell.
-
-로컬 `.env` 파일을 만들거나 shell에서 필요한 환경 변수를 export합니다.
+### Configuration | 설정
 
 ```bash
-export OPENAI_API_BASE="https://cliproxy.jclee.me/v1"
-export OPENAI_API_KEY="<cliproxy-api-key>"
-export GITHUB_TOKEN="<github-token>"
+# Copy environment template
+cp .env.example .env
+
+# Edit .env with your values
+# Required variables:
+#   CLI_PROXY_API_KEY=<your-api-key>
+#   CLI_PROXY_API_BASE=https://cliproxy.jclee.me/v1
+#   GITHUB_APP_ID=<your-app-id>
+#   GITHUB_APP_PRIVATE_KEY=<your-private-key>
 ```
 
-Do not commit secrets. Use GitHub Actions secrets for workflow execution.
-
-Secrets를 commit하지 마세요. Workflow 실행 시에는 GitHub Actions secrets를 사용하세요.
-
-### 4. Run tests | 테스트 실행
+### Run pr-agent CLI | pr-agent CLI 실행
 
 ```bash
-make test-unit
-```
+# Interactive mode
+pr-agent
 
-### 5. Run lint | 린트 실행
-
-```bash
-make lint
-```
-
-### 6. Run PR-Agent CLI | PR-Agent CLI 실행
-
-```bash
-.venv/bin/pr-agent --help
+# Or via Python module
+python -m pr_agent.cli run
 ```
 
 ---
 
 ## Local Development | 로컬 개발
 
-### Requirements | 요구사항
-
-- Python `>=3.12`
-- `pip`
-- `make`
-- Docker, if testing containerized GitHub App behavior
-- GitHub token with the minimum required permissions for the automation being tested
-- Access to CLIProxyAPI if running LLM-backed features
-
-### Install editable package | Editable 패키지 설치
+### Development Setup | 개발 환경 설정
 
 ```bash
-make install
+# Activate virtual environment
+source .venv/bin/activate
+
+# Install dev dependencies
+pip install -r requirements-dev.txt
+
+# Install pre-commit hooks (if configured)
+# (none configured in this repo)
 ```
 
-Equivalent manual commands:
+### Running Tests | 테스트 실행
 
 ```bash
-python3.12 -m venv .venv
-.venv/bin/pip install --upgrade pip
-.venv/bin/pip install -e .
-```
-
-### Run unit tests | Unit 테스트 실행
-
-```bash
-make test-unit
-```
-
-The unit test suite covers provider behavior, configuration loading, token handling, PR patch processing, GitHub provider behavior, issue creation, Git flow logic, and README generation.
-
-Unit 테스트는 provider 동작, configuration loading, token handling, PR patch processing, GitHub provider 동작, issue creation, Git flow logic, README generation 등을 검증합니다.
-
-### Run end-to-end tests | E2E 테스트 실행
-
-```bash
-make test-e2e
-```
-
-### Run live tests | Live 테스트 실행
-
-```bash
-make test-live
-```
-
-Live tests may require real credentials, GitHub access, and external service availability.
-
-Live 테스트에는 실제 credentials, GitHub 접근 권한, 외부 서비스 가용성이 필요할 수 있습니다.
-
-### Run all tests | 전체 테스트 실행
-
-```bash
+# Run all tests (unit + e2e + live)
 make test
+
+# Unit tests only
+make test-unit
+
+# End-to-end tests
+make test-e2e
+
+# Live e2e tests
+make test-live
+
+# Run with coverage
+python -m pytest tests/unittest --cov=pr_agent --cov-report=html
 ```
 
-### Clean generated files | 생성 파일 정리
+### Linting | 린팅
 
 ```bash
+# Run ruff linter
+make lint
+
+# Or directly
+.venv/bin/python -m ruff check .
+```
+
+### Clean | 정리
+
+```bash
+# Remove cache files
 make clean
+
+# Or manually
+rm -rf .pytest_cache
+find . -type d -name __pycache__ -exec rm -rf {} +
 ```
 
 ---
 
 ## Commands Reference | 명령어 참조
 
-### Make targets | Make 명령
+### Makefile Targets | Makefile 타겟
 
 | Command | Description |
-|---|---|
-| `make install` | Creates `.venv` and installs the package in editable mode. |
-| `make test-unit` | Runs unit tests under `tests/unittest`. |
-| `make test-e2e` | Runs end-to-end tests under `tests/e2e`. |
-| `make test-live` | Runs live end-to-end tests under `tests/e2e_live`. |
-| `make test` | Runs unit, E2E, and live tests. |
-| `make lint` | Runs `ruff check .`. |
-| `make clean` | Removes pytest cache and Python `__pycache__` directories. |
+|---------|-------------|
+| `make install` | Install project and dependencies |
+| `make test` | Run unit + e2e + live tests |
+| `make test-unit` | Run unit tests only |
+| `make test-e2e` | Run end-to-end tests |
+| `make test-live` | Run live e2e tests |
+| `make lint` | Run ruff linter |
+| `make clean` | Remove cache and pycache |
 
-### Python package commands | Python 패키지 명령
-
-| Command | Description |
-|---|---|
-| `.venv/bin/pr-agent --help` | Shows PR-Agent CLI help. |
-| `.venv/bin/python -m pytest tests/unittest -v` | Runs unit tests directly. |
-| `.venv/bin/python -m ruff check .` | Runs Ruff directly. |
-| `.venv/bin/pip install -e .` | Installs the package in editable mode. |
-
-### Docker commands | Docker 명령
-
-Build the GitHub App image:
+### Go Tools | Go 도구
 
 ```bash
-docker build -f Dockerfile.github_app -t pr-agent-github-app:local .
+# Branch protection management
+cd scripts && go run ./cmd/branch-protection
+
+# Deploy workflows to repos
+cd scripts && go run ./cmd/deploy-to-repos
+
+# Drift detection
+cd scripts && go run ./cmd/drift-detector
+
+# Repository metadata
+cd scripts && go run ./cmd/repo-metadata
+
+# Batch repo review
+cd scripts && go run ./cmd/repo-review
+
+# Rulesets management
+cd scripts && go run ./cmd/rulesets-manager
+
+# Secrets synchronization
+cd scripts && go run ./cmd/sync-secrets
+
+# Naming validation
+cd scripts && go run ./cmd/validate-naming
+
+# Run all tests in Go tools
+cd scripts && go test ./...
 ```
 
-Build the GitHub Action image:
+### pr-agent CLI | pr-agent CLI
 
 ```bash
-docker build -f Dockerfile.github_action -t pr-agent-github-action:local .
+# Start pr-agent
+pr-agent
+
+# Or via module
+python -m pr_agent.cli run
+
+# Get help
+pr-agent --help
 ```
-
-Run the GitHub App with Docker Compose:
-
-```bash
-docker compose -f docker-compose.github_app.yml up
-```
-
-### Go automation commands | Go 자동화 명령
-
-When the Go automation module is available in the repository checkout, run tools by tool name from the scripts module.
-
-Go 자동화 모듈이 checkout에 포함되어 있는 경우 scripts module에서 도구 이름으로 실행합니다.
-
-```bash
-cd scripts
-go run ./cmd/branch-protection
-go run ./cmd/deploy-to-repos
-go run ./cmd/drift-detector
-go run ./cmd/repo-metadata
-go run ./cmd/repo-review
-go run ./cmd/rulesets-manager
-go run ./cmd/sync-secrets
-go run ./cmd/validate-naming
-```
-
----
-
-## Configuration | 설정
-
-### Python package metadata | Python 패키지 메타데이터
-
-The project is configured as:
-
-| Field | Value |
-|---|---|
-| Package name | `pr-agent` |
-| Version | `0.3.1` |
-| Python | `>=3.12` |
-| Maintainer | `jclee941` |
-| Upstream | [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent) |
-| License | AGPL-3.0, see `LICENSE` and `NOTICE` |
-
-### Key dependencies | 주요 의존성
-
-The runtime stack includes:
-
-- `fastapi`, `uvicorn`, `gunicorn` for API service execution.
-- `litellm`, `openai`, `anthropic`, `google-generativeai` for model/provider integrations.
-- `PyGithub`, `python-gitlab`, `azure-devops`, `atlassian-python-api`, `giteapy` for SCM provider support.
-- `pytest`, `pytest-asyncio`, `pytest-cov` for testing.
-- `GitPython`, `PyYAML`, `Jinja2`, `pydantic`, `httpx`, `tenacity`, `prometheus-client` for core runtime utilities.
-
-### Lint configuration | 린트 설정
-
-Ruff is configured in `pyproject.toml` with:
-
-- Line length: `120`
-- Selected rules:
-  - `E`
-  - `F`
-  - `B`
-  - `I001`
-  - `I002`
-- Fixable rule:
-  - `I001`
-
-The fork intentionally limits cosmetic rewrites in inherited upstream code to reduce merge conflicts.
-
-이 fork는 upstream code와의 merge conflict를 줄이기 위해 inherited upstream code에 대한 불필요한 cosmetic rewrite를 제한합니다.
-
----
-
-## Security | 보안
-
-For security issues, follow `SECURITY.md`.
-
-Security automation includes:
-
-- `05_gitleaks.yml`
-- `06_codeql.yml`
-- `07_dependency-review.yml`
-- `08_scorecard.yml`
-- `35_auto-hardcode-scan.yml`
-- `security/11_pr-review.yml`
-- `86_pr-review-security.yml`
-
-Security guidelines:
-
-- Never commit API keys, tokens, private keys, credentials, or internal network details.
-- Do not hardcode RFC1918 private IP addresses.
-- Use placeholders such as `<homelab-host>` and `<homelab-elk>` in documentation.
-- Use GitHub Actions secrets or an approved secret manager for automation.
-- Run local scans before opening pull requests when changing workflows, deployment, or configuration.
 
 ---
 
 ## Contribution Guide | 기여 가이드
 
-See `CONTRIBUTING.md` for the full contribution policy.
+### Fork Delta Expectations | 포크 델타 기대사항
 
-### Contribution workflow | 기여 절차
+This is a **hard fork** of [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent). Contributions should focus on:
 
-1. Create or reference an issue.
-2. Create a feature branch.
-3. Make focused changes.
-4. Run local checks.
-5. Open a pull request.
-6. Wait for automated checks and AI review.
-7. Address review comments.
-8. Merge only after required checks pass.
+1. **Fork-specific automation** — Workflows, Go tools, GitHub App integration
+2. **Homelab integration** — CLIProxyAPI, ELK stack, self-hosted runner adaptation
+3. **Security enhancements** — Additional scanning, hardening, compliance
+4. **Bug fixes** — Issues specific to the fork's environment
 
-```bash
-make install
-make lint
-make test-unit
-```
+### Upstream Preservation | 업스트림 유지
 
-### Pull request expectations | PR 기대사항
+- Do **not** modify `pr_agent/` core logic unless absolutely necessary
+- Upstream pr-agent features are preserved as-is
+- If upstream has relevant fixes, consider rebasing rather than patching
 
-- Use a clear title and description.
-- Prefer small, focused pull requests.
-- Include tests for behavioral changes.
-- Update documentation when changing automation, workflows, configuration, or public behavior.
-- Do not remove numeric prefixes from workflow file names.
-- Do not document private IP addresses, internal host identifiers, or container numbers.
-- Use placeholders for internal infrastructure.
+### Workflow Development | 워크플로우 개발
 
-### Documentation expectations | 문서 작성 기준
+When adding new workflows:
 
-- Use real Markdown headings instead of bold text as section titles.
-- Use GitHub-native Mermaid diagrams for architecture.
-- Quote Mermaid labels that contain placeholders or URLs.
-- Escape placeholder angle brackets inside Mermaid labels, for example `&lt;homelab-host&gt;`.
-- Keep bilingual Korean and English explanations where possible.
-- Do not link to non-existent internal repositories.
+1. Follow the numeric prefix convention (e.g., `92_new-workflow.yml`)
+2. Use `ubuntu-latest` for GitHub-hosted runners
+3. Reference `https://cliproxy.jclee.me/v1` for LLM calls
+4. Add corresponding test coverage
+5. Update `README.md` automation inventory
 
-### Code style | 코드 스타일
+### Go Tool Development | Go 도구 개발
 
-- Python code should pass Ruff checks.
-- Tests should be written with `pytest`.
-- Keep upstream-compatible changes minimal where possible.
-- Prefer configuration-driven automation over hardcoded values.
-- Keep secrets and environment-specific values out of source control.
+When adding new Go tools:
+
+1. Create under `scripts/cmd/<tool-name>/`
+2. Include `main.go` and `main_test.go`
+3. Use table-driven tests for pure logic
+4. Update `README.md` automation inventory
+5. Document in `AGENTS.md`
+
+### Code Style | 코드 스타일
+
+- **Python** — ruff (line-length: 120)
+- **Go** — Standard Go formatting (`go fmt`)
+- **YAML** — actionlint validated
+- **Markdown** — mardownlint (config in `.markdownlint.json`)
+
+### Reporting Issues | 이슈 보고
+
+- Use GitHub Issues for bug reports
+- Use issue templates in `.github/ISSUE_TEMPLATE/`
+- Security vulnerabilities → See `SECURITY.md`
+
+### License | 라이선스
+
+- **Upstream**: AGPL-3.0 (qodo-ai/pr-agent)
+- **Fork modifications**: Proprietary to jclee941
+- See [NOTICE](NOTICE) for upstream attribution
 
 ---
 
-## License | 라이선스
+## Links | 링크
 
-This fork preserves upstream AGPL-3.0 licensing. See `LICENSE` and `NOTICE`.
-
-이 fork는 upstream의 AGPL-3.0 라이선스를 유지합니다. 자세한 내용은 `LICENSE` 및 `NOTICE`를 참고하세요.
+| Resource | URL |
+|----------|-----|
+| Repository | <https://github.com/jclee941/.github> |
+| Upstream | <https://github.com/qodo-ai/pr-agent> |
+| CLIProxy Gateway | <https://cliproxy.jclee.me/v1> |
+| Documentation | <https://github.com/jclee941/.github#readme> |
+| Bot Profile | <https://bot.jclee.me> |
 
 ---
 
-## References | 참고
-
-- Upstream PR-Agent: [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent)
-- CLIProxyAPI public endpoint: [https://cliproxy.jclee.me/v1](https://cliproxy.jclee.me/v1)
-- Bot endpoint: [https://bot.jclee.me](https://bot.jclee.me)
+*Generated by README generation workflow (20_readme-gen.yml) — Model: minimax-m2.7 via CLIProxyAPI*
