@@ -14,6 +14,7 @@ Environment:
 from __future__ import annotations
 
 import argparse
+import codecs
 import json
 import os
 import re
@@ -23,7 +24,7 @@ from pathlib import Path
 
 API_BASE = os.environ.get("OPENAI_BASE_URL", "https://cliproxy.jclee.me/v1")
 API_KEY = os.environ.get("CLIPROXY_API_KEY", "")
-MODELS = ["minimax-m2.7", "gpt-5.5"]
+MODELS = ["minimax-m2.7"]
 MAX_TOKENS = 16000  # README is long; 4000 truncated the JSON mid-string
 
 # Repos that actually exist under github.com/jclee941. Links to any OTHER
@@ -71,7 +72,9 @@ def normalize_llm_readme_response(text: str) -> str:
                 try:
                     s = json.loads('"' + body + '"')
                 except (json.JSONDecodeError, ValueError):
-                    s = body.encode().decode("unicode_escape")
+                    # Truncated output may end mid backslash escape; drop
+                    # undecodable tail bytes rather than crashing the run.
+                    s = codecs.decode(body.encode(), "unicode_escape", errors="ignore")
                 s = s.strip()
     # 4. Unwrap a trailing markdown fence if the content itself is fenced.
     fence2 = re.match(r"^```[a-zA-Z0-9]*\s*\n(.*)\n```\s*$", s, flags=re.DOTALL)
@@ -263,7 +266,7 @@ def generate_readme(repo_root: Path) -> str:
         "<homelab-host> / <homelab-elk> and the public endpoint https://cliproxy.jclee.me/v1 instead. "
         "Do NOT use bold/emphasis text as a substitute for a heading (markdownlint MD036); "
         "use real '#' headings. "
-        "Current README-gen models: minimax-m2.7 with fallback gpt-5.5 (via CLIProxyAPI). "
+        "Current README-gen model: minimax-m2.7 (via CLIProxyAPI). "
         "Do NOT invent GitHub repository URLs: never link to non-existent repos such as "
         "github.com/jclee941/CLIProxyAPI or github.com/jclee941/github-bot. For external "
         "links use only qodo-ai/pr-agent, cliproxy.jclee.me, and bot.jclee.me. "

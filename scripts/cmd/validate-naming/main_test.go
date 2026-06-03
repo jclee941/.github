@@ -18,8 +18,12 @@ func TestExtractYamlPaths(t *testing.T) {
       - '.github/ISSUE_TEMPLATE/**'
   workflow_dispatch:
 `
-	os.MkdirAll(filepath.Join(tmpDir, ".github", "workflows"), 0o755)
-	os.WriteFile(filepath.Join(tmpDir, ".github", "workflows", "34_auto-deploy.yml"), []byte(yamlContent), 0o644)
+	if err := os.MkdirAll(filepath.Join(tmpDir, ".github", "workflows"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, ".github", "workflows", "34_auto-deploy.yml"), []byte(yamlContent), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
 
 	v := &validator{rootDir: tmpDir}
 	paths, err := v.extractAutoDeployPaths()
@@ -79,8 +83,12 @@ func TestNotifyOnFailureRequiresCheckoutDetectsOffender(t *testing.T) {
         uses: ./.github/actions/notify-on-failure
 `
 	dir := filepath.Join(tmpDir, ".github", "workflows")
-	os.MkdirAll(dir, 0o755)
-	os.WriteFile(filepath.Join(dir, "99_offender.yml"), []byte(bad), 0o644)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "99_offender.yml"), []byte(bad), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
 
 	v := &validator{rootDir: tmpDir}
 	if err := v.notifyOnFailureRequiresCheckout(); err == nil {
@@ -98,7 +106,9 @@ func TestNotifyOnFailureRequiresCheckoutDetectsOffender(t *testing.T) {
         if: failure()
         uses: ./.github/actions/notify-on-failure
 `
-	os.WriteFile(filepath.Join(dir, "99_offender.yml"), []byte(good), 0o644)
+	if err := os.WriteFile(filepath.Join(dir, "99_offender.yml"), []byte(good), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
 	if err := v.notifyOnFailureRequiresCheckout(); err != nil {
 		t.Fatalf("default-path checkout before notify should pass, got: %v", err)
 	}
@@ -118,9 +128,13 @@ func TestNotifyOnFailureRequiresCheckoutRepoClean(t *testing.T) {
 func TestNoOrgEndpointForUserAccountDetectsOffender(t *testing.T) {
 	tmpDir := t.TempDir()
 	dir := filepath.Join(tmpDir, ".github", "workflows")
-	os.MkdirAll(dir, 0o755)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
 	bad := "jobs:\n  x:\n    steps:\n      - run: gh api orgs/jclee941/repos\n"
-	os.WriteFile(filepath.Join(dir, "99_bad.yml"), []byte(bad), 0o644)
+	if err := os.WriteFile(filepath.Join(dir, "99_bad.yml"), []byte(bad), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
 
 	v := &validator{rootDir: tmpDir}
 	if err := v.noOrgEndpointForUserAccount(); err == nil {
@@ -128,7 +142,9 @@ func TestNoOrgEndpointForUserAccountDetectsOffender(t *testing.T) {
 	}
 
 	good := "jobs:\n  x:\n    steps:\n      - run: gh api users/jclee941/repos\n"
-	os.WriteFile(filepath.Join(dir, "99_bad.yml"), []byte(good), 0o644)
+	if err := os.WriteFile(filepath.Join(dir, "99_bad.yml"), []byte(good), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
 	if err := v.noOrgEndpointForUserAccount(); err != nil {
 		t.Fatalf("users/jclee941 should pass, got: %v", err)
 	}

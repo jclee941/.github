@@ -62,7 +62,17 @@ services:
   filebeat:
     image: docker.elastic.co/beats/filebeat:8.17.0
     container_name: filebeat-github-bot
-    command: ["filebeat", "-e", "--strict.perms=false"]
+    # Copy the read-only bind-mounted config to a root-owned 0600 file inside
+    # the container, then run with strict.perms ENABLED. This satisfies
+    # Filebeat's permission check regardless of the host file's owner/mode,
+    # without the insecure --strict.perms=false bypass (security finding).
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        cp /usr/share/filebeat/filebeat.yml /tmp/filebeat.yml &&
+        chown root:root /tmp/filebeat.yml &&
+        chmod 0600 /tmp/filebeat.yml &&
+        exec filebeat -e -c /tmp/filebeat.yml
     restart: unless-stopped
     user: root
     volumes:

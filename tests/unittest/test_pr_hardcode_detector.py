@@ -270,3 +270,55 @@ class TestMergeDedupByFileLineCategory:
         merged = det._merge_regex_findings(llm, regex)
         aws = [f for f in merged if f["category"] == "aws_access_key"]
         assert len(aws) == 1, f"same file+line+category must dedup: {aws}"
+
+
+class TestRegexFallbackLineNumbers:
+    """Bare unified-diff fallback must assign distinct line numbers so
+    different lines do not collapse to (file, '', category) on dedup
+    (#263 / #269)."""
+
+    def _detector(self):
+        return object.__new__(PRHardcodeDetector)
+
+    def test_fallback_lines_get_distinct_numbers(self):
+        diff = "\n".join([
+            "+aws_key = 'AKIA1234567890ABCDEF'",
+            "+other = 1",
+            "+aws_key2 = 'AKIAZZZZZZZZZZZZZZZZ'",
+        ])
+        findings = self._detector()._regex_scan(diff)
+        aws = [f for f in findings if f["category"] == "aws_access_key"]
+        assert len(aws) == 2, f"expected two aws lines, got {findings}"
+        lines = {f["line"] for f in aws}
+        assert "" not in lines, f"fallback line must not be empty: {aws}"
+        assert len(lines) == 2, f"fallback lines must be distinct: {aws}"
+
+    def test_fallback_findings_survive_merge_dedup(self):
+        det = self._detector()
+        diff = "\n".join([
+            "+aws_key = 'AKIA1234567890ABCDEF'",
+            "+aws_key2 = 'AKIAZZZZZZZZZZZZZZZZ'",
+        ])
+        regex = det._regex_scan(diff)
+        merged = det._merge_regex_findings([], regex)
+        aws = [f for f in merged if f["category"] == "aws_access_key"]
+        assert len(aws) == 2, f"distinct fallback lines must not dedup: {aws}"
+
+
+class TestNoSecretValueLeak:
+    """Merged regex findings must NOT carry the raw matched secret value in
+    the published description (#267)."""
+
+    def _detector(self):
+        return object.__new__(PRHardcodeDetector)
+
+    def test_description_does_not_contain_raw_secret(self):
+        det = self._detector()
+        regex = [{
+            "file": "a.py", "line": 5, "category": "aws_access_key",
+            "content": "aws_key = 'AKIA1234567890ABCDEF'",
+        }]
+        merged = det._merge_regex_findings([], regex)
+        desc = merged[0]["description"]
+        assert "AKIA1234567890ABCDEF" not in desc, desc
+        assert "aws access key" in desc.lower(), desc

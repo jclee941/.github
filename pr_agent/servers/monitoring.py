@@ -1,6 +1,23 @@
 """Monitoring and observability for the GitHub App.
 
 Provides Prometheus metrics, health checks, and ELK-ready log enrichment.
+
+Metrics reference (labels and example alert rules):
+
+- ``webhook_requests_total{event, action}`` — count of received webhooks.
+- ``webhook_failures_total{event, action, exception_type}`` — webhook handler
+  failures. ``event``/``action`` come from the GitHub payload (e.g.
+  ``pull_request``/``opened``); ``exception_type`` is the Python class name of
+  the raised exception (e.g. ``ValueError``). Defaults are lowercase
+  ``"unknown"`` for PromQL consistency.
+  Example alert: ``rate(webhook_failures_total[5m]) > 0``.
+- ``llm_failures_total{reason, model}`` — LLM call failures. ``reason`` is one
+  of ``rate_limit``, ``timeout``, ``connect``, ``api_error``,
+  ``schema_mismatch``, ``provider_fallback``, ``unknown``; ``model`` is the
+  configured model id (e.g. ``kimi-k2.6``).
+  Example alert: ``rate(llm_failures_total{reason="schema_mismatch"}[15m]) > 0``.
+- ``webhook_duration_seconds`` / ``review_duration_seconds`` — latency
+  histograms.
 """
 
 import time

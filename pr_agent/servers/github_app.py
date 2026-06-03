@@ -111,6 +111,7 @@ async def _handle_request_with_metrics(body: Dict[str, Any], event: str):
                 "exception_type": exc_type,
             },
         )
+        raise
     finally:
         record_webhook_end(event, start_time)
 

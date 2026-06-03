@@ -335,8 +335,8 @@ class PRReviewer:
             from pr_agent.servers.monitoring import record_llm_failure
             model = get_settings().get("config.model", "unknown")
             record_llm_failure("schema_mismatch", model)
-        except Exception:
-            pass
+        except Exception as e:
+            get_logger().warning(f"Failed to record schema_mismatch metric: {e}")
         get_logger().warning(
             f"PR reviewer schema mismatch: '{field}' is {type(value).__name__}, expected dict",
             artifact={

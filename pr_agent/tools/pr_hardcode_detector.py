@@ -136,6 +136,10 @@ class PRHardcodeDetector:
         """
         findings: List[Dict] = []
         current_file = ""
+        # Running ordinal for bare unified-diff added lines (no real line number
+        # available) so distinct lines don't collapse to (file, '', category)
+        # during dedup (#263/#269).
+        fallback_ordinal = 0
         for raw in diff.splitlines():
             file_match = self._FILE_HEADER_RE.match(raw.strip())
             if file_match:
@@ -154,7 +158,10 @@ class PRHardcodeDetector:
                 source_line = int(hunk_match.group(1))
                 content = hunk_match.group(3)
             elif raw.startswith("+") and not raw.startswith("+++"):
-                # Bare unified-diff fallback.
+                # Bare unified-diff fallback: no source line number, so use a
+                # monotonic ordinal to keep each added line distinct.
+                fallback_ordinal += 1
+                source_line = f"+{fallback_ordinal}"
                 content = raw[1:]
             else:
                 continue
@@ -205,13 +212,16 @@ class PRHardcodeDetector:
                 continue
             seen.add(key)
             category = rf.get("category", "unknown")
+            # Do NOT echo the raw matched value: it may be a real secret and
+            # this finding can surface in public PR comments / issues (#267).
+            category_label = str(category).replace("_", " ")
             merged.append(
                 {
                     "severity": self._REGEX_SEVERITY.get(category, "medium"),
                     "category": category,
                     "file": rf.get("file", ""),
                     "line": rf.get("line", ""),
-                    "description": rf.get("content", ""),
+                    "description": f"Potential hardcoded {category_label} detected by regex pre-filter (value redacted)",
                     "source": "regex",
                 }
             )

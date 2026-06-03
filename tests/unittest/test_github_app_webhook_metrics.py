@@ -7,7 +7,7 @@ from pr_agent.servers.monitoring import WEBHOOK_FAILURES_TOTAL
 
 
 @pytest.mark.asyncio
-async def test_handle_request_with_metrics_records_failure_without_reraising():
+async def test_handle_request_with_metrics_records_failure_and_reraises():
     body = {
         "action": "opened",
         "repository": {"full_name": "jclee941/example"},
@@ -25,7 +25,8 @@ async def test_handle_request_with_metrics_records_failure_without_reraising():
         patch.object(github_app, "record_webhook_failure", wraps=github_app.record_webhook_failure) as record_failure,
         patch.object(github_app, "get_logger", return_value=logger),
     ):
-        await github_app._handle_request_with_metrics(body, event)
+        with pytest.raises(ValueError, match="boom"):
+            await github_app._handle_request_with_metrics(body, event)
 
     record_failure.assert_called_once_with(event, "opened", "ValueError")
     assert counter._value.get() == before + 1

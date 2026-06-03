@@ -18,7 +18,7 @@ pytestmark = pytest.mark.security_review
 
 GITHUB_API_URL = live_fixtures.GITHUB_API_URL
 SECURITY_WORKFLOW_PATH = ".github/workflows/security/11_pr-review.yml"
-SECURITY_WORKFLOW_ID = "security%2Fpr-review.yml"
+SECURITY_WORKFLOW_ID = "security%2F11_pr-review.yml"
 ACCEPTABLE_SECURITY_REVIEW_CONCLUSIONS = {"success", "failure", "skipped"}
 
 JsonObject = dict[str, object]

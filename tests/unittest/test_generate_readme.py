@@ -27,16 +27,16 @@ def _load_module():
 def test_canonical_model_chain():
     """MODELS must match the canonical CLIProxyAPI fallback chain."""
     mod = _load_module()
-    assert mod.MODELS == ["minimax-m2.7", "gpt-5.5"], (
+    assert mod.MODELS == ["minimax-m2.7"], (
         f"generate_readme MODELS drifted from canonical chain: {mod.MODELS}"
     )
 
 
 def test_no_stale_model_text_in_prompt():
-    """Prompt must not advertise the old Kimi-inclusive chain."""
+    """Prompt must not advertise the removed gpt-5.5 model."""
     text = SCRIPT.read_text()
-    assert "kimi-k2.6" not in text and "kimi-k2.5" not in text, (
-        "generate_readme.py still names the stale Kimi model chain in its prompt"
+    assert "gpt-5.5" not in text, (
+        "generate_readme.py still names the removed gpt-5.5 model in its prompt"
     )
 
 
@@ -137,6 +137,16 @@ def test_normalize_unwraps_truncated_json():
     out = mod.normalize_llm_readme_response(raw)
     assert out.lstrip().startswith("# Title"), out
     assert '"content"' not in out and "```json" not in out, out
+
+
+def test_normalize_truncated_json_with_invalid_unicode_escape():
+    """Truncated JSON whose body ends mid invalid \\u escape must not raise
+    UnicodeDecodeError; normalize must degrade gracefully (#354/#356/#357)."""
+    mod = _load_module()
+    raw = '```json\n{\n  "content": "# Title\\n\\npath C:\\\\Users and a cut \\u00'
+    out = mod.normalize_llm_readme_response(raw)
+    assert isinstance(out, str)
+    assert out.lstrip().startswith("# Title"), out
 
 
 def test_normalize_passthrough_plain_markdown():
