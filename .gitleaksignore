@@ -54,3 +54,11 @@ fd9cd6e6be11ed6fe79f1c5f03b8bc4c570a2375:tests/unittest/test_litellm_api_key_gua
 c0f1fa64208b89df16410f2fb321abc7511571fa:scripts/check_hardcode_scan_patterns_test.py:generic-api-key:81
 c0f1fa64208b89df16410f2fb321abc7511571fa:scripts/check_hardcode_scan_patterns_test.py:generic-api-key:82
 c0f1fa64208b89df16410f2fb321abc7511571fa:scripts/check_hardcode_scan_patterns_test.py:generic-api-key:83
+
+# Historical commit b8ba0991: AWS-key-shaped test fixtures for the regex
+# detector tests (not real keys). The literals were later refactored to be
+# built at runtime (commit 711eb87d), but the original commit remains in
+# history, so its SHA-scoped fingerprints must be allowlisted (#401).
+b8ba09919e4348912dc35d93531c4afa02e47f1b:tests/unittest/test_pr_hardcode_detector.py:generic-api-key:285
+b8ba09919e4348912dc35d93531c4afa02e47f1b:tests/unittest/test_pr_hardcode_detector.py:generic-api-key:299
+b8ba09919e4348912dc35d93531c4afa02e47f1b:tests/unittest/test_pr_hardcode_detector.py:generic-api-key:319
