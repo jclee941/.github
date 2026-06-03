@@ -45,14 +45,11 @@ async def test_handle_request_with_metrics_records_failure_and_reraises():
     }
 
 
-def test_webhook_route_processes_synchronously_not_in_background():
-    """The webhook route must process the event synchronously (awaited) so an
-    unhandled failure becomes a non-2xx HTTP response and GitHub retries.
-    A BackgroundTasks design returns 200 before the task runs — GitHub never
-    sees the failure and the event is lost (#234/#235/#240).
-
-    Guard: the route must NOT defer _handle_request_with_metrics to
-    BackgroundTasks, and handle_request must be awaited within the request.
+def test_webhook_route_fast_acks_and_defers_processing():
+    """GitHub webhooks must be acknowledged quickly (200) with LLM-backed work
+    deferred to a background task, otherwise GitHub's webhook timeout triggers
+    retry storms / duplicate reviews. Guard against accidentally moving the
+    minutes-long handler into the request path.
     """
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
@@ -67,11 +64,11 @@ def test_webhook_route_processes_synchronously_not_in_background():
     real_add_task = BackgroundTasks.add_task
 
     def spy_add_task(self, func, *args, **kwargs):
-        deferred.append(getattr(func, "__name__", repr(func)))
+        deferred.append(func)
         return real_add_task(self, func, *args, **kwargs)
 
-    body = {"action": "opened", "repository": {"full_name": "jclee941/example"}}
     handler = AsyncMock(return_value={})
+    body = {"action": "opened", "repository": {"full_name": "jclee941/example"}}
     with (
         patch.object(github_app, "handle_request", new=handler),
         patch.object(github_app, "get_logger", return_value=MagicMock()),
@@ -85,38 +82,32 @@ def test_webhook_route_processes_synchronously_not_in_background():
         )
 
     assert resp.status_code == 200, resp.status_code
-    # handle_request must have been awaited within the request lifecycle.
-    handler.assert_awaited_once()
-    # The critical handler must NOT be deferred to a background task.
-    assert "_handle_request_with_metrics" not in deferred, (
-        f"webhook processing must be synchronous, but it was deferred: {deferred}"
+    # The processing must be deferred to a BackgroundTask, not run inline.
+    # (TestClient runs background tasks before returning, so the add_task spy
+    # is the reliable signal, not handler await timing.)
+    assert any(f is github_app._handle_request_with_metrics for f in deferred), (
+        f"webhook processing must be deferred to BackgroundTasks, got: {deferred}"
     )
 
 
-def test_webhook_route_returns_500_when_processing_fails():
-    """When synchronous processing raises, the route returns >=500 so GitHub
-    retries delivery (#234/#235/#240)."""
-    from fastapi import FastAPI
-    from fastapi.testclient import TestClient
-    from starlette.middleware import Middleware
-    from starlette_context.middleware import RawContextMiddleware
-
-    app = FastAPI(middleware=[Middleware(RawContextMiddleware)])
-    app.include_router(github_app.router)
-    body = {"action": "opened", "repository": {"full_name": "jclee941/example"}}
+@pytest.mark.asyncio
+async def test_deferred_webhook_task_failures_are_not_swallowed():
+    """The deferred background task must re-raise on failure so the error is
+    visible to logs/Sentry/metrics rather than silently swallowed — the
+    original defect (#234/#235/#240). Without a durable queue GitHub retry is
+    not achievable, so observability (not HTTP status) is the contract.
+    """
+    body = {
+        "action": "opened",
+        "repository": {"full_name": "jclee941/example"},
+        "sender": {"login": "octocat"},
+    }
     with (
         patch.object(github_app, "handle_request", new=AsyncMock(side_effect=ValueError("boom"))),
         patch.object(github_app, "get_logger", return_value=MagicMock()),
     ):
-        client = TestClient(app, raise_server_exceptions=False)
-        resp = client.post(
-            "/api/v1/github_webhooks",
-            json=body,
-            headers={"X-GitHub-Event": "pull_request"},
-        )
-    assert resp.status_code >= 500, (
-        f"failed webhook processing must return >=500 for GitHub retry, got {resp.status_code}"
-    )
+        with pytest.raises(ValueError, match="boom"):
+            await github_app._handle_request_with_metrics(body, "pull_request")
 
 
 def test_record_webhook_failure_defaults_to_lowercase_unknown():

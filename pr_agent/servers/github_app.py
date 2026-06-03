@@ -57,10 +57,18 @@ async def handle_github_webhooks(background_tasks: BackgroundTasks, request: Req
     context["installation_id"] = installation_id
     context["settings"] = copy.deepcopy(global_settings)
     context["git_provider"] = {}
-    # Process synchronously so an unhandled failure propagates to a non-2xx
-    # HTTP response. With BackgroundTasks the route returns 200 before the task
-    # runs, so GitHub never sees the failure and never retries (event loss).
-    await _handle_request_with_metrics(body, event=request.headers.get("X-GitHub-Event", None))
+    # GitHub webhooks must be acknowledged quickly. LLM-backed PR-Agent work
+    # can take minutes, so it must not run inside the HTTP request (GitHub's
+    # webhook timeout would trigger retry storms / duplicate reviews). Failures
+    # in the background task are re-raised by _handle_request_with_metrics after
+    # being logged and counted, so they surface to logs/Sentry/metrics instead
+    # of being silently swallowed (the original defect).
+    background_tasks.add_task(
+        _handle_request_with_metrics,
+        body,
+        event=request.headers.get("X-GitHub-Event", None),
+    )
+    return {}
     return {}
 
 
