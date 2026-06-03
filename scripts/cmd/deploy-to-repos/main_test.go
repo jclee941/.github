@@ -132,7 +132,7 @@ func TestExtraFilesAreSafePaths(t *testing.T) {
 		".github/ISSUE_TEMPLATE/2-feature-request.yml":        {},
 		".github/ISSUE_TEMPLATE/3-security-vulnerability.yml": {},
 		".github/ISSUE_TEMPLATE/config.yml":                   {},
-		".github/scripts/issue-classifier.js":                {},
+		".github/scripts/issue-classifier.js":                 {},
 	}
 
 	seen := make(map[string]struct{}, len(extraFiles))
@@ -208,6 +208,19 @@ func TestDependabotAutoMergeDoesNotSwallowErrors(t *testing.T) {
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("12_dependabot-auto-merge.yml missing expected safety pattern %q", want)
+		}
+	}
+
+	// The update-branch self-heal must SURFACE genuine failures (exit 1), not
+	// swallow them. Require both the explicit failure exit and the benign-case
+	// guard so a real auth/5xx error fails the job.
+	for _, want := range []string{
+		"::error::update-branch failed",
+		"exit 1",
+		"HTTP 422",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("12_dependabot-auto-merge.yml must surface update-branch failures; missing %q", want)
 		}
 	}
 }
