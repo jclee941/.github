@@ -18,9 +18,9 @@ import (
 
 // validation checks cross-file invariants for the deployment system.
 type validation struct {
-	name string
+	name  string
 	check func() error
-	fix  func() error
+	fix   func() error
 }
 
 func main() {
@@ -45,6 +45,10 @@ func main() {
 		{"required status checks match workflow check-run names", v.requiredStatusChecksMatchWorkflowContexts, nil},
 		{"notify-on-failure jobs checkout local actions first", v.notifyOnFailureRequiresCheckout, nil},
 		{"workflows query users/ not orgs/ for jclee941", v.noOrgEndpointForUserAccount, nil},
+		{"no orphaned reusable workflows", v.orphanReusableWorkflows, nil},
+		{"deploy manifest paths exist", v.deployManifestPathsExist, nil},
+		{"deploy manifest internally consistent", v.deployManifestConsistency, nil},
+		{"README workflow inventory unique and complete", v.readmeWorkflowInventoryUnique, nil},
 	}
 
 	failed := 0
@@ -179,6 +183,64 @@ func extractGoSlice(filePath, varName string) ([]string, error) {
 		}
 	}
 	return nil, fmt.Errorf("variable %s not found in %s", varName, filePath)
+}
+
+// extractGoStringLiterals reads a Go file and returns ALL string literals that
+// appear in the composite literal assigned to varName. It works for both
+// []string slices (literal elements) and map[string]T maps (the literal keys),
+// so it can read either an allowlist slice or a map-keyed manifest.
+func extractGoStringLiterals(filePath, varName string) ([]string, error) {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, filePath, nil, parser.AllErrors)
+	if err != nil {
+		return nil, fmt.Errorf("parse %s: %w", filePath, err)
+	}
+
+	var items []string
+	found := false
+	for _, decl := range f.Decls {
+		genDecl, ok := decl.(*ast.GenDecl)
+		if !ok || genDecl.Tok != token.VAR {
+			continue
+		}
+		for _, spec := range genDecl.Specs {
+			valueSpec, ok := spec.(*ast.ValueSpec)
+			if !ok {
+				continue
+			}
+			targetIdx := -1
+			for i, name := range valueSpec.Names {
+				if name.Name == varName {
+					targetIdx = i
+					break
+				}
+			}
+			if targetIdx == -1 || targetIdx >= len(valueSpec.Values) {
+				continue
+			}
+			composite, ok := valueSpec.Values[targetIdx].(*ast.CompositeLit)
+			if !ok {
+				continue
+			}
+			found = true
+			for _, elt := range composite.Elts {
+				switch e := elt.(type) {
+				case *ast.BasicLit:
+					if e.Kind == token.STRING {
+						items = append(items, strings.Trim(e.Value, `"`))
+					}
+				case *ast.KeyValueExpr:
+					if lit, ok := e.Key.(*ast.BasicLit); ok && lit.Kind == token.STRING {
+						items = append(items, strings.Trim(lit.Value, `"`))
+					}
+				}
+			}
+		}
+	}
+	if !found {
+		return nil, fmt.Errorf("variable %s not found in %s", varName, filePath)
+	}
+	return items, nil
 }
 
 func (v *validator) deployConstantsMatchE2E() error {
@@ -808,6 +870,281 @@ func (v *validator) noOrgEndpointForUserAccount() error {
 		return fmt.Errorf("workflows query the orgs/ endpoint for the jclee941 USER account (use users/jclee941): %s", strings.Join(offenders, ", "))
 	}
 	return nil
+}
+
+// orphanReusableWorkflows flags reusable workflows (on: workflow_call only)
+// that are neither called by any local workflow nor deployed to downstream
+// repos via the deploy manifest. Such files are dead duplicates of active
+// workflows and must be removed to prevent GitOps drift / inventory rot.
+func (v *validator) orphanReusableWorkflows() error {
+	workflowsDir := filepath.Join(v.rootDir, ".github", "workflows")
+
+	// Collect file contents once. Recurse so subdirectory workflows (e.g.
+	// security/) and both .yml/.yaml extensions are covered. Keys are paths
+	// relative to the workflows dir (e.g. "security/11_pr-review.yml").
+	contents := map[string]string{}
+	walkErr := filepath.WalkDir(workflowsDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(d.Name(), ".yml") && !strings.HasSuffix(d.Name(), ".yaml") {
+			return nil
+		}
+		b, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return fmt.Errorf("read workflow %s: %w", path, readErr)
+		}
+		rel, relErr := filepath.Rel(workflowsDir, path)
+		if relErr != nil {
+			return relErr
+		}
+		contents[filepath.ToSlash(rel)] = string(b)
+		return nil
+	})
+	if walkErr != nil {
+		return fmt.Errorf("walk workflows dir: %w", walkErr)
+	}
+
+	// Deploy manifest: workflows pushed to downstream repos are legitimately
+	// consumed even without a local caller. A parse failure must NOT be
+	// swallowed (that would mask real orphans), so surface it.
+	deployed := map[string]bool{}
+	manifest, err := extractGoStringLiterals(v.deployFile(), "downstreamWorkflowAllowlist")
+	if err != nil {
+		return fmt.Errorf("read deploy manifest downstreamWorkflowAllowlist: %w", err)
+	}
+	for _, p := range manifest {
+		deployed[filepath.Base(p)] = true
+	}
+
+	var orphans []string
+	for rel, body := range contents {
+		if !isWorkflowCallOnly(body) {
+			continue
+		}
+		base := filepath.Base(rel)
+		if deployed[base] {
+			continue
+		}
+		// Called by any other local workflow? A `uses:` reference ends in the
+		// file's base name (e.g. ./.github/workflows/44_x.yml or
+		// jclee941/.github/.github/workflows/44_x.yml@ref).
+		called := false
+		for other, ob := range contents {
+			if other == rel {
+				continue
+			}
+			if strings.Contains(ob, "/"+base) {
+				called = true
+				break
+			}
+		}
+		if !called {
+			orphans = append(orphans, base)
+		}
+	}
+
+	if len(orphans) > 0 {
+		sort.Strings(orphans)
+		return fmt.Errorf("orphaned reusable workflows (workflow_call-only, no local caller, not deployed downstream): %s", strings.Join(orphans, ", "))
+	}
+	return nil
+}
+
+// deployManifestPathsExist verifies that every file path listed in the deploy
+// manifest (downstreamWorkflowAllowlist + extraFiles) actually exists in the
+// repo. A stale manifest entry pointing at a renamed/removed file would cause
+// silent deploy gaps downstream, so this is a deploy-integrity invariant.
+func (v *validator) deployManifestPathsExist() error {
+	var missing []string
+	for _, varName := range []string{"downstreamWorkflowAllowlist", "extraFiles"} {
+		paths, err := extractGoStringLiterals(v.deployFile(), varName)
+		if err != nil {
+			return fmt.Errorf("read deploy manifest %s: %w", varName, err)
+		}
+		for _, p := range paths {
+			if _, statErr := os.Stat(filepath.Join(v.rootDir, p)); statErr != nil {
+				missing = append(missing, p)
+			}
+		}
+	}
+	if len(missing) > 0 {
+		sort.Strings(missing)
+		return fmt.Errorf("deploy manifest references non-existent files: %s", strings.Join(missing, ", "))
+	}
+	return nil
+}
+
+// deployManifestConsistency enforces internal consistency of the deploy
+// manifest: (1) no path may be in BOTH downstreamWorkflowAllowlist and
+// removedWorkflows (deploy-it-and-delete-it contradiction); (2) every path in
+// removedWorkflows must NOT still exist locally (it is meant to be deleted
+// downstream, so an active local file of the same path is drift).
+func (v *validator) deployManifestConsistency() error {
+	allow, err := extractGoStringLiterals(v.deployFile(), "downstreamWorkflowAllowlist")
+	if err != nil {
+		return fmt.Errorf("read deploy manifest downstreamWorkflowAllowlist: %w", err)
+	}
+	removed, err := extractGoStringLiterals(v.deployFile(), "removedWorkflows")
+	if err != nil {
+		return fmt.Errorf("read deploy manifest removedWorkflows: %w", err)
+	}
+
+	allowSet := map[string]bool{}
+	for _, p := range allow {
+		allowSet[p] = true
+	}
+
+	var conflicts []string
+	var stillExist []string
+	for _, p := range removed {
+		if allowSet[p] {
+			conflicts = append(conflicts, p)
+		}
+		if _, statErr := os.Stat(filepath.Join(v.rootDir, p)); statErr == nil {
+			stillExist = append(stillExist, p)
+		}
+	}
+
+	if len(conflicts) > 0 {
+		sort.Strings(conflicts)
+		return fmt.Errorf("deploy manifest conflict: paths in BOTH downstreamWorkflowAllowlist and removedWorkflows: %s", strings.Join(conflicts, ", "))
+	}
+	if len(stillExist) > 0 {
+		sort.Strings(stillExist)
+		return fmt.Errorf("removedWorkflows lists files that still exist locally (should be deleted or removed from the list): %s", strings.Join(stillExist, ", "))
+	}
+	return nil
+}
+
+// readmeWorkflowInventoryUnique verifies that the README workflow inventory
+// tables enumerate each workflow exactly once and that the set of enumerated
+// workflows matches the actual files on disk. This guards against the LLM
+// README generator emitting duplicate rows or stale/missing entries.
+func (v *validator) readmeWorkflowInventoryUnique() error {
+	readmePath := filepath.Join(v.rootDir, "README.md")
+	b, err := os.ReadFile(readmePath)
+	if err != nil {
+		return fmt.Errorf("read README.md: %w", err)
+	}
+	rowRe := regexp.MustCompile("(?m)^\\| `([^`]+\\.ya?ml)` \\|")
+	counts := map[string]int{}
+	for _, m := range rowRe.FindAllStringSubmatch(string(b), -1) {
+		counts[m[1]]++
+	}
+	if len(counts) == 0 {
+		return fmt.Errorf("README.md contains no workflow inventory rows")
+	}
+
+	var dups []string
+	listed := map[string]bool{}
+	for name, c := range counts {
+		listed[name] = true
+		if c > 1 {
+			dups = append(dups, fmt.Sprintf("%s (x%d)", name, c))
+		}
+	}
+	if len(dups) > 0 {
+		sort.Strings(dups)
+		return fmt.Errorf("README workflow inventory has duplicate rows: %s", strings.Join(dups, ", "))
+	}
+
+	// Build actual workflow set (relative to .github/workflows, slash-joined).
+	workflowsDir := filepath.Join(v.rootDir, ".github", "workflows")
+	actual := map[string]bool{}
+	walkErr := filepath.WalkDir(workflowsDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || (!strings.HasSuffix(d.Name(), ".yml") && !strings.HasSuffix(d.Name(), ".yaml")) {
+			return nil
+		}
+		rel, relErr := filepath.Rel(workflowsDir, path)
+		if relErr != nil {
+			return relErr
+		}
+		actual[filepath.ToSlash(rel)] = true
+		return nil
+	})
+	if walkErr != nil {
+		return fmt.Errorf("walk workflows dir: %w", walkErr)
+	}
+
+	var missing []string // on disk but not in README
+	for name := range actual {
+		if !listed[name] {
+			missing = append(missing, name)
+		}
+	}
+	var extra []string // in README but no such file
+	for name := range listed {
+		if !actual[name] {
+			extra = append(extra, name)
+		}
+	}
+	if len(missing) > 0 || len(extra) > 0 {
+		sort.Strings(missing)
+		sort.Strings(extra)
+		return fmt.Errorf("README workflow inventory out of sync with disk (missing: [%s]; extra: [%s])", strings.Join(missing, ", "), strings.Join(extra, ", "))
+	}
+	return nil
+}
+
+// isWorkflowCallOnly reports whether a workflow's on: triggers contain ONLY
+// workflow_call (plus the always-allowed manual workflow_dispatch). Any other
+// trigger (push/pull_request/schedule/issues/...) means it runs on its own.
+func isWorkflowCallOnly(body string) bool {
+	onBlock := extractOnBlock(body)
+	if onBlock == "" {
+		return false
+	}
+	for _, trig := range []string{"push", "pull_request", "pull_request_target", "schedule", "issues", "issue_comment", "create", "delete", "release", "label", "repository_dispatch"} {
+		// Block mapping form: `  push:`
+		if regexp.MustCompile(`(?m)^\s+` + regexp.QuoteMeta(trig) + `:`).MatchString(onBlock) {
+			return false
+		}
+		// Inline word form within an array/scalar: `[push, workflow_call]` or
+		// `on: push` (extractOnBlock normalizes these onto their own line).
+		if regexp.MustCompile(`\b` + regexp.QuoteMeta(trig) + `\b`).MatchString(onBlock) {
+			return false
+		}
+	}
+	// workflow_call present as a block mapping or an inline scalar/array word.
+	if regexp.MustCompile(`(?m)^\s+workflow_call:`).MatchString(onBlock) {
+		return true
+	}
+	return regexp.MustCompile(`\bworkflow_call\b`).MatchString(onBlock)
+}
+
+// extractOnBlock returns the contents of the top-level `on:` mapping block,
+// i.e. everything indented under `on:` up to the next top-level key. Returns
+// the empty string if no on: block is found.
+func extractOnBlock(body string) string {
+	lines := strings.Split(body, "\n")
+	var out []string
+	in := false
+	for _, ln := range lines {
+		if !in {
+			if strings.HasPrefix(ln, "on:") {
+				in = true
+				// Inline form: `on: [push, workflow_call]` or `on: workflow_call`.
+				rest := strings.TrimSpace(strings.TrimPrefix(ln, "on:"))
+				if rest != "" {
+					out = append(out, "  "+rest)
+				}
+			}
+			continue
+		}
+		// A non-indented, non-empty line ends the on: block (next top-level key).
+		if ln != "" && !strings.HasPrefix(ln, " ") && !strings.HasPrefix(ln, "\t") {
+			break
+		}
+		out = append(out, ln)
+	}
+	return strings.Join(out, "\n")
 }
 
 func parseWorkflowJobs(filePath string) (map[string]workflowJob, error) {
