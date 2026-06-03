@@ -582,6 +582,7 @@ func (v *validator) extraFilesExtensions() error {
 		".md":   true,
 		".json": true,
 		".js":   true,
+		".cjs":  true,
 		"":      true,
 	}
 

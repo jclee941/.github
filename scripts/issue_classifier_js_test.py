@@ -3,7 +3,7 @@
 
 Why this exists
 ---------------
-``.github/scripts/issue-classifier.js`` holds the deterministic, dependency-free
+``.github/scripts/issue-classifier.cjs`` holds the deterministic, dependency-free
 logic that ``.github/workflows/91_issue-classification.yml`` runs inside
 ``actions/github-script@v9``. The runtime is JavaScript, so the unit tests must
 exercise the *same* JS rather than a re-implementation. We invoke the module's
@@ -24,7 +24,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-MODULE = REPO_ROOT / ".github" / "scripts" / "issue-classifier.js"
+MODULE = REPO_ROOT / ".github" / "scripts" / "issue-classifier.cjs"
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "issue-classification"
 
 pytestmark = pytest.mark.skipif(
@@ -215,3 +215,42 @@ def test_concrete_resolved_in_version_is_a_signal():
         p = fh.name
     out = run_cli("--mode", "resolved-signal", "--issue", p)
     assert out["label"] == "resolved", out
+
+
+def test_classifier_loads_via_require_in_esm_repo():
+    """The workflow loads the classifier via require() inside actions/github-
+    script (a CommonJS context). When the CONSUMING repo has package.json
+    \"type\": \"module\", a .js module is parsed as ESM and require() fails with
+    'module is not defined in ES module scope'. The classifier MUST load
+    regardless of the downstream repo's module type (use .cjs)."""
+    import os
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        # Simulate a downstream ESM repo.
+        with open(os.path.join(d, "package.json"), "w") as fh:
+            fh.write('{"type": "module"}')
+        scripts_dir = os.path.join(d, ".github", "scripts")
+        os.makedirs(scripts_dir)
+        # Copy the real classifier module preserving its extension.
+        dest = os.path.join(scripts_dir, MODULE.name)
+        with open(MODULE) as src, open(dest, "w") as out:
+            out.write(src.read())
+        # A CommonJS loader (.cjs) mimics github-script's runner context.
+        loader = os.path.join(d, "loader.cjs")
+        with open(loader, "w") as fh:
+            fh.write(
+                "const path = require('path');\n"
+                "const c = require(path.join(process.cwd(), "
+                f"'.github/scripts/{MODULE.name}'));\n"
+                "if (typeof c.classifyDuplicate !== 'function') "
+                "{ throw new Error('classifyDuplicate missing'); }\n"
+                "console.log('OK');\n"
+            )
+        proc = subprocess.run(
+            ["node", "loader.cjs"], cwd=d, capture_output=True, text=True
+        )
+        assert proc.returncode == 0, (
+            "classifier must load via require() in a type:module repo; "
+            f"stderr: {proc.stderr.strip()}"
+        )
+        assert "OK" in proc.stdout, proc.stdout

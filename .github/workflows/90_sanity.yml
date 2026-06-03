@@ -114,7 +114,7 @@ jobs:
           # The issue-classification workflow (91) runs this deterministic,
           # dependency-free module inside github-script. Validate its syntax and
           # exercise the duplicate/resolved logic via its CLI from pytest.
-          node --check .github/scripts/issue-classifier.js
+          node --check .github/scripts/issue-classifier.cjs
           python -m pytest scripts/issue_classifier_js_test.py scripts/issue_classification_workflow_test.py scripts/readme_mermaid_test.py -v
 
       - name: Verify LLM model config consistency across surfaces

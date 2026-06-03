@@ -80,7 +80,7 @@ var extraFiles = []string{
 	".github/ISSUE_TEMPLATE/3-security-vulnerability.yml",
 	".github/ISSUE_TEMPLATE/config.yml",
 	".github/renovate.json",
-	".github/scripts/issue-classifier.js",
+	".github/scripts/issue-classifier.cjs",
 }
 
 // removedWorkflows lists workflows that were previously deployed but are no longer

@@ -23,6 +23,7 @@ var allowedDeployExtensions = map[string]struct{}{
 	".md":   {},
 	".json": {},
 	".js":   {},
+	".cjs":  {}, // CommonJS module (issue-classifier.cjs) — works in type:module repos
 	"":      {}, // CODEOWNERS has no extension
 }
 
@@ -132,7 +133,7 @@ func TestExtraFilesAreSafePaths(t *testing.T) {
 		".github/ISSUE_TEMPLATE/2-feature-request.yml":        {},
 		".github/ISSUE_TEMPLATE/3-security-vulnerability.yml": {},
 		".github/ISSUE_TEMPLATE/config.yml":                   {},
-		".github/scripts/issue-classifier.js":                 {},
+		".github/scripts/issue-classifier.cjs":                {},
 	}
 
 	seen := make(map[string]struct{}, len(extraFiles))
