@@ -57,7 +57,10 @@ async def handle_github_webhooks(background_tasks: BackgroundTasks, request: Req
     context["installation_id"] = installation_id
     context["settings"] = copy.deepcopy(global_settings)
     context["git_provider"] = {}
-    background_tasks.add_task(_handle_request_with_metrics, body, event=request.headers.get("X-GitHub-Event", None))
+    # Process synchronously so an unhandled failure propagates to a non-2xx
+    # HTTP response. With BackgroundTasks the route returns 200 before the task
+    # runs, so GitHub never sees the failure and never retries (event loss).
+    await _handle_request_with_metrics(body, event=request.headers.get("X-GitHub-Event", None))
     return {}
 
 
