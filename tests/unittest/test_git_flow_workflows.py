@@ -499,6 +499,12 @@ class TestDocsSyncBrokenLinkIssueStability:
             "reusable-docs-sync.yml broken-links issue title must be stable "
             "(no per-run date) so deduplication actually matches."
         )
+        # The canonical title must be EXACTLY the historical broken-links title
+        # so dedup matches existing issues (guards against typos like 머서/문서).
+        assert "[BOT] \ubb38\uc11c \ub9c1\ud06c \uae68\uc9d0 \uac10\uc9c0" in text, (
+            "reusable-docs-sync.yml canonical broken-links title must be "
+            "exactly '[BOT] \ubb38\uc11c \ub9c1\ud06c \uae68\uc9d0 \uac10\uc9c0'."
+        )
 
     def test_excludes_api_endpoint_from_link_check(self):
         text = read_workflow("reusable-docs-sync.yml")
