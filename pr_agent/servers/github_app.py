@@ -69,7 +69,6 @@ async def handle_github_webhooks(background_tasks: BackgroundTasks, request: Req
         event=request.headers.get("X-GitHub-Event", None),
     )
     return {}
-    return {}
 
 
 @router.post("/api/v1/marketplace_webhooks")
