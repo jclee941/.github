@@ -281,10 +281,14 @@ class TestRegexFallbackLineNumbers:
         return object.__new__(PRHardcodeDetector)
 
     def test_fallback_lines_get_distinct_numbers(self):
+        # Build AWS-key-shaped fixtures at runtime so no literal key string
+        # sits in the file for secret scanners (gitleaks) to flag.
+        k1 = "AKIA" + "1234567890ABCDEF"
+        k2 = "AKIA" + "Z" * 16
         diff = "\n".join([
-            "+aws_key = 'AKIA1234567890ABCDEF'",
+            f"+aws_key = '{k1}'",
             "+other = 1",
-            "+aws_key2 = 'AKIAZZZZZZZZZZZZZZZZ'",
+            f"+aws_key2 = '{k2}'",
         ])
         findings = self._detector()._regex_scan(diff)
         aws = [f for f in findings if f["category"] == "aws_access_key"]
@@ -295,9 +299,11 @@ class TestRegexFallbackLineNumbers:
 
     def test_fallback_findings_survive_merge_dedup(self):
         det = self._detector()
+        k1 = "AKIA" + "1234567890ABCDEF"
+        k2 = "AKIA" + "Z" * 16
         diff = "\n".join([
-            "+aws_key = 'AKIA1234567890ABCDEF'",
-            "+aws_key2 = 'AKIAZZZZZZZZZZZZZZZZ'",
+            f"+aws_key = '{k1}'",
+            f"+aws_key2 = '{k2}'",
         ])
         regex = det._regex_scan(diff)
         merged = det._merge_regex_findings([], regex)
@@ -314,11 +320,12 @@ class TestNoSecretValueLeak:
 
     def test_description_does_not_contain_raw_secret(self):
         det = self._detector()
+        secret = "AKIA" + "1234567890ABCDEF"
         regex = [{
             "file": "a.py", "line": 5, "category": "aws_access_key",
-            "content": "aws_key = 'AKIA1234567890ABCDEF'",
+            "content": f"aws_key = '{secret}'",
         }]
         merged = det._merge_regex_findings([], regex)
         desc = merged[0]["description"]
-        assert "AKIA1234567890ABCDEF" not in desc, desc
+        assert secret not in desc, desc
         assert "aws access key" in desc.lower(), desc
