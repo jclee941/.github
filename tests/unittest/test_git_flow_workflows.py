@@ -463,3 +463,49 @@ class TestReadmeGeneratorNormalizesMarkdown:
             "20_readme-gen.yml markdownlint --fix must use the repo's "
             ".markdownlint.json config (same rules as docs-sync)."
         )
+
+
+# ---------------------------------------------------------------------------
+# Docs-sync broken-link issue stability (no issue spam)
+# ---------------------------------------------------------------------------
+
+class TestDocsSyncBrokenLinkIssueStability:
+    """The reusable docs-sync link-check must NOT spam a new broken-links issue
+    on every failed run. It must deduplicate against an existing open issue
+    (comment instead of create), and it must exclude non-browsable API
+    endpoints (e.g. the CLIProxyAPI /v1 base, which correctly 404s) so genuine
+    docs links are not drowned out by a known false positive.
+    """
+
+    def test_dedupes_broken_link_issue(self):
+        text = read_workflow("reusable-docs-sync.yml")
+        # Must search for an existing open broken-links issue before creating.
+        assert "listForRepo" in text or "issue list" in text, (
+            "reusable-docs-sync.yml must look up existing open broken-links "
+            "issues (issues.listForRepo / gh issue list) before creating, to "
+            "avoid duplicate-issue spam."
+        )
+        # Must comment on the existing issue instead of always creating.
+        assert "createComment" in text, (
+            "reusable-docs-sync.yml must comment on an existing broken-links "
+            "issue (createComment) rather than always creating a new one."
+        )
+
+    def test_stable_dedup_title(self):
+        text = read_workflow("reusable-docs-sync.yml")
+        # The dedup key must be a STABLE title (no per-run date), otherwise
+        # each day's run is a distinct title and dedup never matches.
+        assert "new Date().toISOString" not in text, (
+            "reusable-docs-sync.yml broken-links issue title must be stable "
+            "(no per-run date) so deduplication actually matches."
+        )
+
+    def test_excludes_api_endpoint_from_link_check(self):
+        text = read_workflow("reusable-docs-sync.yml")
+        # The CLIProxyAPI /v1 base is an API endpoint, not a browsable page;
+        # a bare GET 404s. It must be excluded so lychee does not false-fail.
+        assert "cliproxy" in text and "jclee.me" in text.replace("\\", ""), (
+            "reusable-docs-sync.yml must exclude the CLIProxyAPI endpoint "
+            "(cliproxy.jclee.me) from lychee link-checking; bare /v1 404s and "
+            "causes recurring false broken-link issues."
+        )
