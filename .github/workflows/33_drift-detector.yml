@@ -137,4 +137,4 @@ jobs:
         if: failure()
         uses: ./.github/actions/notify-on-failure
         with:
-          title: '🚨 Drift Detector Failed: ${{ github.run_id }}'
+          title: '🚨 Drift Detector Failed'

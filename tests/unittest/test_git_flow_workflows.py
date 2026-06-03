@@ -515,3 +515,83 @@ class TestDocsSyncBrokenLinkIssueStability:
             "(cliproxy.jclee.me) from lychee link-checking; bare /v1 404s and "
             "causes recurring false broken-link issues."
         )
+
+
+# ---------------------------------------------------------------------------
+# Auto-recovery: stale failure/health issues self-close when workflow recovers
+# ---------------------------------------------------------------------------
+
+class TestStaleFailureIssueAutoRecovery:
+    """Failure/health issues created by scheduled workflows (Gitleaks, Runtime
+    Health, ELK Health, Downstream Health, Bot Health, Drift, CI Auto-Heal)
+    must auto-close when their originating workflow recovers — no manual
+    cleanup. ci-failure-issues.yml is the centralized recovery mechanism:
+    (1) event-driven on workflow_run success, and (2) a scheduled sweep that
+    closes open failure/health issues whose workflow's latest master run is
+    green.
+    """
+
+    def test_watches_all_recoverable_workflows(self):
+        text = read_workflow("ci-failure-issues.yml")
+        # The event-driven workflow_run trigger must cover the health/scan
+        # workflows that create recoverable failure issues, not just the
+        # original three.
+        for wf in [
+            "Gitleaks",
+            "Runtime Health Check",
+            "ELK Health Check",
+            "Downstream Health Check",
+            "CI Auto-Heal",
+        ]:
+            assert f'"{wf}"' in text, (
+                f"ci-failure-issues.yml workflow_run must watch '{wf}' so its "
+                "stale failure issue auto-closes on recovery."
+            )
+
+    def test_has_scheduled_sweep(self):
+        text = read_workflow("ci-failure-issues.yml")
+        # A scheduled trigger is required for the periodic stale-issue sweep.
+        assert "schedule:" in text and "cron:" in text, (
+            "ci-failure-issues.yml must have a scheduled (cron) trigger for the "
+            "periodic stale-failure-issue sweep."
+        )
+
+    def test_sweep_queries_workflow_run_conclusion(self):
+        text = read_workflow("ci-failure-issues.yml")
+        # The sweep must determine recovery by querying the originating
+        # workflow's latest run conclusion (success) via the Actions API,
+        # not by guessing.
+        assert "actions/workflows" in text or "/runs" in text, (
+            "ci-failure-issues.yml sweep must query the workflow's run "
+            "conclusion (gh api .../actions/workflows/.../runs) to decide "
+            "whether a stale failure issue can be auto-closed."
+        )
+        assert "conclusion" in text, (
+            "sweep must check run conclusion == success before closing."
+        )
+
+
+class TestNotifyFailureTitlesAreStable:
+    """notify-on-failure dedupes by EXACT title, so callers must use a STABLE
+    title (no ${{ github.run_id }}); otherwise every run gets a unique title
+    and a new duplicate issue is created (the spam I had to clean up manually).
+    """
+
+    def test_no_run_id_in_notify_titles(self):
+        import glob
+        offenders = []
+        for path in glob.glob(str(WF_DIR / "*.yml")) + glob.glob(
+            str(WF_DIR / "**" / "*.yml")
+        ):
+            text = Path(path).read_text()
+            # Look at notify-on-failure title inputs that embed a run id.
+            for line in text.splitlines():
+                stripped = line.strip()
+                if stripped.startswith("title:") and (
+                    "github.run_id" in stripped or "RUN_ID" in stripped
+                ):
+                    offenders.append(f"{Path(path).name}: {stripped}")
+        assert not offenders, (
+            "notify-on-failure titles must be stable (no run_id) so dedup "
+            "works; offenders: " + "; ".join(offenders)
+        )
