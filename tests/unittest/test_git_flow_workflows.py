@@ -564,6 +564,24 @@ class TestStaleFailureIssueAutoRecovery:
                 f"issues titled '{sub}' when the workflow recovers."
             )
 
+    def test_event_driven_cases_are_all_watched(self):
+        import re
+        text = read_workflow("ci-failure-issues.yml")
+        # Every workflow name with an event-driven case "$WF_NAME" mapping must
+        # be present in the workflow_run.workflows watch list, otherwise its
+        # success never triggers the immediate close.
+        m = re.search(
+            r'workflow_run:\s*\n\s*workflows:\s*\n((?:\s+- "[^"]+"\n)+)', text
+        )
+        assert m, "could not find workflow_run.workflows block"
+        watched = set(re.findall(r'- "([^"]+)"', m.group(1)))
+        cases = set(re.findall(r'"([^"]+)"\)\s*SUBS', text))
+        missing = cases - watched
+        assert not missing, (
+            "event-driven case-mapped workflows missing from workflow_run "
+            f"watch list: {sorted(missing)}"
+        )
+
     def test_has_scheduled_sweep(self):
         text = read_workflow("ci-failure-issues.yml")
         # A scheduled trigger is required for the periodic stale-issue sweep.

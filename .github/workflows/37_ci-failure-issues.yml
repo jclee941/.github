@@ -14,12 +14,15 @@ on:
       - "Auto Deploy Workflows"
       - "PR Checks"
       - "Gitleaks"
+      - "CodeQL"
       - "Runtime Health Check"
       - "ELK Health Check"
+      - "ELK Setup"
       - "Downstream Health Check"
       - "Bot Health Monitor"
       - "Drift Detector"
       - "CI Auto-Heal"
+      - "Repository Health Check"
     types: [completed]
   schedule:
     # Daily stale-failure-issue sweep: close failure/health issues whose
