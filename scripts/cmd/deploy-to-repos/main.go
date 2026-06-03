@@ -61,7 +61,7 @@ var downstreamWorkflowAllowlist = map[string]struct{}{
 	".github/workflows/60_ci-auto-heal.yml":              {},
 	".github/workflows/security/11_pr-review.yml":        {},
 	".github/workflows/91_issue-classification.yml":      {},
-// sanity.yml + auto-hardcode-scan + auto-deploy + release-drafter are fork-specific.
+	// sanity.yml + auto-hardcode-scan + auto-deploy + release-drafter are fork-specific.
 }
 
 // extraFiles lists non-workflow files (relative to repo root) to deploy alongside workflows.
@@ -86,6 +86,9 @@ var extraFiles = []string{
 // removedWorkflows lists workflows that were previously deployed but are no longer
 // in the allowlist. They will be deleted from downstream repos during deployment.
 var removedWorkflows = []string{
+	// Renamed to issue-classifier.cjs (CommonJS, works in type:module repos);
+	// delete the stale .js so downstream ESM repos don't keep the broken copy.
+	".github/scripts/issue-classifier.js",
 	".github/workflows/branch-to-pr.yml",
 	".github/workflows/issue-to-branch.yml",
 	".github/workflows/pr-checks.yml",
