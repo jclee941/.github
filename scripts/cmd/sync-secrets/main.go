@@ -159,6 +159,9 @@ func normalizeRepos(raw string) ([]string, error) {
 
 func setSecret(repo, name, value string, dryRun bool) error {
 	full := "jclee941/" + repo
+	if value == "" {
+		return fmt.Errorf("refusing to set empty value for secret %q (would overwrite downstream secret)", name)
+	}
 	if dryRun {
 		fmt.Printf("[dry-run] gh secret set %s --repo %s --body <%d bytes>\n", name, full, len(value))
 		return nil
