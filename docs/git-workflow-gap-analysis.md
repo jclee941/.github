@@ -26,7 +26,7 @@
 | `21_docs-sync.yml` → `42_reusable-docs-sync.yml` | `pull_request` md/docs | 링크 검사 + markdownlint | ✅ |
 | `18_issue-management.yml` → `43_reusable-issue-management.yml` | issues + schedule | stale 정리 + 자동 라벨 | ✅ |
 | `90_sanity.yml` | push/PR | import 스모크 + TOML/YAML parse | ✅ but required check 아님 |
-| `security/11_pr-review.yml` | `pull_request_target` + 라벨 | 심층 보안 리뷰 | ⚠️ 가드 보강 필요 |
+| `11_security-pr-review.yml` | `pull_request_target` + 라벨 | 심층 보안 리뷰 | ⚠️ 가드 보강 필요 |
 
 (reusable workflow 3개는 별도 파일로 존재하지만 직접 트리거되지 않음)
 
@@ -141,7 +141,7 @@ if: github.event_name == 'pull_request_target' &&
 
 ### 4.2 액션 SHA pin (G19) — 이연
 
-P2 이연. 본 PR은 보안 워크플로(`security/11_pr-review.yml`, `06_codeql.yml`, `05_gitleaks.yml`)에도 메이저 태그(`@v3`, `@v6`)만 사용. 04_actionlint.yml의 `download-actionlint.bash`도 `main`에서 가져옴. 일괄 SHA pin은 별도 supply-chain sprint에서.
+P2 이연. 본 PR은 보안 워크플로(`11_security-pr-review.yml`, `06_codeql.yml`, `05_gitleaks.yml`)에도 메이저 태그(`@v3`, `@v6`)만 사용. 04_actionlint.yml의 `download-actionlint.bash`도 `main`에서 가져옴. 일괄 SHA pin은 별도 supply-chain sprint에서.
 
 ---
 
@@ -205,10 +205,10 @@ Gitleaks / scan        ← NEW
 - `.github/workflows/10_pr-review.yml` — concurrency
 - `.github/workflows/34_auto-deploy.yml` — concurrency + timeout
 - `.github/workflows/35_auto-hardcode-scan.yml` — runner 변경 + timeout
-- `.github/workflows/security/11_pr-review.yml` — head repo 가드
+- `.github/workflows/11_security-pr-review.yml` — head repo 가드
 - `scripts/cmd/deploy-to-repos/main.go` — workflow allowlist 확장 + `extraFiles`에 CODEOWNERS/PULL_REQUEST_TEMPLATE.md 추가 + PR body 3단계 롤아웃 시퀀스로 갱신 (머지 → Gitleaks 통과 확인 → branch-protection 적용)
 - `scripts/cmd/branch-protection/main.go` — `Gitleaks / scan` required context 추가
-- `AGENTS.md` — 신규 파일 반영 + `pr-review-security.yml` → `security/11_pr-review.yml` 경로 정정 + dependabot pip 반영 + runner drift 수정 (self-hosted → ubuntu-latest) + "all 12" 문구 수정 (deploy 11 vs branch-protection 12 구분)
+- `AGENTS.md` — 신규 파일 반영 + `pr-review-security.yml` → `11_security-pr-review.yml` 경로 정정 + dependabot pip 반영 + runner drift 수정 (self-hosted → ubuntu-latest) + "all 12" 문구 수정 (deploy 11 vs branch-protection 12 구분)
 
 ### 삭제
 
@@ -344,5 +344,5 @@ PR opened in 11 downstream repos (no 90_sanity.yml — it's fork-only)
    └─► 04_actionlint.yml  (when .github/workflows/ touched) ← NEW
 
 Label "security-review"
-   └─► security/11_pr-review.yml (now requires head_repo == base_repo)      ← HARDENED
+   └─► 11_security-pr-review.yml (now requires head_repo == base_repo)      ← HARDENED
 ```

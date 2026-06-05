@@ -40,7 +40,7 @@ This repository is a private hard fork of [qodo-ai/pr-agent](https://github.com/
 | LLM Backend | Configurable | CLIProxyAPI at `https://cliproxy.jclee.me/v1` |
 | Default Model | `gpt-4` | `gpt-5.5` via CLIProxy routing |
 | Fallback Models | Varies | `["minimax-m2.7", "gpt-5.5"]` |
-| Security Scanning | Basic | Deep security review workflow (`security/11_pr-review.yml`) |
+| Security Scanning | Basic | Deep security review workflow (`11_security-pr-review.yml`) |
 | Workflow Coverage | Core PR tools | 47 workflows + 8 Go automation tools |
 | Runner Environment | GitHub-hosted | GitHub-hosted (`ubuntu-latest`) + homelab API gateway |
 
@@ -53,7 +53,7 @@ All AI inference is routed through the homelab CLIProxyAPI deployment, enabling 
 ### AI-Powered Code Review
 
 - **PR Review** (`10_pr-review.yml`): Automatic PR analysis with inline comments
-- **Security Review** (`security/11_pr-review.yml`): Deep security-focused PR analysis
+- **Security Review** (`11_security-pr-review.yml`): Deep security-focused PR analysis
 - **PR Improvement** (`/improve`): AI-suggested code improvements
 - **PR Description** (`/describe`): Automatic PR changelog generation
 
@@ -135,7 +135,7 @@ flow TB
             W05["05_gitleaks.yml<br/>Secret Scan"]
             W06["06_codeql.yml<br/>SAST"]
             W90["90_sanity.yml<br/>Sanity"]
-            WSec["security/11_pr-review.yml<br/>Security Review"]
+            WSec["11_security-pr-review.yml<br/>Security Review"]
         end
 
         subgraph "Go Automation Tools"
@@ -196,7 +196,7 @@ flow TB
 1. **PR Event Trigger**: GitHub webhook triggers `10_pr-review.yml` on `pull_request` events
 2. **LLM Inference**: Workflow exports `CLI_PROXY_API_KEY` and routes to CLIProxyAPI at `https://cliproxy.jclee.me/v1`
 3. **Model Routing**: The PR-review workflow matrix runs `minimax-m2.7` and `gpt-5.5`; the GitHub App webhook default is `gpt-5.5` with fallback chain `[minimax-m2.7, gpt-5.5]`
-4. **Security Scanning**: Parallel jobs run `05_gitleaks.yml`, `06_codeql.yml`, `security/11_pr-review.yml`
+4. **Security Scanning**: Parallel jobs run `05_gitleaks.yml`, `06_codeql.yml`, `11_security-pr-review.yml`
 5. **Logging**: Filebeat ships workflow logs to ELK stack at `<homelab-elk>` for monitoring
 
 ---
@@ -310,7 +310,7 @@ flow TB
 
 | Workflow File | Trigger | Description |
 |---------------|---------|-------------|
-| `security/11_pr-review.yml` | pull_request | Deep security review (Korean, `pull_request_target`) |
+| `11_security-pr-review.yml` | pull_request | Deep security review (Korean, `pull_request_target`) |
 
 #### Reusable Workflows (4)
 

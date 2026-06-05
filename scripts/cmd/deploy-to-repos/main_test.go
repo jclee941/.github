@@ -84,7 +84,7 @@ func TestDownstreamAllowlistContainsRequired(t *testing.T) {
 		".github/workflows/05_gitleaks.yml",
 		".github/workflows/03_pr-checks.yml",
 		".github/workflows/10_pr-review.yml",
-		".github/workflows/security/11_pr-review.yml",
+		".github/workflows/11_security-pr-review.yml",
 		".github/workflows/91_issue-classification.yml",
 	}
 
@@ -233,5 +233,51 @@ func TestDeploymentNamingConstants(t *testing.T) {
 	wantTitle := "chore: sync automation workflows, dependabot, and templates"
 	if prTitle != wantTitle {
 		t.Errorf("prTitle = %q; want %q", prTitle, wantTitle)
+	}
+}
+
+// Downstream dependabot.yml must gain an npm ecosystem (injected by
+// copyWorkflow), while the source repo stays npm-free to avoid a guaranteed
+// weekly Dependabot failure on a Python-only repo with no package.json.
+func TestCopyWorkflow_InjectsNpmForDownstreamDependabot(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "dependabot.yml")
+	srcContent := "version: 2\nupdates:\n  - package-ecosystem: \"pip\"\n    directory: \"/\"\n"
+	if err := os.WriteFile(src, []byte(srcContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(downstreamNpmEcosystem, "package-ecosystem: \"npm\"") {
+		t.Fatal("downstreamNpmEcosystem must declare an npm ecosystem")
+	}
+	dst := filepath.Join(dir, ".github", "dependabot.yml")
+	r := runner{out: os.Stdout}
+	if err := copyWorkflow(r, src, dst); err != nil {
+		t.Fatalf("copyWorkflow: %v", err)
+	}
+	got, err := os.ReadFile(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "package-ecosystem: \"npm\"") {
+		t.Fatalf("downstream dependabot.yml missing npm ecosystem:\n%s", got)
+	}
+	// idempotent: re-copying must not duplicate the npm block.
+	if err := copyWorkflow(r, dst, dst); err != nil {
+		t.Fatalf("copyWorkflow (2nd): %v", err)
+	}
+	got2, _ := os.ReadFile(dst)
+	if strings.Count(string(got2), "package-ecosystem: \"npm\"") != 1 {
+		t.Fatalf("npm ecosystem must appear exactly once, got:\n%s", got2)
+	}
+}
+
+// The source repo dependabot.yml must NOT contain an npm ecosystem.
+func TestSourceDependabotHasNoNpm(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "..", "..", ".github", "dependabot.yml"))
+	if err != nil {
+		t.Skipf("source dependabot.yml not found: %v", err)
+	}
+	if strings.Contains(string(b), "package-ecosystem: \"npm\"") {
+		t.Fatal("source .github/dependabot.yml must not declare an npm ecosystem (Python-only repo)")
 	}
 }

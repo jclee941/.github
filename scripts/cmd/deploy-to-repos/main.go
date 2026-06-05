@@ -22,6 +22,32 @@ const (
 	branchName = "chore/sync-automation-workflows"
 )
 
+// downstreamNpmEcosystem is appended to dependabot.yml ONLY when deploying to
+// downstream repos. The source repo (.github) is Python-only and omits npm to
+// avoid a guaranteed weekly Dependabot failure (no package.json). Dependabot
+// silently skips this ecosystem in repos that have no package.json.
+const downstreamNpmEcosystem = `
+  # JavaScript/TypeScript dependencies (package.json + package-lock.json).
+  # Injected downstream by deploy-to-repos; Dependabot skips repos without a
+  # package.json, so this is safe everywhere it lands.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "javascript"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      npm-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+`
+
 // canaryRepos lists dedicated live-test repositories that may be mutated only
 // when explicitly selected with --canary-repos. Keep these out of deployableRepos
 // so normal deploy runs cannot create PRs in test canaries by accident.
@@ -59,7 +85,7 @@ var downstreamWorkflowAllowlist = map[string]struct{}{
 	".github/workflows/44_reusable-pr-checks.yml":        {},
 	".github/workflows/45_reusable-gitleaks.yml":         {},
 	".github/workflows/60_ci-auto-heal.yml":              {},
-	".github/workflows/security/11_pr-review.yml":        {},
+	".github/workflows/11_security-pr-review.yml":        {},
 	".github/workflows/91_issue-classification.yml":      {},
 	// sanity.yml + auto-hardcode-scan + auto-deploy + release-drafter are fork-specific.
 }
@@ -100,6 +126,7 @@ var removedWorkflows = []string{
 	".github/workflows/semantic-pr.yml",
 	".github/workflows/pr-review.yml",
 	".github/workflows/security/pr-review.yml",
+	".github/workflows/security/11_pr-review.yml", // moved to top-level 11_security-pr-review.yml (GitHub ignores subdir workflows)
 	".github/workflows/dependabot-auto-merge.yml",
 	".github/workflows/pr-auto-merge.yml",
 	".github/workflows/bot-auto-fix.yml",
@@ -575,6 +602,14 @@ func copyWorkflow(r runner, src, dst string) error {
 	input, err := os.ReadFile(src)
 	if err != nil {
 		return fmt.Errorf("read source workflow: %w", err)
+	}
+	// Downstream repos may contain JS manifests; the source repo (.github) is
+	// Python-only and intentionally omits the npm ecosystem (it would fail every
+	// weekly run). Re-append npm only for downstream dependabot.yml deployments.
+	if filepath.Base(dst) == "dependabot.yml" && strings.HasSuffix(filepath.Dir(dst), ".github") {
+		if !strings.Contains(string(input), "package-ecosystem: \"npm\"") {
+			input = append(input, []byte(downstreamNpmEcosystem)...)
+		}
 	}
 	if err := os.WriteFile(dst, input, 0o644); err != nil {
 		return fmt.Errorf("write target workflow: %w", err)

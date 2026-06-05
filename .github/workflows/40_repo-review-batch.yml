@@ -144,6 +144,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           PR_AGENT_PYTHON: ${{ github.workspace }}/pr-agent-src/.venv/bin/python
+          # Explicit path to repo_review.py so the Go tool does not depend on
+          # os.Args[0] (a /tmp/go-build path under `go run`).
+          REPO_REVIEW_SCRIPT: ${{ github.workspace }}/pr-agent-src/scripts/repo_review.py
           # pr-agent settings (mirrors pr-review.yml)
           OPENAI__KEY: ${{ secrets.MINIMAX_API_KEY }}
           OPENAI__API_BASE: https://api.minimax.io/v1
@@ -151,7 +154,7 @@ jobs:
           CONFIG__FALLBACK_MODELS: '["MiniMax-M3"]'
           CONFIG__RESPONSE_LANGUAGE: ko
           CONFIG__AI_TIMEOUT: "180"
-          CONFIG__CUSTOM_MODEL_MAX_TOKENS: "128000"
+          CONFIG__CUSTOM_MODEL_MAX_TOKENS: "1000000"
           LITELLM_LOCAL_MODEL_COST_MAP: "true"
         run: |
           set -eu

@@ -16,7 +16,7 @@ var (
 	dryRun        = flag.Bool("dry-run", false, "If true, no issues are created/commented")
 	sinceCommits  = flag.Int("since-commits", 50, "Commits back from HEAD to use as review base")
 	diffSizeLimit = flag.Int("diff-size-limit", 150000, "Max diff char count before skipping a repo")
-	model         = flag.String("model", "minimax-m2.7", "Primary LLM model")
+	model         = flag.String("model", "MiniMax-M3", "Primary LLM model")
 	workDir       = flag.String("work-dir", "/tmp/repo-review", "Working directory for clones")
 	owner         = flag.String("owner", "jclee941", "GitHub owner/org")
 )
@@ -129,12 +129,7 @@ func reviewOneRepo(repo, timestamp, date, prAgentPython string) error {
 	reviewPath := filepath.Join(repoDir, "review.md")
 	_ = os.Remove(reviewPath)
 
-	scriptDir := filepath.Dir(os.Args[0])
-	repoReviewPy := filepath.Join(scriptDir, "..", "..", "repo_review.py")
-	// If called from scripts/cmd/repo-review/, walk up to scripts/
-	if _, err := os.Stat(repoReviewPy); err != nil {
-		repoReviewPy = filepath.Join(scriptDir, "repo_review.py")
-	}
+	repoReviewPy := resolveReviewScript()
 
 	rc := 0
 	if err := runPythonWithPrefix(prAgentPython, repoReviewPy, repoDir, reviewPath); err != nil {
@@ -305,4 +300,34 @@ func prefixLines(r io.Reader, prefix string) {
 			break
 		}
 	}
+}
+
+// resolveReviewScript locates repo_review.py robustly. Under `go run`,
+// os.Args[0] is a /tmp/go-build.../exe path, so the old os.Args[0]-relative
+// lookup failed with Errno 2. Resolution order:
+//  1. $REPO_REVIEW_SCRIPT (explicit override)
+//  2. ./repo_review.py relative to CWD (workflow does `cd scripts && go run ...`)
+//  3. <dir-of-binary>/repo_review.py and ../../repo_review.py (compiled binary)
+func resolveReviewScript() string {
+	if env := os.Getenv("REPO_REVIEW_SCRIPT"); env != "" {
+		return env
+	}
+	candidates := []string{
+		"repo_review.py",
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		candidates = append(candidates, filepath.Join(cwd, "repo_review.py"))
+	}
+	scriptDir := filepath.Dir(os.Args[0])
+	candidates = append(candidates,
+		filepath.Join(scriptDir, "repo_review.py"),
+		filepath.Join(scriptDir, "..", "..", "repo_review.py"),
+	)
+	for _, c := range candidates {
+		if _, err := os.Stat(c); err == nil {
+			return c
+		}
+	}
+	// Last resort: cwd-relative path (will surface a clear ENOENT if missing).
+	return "repo_review.py"
 }
