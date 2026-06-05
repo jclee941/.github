@@ -1,8 +1,9 @@
 name: Organization Health Report
 
 on:
-  issues:
-    types: [opened, edited, labeled, unlabeled, reopened, closed]
+  # NOTE: no `issues:` trigger — this workflow CREATES an org-health issue,
+  # which would re-trigger it via GH_PAT (feedback loop). Driven by
+  # pull_request + workflow_run.
   pull_request:
     types: [opened, edited, synchronize, reopened, ready_for_review, closed]
   workflow_run:

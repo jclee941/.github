@@ -3,8 +3,8 @@ name: Stale Repository Identifier
 on:
   push:
     branches: [master, main]
-  issues:
-    types: [opened, edited, labeled, unlabeled, reopened, closed]
+  # NOTE: no `issues:` trigger — this workflow CREATES issues, which would
+  # re-trigger it via GH_PAT (feedback loop). Driven by push + workflow_run.
   workflow_run:
     workflows: ["Sanity", "Auto Deploy Workflows"]
     types: [completed]
