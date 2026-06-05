@@ -71,7 +71,10 @@ jobs:
           # the backfill silently completes without triggering branch
           # creation.
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
-          DRY_RUN: ${{ inputs.dry_run == false && 'false' || 'true' }}
+          # Mutate ONLY on an explicit manual dispatch with dry_run=false.
+          # Any event-driven (workflow_run) run is always dry-run so it can
+          # never add labels (which would re-trigger issue workflows / loop).
+          DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run == false) && 'false' || 'true' }}
           MIN_AGE_DAYS: ${{ inputs.min_age_days || '5' }}
           MAX_PICKS: ${{ inputs.max_picks || '3' }}
           LABEL: ${{ inputs.label || 'in-progress' }}
