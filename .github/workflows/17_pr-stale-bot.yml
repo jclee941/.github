@@ -23,10 +23,19 @@ jobs:
         uses: step-security/harden-runner@v2
         with:
           egress-policy: audit
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Find and label stale PRs
         id: stale
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
         run: |
           set -eu
           CUTOFF=$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)
@@ -46,6 +55,21 @@ jobs:
             for PR_INFO in $PULLS; do
               IFS='|' read -r NUM TITLE UPDATED <<< "$PR_INFO"
               DAYS_STALE=$(( ($(date +%s) - $(date -d "$UPDATED" +%s)) / 86400 ))
+
+              LLM_INPUT="${RUNNER_TEMP}/pr-stale-${REPO}-${NUM}.json"
+              LLM_OUTPUT="${RUNNER_TEMP}/pr-stale-${REPO}-${NUM}.out"
+              export REPO NUM TITLE UPDATED DAYS_STALE CUTOFF LLM_INPUT
+              python3 -c "import json,os; json.dump({'repo':os.environ['REPO'],'number':int(os.environ['NUM']),'title':os.environ['TITLE'],'updated_at':os.environ['UPDATED'],'days_stale':int(os.environ['DAYS_STALE']),'cutoff':os.environ['CUTOFF']}, open(os.environ['LLM_INPUT'],'w'))" || true
+              python3 scripts/llm_decide.py \
+                --decision-type pr-stale \
+                --input "$LLM_INPUT" \
+                --output "$LLM_OUTPUT" || true
+              LLM_OK=$(grep '^ok=' "$LLM_OUTPUT" 2>/dev/null | tail -1 | cut -d= -f2- || true)
+              LLM_ACTION=$(grep '^action=' "$LLM_OUTPUT" 2>/dev/null | tail -1 | cut -d= -f2- || true)
+              if [ "$LLM_OK" = "true" ] && [ "$LLM_ACTION" != "stale" ]; then
+                echo "  LLM marked jclee941/$REPO#$NUM active/noop; skipping stale label"
+                continue
+              fi
 
               # Add stale label and comment
               gh pr edit "$NUM" --repo "jclee941/$REPO" --add-label "stale" \

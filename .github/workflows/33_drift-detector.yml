@@ -41,21 +41,46 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: '1.21'
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
       - name: Detect drift
         id: drift
         env:
           GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
         run: |
           set -eu
           cd scripts
           go run ./cmd/drift-detector --format=json > /tmp/drift-report.json || true
           if [ -s /tmp/drift-report.json ]; then
-            echo "has_drift=true" >> "$GITHUB_OUTPUT"
-            # Extract repo list as JSON array for matrix strategy
-            repos=$(python3 -c "import json; d=json.load(open('/tmp/drift-report.json')); print(json.dumps(d.get('repos',[])))" 2>/dev/null || echo '[]')
-            echo "drift_repos=$repos" >> "$GITHUB_OUTPUT"
-            cat /tmp/drift-report.json
+            python3 -c "import json; d=json.load(open('/tmp/drift-report.json')); json.dump({'report': d}, open('/tmp/drift-input.json','w'))" || true
+            python3 "$GITHUB_WORKSPACE/scripts/llm_decide.py" \
+              --decision-type drift \
+              --input /tmp/drift-input.json \
+              --output /tmp/drift-llm.out || true
+            LLM_OK=$(grep '^ok=' /tmp/drift-llm.out 2>/dev/null | tail -1 | cut -d= -f2- || true)
+            LLM_ACTION=$(grep '^action=' /tmp/drift-llm.out 2>/dev/null | tail -1 | cut -d= -f2- || true)
+            if [ "$LLM_OK" = "true" ]; then
+              if [ "$LLM_ACTION" = "drift" ]; then
+                echo "has_drift=true" >> "$GITHUB_OUTPUT"
+                repos=$(python3 -c "import json; d=json.load(open('/tmp/drift-report.json')); print(json.dumps(d.get('repos',[])))" 2>/dev/null || echo '[]')
+                echo "drift_repos=$repos" >> "$GITHUB_OUTPUT"
+                cat /tmp/drift-report.json
+              else
+                echo "has_drift=false" >> "$GITHUB_OUTPUT"
+                echo "drift_repos=[]" >> "$GITHUB_OUTPUT"
+                echo "LLM marked drift report clean/noop"
+              fi
+            else
+              echo "has_drift=true" >> "$GITHUB_OUTPUT"
+              # Extract repo list as JSON array for matrix strategy
+              repos=$(python3 -c "import json; d=json.load(open('/tmp/drift-report.json')); print(json.dumps(d.get('repos',[])))" 2>/dev/null || echo '[]')
+              echo "drift_repos=$repos" >> "$GITHUB_OUTPUT"
+              cat /tmp/drift-report.json
+            fi
           else
             echo "has_drift=false" >> "$GITHUB_OUTPUT"
             echo "drift_repos=[]" >> "$GITHUB_OUTPUT"

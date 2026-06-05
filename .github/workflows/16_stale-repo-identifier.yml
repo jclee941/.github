@@ -22,10 +22,19 @@ jobs:
         uses: step-security/harden-runner@v2
         with:
           egress-policy: audit
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Identify stale repos
         id: stale
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
         run: |
           set -eu
           CUTOFF=$(date -u -d '90 days ago' +%Y-%m-%dT%H:%M:%SZ)
@@ -47,8 +56,23 @@ jobs:
               continue
             fi
 
-            if [[ "$LAST_COMMIT" < "$CUTOFF" ]]; then
-              DAYS_IDLE=$(( ($(date +%s) - $(date -d "$LAST_COMMIT" +%s)) / 86400 ))
+            DAYS_IDLE=$(( ($(date +%s) - $(date -d "$LAST_COMMIT" +%s)) / 86400 ))
+            LLM_INPUT="${RUNNER_TEMP}/repo-stale-${REPO}.json"
+            LLM_OUTPUT="${RUNNER_TEMP}/repo-stale-${REPO}.out"
+            export REPO LAST_COMMIT DAYS_IDLE CUTOFF LLM_INPUT
+            python3 -c "import json,os; json.dump({'repo':os.environ['REPO'],'last_commit':os.environ['LAST_COMMIT'],'days_idle':int(os.environ['DAYS_IDLE']),'cutoff':os.environ['CUTOFF']}, open(os.environ['LLM_INPUT'],'w'))" || true
+            python3 scripts/llm_decide.py \
+              --decision-type repo-stale \
+              --input "$LLM_INPUT" \
+              --output "$LLM_OUTPUT" || true
+            LLM_OK=$(grep '^ok=' "$LLM_OUTPUT" 2>/dev/null | tail -1 | cut -d= -f2- || true)
+            LLM_ACTION=$(grep '^action=' "$LLM_OUTPUT" 2>/dev/null | tail -1 | cut -d= -f2- || true)
+
+            if [ "$LLM_OK" = "true" ]; then
+              if [ "$LLM_ACTION" = "stale" ]; then
+                STALE_REPOS="${STALE_REPOS}- **$REPO**: last commit $LAST_COMMIT ($DAYS_IDLE days ago) [llm]\n"
+              fi
+            elif [[ "$LAST_COMMIT" < "$CUTOFF" ]]; then
               STALE_REPOS="${STALE_REPOS}- **$REPO**: last commit $LAST_COMMIT ($DAYS_IDLE days ago)\n"
             fi
           done
