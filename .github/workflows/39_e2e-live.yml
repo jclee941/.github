@@ -1,7 +1,7 @@
 name: Live E2E Tests
 
 # Runs the live E2E test suite against real GitHub repos.
-# Read-only fleet health checks run on schedule (weekly).
+# Read-only fleet health checks run on workflow_run (after Build/Runtime/Bot Health).
 # Canary mutation tests require workflow_dispatch because they mutate repositories.
 #
 # Required secrets:

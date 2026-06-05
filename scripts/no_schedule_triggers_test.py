@@ -63,6 +63,22 @@ def test_no_dead_schedule_conditionals():
     assert not dead, f"dead schedule conditionals remain: {dead}"
 
 
+def test_no_residual_schedule_wording_in_comments():
+    """After cron removal, workflow comments must not still claim scheduled/daily
+    behavior — stale wording misleads maintainers about how automation fires."""
+    import re
+    stale = []
+    pat = re.compile(
+        r"daily sweep|run on schedule|runs on schedule|scheduled sweep|schedule is handled",
+        re.IGNORECASE,
+    )
+    for wf in sorted(glob.glob(".github/workflows/*.yml")):
+        for i, line in enumerate(open(wf, encoding="utf-8"), 1):
+            if pat.search(line):
+                stale.append(f"{os.path.basename(wf)}:{i}")
+    assert not stale, f"residual schedule wording in comments: {stale}"
+
+
 _REUSABLE = {"42_reusable", "43_reusable", "44_reusable", "45_reusable"}
 
 # 40_repo-review-batch is intentionally manual-only: it runs LLM reviews across

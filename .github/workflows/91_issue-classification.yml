@@ -10,7 +10,7 @@ name: Issue Classification
 #   * resolved-from-signal      — on edits/comments carrying an explicit
 #                                 "fixed/resolved" signal, label `resolved`
 #                                 (close only when opted in).
-#   * resolved-sweep            — scheduled sweep: open issues whose linked PR is
+#   * resolved-sweep            — manual sweep (workflow_dispatch): open issues whose linked PR is
 #                                 already merged get labeled/closed.
 #
 # All pure logic lives in `.github/scripts/issue-classifier.cjs` (unit-tested via
