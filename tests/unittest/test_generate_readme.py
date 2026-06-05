@@ -33,10 +33,13 @@ def test_canonical_model_chain():
 
 
 def test_no_stale_model_text_in_prompt():
-    """Prompt must not advertise the removed gpt-5.5 model."""
+    """README-generator prompt must not hardcode models outside its own
+    generator chain (MODELS == ['minimax-m2.7']). gpt-5.5 is the GitHub App
+    PR-review default, not a README-generation model, so it must not appear."""
     text = SCRIPT.read_text()
     assert "gpt-5.5" not in text, (
-        "generate_readme.py still names the removed gpt-5.5 model in its prompt"
+        "generate_readme.py must not hardcode gpt-5.5; the generator uses "
+        "MODELS == ['minimax-m2.7'] (gpt-5.5 is the PR-review default, not a generator model)"
     )
 
 

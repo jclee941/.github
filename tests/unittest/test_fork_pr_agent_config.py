@@ -57,16 +57,16 @@ class TestForkPrAgentConfig:
             f"Expected [config].response_language = 'ko', got {response_lang}"
         )
 
-    def test_model_is_kimi_k2_6(self):
-        """Test that [config].model == 'kimi-k2.6'."""
+    def test_model_is_gpt_5_5(self):
+        """Test that [config].model == 'gpt-5.5'."""
         path = self.get_toml_path()
         with open(path, "rb") as f:
             data = tomllib.load(f)
 
         assert "config" in data, "Missing [config] section in .pr_agent.toml"
         model = data["config"].get("model")
-        assert model == "kimi-k2.6", (
-            f"Expected [config].model = 'kimi-k2.6', got {model}"
+        assert model == "gpt-5.5", (
+            f"Expected [config].model = 'gpt-5.5', got {model}"
         )
 
     def test_fallback_models_are_kimi_excluded(self):
@@ -96,9 +96,9 @@ class TestForkPrAgentConfig:
             content = f.read()
 
         # Verify that configuration.toml contains the fork's model setting
-        # The fork changed model to kimi-k2.6 in configuration.toml
-        assert "model=\"kimi-k2.6\"" in content or "model = \"kimi-k2.6\"" in content, (
-            "configuration.toml should contain model=\"kimi-k2.6\" for fork-specific default"
+        # The fork promoted the GitHub App primary model to gpt-5.5
+        assert "model=\"gpt-5.5\"" in content or "model = \"gpt-5.5\"" in content, (
+            "configuration.toml should contain model=\"gpt-5.5\" for fork-specific default"
         )
 
     def test_auto_commands_resolve_to_registered_commands(self):

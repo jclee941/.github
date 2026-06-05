@@ -74,7 +74,7 @@ jobs:
           print('.pr_agent.toml sections:', sorted(c.keys()))
           assert 'config' in c
           assert 'openai' in c
-          assert c['config']['model'] == 'kimi-k2.6', 'model override lost'
+          assert c['config']['model'] == 'gpt-5.5', 'model override lost'
           assert c['openai']['api_base'] == 'https://cliproxy.jclee.me/v1', 'api_base lost'
           print('.pr_agent.toml OK')
           "
@@ -127,7 +127,7 @@ jobs:
           c = tomllib.loads(open('.pr_agent.toml').read())
           primary = c['config']['model']
           canonical_fb = c['config']['fallback_models']
-          assert primary == 'kimi-k2.6', f'primary model drifted: {primary}'
+          assert primary == 'gpt-5.5', f'primary model drifted: {primary}'
           assert canonical_fb == ['minimax-m2.7', 'gpt-5.5'], f'canonical fallback drifted: {canonical_fb}'
           print(f'canonical: primary={primary} fallback={canonical_fb}')
 

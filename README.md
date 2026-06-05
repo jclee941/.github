@@ -38,7 +38,7 @@ This repository is a private hard fork of [qodo-ai/pr-agent](https://github.com/
 | Aspect | Upstream (qodo-ai/pr-agent) | This Fork (jclee941) |
 |--------|----------------------------|----------------------|
 | LLM Backend | Configurable | CLIProxyAPI at `https://cliproxy.jclee.me/v1` |
-| Default Model | `gpt-4` | `minimax-m2.7` via CLIProxy routing |
+| Default Model | `gpt-4` | `gpt-5.5` via CLIProxy routing |
 | Fallback Models | Varies | `["minimax-m2.7", "gpt-5.5"]` |
 | Security Scanning | Basic | Deep security review workflow (`security/11_pr-review.yml`) |
 | Workflow Coverage | Core PR tools | 47 workflows + 8 Go automation tools |
@@ -195,7 +195,7 @@ flow TB
 
 1. **PR Event Trigger**: GitHub webhook triggers `10_pr-review.yml` on `pull_request` events
 2. **LLM Inference**: Workflow exports `CLI_PROXY_API_KEY` and routes to CLIProxyAPI at `https://cliproxy.jclee.me/v1`
-3. **Model Routing**: CLIProxyAPI forwards to `minimax-m2.7` (primary) or `gpt-5.5` (fallback)
+3. **Model Routing**: The PR-review workflow matrix runs `minimax-m2.7` and `gpt-5.5`; the GitHub App webhook default is `gpt-5.5` with fallback chain `[minimax-m2.7, gpt-5.5]`
 4. **Security Scanning**: Parallel jobs run `05_gitleaks.yml`, `06_codeql.yml`, `security/11_pr-review.yml`
 5. **Logging**: Filebeat ships workflow logs to ELK stack at `<homelab-elk>` for monitoring
 

@@ -3,8 +3,8 @@
 # Your repository configuration should only include options you wish to override from the defaults.
 
 [config]
-# models — FORK: GitHub App default kimi-k2.6; canonical fallback minimax-m2.7 + gpt-5.5 (via CLIProxyAPI)
-model="kimi-k2.6"
+# models — FORK: GitHub App default gpt-5.5; canonical fallback minimax-m2.7 + gpt-5.5 (via CLIProxyAPI)
+model="gpt-5.5"
 fallback_models=["minimax-m2.7", "gpt-5.5"]
 #model_reasoning="o4-mini" # dedicated reasoning model for self-reflection
 #model_weak="gpt-4o" # optional, a weaker model to use for some easier tasks

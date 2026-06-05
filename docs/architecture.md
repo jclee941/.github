@@ -24,7 +24,7 @@ flowchart TB
 
     GH -->|"Webhook<br/>pull_request.opened"| CF
     CF -->|"TLS Reverse Proxy"| WEB
-    WEB -->|"litellm.completion<br/>model=kimi-k2.6"| PROXY
+    WEB -->|"litellm.completion<br/>model=gpt-5.5"| PROXY
     WEB -->|"Docker JSON logs"| FB
     FB -->|"로그 전송"| ES
     PROXY -->|"OpenAI-compatible API"| LLM
@@ -136,7 +136,7 @@ sequenceDiagram
     participant GH as GitHub
     participant Bot as jclee-bot
     participant Proxy as CLIProxyAPI
-    participant LLM as kimi-k2.6
+    participant LLM as gpt-5.5
 
     Dev->>GH: PR 생성
     GH->>Bot: Webhook: pull_request.opened
@@ -151,7 +151,7 @@ sequenceDiagram
     Bot->>Bot: 명령어 선택 로직 실행
     Note over Bot: <50 LOC → review<br/>>1000 LOC → describe+review<br/>feat/fix → describe+review+improve+agentic
     
-    Bot->>Proxy: POST /v1/chat/completions<br/>model=kimi-k2.6
+    Bot->>Proxy: POST /v1/chat/completions<br/>model=gpt-5.5
     activate Proxy
     Proxy->>LLM: Claude Code CLI 실행
     activate LLM

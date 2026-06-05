@@ -15,7 +15,7 @@
 # Default below is used by the GitHub App (homelab host). The PR review workflow
 # (.github/workflows/10_pr-review.yml) runs a matrix of [minimax-m2.7, gpt-5.5]
 # and overrides CONFIG.MODEL per matrix row.
-model = "kimi-k2.6"
+model = "gpt-5.5"
 fallback_models = ["minimax-m2.7", "gpt-5.5"]
 custom_model_max_tokens = 128000
 max_model_tokens = 128000

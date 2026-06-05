@@ -19,7 +19,7 @@ All upstream pr-agent features are preserved: `/review`, `/improve`, `/describe`
 
 | File | Change | Reason |
 |------|--------|--------|
-| `pr_agent/settings/configuration.toml` | `[config] model` → `kimi-k2.6`, `fallback_models` → `["minimax-m2.7", "gpt-5.5"]` | GitHub App default model via cli_proxy/OpenAI-compatible routing |
+| `pr_agent/settings/configuration.toml` | `[config] model` → `gpt-5.5`, `fallback_models` → `["minimax-m2.7", "gpt-5.5"]` | GitHub App default model via cli_proxy/OpenAI-compatible routing |
 | `.pr_agent.toml` | Prepended `[config]`, `[openai]`, `[litellm]` sections | Pin fork-level model and `api_base` to cli_proxy |
 | `.github/workflows/10_pr-review.yml` | **NEW** | ubuntu-latest runner + cli_proxy env vars |
 | `.github/workflows/security/11_pr-review.yml` | **NEW** | Deep security review (Korean, `pull_request_target`, label-triggered) |
@@ -91,7 +91,7 @@ github-bot/
 │       ├── pr_reviewer_prompts.toml
 │       └── ...                    # other prompt templates
 ├── .github/workflows/
-│   ├── 10_pr-review.yml               # FORK: ubuntu-latest + cli_proxy (kimi-k2.6)
+│   ├── 10_pr-review.yml               # FORK: ubuntu-latest + cli_proxy (matrix: minimax-m2.7, gpt-5.5)
 │   ├── security/11_pr-review.yml      # FORK: deep security review (Korean, label-gated)
 │   ├── 90_sanity.yml                  # FORK: CI gate (replaces upstream CI)
 │   ├── 03_pr-checks.yml               # PR validation (size, title, branch, description)
@@ -137,7 +137,7 @@ github-bot/
 
 | Task | Location | Notes |
 |------|----------|-------|
-| Change default model | `pr_agent/settings/configuration.toml` `[config].model` | Line 7, currently `kimi-k2.6` |
+| Change default model | `pr_agent/settings/configuration.toml` `[config].model` | Line 7, currently `gpt-5.5` |
 | Override model per-repo | `.pr_agent.toml` `[config].model` | Fork-level override, takes precedence |
 | Change cli_proxy endpoint | `.pr_agent.toml` `[openai].api_base` | Currently `https://cliproxy.jclee.me/v1` |
 | Edit review prompts | `pr_agent/settings/pr_reviewer_prompts.toml` | upstream TOML |
@@ -342,7 +342,7 @@ curl -sS http://<homelab-elk>:9200/github-bot-logs-*/_search?pretty -H 'Content-
 
 ### Available models (24 total as of 2026-05-07)
 
-> **Current default**: GitHub App webhook uses `kimi-k2.6`; canonical fallback chain is `minimax-m2.7`, `gpt-5.5` (enforced by `90_sanity.yml`). The PR-review workflow matrix uses `[minimax-m2.7, gpt-5.5]`.
+> **Current default**: GitHub App webhook uses `gpt-5.5`; canonical fallback chain is `minimax-m2.7`, `gpt-5.5` (enforced by `90_sanity.yml`). The PR-review workflow matrix uses `[minimax-m2.7, gpt-5.5]`.
 > Prefix-less Kimi/Claude/GPT/Codex/Gemini model names are routed through the configured OpenAI-compatible cli_proxy endpoint.
 
 - **Codex (GPT)**: `openai/gpt-5.2`, `openai/gpt-5.1`, `openai/gpt-5`, `gpt-5-codex-mini`, `gpt-5.1-codex-max`, `gpt-4.1`, `gpt-4.1-mini`
@@ -380,7 +380,7 @@ pr-agent loads its settings via `Dynaconf(envvar_prefix=False, ...)` (see `pr_ag
 | `settings.openai.api_base` | — | `OPENAI.API_BASE` | Literal dot |
 | `settings.config.model` | — | `CONFIG.MODEL` | Literal dot |
 | `settings.config.fallback_models` | — | `CONFIG.FALLBACK_MODELS` | Literal dot |
-| `settings.config.custom_model_max_tokens` | omit (forces MAX_TOKENS lookup) | **`CONFIG.CUSTOM_MODEL_MAX_TOKENS=128000`** | `kimi-k2.6` is NOT in `pr_agent/algo/__init__.py:MAX_TOKENS`; without this, prompt-trim refuses to call litellm |
+| `settings.config.custom_model_max_tokens` | omit (forces MAX_TOKENS lookup) | **`CONFIG.CUSTOM_MODEL_MAX_TOKENS=128000`** | Pins prompt-trim budget to the cli_proxy edge limit regardless of the model's registry MAX_TOKENS, so litellm is always called |
 | `settings.pr_reviewer.require_*` | — | `PR_REVIEWER.REQUIRE_*` | Literal dot |
 
 **Special case — `security/11_pr-review.yml` only**: that workflow invokes `pr_agent.servers.github_action_runner` directly, which manually translates `GITHUB_TOKEN` → `settings.github.user_token` and `OPENAI_KEY` → `settings.openai.key` at `pr_agent/servers/github_action_runner.py:55-61`. Both env-var styles work there, but for consistency the fork uses the same `OPENAI.KEY` / `GITHUB__USER_TOKEN` everywhere.
@@ -485,8 +485,8 @@ Enforced across all `.github/workflows/*.yml` (and `security/`); verified by `90
 | **Action pinning** | First-party `actions/*` & `github/*` use semver `@vN`; third-party actions use 40-char commit SHA with `# vX.Y.Z` comment | `step-security/harden-runner@v2` is repo-wide semver (95+ uses) |
 | **Runner selection** | `runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}` | `07_dependency-review.yml`, `08_scorecard.yml` stay `ubuntu-latest` (GitHub-hosted SARIF/dependency API); `13_pr-auto-merge.yml`, `26_elk-health-check.yml`, `27_elk-setup.yml`, `36_build-and-push-app.yml` stay `self-hosted` (homelab) |
 | **Failure notification** | Use `uses: ./.github/actions/notify-on-failure` (shared composite, dedup-by-title) for `if: failure()` steps | core issue-reporting logic (e.g. `29_downstream-health-check.yml` `health-check` issues) is NOT a failure-notify step |
-| **Fallback models** | Single canonical chain `["minimax-m2.7", "gpt-5.5"]` across `.pr_agent.toml`, `configuration.toml`, and every workflow `CONFIG__FALLBACK_MODELS` | GitHub App primary stays `kimi-k2.6` |
-| **PR-review matrix** | `10_pr-review.yml` matrix = `[minimax-m2.7, gpt-5.5]` (Kimi excluded) | GitHub App webhook default = `kimi-k2.6` |
+| **Fallback models** | Single canonical chain `["minimax-m2.7", "gpt-5.5"]` across `.pr_agent.toml`, `configuration.toml`, and every workflow `CONFIG__FALLBACK_MODELS` | GitHub App primary is `gpt-5.5` |
+| **PR-review matrix** | `10_pr-review.yml` matrix = `[minimax-m2.7, gpt-5.5]` (Kimi excluded) | GitHub App webhook default = `gpt-5.5` |
 | **Reusable self-refs** | `18_issue-management.yml` & `21_docs-sync.yml` reference `jclee941/.github/.github/workflows/*@master` intentionally (kept in sync by `34_auto-deploy.yml`) | — |
 | **Harden runner** | `step-security/harden-runner@v2` (egress-policy: audit) as first step in every job with `steps:` | reusable-workflow caller jobs (only `uses:`) are exempt |
 | **POSIX** | Trailing newline at EOF; no duplicate keys; passes `actionlint` | — |
@@ -536,7 +536,7 @@ pr_agent reads .pr_agent.toml
 extra_instructions loaded (compact rules from templates)
 │
 ▼
-LLM (kimi-k2.6) generates Korean review
+LLM (gpt-5.5) generates Korean review
 │
 ▼
 Review posted as PR comment (markdown tables + code blocks)
