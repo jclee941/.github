@@ -3,8 +3,8 @@ name: PR Stale Bot
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened, ready_for_review, closed]
-  issue_comment:
-    types: [created, edited]
+  # NOTE: no `issue_comment:` trigger — 17 comments on stale PRs, which would
+  # re-fire it via the comment event. Driven by pull_request + workflow_run.
   workflow_run:
     workflows: ["PR Checks", "Sanity"]
     types: [completed]

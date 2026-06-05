@@ -17,10 +17,11 @@ name: Issue Backfill
 # actually mutates labels.
 
 on:
-  issues:
-    types: [opened, edited, reopened, labeled, unlabeled]
+  # NOTE: not triggered by `issues:` nor by Issue Management/Classification —
+  # 19 ADDS the in-progress label, which would re-fire those issue workflows
+  # and loop. Driven by a master-activity pulse (Sanity) + manual dispatch.
   workflow_run:
-    workflows: ["Issue Management", "Issue Classification"]
+    workflows: ["Sanity"]
     types: [completed]
   workflow_dispatch:
     inputs:
