@@ -69,7 +69,7 @@ def test_no_residual_schedule_wording_in_comments():
     import re
     stale = []
     pat = re.compile(
-        r"daily sweep|run on schedule|runs on schedule|scheduled sweep|schedule is handled",
+        r"daily sweep|run on schedule|runs on schedule|scheduled sweep|schedule is handled|schedule events?",
         re.IGNORECASE,
     )
     for wf in sorted(glob.glob(".github/workflows/*.yml")):
