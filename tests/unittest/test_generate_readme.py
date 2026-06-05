@@ -25,21 +25,21 @@ def _load_module():
 
 
 def test_canonical_model_chain():
-    """MODELS must match the canonical CLIProxyAPI fallback chain."""
+    """MODELS must be the direct-MiniMax model used by the bot (MiniMax-M3)."""
     mod = _load_module()
-    assert mod.MODELS == ["minimax-m2.7"], (
-        f"generate_readme MODELS drifted from canonical chain: {mod.MODELS}"
+    assert mod.MODELS == ["MiniMax-M3"], (
+        f"generate_readme MODELS drifted from canonical model: {mod.MODELS}"
     )
 
 
 def test_no_stale_model_text_in_prompt():
     """README-generator prompt must not hardcode models outside its own
-    generator chain (MODELS == ['minimax-m2.7']). gpt-5.5 is the GitHub App
-    PR-review default, not a README-generation model, so it must not appear."""
+    generator chain (MODELS == ['MiniMax-M3']). gpt-5.5 is no longer used and
+    must not appear."""
     text = SCRIPT.read_text()
     assert "gpt-5.5" not in text, (
         "generate_readme.py must not hardcode gpt-5.5; the generator uses "
-        "MODELS == ['minimax-m2.7'] (gpt-5.5 is the PR-review default, not a generator model)"
+        "MODELS == ['MiniMax-M3']"
     )
 
 

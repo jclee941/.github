@@ -82,3 +82,30 @@ async def test_all_bases_exhausted_raises_last_error():
             await h._get_completion(model="kimi-k2.6")
     # primary + 2 fallbacks = 3 attempts
     assert once.await_count == 3
+
+
+@pytest.mark.asyncio
+async def test_minimax_m3_routes_as_openai_compatible():
+    """MiniMax-M3 (capitalized id, served via api.minimax.io OpenAI-compatible
+    endpoint) must get custom_llm_provider='openai' so litellm routes it.
+    Regression guard: the prefix tuple originally only had lowercase 'minimax-',
+    so 'MiniMax-M3'.startswith('minimax-') was False and the model failed.
+    """
+    h = _handler()
+    captured = {}
+
+    async def fake_acompletion(**kwargs):
+        captured.update(kwargs)
+        return {"choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}]}
+
+    with (
+        patch("pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion", new=fake_acompletion),
+        patch("pr_agent.algo.ai_handlers.litellm_ai_handler.get_settings") as gs,
+    ):
+        gs.return_value.get.return_value = 128000
+        await h._get_completion_once(model="MiniMax-M3", messages=[{"role": "user", "content": "hi"}])
+
+    assert captured.get("custom_llm_provider") == "openai", (
+        "MiniMax-M3 must be routed as an OpenAI-compatible model "
+        f"(custom_llm_provider='openai'), got {captured.get('custom_llm_provider')!r}"
+    )

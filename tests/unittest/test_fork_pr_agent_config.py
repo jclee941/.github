@@ -32,17 +32,29 @@ class TestForkPrAgentConfig:
         path = self.get_toml_path()
         assert path.exists(), f".pr_agent.toml not found at {path}"
 
-    def test_custom_model_max_tokens_is_128000(self):
-        """Test that [config].custom_model_max_tokens == 128000."""
+    def test_custom_model_max_tokens_is_1m(self):
+        """Test that [config].custom_model_max_tokens == 1000000 (MiniMax-M3 1M context)."""
         path = self.get_toml_path()
         with open(path, "rb") as f:
             data = tomllib.load(f)
 
         assert "config" in data, "Missing [config] section in .pr_agent.toml"
         custom_max_tokens = data["config"].get("custom_model_max_tokens")
-        assert custom_max_tokens == 128000, (
-            f"Expected [config].custom_model_max_tokens = 128000, "
-            f"got {custom_max_tokens}"
+        assert custom_max_tokens == 1000000, (
+            f"Expected [config].custom_model_max_tokens = 1000000 "
+            f"(MiniMax-M3 supports 1M context), got {custom_max_tokens}"
+        )
+
+    def test_max_model_tokens_is_1m(self):
+        """Test that [config].max_model_tokens == 1000000 (do not cap MiniMax-M3 below its 1M window)."""
+        path = self.get_toml_path()
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+
+        assert "config" in data, "Missing [config] section in .pr_agent.toml"
+        max_model_tokens = data["config"].get("max_model_tokens")
+        assert max_model_tokens == 1000000, (
+            f"Expected [config].max_model_tokens = 1000000, got {max_model_tokens}"
         )
 
     def test_response_language_is_ko(self):
@@ -57,20 +69,33 @@ class TestForkPrAgentConfig:
             f"Expected [config].response_language = 'ko', got {response_lang}"
         )
 
-    def test_model_is_gpt_5_5(self):
-        """Test that [config].model == 'gpt-5.5'."""
+    def test_model_is_minimax_m3(self):
+        """Test that [config].model == 'MiniMax-M3' (direct MiniMax API)."""
         path = self.get_toml_path()
         with open(path, "rb") as f:
             data = tomllib.load(f)
 
         assert "config" in data, "Missing [config] section in .pr_agent.toml"
         model = data["config"].get("model")
-        assert model == "gpt-5.5", (
-            f"Expected [config].model = 'gpt-5.5', got {model}"
+        assert model == "MiniMax-M3", (
+            f"Expected [config].model = 'MiniMax-M3', got {model}"
         )
 
-    def test_fallback_models_are_kimi_excluded(self):
-        """Test that fallback_models == ['minimax-m2.7', 'gpt-5.5'] (Kimi excluded)."""
+    def test_api_base_is_minimax_direct(self):
+        """Test that [openai].api_base points at the direct MiniMax API."""
+        path = self.get_toml_path()
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+
+        assert "openai" in data, "Missing [openai] section in .pr_agent.toml"
+        api_base = data["openai"].get("api_base")
+        assert api_base == "https://api.minimax.io/v1", (
+            f"Expected [openai].api_base = 'https://api.minimax.io/v1', got {api_base}"
+        )
+
+    def test_fallback_models_is_minimax_m3(self):
+        """Test that fallback_models == ['MiniMax-M3'] (single direct-MiniMax model).
+        Mixed-provider fallback is impossible: the MiniMax key 401s on CLIProxy."""
         path = self.get_toml_path()
         with open(path, "rb") as f:
             data = tomllib.load(f)
@@ -78,11 +103,8 @@ class TestForkPrAgentConfig:
         assert "config" in data, "Missing [config] section in .pr_agent.toml"
         fallback_models = data["config"].get("fallback_models", [])
 
-        assert fallback_models == ["minimax-m2.7", "gpt-5.5"], (
-            f"Expected fallback_models == ['minimax-m2.7', 'gpt-5.5'], got {fallback_models}"
-        )
-        assert "kimi-k2.5" not in fallback_models, (
-            f"kimi-k2.5 must be excluded from fallback_models, got {fallback_models}"
+        assert fallback_models == ["MiniMax-M3"], (
+            f"Expected fallback_models == ['MiniMax-M3'], got {fallback_models}"
         )
 
     def test_configuration_toml_was_edited_for_fork(self):
@@ -96,9 +118,9 @@ class TestForkPrAgentConfig:
             content = f.read()
 
         # Verify that configuration.toml contains the fork's model setting
-        # The fork promoted the GitHub App primary model to gpt-5.5
-        assert "model=\"gpt-5.5\"" in content or "model = \"gpt-5.5\"" in content, (
-            "configuration.toml should contain model=\"gpt-5.5\" for fork-specific default"
+        # The fork switched the GitHub App primary model to MiniMax-M3 (direct API)
+        assert "model=\"MiniMax-M3\"" in content or "model = \"MiniMax-M3\"" in content, (
+            "configuration.toml should contain model=\"MiniMax-M3\" for fork-specific default"
         )
 
     def test_auto_commands_resolve_to_registered_commands(self):

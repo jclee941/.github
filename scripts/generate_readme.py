@@ -8,8 +8,8 @@ Usage:
     python scripts/generate_readme.py [--dry-run]
 
 Environment:
-    CLIPROXY_API_KEY — API key for CLIProxyAPI (required)
-    OPENAI_BASE_URL  — CLIProxyAPI endpoint (default: https://cliproxy.jclee.me/v1)
+    MINIMAX_API_KEY  — API key for the direct MiniMax API (required)
+    OPENAI_BASE_URL  — MiniMax endpoint (default: https://api.minimax.io/v1)
 """
 from __future__ import annotations
 
@@ -24,9 +24,9 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-API_BASE = os.environ.get("OPENAI_BASE_URL", "https://cliproxy.jclee.me/v1")
-API_KEY = os.environ.get("CLIPROXY_API_KEY", "")
-MODELS = ["minimax-m2.7"]
+API_BASE = os.environ.get("OPENAI_BASE_URL", "https://api.minimax.io/v1")
+API_KEY = os.environ.get("MINIMAX_API_KEY", "") or os.environ.get("CLIPROXY_API_KEY", "")
+MODELS = ["MiniMax-M3"]
 MAX_TOKENS = 16000  # README is long; 4000 truncated the JSON mid-string
 
 # Backoff (seconds) between retry attempts for a single model on transient
@@ -211,7 +211,7 @@ def call_llm(system: str, user: str) -> str:
     error (bad request, auth) still raises SystemExit immediately.
     """
     if not API_KEY:
-        raise SystemExit("ERROR: CLIPROXY_API_KEY environment variable is required.")
+        raise SystemExit("ERROR: MINIMAX_API_KEY environment variable is required.")
 
     last_error = None
     all_transient = True

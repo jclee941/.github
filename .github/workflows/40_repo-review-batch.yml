@@ -33,7 +33,7 @@ on:
       model:
         description: Primary LLM model
         required: false
-        default: minimax-m2.7
+        default: MiniMax-M3
 
 permissions:
   contents: read
@@ -92,25 +92,25 @@ jobs:
           go-version: '1.21'
 
 
-      - name: Verify cli_proxy connectivity
+      - name: Verify MiniMax connectivity
         env:
-          CLIPROXY_API_KEY: ${{ secrets.CLIPROXY_API_KEY }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
         run: |
           set -e
-          if [ -z "$CLIPROXY_API_KEY" ]; then
-            echo "::error::CLIPROXY_API_KEY secret is not set on this repo."
+          if [ -z "$MINIMAX_API_KEY" ]; then
+            echo "::error::MINIMAX_API_KEY secret is not set on this repo."
             exit 1
           fi
-          HTTP_CODE=$(curl -sS -o /tmp/cli_proxy_test.json -w '%{http_code}' \
+          HTTP_CODE=$(curl -sS -o /tmp/minimax_test.json -w '%{http_code}' \
             --max-time 15 \
-            https://cliproxy.jclee.me/v1/models \
-            -H "Authorization: Bearer $CLIPROXY_API_KEY")
+            https://api.minimax.io/v1/models \
+            -H "Authorization: Bearer $MINIMAX_API_KEY")
           if [ "$HTTP_CODE" != "200" ]; then
-            echo "::error::cli_proxy returned HTTP $HTTP_CODE"
-            cat /tmp/cli_proxy_test.json
+            echo "::error::MiniMax API returned HTTP $HTTP_CODE"
+            cat /tmp/minimax_test.json
             exit 1
           fi
-          echo "cli_proxy OK"
+          echo "MiniMax API OK"
 
       - name: Close stale bot-review issues
         env:
@@ -145,10 +145,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           PR_AGENT_PYTHON: ${{ github.workspace }}/pr-agent-src/.venv/bin/python
           # pr-agent settings (mirrors pr-review.yml)
-          OPENAI__KEY: ${{ secrets.CLIPROXY_API_KEY }}
-          OPENAI__API_BASE: https://cliproxy.jclee.me/v1
+          OPENAI__KEY: ${{ secrets.MINIMAX_API_KEY }}
+          OPENAI__API_BASE: https://api.minimax.io/v1
           CONFIG__MODEL: ${{ inputs.model }}
-          CONFIG__FALLBACK_MODELS: '["minimax-m2.7", "gpt-5.5"]'
+          CONFIG__FALLBACK_MODELS: '["MiniMax-M3"]'
           CONFIG__RESPONSE_LANGUAGE: ko
           CONFIG__AI_TIMEOUT: "180"
           CONFIG__CUSTOM_MODEL_MAX_TOKENS: "128000"

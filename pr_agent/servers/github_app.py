@@ -266,8 +266,8 @@ async def handle_push_trigger_for_new_commits(
             get_logger().info(f"Performing incremental review for {api_url=} because of {event=} and {action=}")
             await _perform_auto_commands_github("push_commands", agent, body, api_url, log_context)
 
-            # SECOND-REVIEW: run minimax for push triggers (2-review policy: kimi on open, minimax on push)
-            second_review_model = get_settings().get("github_app.push_trigger_second_review_model", "minimax-m2.7")
+            # SECOND-REVIEW: re-review on push (fork 2-review policy: primary on open, second on push)
+            second_review_model = get_settings().get("github_app.push_trigger_second_review_model", "MiniMax-M3")
             get_logger().info(f"Performing second review with {second_review_model} for {api_url=}")
             env = os.environ.copy()
             env["CONFIG.MODEL"] = second_review_model
