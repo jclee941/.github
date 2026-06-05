@@ -85,9 +85,14 @@ jobs:
           THRESHOLD=$((NOW - MIN_AGE_DAYS * 86400))
           SKIP_LABELS="wontfix duplicate invalid bot-review ci-failure automated dependencies"
           # Pre-fetch open issues; up to 100 per page is fine for our repos.
-          gh issue list --repo "$REPO" --state open --limit 100 \
+          # Tolerate transient API failures (rate limit, 5xx): warn and skip this
+          # run rather than failing the workflow (event-driven runs are frequent).
+          if ! gh issue list --repo "$REPO" --state open --limit 100 \
             --json number,title,updatedAt,labels,assignees \
-            > /tmp/issues.json
+            > /tmp/issues.json 2>/tmp/issues.err; then
+            echo "::warning::issue-backfill: gh issue list failed for $REPO (likely transient/rate-limit); skipping this run. $(cat /tmp/issues.err)"
+            exit 0
+          fi
           PICKED=0
           {
             echo "## Issue Backfill Candidates ($REPO)"
