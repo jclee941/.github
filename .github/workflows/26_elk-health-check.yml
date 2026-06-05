@@ -1,6 +1,12 @@
 name: ELK Health Check
 
 on:
+  deployment_status:
+  workflow_run:
+    workflows: ["Build and Push App Image", "Auto Deploy Workflows", "ELK Setup"]
+    types: [completed]
+  repository_dispatch:
+    types: [elk-health-check]
   workflow_dispatch:
 
 permissions:
@@ -13,6 +19,7 @@ concurrency:
 
 jobs:
   elk-health-check:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     # Homelab-only: requires access to internal Elasticsearch (host in ELK_HOST secret)
     runs-on: self-hosted
     timeout-minutes: 5

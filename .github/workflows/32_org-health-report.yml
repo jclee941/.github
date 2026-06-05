@@ -1,6 +1,13 @@
 name: Organization Health Report
 
 on:
+  issues:
+    types: [opened, edited, labeled, unlabeled, reopened, closed]
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review, closed]
+  workflow_run:
+    workflows: ["PR Checks", "Issue Management", "Repository Health Check"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -13,6 +20,7 @@ concurrency:
 
 jobs:
   report:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:

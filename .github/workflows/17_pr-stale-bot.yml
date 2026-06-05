@@ -1,6 +1,13 @@
 name: PR Stale Bot
 
 on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review, closed]
+  issue_comment:
+    types: [created, edited]
+  workflow_run:
+    workflows: ["PR Checks", "Sanity"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -14,6 +21,7 @@ concurrency:
 
 jobs:
   stale-prs:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:

@@ -1,9 +1,17 @@
 name: Template Sync
 
 on:
-  # Manual trigger
+  push:
+    branches: [master]
+    paths:
+      - 'templates/CONTRIBUTING.md'
+      - 'templates/LICENSE'
+      - '.github/workflows/22_template-sync.yml'
+      - 'scripts/cmd/deploy-to-repos/**'
+  workflow_run:
+    workflows: ["Auto Deploy Workflows"]
+    types: [completed]
   workflow_dispatch:
-  # Weekly sync (Sundays 01:00 UTC)
 permissions:
   contents: write
   pull-requests: write
@@ -14,6 +22,7 @@ concurrency:
 
 jobs:
   discover-repos:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 5
     outputs:

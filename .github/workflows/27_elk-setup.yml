@@ -1,6 +1,16 @@
 name: ELK Setup
 
 on:
+  push:
+    branches: [master]
+    paths:
+      - 'filebeat.yml'
+      - 'docker-compose.github_app.yml'
+      - 'docker-compose.github_app.yml.lxc'
+      - '.github/workflows/27_elk-setup.yml'
+  deployment:
+  repository_dispatch:
+    types: [elk-setup]
   workflow_dispatch:
 
 permissions:

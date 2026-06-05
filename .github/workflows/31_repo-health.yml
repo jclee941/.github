@@ -1,9 +1,19 @@
 name: Repository Health Check
 
 on:
-  # Manual trigger
+  push:
+    branches: [master, main]
+    paths:
+      - 'README.md'
+      - 'CONTRIBUTING.md'
+      - 'LICENSE'
+      - 'templates/**'
+      - '.github/workflows/31_repo-health.yml'
+      - 'config/repos.yaml'
+  workflow_run:
+    workflows: ["Template Sync", "README Generator", "Auto Deploy Workflows"]
+    types: [completed]
   workflow_dispatch:
-  # Weekly check (Mondays 02:00 UTC)
 permissions:
   contents: read
   issues: write
@@ -14,6 +24,7 @@ concurrency:
 
 jobs:
   discover-repos:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 5
     outputs:

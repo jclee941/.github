@@ -1,6 +1,20 @@
 name: Drift Detector
 
 on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/**'
+      - '.github/dependabot.yml'
+      - '.github/CODEOWNERS'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
+      - '.github/ISSUE_TEMPLATE/**'
+      - 'scripts/cmd/deploy-to-repos/**'
+      - 'scripts/cmd/drift-detector/**'
+      - 'config/repos.yaml'
+  workflow_run:
+    workflows: ["Auto Deploy Workflows"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       self_heal:
@@ -22,6 +36,7 @@ concurrency:
 
 jobs:
   detect:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 15
     outputs:

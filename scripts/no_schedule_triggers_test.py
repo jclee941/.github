@@ -54,9 +54,47 @@ def test_no_dead_schedule_conditionals():
     (such a branch would be permanently dead)."""
     import re
     dead = []
-    pat = re.compile(r"event_name\s*==\s*'schedule'|event\.schedule\s*==")
+    # Catch ==, != and the event.schedule variants — any of these is dead once cron is gone.
+    pat = re.compile(r"event_name\s*(==|!=)\s*['\"]schedule['\"]|event\.schedule\s*==")
     for wf in sorted(glob.glob(".github/workflows/*.yml")):
         for i, line in enumerate(open(wf, encoding="utf-8"), 1):
             if pat.search(line):
                 dead.append(f"{os.path.basename(wf)}:{i}")
     assert not dead, f"dead schedule conditionals remain: {dead}"
+
+
+_REUSABLE = {"42_reusable", "43_reusable", "44_reusable", "45_reusable"}
+
+# 40_repo-review-batch is intentionally manual-only: it runs LLM reviews across
+# many repos and is gated to workflow_dispatch to keep token spend explicit
+# (see its header comment). Event-driving it would cause runaway cost.
+_MANUAL_ONLY_EXEMPT = {"40_repo-review-batch.yml"}
+
+
+def test_no_workflow_is_manual_dispatch_only():
+    """Every non-reusable workflow must react to a REAL webhook event, not just
+    manual workflow_dispatch. GitOps automation is webhook-event-driven; a
+    workflow whose only trigger is workflow_dispatch is effectively dead
+    automation (must be manually run).
+    """
+    manual_only = []
+    for wf in sorted(glob.glob(".github/workflows/*.yml")):
+        base = os.path.basename(wf)
+        on = _load_on(wf)
+        if not isinstance(on, dict):
+            continue
+        keys = set(on.keys())
+        # reusable workflows are invoked via workflow_call (a real event)
+        if "workflow_call" in keys:
+            continue
+        if any(base.startswith(p) for p in _REUSABLE):
+            continue
+        if base in _MANUAL_ONLY_EXEMPT:
+            continue
+        real_events = keys - {"workflow_dispatch"}
+        if not real_events:
+            manual_only.append(base)
+    assert not manual_only, (
+        "workflows with ONLY workflow_dispatch (no webhook event trigger): "
+        f"{manual_only}"
+    )

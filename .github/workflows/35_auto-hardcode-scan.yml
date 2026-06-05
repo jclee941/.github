@@ -1,5 +1,12 @@
 name: Auto Hardcode Scan
 on:
+  push:
+    branches: [master, main]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_run:
+    workflows: ["Sanity"]
+    types: [completed]
   workflow_dispatch:
 
 concurrency:
@@ -8,6 +15,7 @@ concurrency:
 
 jobs:
   scan:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 15
     permissions:

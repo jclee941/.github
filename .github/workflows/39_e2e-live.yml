@@ -9,6 +9,11 @@ name: Live E2E Tests
 #   - E2E_CLIPROXY_API_KEY (or CLIPROXY_API_KEY): CLIProxyAPI key for bot review tests
 
 on:
+  workflow_run:
+    workflows: ["Build and Push App Image", "Runtime Health Check", "Bot Health Monitor"]
+    types: [completed]
+  repository_dispatch:
+    types: [e2e-live-readonly, e2e-live-canary]
   workflow_dispatch:
 permissions:
   contents: read
@@ -20,6 +25,7 @@ concurrency:
 jobs:
   readonly:
     name: Read-Only Fleet Health
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
@@ -65,7 +71,7 @@ jobs:
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 20
     needs: readonly
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'repository_dispatch' && github.event.action == 'e2e-live-canary')
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@v2

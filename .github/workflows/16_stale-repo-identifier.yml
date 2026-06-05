@@ -1,6 +1,13 @@
 name: Stale Repository Identifier
 
 on:
+  push:
+    branches: [master, main]
+  issues:
+    types: [opened, edited, labeled, unlabeled, reopened, closed]
+  workflow_run:
+    workflows: ["Sanity", "Auto Deploy Workflows"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -13,6 +20,7 @@ concurrency:
 
 jobs:
   identify:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:

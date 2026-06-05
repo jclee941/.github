@@ -1,6 +1,12 @@
 name: Bot Health Monitor
 
 on:
+  deployment_status:
+  workflow_run:
+    workflows: ["Build and Push App Image", "Auto Deploy Workflows", "PR Review (CLIProxyAPI)", "Security Audit"]
+    types: [completed]
+  repository_dispatch:
+    types: [bot-health-monitor]
   workflow_dispatch:
 
 permissions:
@@ -13,6 +19,7 @@ concurrency:
 
 jobs:
   monitor:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
