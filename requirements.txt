@@ -1,5 +1,5 @@
 aiohttp==3.13.5  # pinned by litellm 1.83.14 transitive
-anthropic>=0.100.0
+anthropic>=0.105.2
 #anthropic[vertex]==0.47.1
 atlassian-python-api==4.0.7
 azure-devops==7.1.0b4
