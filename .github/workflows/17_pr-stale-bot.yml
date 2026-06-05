@@ -1,8 +1,6 @@
 name: PR Stale Bot
 
 on:
-  schedule:
-    - cron: '0 8 * * *'  # Daily 08:00 UTC (17:00 KST)
   workflow_dispatch:
 
 permissions:

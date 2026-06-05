@@ -1,8 +1,6 @@
 name: Bot Health Monitor
 
 on:
-  schedule:
-    - cron: '10 6 * * *'  # Daily 06:10 UTC (15:10 KST) - offset to avoid collision with 26_elk-health-check
   workflow_dispatch:
 
 permissions:

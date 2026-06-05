@@ -1,8 +1,6 @@
 name: Organization Health Report
 
 on:
-  schedule:
-    - cron: '15 9 * * 1'  # Weekly Monday 09:15 UTC (18:15 KST) - offset to avoid collision with 08_scorecard + 33_drift-detector
   workflow_dispatch:
 
 permissions:

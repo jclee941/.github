@@ -1,8 +1,6 @@
 name: ELK Setup
 
 on:
-  schedule:
-    - cron: '0 2 * * 0'  # Weekly Sunday 02:00 UTC
   workflow_dispatch:
 
 permissions:

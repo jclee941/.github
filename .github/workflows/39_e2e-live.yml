@@ -10,10 +10,6 @@ name: Live E2E Tests
 
 on:
   workflow_dispatch:
-  schedule:
-    # Sunday 06:00 KST (Saturday 21:00 UTC)
-    - cron: '0 21 * * 6'
-
 permissions:
   contents: read
 
@@ -69,7 +65,7 @@ jobs:
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 20
     needs: readonly
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 21 * * 6'
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@v2

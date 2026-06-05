@@ -526,9 +526,9 @@ class TestStaleFailureIssueAutoRecovery:
     Health, ELK Health, Downstream Health, Bot Health, Drift, CI Auto-Heal)
     must auto-close when their originating workflow recovers — no manual
     cleanup. ci-failure-issues.yml is the centralized recovery mechanism:
-    (1) event-driven on workflow_run success, and (2) a scheduled sweep that
-    closes open failure/health issues whose workflow's latest master run is
-    green.
+    (1) event-driven on workflow_run success, and (2) a manually dispatchable
+    sweep that closes open failure/health issues whose workflow's latest master
+    run is green.
     """
 
     def test_watches_all_recoverable_workflows(self):
@@ -582,12 +582,17 @@ class TestStaleFailureIssueAutoRecovery:
             f"watch list: {sorted(missing)}"
         )
 
-    def test_has_scheduled_sweep(self):
+    def test_sweep_is_manually_dispatchable(self):
         text = read_workflow("ci-failure-issues.yml")
-        # A scheduled trigger is required for the periodic stale-issue sweep.
-        assert "schedule:" in text and "cron:" in text, (
-            "ci-failure-issues.yml must have a scheduled (cron) trigger for the "
-            "periodic stale-failure-issue sweep."
+        # GitOps automation is event-driven: the periodic cron was removed in
+        # favor of workflow_dispatch + the event-driven workflow_run triage path.
+        # The stale-issue sweep must remain reachable via manual dispatch.
+        assert "schedule:" not in text and "cron:" not in text, (
+            "ci-failure-issues.yml must NOT use a cron schedule (event-driven only)."
+        )
+        assert "workflow_dispatch:" in text, (
+            "ci-failure-issues.yml must keep workflow_dispatch so the stale-failure "
+            "sweep can be triggered manually."
         )
 
     def test_sweep_queries_workflow_run_conclusion(self):

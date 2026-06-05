@@ -4,9 +4,6 @@ on:
   # Manual trigger
   workflow_dispatch:
   # Weekly check (Mondays 02:00 UTC)
-  schedule:
-    - cron: '0 2 * * 1'
-
 permissions:
   contents: read
   issues: write
