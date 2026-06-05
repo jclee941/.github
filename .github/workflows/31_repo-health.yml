@@ -56,6 +56,10 @@ jobs:
         env:
           REPO_NAME: ${{ matrix.repo }}
         with:
+          # GH_PAT is a fine-grained PAT with Issues:write on every target repo;
+          # GITHUB_TOKEN is scoped to this repo only and 403s on cross-repo issue
+          # creation (Resource not accessible by integration).
+          github-token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           script: |
             const repo = process.env.REPO_NAME;
             const owner = context.repo.owner;
