@@ -133,6 +133,49 @@ def decide_commands(meta: PRMeta) -> tuple[list[str], str]:
     return ["describe", "review"], "default"
 
 
+_VALID_COMMANDS = {"review", "describe", "improve"}
+
+
+def _llm_command(meta: PRMeta):
+    """Ask llm_decide (pr-command) which commands to run. Returns (commands|None, source).
+
+    Returns (None, 'fallback') on any failure so the caller degrades to the
+    deterministic decide_commands(). Never raises.
+    """
+    try:
+        import llm_decide
+    except Exception:
+        return None, "fallback"
+    payload = {
+        "author": meta.author, "title": meta.title,
+        "additions": meta.additions, "deletions": meta.deletions,
+        "loc": meta.loc, "files": meta.files,
+    }
+    try:
+        res = llm_decide.decide("pr-command", payload)
+    except Exception:
+        return None, "fallback"
+    if not res.get("ok") or res.get("action") != "command":
+        return None, "fallback"
+    cmd = res.get("command")
+    if not cmd:
+        return None, "fallback"
+    cmds = [c.strip() for c in str(cmd).split(",") if c.strip()]
+    return cmds, "llm"
+
+
+def decide_commands_with_llm(meta: PRMeta) -> tuple[list[str], str]:
+    """DP-16: LLM-first command selection, deterministic fallback.
+
+    Uses the LLM decision only if every returned command is valid; otherwise
+    falls back to the deterministic decide_commands() (fail-open).
+    """
+    cmds, source = _llm_command(meta)
+    if cmds and all(c in _VALID_COMMANDS for c in cmds):
+        return cmds, f"llm: {source}"
+    return decide_commands(meta)
+
+
 def run_commands(pr_url: str, commands: list[str], log_path: Path) -> int:
     """Run pr-agent commands, tee output to log_path. Return max exit code."""
     log_path.write_text("", encoding="utf-8")
@@ -186,7 +229,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     meta = fetch_pr_meta(args.pr_url)
-    commands, reason = decide_commands(meta)
+    commands, reason = decide_commands_with_llm(meta)
 
     print(f"::notice::PR #{meta.number} (LOC={meta.loc}, author={meta.author}, title={meta.title})")
     print(f"::notice::Selected commands: {' '.join(commands)}  ({reason})")

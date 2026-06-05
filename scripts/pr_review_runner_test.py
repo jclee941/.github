@@ -186,3 +186,34 @@ class TestMain:
         main(["https://github.com/jclee941/.github/pull/1", "--log", str(log)])
         _, call_args, _ = mock_run.mock_calls[0]
         assert call_args[1] == ["review"]
+
+
+class TestDecideCommandsWithLLM:
+    """DP-16: LLM-first command selection with deterministic fallback."""
+
+    def test_llm_success_used(self):
+        meta = PRMeta(number=1, author="alice", title="feat: x",
+                      additions=10, deletions=0, files=["a.py"])
+        from pr_review_runner import decide_commands_with_llm
+        with patch("pr_review_runner._llm_command", return_value=(["describe", "review"], "llm")):
+            cmds, reason = decide_commands_with_llm(meta)
+        assert cmds == ["describe", "review"]
+        assert "llm" in reason.lower()
+
+    def test_llm_failure_falls_back_to_deterministic(self):
+        meta = PRMeta(number=1, author="bot[bot]", title="x",
+                      additions=10, deletions=0, files=["a.py"])
+        from pr_review_runner import decide_commands_with_llm
+        with patch("pr_review_runner._llm_command", return_value=(None, "fallback")):
+            cmds, reason = decide_commands_with_llm(meta)
+        # bot author -> deterministic ['review']
+        assert cmds == ["review"]
+
+    def test_llm_invalid_command_falls_back(self):
+        meta = PRMeta(number=1, author="alice", title="fix: y",
+                      additions=5, deletions=0, files=["a.py"])
+        from pr_review_runner import decide_commands_with_llm
+        # LLM returns a command not in the valid set -> ignore, fall back
+        with patch("pr_review_runner._llm_command", return_value=(["frobnicate"], "llm")):
+            cmds, reason = decide_commands_with_llm(meta)
+        assert cmds == ["describe", "review"]  # feat/fix/refactor deterministic
