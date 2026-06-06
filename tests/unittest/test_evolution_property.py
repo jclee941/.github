@@ -367,3 +367,54 @@ class TestRecursiveInvariants:
         # zero fanout always yields a single-node tree
         if fanout == 0:
             assert result.tree.children == ()
+
+
+class TestParallelRecursiveEquivalence:
+    """S5: parallel recursive descent must equal sequential for deterministic
+    callables, across randomized bounded trees."""
+
+    @staticmethod
+    def _snap(node):
+        return (
+            node.path,
+            node.depth,
+            node.final_candidate,
+            node.refinement.stop_reason,
+            round(node.refinement.final_quality, 9),
+            round(node.aggregate_quality, 9),
+            node.max_depth_reached,
+            tuple(TestParallelRecursiveEquivalence._snap(c) for c in node.children),
+        )
+
+    @settings(deadline=None, max_examples=60)
+    @given(
+        initial=st.text(min_size=0, max_size=10),
+        fanout=st.integers(min_value=0, max_value=3),
+        max_depth=st.integers(min_value=0, max_value=3),
+        max_iterations=st.integers(min_value=1, max_value=3),
+        workers=st.integers(min_value=2, max_value=6),
+    )
+    def test_parallel_equals_sequential(self, initial, fanout, max_depth, max_iterations, workers):
+        def critic(c):
+            return Critique(quality=(sum(ord(x) for x in c) % 101) / 100.0, message="q")
+
+        def generator(c, cr, i):
+            return c + "x"
+
+        def decompose(c):
+            return [RefinementPart(value=c + str(i), key=str(i)) for i in range(fanout)]
+
+        def recompose(o, refined):
+            return "|".join(rp.node.final_candidate for rp in refined) or o
+
+        cfg = RefinementConfig(max_iterations=max_iterations, quality_threshold=1.0)
+        seq = RecursiveRefiner(max_workers=1).refine_recursive(
+            initial, critic, generator, decompose, recompose, cfg, max_depth=max_depth,
+        )
+        par = RecursiveRefiner(max_workers=workers).refine_recursive(
+            initial, critic, generator, decompose, recompose, cfg, max_depth=max_depth,
+        )
+        assert self._snap(par.tree) == self._snap(seq.tree)
+        assert par.total_iterations == seq.total_iterations
+        assert par.max_observed_depth == seq.max_observed_depth
+        assert par.final_candidate == seq.final_candidate

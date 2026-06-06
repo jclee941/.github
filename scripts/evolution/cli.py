@@ -312,7 +312,7 @@ def _cmd_refine_recursive(args: argparse.Namespace) -> int:
     )
     result = engine.refine_recursive(
         initial, critic, generator, decompose, _join_markdown_sections, config,
-        max_depth=args.max_depth,
+        max_depth=args.max_depth, max_workers=args.max_workers,
         persist=True, run_id=args.run_id, repo=args.repo, pr_url=args.pr_url,
     )
     payload = {
@@ -410,6 +410,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_rec.add_argument("--require-section", dest="require_section", action="append", default=[])
     p_rec.add_argument("--max-iterations", dest="max_iterations", type=int, default=5)
     p_rec.add_argument("--max-depth", dest="max_depth", type=int, default=1)
+    p_rec.add_argument("--max-workers", dest="max_workers", type=int, default=1,
+                       help="parallel sibling refinement workers (>1 needs thread-safe callables)")
     p_rec.add_argument("--threshold", type=float, default=1.0)
     p_rec.set_defaults(func=_cmd_refine_recursive)
 

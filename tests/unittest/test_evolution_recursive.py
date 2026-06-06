@@ -16,6 +16,8 @@ from __future__ import annotations
 import re
 from typing import Sequence
 
+import pytest
+
 from scripts.evolution.models import (
     Critique,
     RecursiveRefinementNode,
@@ -209,3 +211,239 @@ class TestIterationAccounting:
             f"total_iterations={result.total_iterations} but refine() actually "
             f"ran {actual['iterations']} iterations"
         )
+
+
+# --- Parallel recursive descent (S1 determinism, S2 concurrency, S4 validation) ---
+
+import threading  # noqa: E402
+
+from scripts.evolution.errors import ValidationError  # noqa: E402
+
+
+def _snapshot(node):
+    """Structural snapshot used to assert parallel == sequential, byte-identical."""
+    return (
+        node.path,
+        node.depth,
+        node.initial_candidate,
+        node.final_candidate,
+        node.refinement.stop_reason,
+        round(node.refinement.final_quality, 9),
+        round(node.aggregate_quality, 9),
+        node.max_depth_reached,
+        tuple(_snapshot(c) for c in node.children),
+    )
+
+
+# Deterministic callables reused by parallel tests: a 2-level decomposable doc.
+_REQ = ("intro", "usage")
+
+
+def _pcritic(c: str) -> Critique:
+    have = sum(1 for k in _REQ if k in c.lower())
+    return Critique(have / len(_REQ), f"{have}/{len(_REQ)}")
+
+
+def _pgen(c: str, cr: Critique, i: int) -> str:
+    for k in _REQ:
+        if k not in c.lower():
+            return c + "\n" + k
+    return c
+
+
+def _pdecompose(c: str):
+    # Root '# ' doc splits into sections; each section further splits once on '## '.
+    import re as _re
+    parts = []
+    for block in _re.split(r"(?m)^(?=#{1,2} )", c):
+        block = block.strip("\n")
+        if block and block.startswith("#"):
+            parts.append(RefinementPart(value=block, key=block.splitlines()[0]))
+    return parts
+
+
+def _precompose(original: str, refined):
+    return "\n\n".join(rp.node.final_candidate for rp in refined) if refined else original
+
+
+_PARALLEL_DOC = (
+    "# A\n\n## A1\nx\n\n## A2\ny\n\n# B\n\n## B1\nz\n\n## B2\nw"
+)
+
+
+class TestParallelRecursiveRefinement:
+    def _run(self, workers: int):
+        refiner: RecursiveRefiner[str] = RecursiveRefiner(max_workers=workers)
+        return refiner.refine_recursive(
+            _PARALLEL_DOC, _pcritic, _pgen, _pdecompose, _precompose,
+            RefinementConfig(quality_threshold=1.0, max_iterations=4),
+            max_depth=2,
+        )
+
+    def test_parallel_equals_sequential(self):
+        seq = self._run(1)
+        par = self._run(8)
+        assert _snapshot(par.tree) == _snapshot(seq.tree), "parallel tree != sequential tree"
+        assert par.final_candidate == seq.final_candidate
+        assert par.total_iterations == seq.total_iterations
+        assert par.max_observed_depth == seq.max_observed_depth
+        assert round(par.final_quality, 9) == round(seq.final_quality, 9)
+        # the tree actually has siblings to parallelize
+        assert len(seq.tree.children) >= 2
+
+    def test_siblings_run_concurrently_when_parallel(self):
+        # A child-only barrier: N sibling leaves must all enter the critic
+        # simultaneously, which is only possible if they run on >1 thread.
+        n = 3
+        barrier = threading.Barrier(n, timeout=10)
+        lock = threading.Lock()
+        threads: set[int] = set()
+
+        def critic(c: str) -> Critique:
+            if c.startswith("leaf-"):
+                with lock:
+                    threads.add(threading.get_ident())
+                barrier.wait()  # deadlocks/raises BrokenBarrier if run serially
+            return Critique(1.0, "done")
+
+        def gen(c: str, cr: Critique, i: int) -> str:
+            return c
+
+        def decompose(c: str):
+            if c == "root":
+                return [RefinementPart(value=f"leaf-{i}", key=str(i)) for i in range(n)]
+            return []
+
+        def recompose(o: str, refined):
+            return o
+
+        refiner: RecursiveRefiner[str] = RecursiveRefiner(max_workers=n)
+        res = refiner.refine_recursive(
+            "root", critic, gen, decompose, recompose,
+            RefinementConfig(quality_threshold=1.0, max_iterations=2),
+            max_depth=1,
+        )
+        assert len(res.tree.children) == n
+        assert len(threads) > 1, f"expected >1 worker thread, saw {len(threads)}"
+
+    def test_sequential_uses_single_thread(self):
+        n = 3
+        lock = threading.Lock()
+        threads: set[int] = set()
+
+        def critic(c: str) -> Critique:
+            if c.startswith("leaf-"):
+                with lock:
+                    threads.add(threading.get_ident())
+            return Critique(1.0, "done")
+
+        def gen(c: str, cr: Critique, i: int) -> str:
+            return c
+
+        def decompose(c: str):
+            if c == "root":
+                return [RefinementPart(value=f"leaf-{i}", key=str(i)) for i in range(n)]
+            return []
+
+        refiner: RecursiveRefiner[str] = RecursiveRefiner(max_workers=1)
+        refiner.refine_recursive(
+            "root", critic, gen, decompose, lambda o, r: o,
+            RefinementConfig(quality_threshold=1.0, max_iterations=2),
+            max_depth=1,
+        )
+        assert len(threads) == 1, f"sequential must use one thread, saw {len(threads)}"
+
+    def test_invalid_max_workers_raises(self):
+        with pytest.raises(ValidationError):
+            RecursiveRefiner(max_workers=0)
+        with pytest.raises(ValidationError):
+            RecursiveRefiner(max_workers=-1)
+
+    def test_total_thread_count_is_globally_bounded(self):
+        # max_workers must be a GLOBAL cap, not per-node. A wide+deep tree
+        # (fanout^depth nodes) must NOT spawn threads proportional to the tree
+        # size: total distinct worker threads ever used must stay <= max_workers.
+        max_workers = 3
+        lock = threading.Lock()
+        all_threads: set[int] = set()
+
+        def critic(c: str) -> Critique:
+            with lock:
+                all_threads.add(threading.get_ident())
+            return Critique(1.0, "ok")
+
+        def gen(c: str, cr: Critique, i: int) -> str:
+            return c
+
+        # Each non-leaf node decomposes into 3 children, up to max_depth=3 ->
+        # 1 + 3 + 9 + 27 = 40 nodes, far more than max_workers.
+        def decompose(c: str):
+            if c.count(".") < 3:  # depth marker via dots
+                return [RefinementPart(value=f"{c}.{i}", key=str(i)) for i in range(3)]
+            return []
+
+        refiner: RecursiveRefiner[str] = RecursiveRefiner(max_workers=max_workers)
+        res = refiner.refine_recursive(
+            "r", critic, gen, decompose, lambda o, r: o,
+            RefinementConfig(quality_threshold=1.0, max_iterations=1),
+            max_depth=3,
+        )
+        # the tree really is large (proves the scenario exercises depth*fanout)
+        def _count(n):
+            return 1 + sum(_count(c) for c in n.children)
+        assert _count(res.tree) >= 40
+        # GLOBAL bound: the main thread + at most (max_workers-1) helpers.
+        assert len(all_threads) <= max_workers, (
+            f"thread explosion: {len(all_threads)} threads used for a "
+            f"{_count(res.tree)}-node tree with max_workers={max_workers}"
+        )
+
+    def test_permit_not_leaked_when_submit_raises(self, monkeypatch):
+        # If executor.submit raises AFTER permits.acquire() succeeds, the permit
+        # MUST be released. We instrument the semaphore to count acquire/release
+        # and force submit to raise, then assert balance (acquired == released).
+        import concurrent.futures as cf
+        import threading as _t
+
+        counter = {"acq": 0, "rel": 0}
+        real_sema = _t.BoundedSemaphore
+
+        class CountingSema:
+            def __init__(self, n):
+                self._s = real_sema(n)
+
+            def acquire(self, blocking=True, timeout=None):
+                ok = self._s.acquire(blocking=blocking, timeout=timeout)
+                if ok:
+                    counter["acq"] += 1
+                return ok
+
+            def release(self):
+                counter["rel"] += 1
+                return self._s.release()
+
+        monkeypatch.setattr(_t, "BoundedSemaphore", CountingSema)
+
+        def boom_submit(self, fn, *a, **k):
+            raise RuntimeError("submit boom")
+
+        monkeypatch.setattr(cf.ThreadPoolExecutor, "submit", boom_submit)
+
+        def decompose(c: str):
+            if c == "root":
+                return [RefinementPart(value=f"leaf-{i}", key=str(i)) for i in range(3)]
+            return []
+
+        refiner: RecursiveRefiner[str] = RecursiveRefiner(max_workers=3)
+        with pytest.raises(RuntimeError, match="submit boom"):
+            refiner.refine_recursive(
+                "root", lambda c: Critique(1.0, "ok"), lambda c, cr, i: c,
+                decompose, lambda o, r: o,
+                RefinementConfig(quality_threshold=1.0, max_iterations=1),
+                max_depth=1,
+            )
+        # Every acquired permit must have been released despite the submit failure.
+        assert counter["acq"] == counter["rel"], (
+            f"permit leak: acquired={counter['acq']} released={counter['rel']}"
+        )
+

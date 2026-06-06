@@ -102,12 +102,13 @@ class EvolutionEngine:
         *,
         serializer: CandidateSerializer[T] | None = None,
         max_depth: int = 1,
+        max_workers: int = 1,
         run_id: str | None = None,
         persist: bool = False,
         repo: str | None = None,
         pr_url: str | None = None,
     ) -> RecursiveRefinementResult[T]:
-        refiner: RecursiveRefiner[T] = RecursiveRefiner(serializer=serializer)
+        refiner: RecursiveRefiner[T] = RecursiveRefiner(serializer=serializer, max_workers=max_workers)
         result = refiner.refine_recursive(
             initial_candidate, critic, generator, decompose, recompose, config,
             max_depth=max_depth,

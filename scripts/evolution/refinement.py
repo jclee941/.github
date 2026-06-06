@@ -27,7 +27,9 @@ Stopping conditions (flat loop), in priority order:
 from __future__ import annotations
 
 import hashlib
+import threading
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
 from typing import Generic, TypeVar
 
 from scripts.evolution.errors import ValidationError
@@ -259,6 +261,19 @@ class RecursiveRefiner(Generic[T]):
     the parent reflects its improved children. Recursion is bounded solely by
     ``max_depth`` (the anti-infinite-recursion guard): a node at ``max_depth`` is
     refined but never decomposed.
+
+    Parallelism: ``max_workers`` (default 1 = sequential, byte-identical to the
+    original behavior) refines sibling subtrees concurrently. A SINGLE shared,
+    bounded thread pool is created per ``refine_recursive`` call, so the total
+    number of live helper threads is globally capped at ``max_workers - 1``
+    regardless of tree width/depth (no thread explosion). Each sibling is
+    offloaded only if a global permit is free; otherwise it runs inline in the
+    current thread, which guarantees forward progress (no nested-submit
+    deadlock). Children are always collected in original index order (never
+    completion order), so the resulting tree is deterministic and equal to the
+    sequential result. When ``max_workers > 1`` ALL injected callables (critic,
+    generator, decompose, recompose, serializer, aggregator) MUST be pure /
+    thread-safe, since sibling subtrees invoke them concurrently.
     """
 
     def __init__(
@@ -266,9 +281,17 @@ class RecursiveRefiner(Generic[T]):
         *,
         serializer: CandidateSerializer[T] | None = None,
         quality_aggregator: QualityAggregator[T] | None = None,
+        max_workers: int = 1,
     ) -> None:
+        if max_workers < 1:
+            raise ValidationError("max_workers must be >= 1")
         self._loop: SelfRefinementLoop[T] = SelfRefinementLoop(serializer)
         self._aggregate: QualityAggregator[T] = quality_aggregator or _default_quality_aggregator
+        # >1 refines sibling subtrees concurrently (deterministic: children are
+        # always collected in original index order). When >1, all injected
+        # callables (critic/generator/decompose/recompose/serializer/aggregator)
+        # MUST be pure / thread-safe. Default 1 = sequential, identical behavior.
+        self._max_workers = max_workers
 
     def refine_recursive(
         self,
@@ -283,10 +306,26 @@ class RecursiveRefiner(Generic[T]):
     ) -> RecursiveRefinementResult[T]:
         if max_depth < 0:
             raise ValidationError("max_depth must be >= 0")
-        tree = self._refine_node(
-            initial_candidate, critic, generator, decompose, recompose, config,
-            depth=0, max_depth=max_depth, path=(),
-        )
+        # A single shared, bounded pool for the ENTIRE recursion so total live
+        # helper threads are globally capped at max_workers-1 (the calling thread
+        # always does work too). A non-blocking permit gate (try-acquire, else run
+        # inline) guarantees forward progress => no nested-submit deadlock, while
+        # keeping the result tree deterministic (children stay in index order).
+        if self._max_workers > 1:
+            executor: ThreadPoolExecutor | None = ThreadPoolExecutor(max_workers=self._max_workers - 1)
+            permits: threading.BoundedSemaphore | None = threading.BoundedSemaphore(self._max_workers - 1)
+        else:
+            executor = None
+            permits = None
+        try:
+            tree = self._refine_node(
+                initial_candidate, critic, generator, decompose, recompose, config,
+                depth=0, max_depth=max_depth, path=(),
+                executor=executor, permits=permits,
+            )
+        finally:
+            if executor is not None:
+                executor.shutdown(wait=True)
         return RecursiveRefinementResult(
             initial_candidate=initial_candidate,
             final_candidate=tree.final_candidate,
@@ -308,6 +347,8 @@ class RecursiveRefiner(Generic[T]):
         depth: int,
         max_depth: int,
         path: tuple[int, ...],
+        executor: ThreadPoolExecutor | None = None,
+        permits: "threading.BoundedSemaphore | None" = None,
     ) -> RecursiveRefinementNode[T]:
         # 1) Flat refinement of this candidate.
         flat = self._loop.refine(candidate, critic, generator, config)
@@ -343,13 +384,56 @@ class RecursiveRefiner(Generic[T]):
 
         refined_parts: list[RefinedPart[T]] = []
         children: list[RecursiveRefinementNode[T]] = []
-        for index, part in enumerate(parts):
-            child = self._refine_node(
-                part.value, critic, generator, decompose, recompose, config,
-                depth=depth + 1, max_depth=max_depth, path=(*path, index),
-            )
-            children.append(child)
-            refined_parts.append(RefinedPart(part=part, node=child))
+        if executor is None or permits is None or len(parts) <= 1:
+            # Sequential: identical to the original behavior.
+            for index, part in enumerate(parts):
+                child = self._refine_node(
+                    part.value, critic, generator, decompose, recompose, config,
+                    depth=depth + 1, max_depth=max_depth, path=(*path, index),
+                    executor=executor, permits=permits,
+                )
+                children.append(child)
+                refined_parts.append(RefinedPart(part=part, node=child))
+        else:
+            # Parallel: offload each sibling subtree to the SHARED pool only if a
+            # global permit is free (non-blocking). If the global concurrency cap
+            # is already saturated, run that sibling inline in this thread. This
+            # bounds total live helper threads at max_workers-1 and cannot
+            # deadlock (no thread ever blocks waiting for a permit). Children are
+            # still assembled in original index order, so output is deterministic.
+            slots: list = []  # (part, future-or-None, inline-node-or-None), index-ordered
+            for index, part in enumerate(parts):
+                child_path = (*path, index)
+                if permits.acquire(blocking=False):
+                    def _run(p=part.value, cp=child_path) -> RecursiveRefinementNode[T]:
+                        try:
+                            return self._refine_node(
+                                p, critic, generator, decompose, recompose, config,
+                                depth=depth + 1, max_depth=max_depth, path=cp,
+                                executor=executor, permits=permits,
+                            )
+                        finally:
+                            permits.release()
+                    try:
+                        future = executor.submit(_run)
+                    except BaseException:
+                        # submit never accepted the task, so _run (and its
+                        # permits.release) will never run -> release here to
+                        # avoid leaking the permit for the rest of this call.
+                        permits.release()
+                        raise
+                    slots.append((part, future, None))
+                else:
+                    node = self._refine_node(
+                        part.value, critic, generator, decompose, recompose, config,
+                        depth=depth + 1, max_depth=max_depth, path=child_path,
+                        executor=executor, permits=permits,
+                    )
+                    slots.append((part, None, node))
+            for part, future, node in slots:
+                child = future.result() if future is not None else node
+                children.append(child)
+                refined_parts.append(RefinedPart(part=part, node=child))
 
         # 4) Recompose refined parts, then refine the recomposed candidate once
         #    more so the parent reflects its improved children.

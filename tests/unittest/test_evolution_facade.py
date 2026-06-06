@@ -336,3 +336,41 @@ class TestCli:
         assert "qa-rec-1" in run_ids
         assert any(r["parent_run_id"] == "qa-rec-1" for r in rows)
         assert any(r["is_recursive_root"] == 1 for r in rows)
+
+    def test_refine_recursive_cli_accepts_max_workers(self, tmp_path, capsys):
+        # --max-workers passes through; output is identical to sequential (the
+        # deterministic section critic is pure/thread-safe).
+        from scripts.evolution import cli
+
+        db = tmp_path / "ev.sqlite"
+        cli.main(["init-db", "--db", str(db)])
+        capsys.readouterr()
+        draft = tmp_path / "draft.md"
+        draft.write_text("# Intro\n\nplaceholder\n\n# Usage\n\nplaceholder")
+        rc = cli.main([
+            "refine-recursive", "--db", str(db), "--input", str(draft),
+            "--run-id", "qa-par-1", "--require-section", "## Summary",
+            "--max-depth", "1", "--max-iterations", "5", "--max-workers", "4",
+        ])
+        assert rc == 0
+        out = json.loads(capsys.readouterr().out)
+        assert "final_candidate" in out and "tree" in out
+        assert out["max_observed_depth"] <= 1
+
+    def test_facade_refine_recursive_rejects_bad_max_workers(self):
+        import pytest as _pytest
+
+        from scripts.evolution.errors import ValidationError
+        from scripts.evolution.facade import EvolutionEngine
+        from scripts.evolution.models import Critique, RefinementConfig
+        from scripts.evolution.storage import EvolutionStore
+
+        store = EvolutionStore(":memory:")
+        store.initialize()
+        eng = EvolutionEngine(store)
+        with _pytest.raises(ValidationError):
+            eng.refine_recursive(
+                "x", lambda c: Critique(1.0, "q"), lambda c, cr, i: c,
+                lambda c: [], lambda o, r: o, RefinementConfig(),
+                max_workers=0,
+            )
