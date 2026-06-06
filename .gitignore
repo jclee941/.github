@@ -28,3 +28,4 @@ scripts/sync-secrets
 scripts/deploy-to-repos
 scripts/validate-naming
 *.pyc
+_site/

@@ -35,49 +35,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Assemble static site from docs
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build HTML site from docs
         run: |
           set -euo pipefail
-          site="_site"
-          rm -rf "$site"
-          mkdir -p "$site"
-          # Copy docs (markdown rendered by Pages' Jekyll) + assets.
-          cp -r docs/* "$site"/ 2>/dev/null || true
-          cp README.md "$site/README.md" 2>/dev/null || true
-
-          # Landing page linking the key documents. Jekyll renders .md natively,
-          # so we emit an index.md that GitHub Pages turns into index.html.
-          {
-            echo "---"
-            echo "title: jclee-bot 자동화 문서"
-            echo "---"
-            echo
-            echo "# jclee-bot Automation Docs | 자동화 문서"
-            echo
-            echo "> Auto-published by \`41_pages-deploy.yml\`. Managed by jclee-bot."
-            echo
-            echo "## Documents"
-            echo
-            for f in "$site"/*.md; do
-              base="$(basename "$f")"
-              [ "$base" = "index.md" ] && continue
-              title="$(grep -m1 '^# ' "$f" 2>/dev/null | sed 's/^# //')"
-              [ -z "$title" ] && title="$base"
-              # Pages serves <name>.md as <name>.html
-              html="${base%.md}.html"
-              echo "- [${title}](${html})"
-            done
-          } > "$site/index.md"
-
-          # Minimal Jekyll config so Mermaid code-fences and front matter behave.
-          cat > "$site/_config.yml" <<'YML'
-          title: jclee-bot Automation Docs
-          description: Architecture and downstream standardization audit
-          theme: jekyll-theme-minimal
-          YML
-
+          python3 -m pip install --quiet 'markdown>=3.6'
+          python3 .github/scripts/build_pages.py
           echo "=== site contents ==="
-          ls -la "$site"
+          ls -la _site
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
