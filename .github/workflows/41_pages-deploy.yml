@@ -1,0 +1,106 @@
+name: Pages Deploy
+
+# Publishes the docs/ tree (architecture + downstream standardization audit) as a
+# GitHub Pages site. Managed by jclee-bot.
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - '.github/workflows/41_pages-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build site
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Assemble static site from docs
+        run: |
+          set -euo pipefail
+          site="_site"
+          rm -rf "$site"
+          mkdir -p "$site"
+          # Copy docs (markdown rendered by Pages' Jekyll) + assets.
+          cp -r docs/* "$site"/ 2>/dev/null || true
+          cp README.md "$site/README.md" 2>/dev/null || true
+
+          # Landing page linking the key documents. Jekyll renders .md natively,
+          # so we emit an index.md that GitHub Pages turns into index.html.
+          {
+            echo "---"
+            echo "title: jclee-bot 자동화 문서"
+            echo "---"
+            echo
+            echo "# jclee-bot Automation Docs | 자동화 문서"
+            echo
+            echo "> Auto-published by \`41_pages-deploy.yml\`. Managed by jclee-bot."
+            echo
+            echo "## Documents"
+            echo
+            for f in "$site"/*.md; do
+              base="$(basename "$f")"
+              [ "$base" = "index.md" ] && continue
+              title="$(grep -m1 '^# ' "$f" 2>/dev/null | sed 's/^# //')"
+              [ -z "$title" ] && title="$base"
+              # Pages serves <name>.md as <name>.html
+              html="${base%.md}.html"
+              echo "- [${title}](${html})"
+            done
+          } > "$site/index.md"
+
+          # Minimal Jekyll config so Mermaid code-fences and front matter behave.
+          cat > "$site/_config.yml" <<'YML'
+          title: jclee-bot Automation Docs
+          description: Architecture and downstream standardization audit
+          theme: jekyll-theme-minimal
+          YML
+
+          echo "=== site contents ==="
+          ls -la "$site"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
