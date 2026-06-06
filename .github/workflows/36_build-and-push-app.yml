@@ -1,0 +1,73 @@
+name: Build and Push App Image
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'pr_agent/**'
+      - 'Dockerfile.github_app'
+      - 'docker-compose.github_app.yml'
+      - '.pr_agent.toml'
+      - 'requirements.txt'
+      - 'pyproject.toml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-and-push-app-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-push:
+    runs-on: self-hosted
+    timeout-minutes: 15
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Check private registry reachability
+        id: registry_check
+        shell: bash
+        run: |
+          set -eu
+          if curl --fail --silent --show-error --max-time 10 https://registry.jclee.me/v2/ >/dev/null; then
+            echo "reachable=true" >> "$GITHUB_OUTPUT"
+            echo "Registry registry.jclee.me is reachable"
+          else
+            echo "reachable=false" >> "$GITHUB_OUTPUT"
+            echo "Registry registry.jclee.me is unreachable from this runner"
+          fi
+
+      - name: Login to private registry
+        if: steps.registry_check.outputs.reachable == 'true'
+        id: login
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee  # v4.2.0
+        with:
+          registry: registry.jclee.me
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and push
+        if: steps.registry_check.outputs.reachable == 'true'
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf  # v7.2.0
+        with:
+          context: .
+          file: Dockerfile.github_app
+          push: true
+          tags: registry.jclee.me/github-bot-app:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Skip image push when registry is unreachable
+        if: steps.registry_check.outputs.reachable != 'true'
+        run: |
+          echo "Registry registry.jclee.me is unreachable; reachable=false"
+          echo "Skipping Docker login, build, and push."
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-on-failure

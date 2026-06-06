@@ -1,0 +1,181 @@
+# Sanity CI — fast smoke test on every push/PR
+# ---------------------------------------------
+# Replaces upstream CI workflows removed from the fork.
+# Catches import-breaking changes, invalid TOML, and regressions in
+# `test_fix_json_escape_char.py` (minimum gate per AGENTS.md).
+#
+# Runs on GitHub-hosted runner — keep it fast (under 3 minutes).
+
+name: Sanity
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanity-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  import-check:
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    env:
+      # Avoid import-time network calls in firewalled/offline CI; LiteLLM will use
+      # its bundled model cost map instead of fetching from raw.githubusercontent.com.
+      LITELLM_LOCAL_MODEL_COST_MAP: "True"
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+      - name: Check out repo
+        uses: actions/checkout@v6
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-sanity-${{ hashFiles('pyproject.toml', 'requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-sanity-
+            ${{ runner.os }}-pip-
+
+      - name: Install pr-agent
+        run: |
+          python -m pip install --upgrade pip
+          pip install --no-cache-dir -e .
+          pip install pytest
+
+      - name: Verify core package imports
+        run: |
+          set -eu
+          python -c "import pr_agent; print('pr_agent:', pr_agent.__file__)"
+          python -c "from pr_agent.tools.pr_reviewer import PRReviewer; print('PRReviewer OK')"
+          python -c "from pr_agent.tools.pr_description import PRDescription; print('PRDescription OK')"
+          python -c "from pr_agent.tools.pr_code_suggestions import PRCodeSuggestions; print('PRCodeSuggestions OK')"
+          python -c "from pr_agent.agent.pr_agent import PRAgent; print('PRAgent OK')"
+          python -c "from pr_agent.servers.github_action_runner import run_action; print('github_action_runner OK')"
+
+      - name: Verify fork config files parse
+        run: |
+          set -eu
+          python3 -c "
+          import tomllib
+          c = tomllib.loads(open('.pr_agent.toml').read())
+          print('.pr_agent.toml sections:', sorted(c.keys()))
+          assert 'config' in c
+          assert 'openai' in c
+          assert c['config']['model'] == 'MiniMax-M3', 'model override lost'
+          assert c['openai']['api_base'] == 'https://api.minimax.io/v1', 'api_base lost'
+          print('.pr_agent.toml OK')
+          "
+          python3 -c "
+          import tomllib
+          c = tomllib.loads(open('pr_agent/settings/configuration.toml').read())
+          assert 'model' in c['config'], 'upstream configuration.toml model field missing'
+          print('pr_agent/settings/configuration.toml OK')
+          "
+
+      - name: Verify workflow YAML files parse
+        run: |
+          set -eu
+          python3 -c "
+          import yaml, os, glob
+          for f in sorted(glob.glob('.github/workflows/*.y*ml')):
+              with open(f) as fp:
+                  try:
+                      d = yaml.safe_load(fp)
+                      print(f'{f}: OK ({d.get(\"name\", \"unnamed\")})')
+                  except Exception as e:
+                      print(f'{f}: FAIL — {e}')
+                      raise SystemExit(1)
+          "
+
+      - name: Validate embedded github-script JavaScript syntax
+        run: |
+          set -eu
+          # actionlint validates workflow structure but NOT the JS inside
+          # actions/github-script steps. This guard runs `node --check` on every
+          # embedded script so a missing brace can never ship again.
+          python scripts/check_workflow_scripts.py
+
+      - name: Validate issue classifier module + unit tests
+        run: |
+          set -eu
+          # The issue-classification workflow (91) runs this deterministic,
+          # dependency-free module inside github-script. Validate its syntax and
+          # exercise the duplicate/resolved logic via its CLI from pytest.
+          node --check .github/scripts/issue-classifier.cjs
+          python -m pytest scripts/issue_classifier_js_test.py scripts/issue_classification_workflow_test.py scripts/readme_mermaid_test.py scripts/test_llm_decide.py scripts/no_schedule_triggers_test.py -v
+
+      - name: Verify LLM model config consistency across surfaces
+        run: |
+          set -eu
+          python3 -c "
+          import tomllib, re
+
+          # Canonical fallback chain = source of truth in .pr_agent.toml.
+          c = tomllib.loads(open('.pr_agent.toml').read())
+          primary = c['config']['model']
+          canonical_fb = c['config']['fallback_models']
+          assert primary == 'MiniMax-M3', f'primary model drifted: {primary}'
+          assert canonical_fb == ['MiniMax-M3'], f'canonical fallback drifted: {canonical_fb}'
+          print(f'canonical: primary={primary} fallback={canonical_fb}')
+
+          # upstream configuration.toml must share the same fallback chain.
+          u = tomllib.loads(open('pr_agent/settings/configuration.toml').read())
+          assert u['config']['fallback_models'] == canonical_fb, \
+              f'configuration.toml fallback drift: {u[\"config\"][\"fallback_models\"]}'
+
+          # Every workflow that sets CONFIG__FALLBACK_MODELS must match canonical.
+          import glob
+          fb_re = re.compile(r'CONFIG__FALLBACK_MODELS:\s*(.+)')
+          import json
+          violations = []
+          for f in sorted(glob.glob('.github/workflows/*.yml') + glob.glob('.github/workflows/**/*.yml')):
+              for i, line in enumerate(open(f), 1):
+                  m = fb_re.search(line)
+                  if not m:
+                      continue
+                  raw = m.group(1).strip().strip(chr(39)).strip(chr(34))
+                  try:
+                      val = json.loads(raw)
+                  except Exception:
+                      continue  # templated/dynamic value; skip
+                  if val != canonical_fb:
+                      violations.append(f'{f}:{i} -> {val} (expected {canonical_fb})')
+          if violations:
+              print('FALLBACK DRIFT DETECTED:')
+              for v in violations:
+                  print('  ' + v)
+              raise SystemExit(1)
+          print('All workflow CONFIG__FALLBACK_MODELS match canonical chain')
+          "
+
+      - name: Fast unittest smoke (AGENTS.md minimum gate)
+        run: |
+          python -m pytest tests/unittest/test_fix_json_escape_char.py -v
+
+      - name: Verify automation naming conventions
+        run: |
+          echo "Validating cross-file deployment invariants..."
+          (cd scripts && go run ./cmd/validate-naming)
+          echo "Naming conventions validated."
+      - name: Verify file naming conventions (ls-lint)
+        run: |
+          curl -sL https://github.com/loeffel-io/ls-lint/releases/latest/download/ls-lint-linux-amd64 -o /tmp/ls-lint
+          chmod +x /tmp/ls-lint
+          /tmp/ls-lint
+          echo "ls-lint passed"
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-on-failure

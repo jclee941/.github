@@ -1,0 +1,188 @@
+name: Repo Review Batch
+
+# Whole-repo automated review across the 12-repo inventory
+# (jclee941/.github + 11 downstream). Each repo is cloned to /tmp,
+# pr-agent's LocalGitProvider produces a review.md against a base
+# branch (root commit for tiny repos; HEAD~N for large), and the
+# resulting markdown is filed as a GitHub issue on the target repo
+# (or appended to an existing open [bot-review] issue).
+#
+# Manual dispatch only — never on push/cron, to keep token spend
+# explicit.
+
+on:
+  workflow_dispatch:
+    inputs:
+      repos:
+        description: Comma-separated repo names (no owner)
+        required: false
+        default: .github,resume,safetywallet,tmux,hycu_fsds,splunk,blacklist,opencode,terraform,account,idle-outpost,bug
+      dry_run:
+        description: If true, no issues are created/commented
+        required: false
+        type: boolean
+        default: true
+      since_commits:
+        description: Commits back from HEAD to use as review base
+        required: false
+        default: "50"
+      diff_size_limit:
+        description: Max diff char count before skipping a repo
+        required: false
+        default: "150000"
+      model:
+        description: Primary LLM model
+        required: false
+        default: MiniMax-M3
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: repo-review-batch
+  cancel-in-progress: false
+
+jobs:
+  batch:
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 120
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+      - name: Checkout local actions
+        uses: actions/checkout@v6
+        with:
+          repository: jclee941/.github
+          ref: master
+          fetch-depth: 1
+      - name: Checkout jclee941/.github
+        uses: actions/checkout@v6
+        with:
+          repository: jclee941/.github
+          ref: master
+          path: pr-agent-src
+          fetch-depth: 1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-repo-review-${{ hashFiles('pr-agent-src/pyproject.toml', 'pr-agent-src/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-repo-review-
+
+      - name: Install pr-agent
+        working-directory: pr-agent-src
+        run: |
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -e .
+
+      - name: Install Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.21'
+
+
+      - name: Verify MiniMax connectivity
+        env:
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+        run: |
+          set -e
+          if [ -z "$MINIMAX_API_KEY" ]; then
+            echo "::error::MINIMAX_API_KEY secret is not set on this repo."
+            exit 1
+          fi
+          HTTP_CODE=$(curl -sS -o /tmp/minimax_test.json -w '%{http_code}' \
+            --max-time 15 \
+            https://api.minimax.io/v1/models \
+            -H "Authorization: Bearer $MINIMAX_API_KEY")
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::MiniMax API returned HTTP $HTTP_CODE"
+            cat /tmp/minimax_test.json
+            exit 1
+          fi
+          echo "MiniMax API OK"
+
+      - name: Close stale bot-review issues
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          REPOS: ${{ inputs.repos }}
+        run: |
+          set -eu
+          CUTOFF=$(date -d '30 days ago' +%Y-%m-%d)
+          for repo in $(echo "$REPOS" | tr ',' ' '); do
+            STALE=$(gh issue list --repo "jclee941/$repo" \
+              --state open --label bot-review \
+              --search "created:<$CUTOFF" \
+              --json number --jq '.[] | .number' 2>/dev/null || true)
+            if [ -z "$STALE" ]; then
+              echo "::notice::No stale bot-review issues in $repo"
+              continue
+            fi
+            for N in $STALE; do
+              gh issue close "$N" --repo "jclee941/$repo" \
+                --comment "Closed automatically: bot-review issue older than 30 days. New review will create a fresh issue if needed." \
+                --reason completed \
+                || echo "::warning::failed to close stale issue #$N in $repo; continuing"
+            done
+          done
+
+      - name: Run repo-review batch
+        working-directory: pr-agent-src
+        env:
+          # GH_PAT is a fine-grained PAT with Issues:write on every target
+          # repo. Falls back to GITHUB_TOKEN (which can't cross repos).
+          GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          PR_AGENT_PYTHON: ${{ github.workspace }}/pr-agent-src/.venv/bin/python
+          # Explicit path to repo_review.py so the Go tool does not depend on
+          # os.Args[0] (a /tmp/go-build path under `go run`).
+          REPO_REVIEW_SCRIPT: ${{ github.workspace }}/pr-agent-src/scripts/repo_review.py
+          # pr-agent settings (mirrors pr-review.yml)
+          OPENAI__KEY: ${{ secrets.MINIMAX_API_KEY }}
+          OPENAI__API_BASE: https://api.minimax.io/v1
+          CONFIG__MODEL: ${{ inputs.model }}
+          CONFIG__FALLBACK_MODELS: '["MiniMax-M3"]'
+          CONFIG__RESPONSE_LANGUAGE: ko
+          CONFIG__AI_TIMEOUT: "180"
+          CONFIG__CUSTOM_MODEL_MAX_TOKENS: "1000000"
+          LITELLM_LOCAL_MODEL_COST_MAP: "true"
+        run: |
+          set -eu
+          DRY=""
+          if [ "${{ inputs.dry_run }}" = "true" ]; then DRY="--dry-run"; fi
+          cd scripts && go run ./cmd/repo-review \
+            --repos="${{ inputs.repos }}" \
+            --since-commits="${{ inputs.since_commits }}" \
+            --diff-size-limit="${{ inputs.diff_size_limit }}" \
+            --model="${{ inputs.model }}" \
+            $DRY
+
+      - name: Summary
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          {
+            echo "## Repo Review Batch Summary"
+            echo ""
+            echo "| Repo | Open bot-review issue |"
+            echo "|------|----------------------|"
+            for repo in $(echo "${{ inputs.repos }}" | tr ',' ' '); do
+              issue=$(gh issue list --repo "jclee941/$repo" --state open --label bot-review --limit 1 --json number,url --jq '.[0] | "#\(.number) (\(.url))"' 2>/dev/null || echo "?")
+              echo "| $repo | ${issue:-none} |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-on-failure

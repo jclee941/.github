@@ -1,0 +1,51 @@
+# ls-lint configuration — enforces file and directory naming conventions
+# https://ls-lint.org/2.2/getting-started/introduction.html
+#
+# Patterns:
+#   kebab-case:     pr-checks.yml, bug-report.yml
+#   snake_case:     main_test.go, validate_naming.go
+#   regex:          custom patterns like numbered issue templates
+
+ls:
+  # GitHub workflows: optional numeric prefix (NN_) + kebab-case.
+  # Examples: pr-checks.yml, 01_branch-to-pr.yml, 86_pr-review-security.yml.
+  .github/workflows:
+    .yml: regex:^([0-9]+_)?[a-z0-9]+(-[a-z0-9]+)*$
+    .yaml: regex:^([0-9]+_)?[a-z0-9]+(-[a-z0-9]+)*$
+
+  # Issue templates: numbered prefix + kebab-case (e.g., 1-bug-report.yml)
+  # `config.yml` is the GitHub-mandated discovery file and is exempt.
+  .github/ISSUE_TEMPLATE:
+    .yml: regex:^(config|[0-9]+-[a-z0-9]+(-[a-z0-9]+)*)$
+
+  # Go scripts: snake_case
+  scripts/cmd/*:
+    .go: snake_case
+    .mod: regex:^go\.mod$
+    .sum: regex:^go\.sum$
+
+  # Root config files: kebab-case or standard names. The `exists` rule
+  # in ls-lint v2.3 is matched against extension-keyed entries only and
+  # silently reports "found 0" for plain filenames; rely on positive
+  # regex assertions for the well-known meta files instead.
+  .github:
+    .yml: kebab-case
+    CODEOWNERS: regex:^CODEOWNERS$
+    PULL_REQUEST_TEMPLATE.md: regex:^PULL_REQUEST_TEMPLATE\.md$
+
+  # Embedded github-script helper modules (required by workflows): kebab-case.
+  .github/scripts:
+    .js: kebab-case
+
+  # General directories — upstream fork files keep their original case.
+  docs:
+    .md: regex:^([a-z0-9]+(-[a-z0-9]+)*|pr-agent-upstream-README)$
+
+ignore:
+  - node_modules
+  - .git
+  - .venv
+  - .pytest_cache
+  - __pycache__
+  - pr_agent  # upstream code, exempt from naming rules
+  - tests     # upstream test fixtures may have varying names

@@ -1,0 +1,8 @@
+{
+  "number": 100,
+  "title": "Fix login freeze and crash on startup",
+  "body": "This PR addresses the login issue.\n\nFixes #7\nResolves #9\n\nAdditional cleanup included.",
+  "merged": true,
+  "state": "closed",
+  "head": { "ref": "fix/issue-7-login-freeze" }
+}

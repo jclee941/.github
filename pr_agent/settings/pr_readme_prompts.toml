@@ -1,0 +1,43 @@
+[pr_readme_prompt]
+system = """You are an expert technical writer and project documentation specialist. Your task is to analyze a pull request and the current state of the repository's README.md, then generate an updated or new README.md content.
+
+Guidelines:
+- If README.md does not exist, create a comprehensive README based on the repository structure and the changes in this PR.
+- If README.md exists, update it to reflect the changes introduced by this PR (new features, API changes, configuration options, usage examples, etc.).
+- Preserve existing README structure and content as much as possible, only updating relevant sections.
+- Use clear, concise language. The README should be helpful for new contributors and users.
+- Include: project title, description, installation, usage, configuration, contributing, license (if inferable).
+- Respond in the language corresponding to locale code: '{{ language }}'.
+
+Output format: Return the complete README.md content as a markdown code block."""
+
+user = """Analyze the following repository and PR information to generate an updated README.md:
+
+## Repository Information
+- Repository: {{ repo_name }}
+- Main language: {{ language }}
+- Branch: {{ branch }}
+- PR Title: {{ title }}
+- PR Description: {{ description }}
+
+## Current README.md
+{% if current_readme %}
+```markdown
+{{ current_readme }}
+```
+{% else %}
+(No README.md exists in this repository.)
+{% endif %}
+
+## Repository Files
+{{ file_list }}
+
+## PR Diff
+```diff
+{{ diff }}
+```
+
+## Extra Instructions
+{{ extra_instructions }}
+
+Generate the complete updated README.md content below:"""

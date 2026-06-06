@@ -1,0 +1,150 @@
+# =============================================================================
+# Fork-specific overrides for jclee941/github-bot
+# See AGENTS.md for full context
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# [config] — Core LLM & Behavior Settings
+# ---------------------------------------------------------------------------
+[config]
+# FORK: route all LLM calls through the DIRECT MiniMax API (OpenAI-compatible).
+# Endpoint: https://api.minimax.io/v1  (key: MINIMAX_API_KEY, from 1Password)
+# Available MiniMax models: MiniMax-M3 (primary), MiniMax-M2.7, M2.5, M2.1, M2.
+# Default below is used by the GitHub App. The PR review workflow
+# (.github/workflows/10_pr-review.yml) runs a single-model matrix [MiniMax-M3]
+# with max-parallel 1 (MiniMax rate-limit guard).
+model = "MiniMax-M3"
+fallback_models = ["MiniMax-M3"]
+custom_model_max_tokens = 1000000  # MiniMax-M3 supports a 1M-token context window
+max_model_tokens = 1000000  # do not cap MiniMax-M3 below its 1M context
+ignore_pr_authors = ["dependabot\\[bot\\]"]  # FORK: skip Dependabot PRs (no linked issues, causes ticket compliance 404s)
+
+# Language: all bot responses in Korean
+response_language = "ko"
+
+# ---------------------------------------------------------------------------
+# [openai] — Direct MiniMax API (OpenAI-compatible)
+# ---------------------------------------------------------------------------
+[openai]
+# FORK: direct MiniMax OpenAI-compatible endpoint.
+# The api_key is NOT set here; use env var OPENAI_KEY (=MINIMAX_API_KEY) from GitHub Secrets or .env
+api_base = "https://api.minimax.io/v1"
+# FORK: provider-level fallback. If the primary api_base is unreachable
+# (connection refused / Cloudflare 524 / timeout), each model is retried
+# against these base URLs in order before moving to the next model.
+# Empty list = no provider fallback (original behavior). The fallback bases
+# must serve the same OpenAI-compatible API and accept the same api_key.
+api_base_fallbacks = []
+
+# ---------------------------------------------------------------------------
+# [litellm] — Parameter Handling
+# ---------------------------------------------------------------------------
+[litellm]
+drop_params = true
+
+# ---------------------------------------------------------------------------
+# [pr_reviewer] — Review Behavior & Templates
+# ---------------------------------------------------------------------------
+[pr_reviewer]
+# Maximize the number of output rows so trivial PRs still get useful coverage
+# rather than a 5-row checklist. See docs/git-workflow-gap-analysis.md and the
+# upstream pr_reviewer.py:85-94 for the full toggle-to-output mapping.
+require_score_review = true                    # 🏅 0-100 score row
+require_tests_review = true                    # 🧪 test coverage row
+require_estimate_effort_to_review = true       # ⏱️ 1-5 effort row
+require_estimate_contribution_time_cost = true # ⏳ best/avg/worst row
+require_can_be_split_review = true             # 🔀 sub-PR split suggestions
+require_security_review = true                 # 🔒 vulnerability row
+require_todo_scan = true                       # 📝 TODO/FIXME row
+require_ticket_analysis_review = true          # 🎫 ticket compliance row
+num_max_findings = 5                           # ⚡ key issues (was 3)
+publish_output_no_suggestions = false          # always post a comment
+enable_review_labels_effort = true
+enable_review_labels_security = true
+enable_intro_text = true
+enable_help_text = false                       # avoid bloating PRs with help
+
+# auto-create issues for critical/security/bug review findings
+auto_create_issues = true
+auto_create_issue_min_severity = "critical"
+auto_create_issue_labels = ["jclee-bot", "review-finding"]
+auto_create_issue_security_labels = ["security", "critical"]
+auto_create_issue_bug_labels = ["bug", "critical"]
+
+# Review templates are stored in docs/review-templates/
+# - code-review-template.md      : Master review format and priorities
+# - documentation-checklist.md   : Documentation review checklist
+# - security-review-template.md  : Security-focused review checklist
+#
+# The following extra_instructions serve as a compact override.
+# For full details, refer to the template files above.
+extra_instructions = """IMPORTANT: You MUST respond entirely in Korean (한국어). All review comments, summaries, and explanations must be written in Korean. Do not use English.
+
+## Core Review Priorities
+1. **보안**: SQL Injection, XSS, 인증/인가, secrets 노출
+2. **정확성**: 논리 오류, 경쟁조건, edge case 미처리
+3. **성능**: 불필요한 쿼리, 메모리 누수, 비효율 알고리즘
+4. **유지보수성**: 코드 중복, 과도한 복잡성, 테스트 부재
+5. **문서화**: README.md, API 문서, 주석/독스트링, PR 설명
+
+## Documentation Review (Mandatory)
+- PR 변경으로 인해 README.md 업데이트 필요한지 확인
+- 새 기능/API 변경/설정 추가 시 문서화 제안
+- 인라인 주석 및 독스트링 완성도 검토
+- PR 설명의 명확성과 완전성 평가
+- Configuration 예시나 사용법 변경 시 문서 반영 필요성 확인
+
+## Response Format
+- 각 이슈에 번호 부여
+- 심각도 표시: [CRITICAL] [WARNING] [INFO]
+- 위치: 파일명 + 라인 번호
+- 개선 제안: 구체적인 코드 예시 포함"""
+
+# ---------------------------------------------------------------------------
+# [github_app] — Auto-execution on PR Events
+# ---------------------------------------------------------------------------
+[github_app]
+# Commands executed automatically when a PR is opened
+pr_commands = [
+  "/describe --pr_description.publish_description_as_comment=true",
+  "/review",
+  "/improve",
+]
+
+# Push trigger (commits pushed to open PR)
+handle_push_trigger = true
+push_commands = ["/improve"]
+
+# ---------------------------------------------------------------------------
+# [github_action_config] — Supported PR Actions
+# ---------------------------------------------------------------------------
+[github_action_config]
+pr_actions = [
+  "opened",
+  "reopened",
+  "ready_for_review",
+  "review_requested",
+  "synchronize",
+]
+
+# ---------------------------------------------------------------------------
+# [pr_readme_generator] — README Auto-generation
+# ---------------------------------------------------------------------------
+[pr_readme_generator]
+extra_instructions = """IMPORTANT: Respond entirely in Korean (한국어). Generate a comprehensive README.md based on the repository structure and PR changes. Include installation, usage, configuration, and contribution sections."""
+
+# ---------------------------------------------------------------------------
+# [pr_hardcode_detector] — Hardcoded Value Detection
+# ---------------------------------------------------------------------------
+[pr_hardcode_detector]
+extra_instructions = """IMPORTANT: Respond entirely in Korean (한국어). Identify all hardcoded values, secrets, API keys, IP addresses, and magic numbers in the PR diff. Suggest environment variables or configuration files as alternatives."""
+create_issues = false
+create_fix_pr = false
+
+# ---------------------------------------------------------------------------
+# [pr_code_suggestions] — Code Suggestions (/improve)
+# ---------------------------------------------------------------------------
+[pr_code_suggestions]
+# FORK: disable parallel calls to reduce intermittent failures
+# caused by streaming empty responses on kimi-k2.6 reasoning model
+parallel_calls = false

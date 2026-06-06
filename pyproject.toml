@@ -1,0 +1,120 @@
+[build-system]
+requires = ["setuptools>=82.0.1", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pr-agent"
+version = "0.3.1"
+
+authors = [{ name = "QodoAI", email = "ofir.f@qodo.ai" }]
+
+maintainers = [
+  { name = "jclee941" },
+]
+
+description = "Private pr-agent fork for jclee941 repositories, backed by a homelab CLIProxyAPI deployment."
+readme = "README.md"
+requires-python = ">=3.12"
+keywords = ["AI", "Agents", "Pull Request", "Automation", "Code Review"]
+license = { file = "LICENSE" }
+
+classifiers = [
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+]
+dynamic = ["dependencies"]
+
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[project.urls]
+Homepage = "https://github.com/jclee941/github-bot"
+Documentation = "https://github.com/jclee941/github-bot#readme"
+Upstream = "https://github.com/qodo-ai/pr-agent"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = [
+  "pr_agent*",
+] # include pr_agent and any sub-packages it finds under it.
+
+[project.scripts]
+pr-agent = "pr_agent.cli:run"
+
+[tool.ruff]
+line-length = 120
+
+# Inherited upstream fork code (pr_agent/ and its upstream unittest suite) is
+# now linted for CORRECTNESS-class rules (the full E/F/B/I ruleset), but the
+# purely cosmetic findings (E501 line-wrapping, F541 f-strings without
+# placeholders) are suppressed per-file below rather than mass-rewritten:
+# restyling hundreds of upstream lines only creates merge conflicts with the
+# `upstream` remote without improving runtime safety. Fork-owned code
+# (scripts/, tests/e2e/, tests/e2e_live/) is held to the full ruleset with no
+# such suppression. See [tool.ruff.lint.per-file-ignores] below.
+
+lint.select = [
+  "E",    # Pyflakes
+  "F",    # Pyflakes
+  "B",    # flake8-bugbear
+  "I001", # isort basic checks
+  "I002", # isort missing-required-import
+]
+
+# First commit - only fixing isort
+lint.fixable = [
+  "I001", # isort basic checks
+]
+
+lint.unfixable = [
+  "B", # Avoid trying to fix flake8-bugbear (`B`) violations.
+]
+
+lint.exclude = ["api/code_completions"]
+
+lint.ignore = ["B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = [
+  "E402",
+] # Ignore `E402` (import violations) in all `__init__.py` files.
+
+# Upstream fork trees: lint for correctness, but do not enforce cosmetic
+# line-length (E501) or f-string-without-placeholder (F541) rewrites.
+"pr_agent/**/*.py" = ["E501", "F541"]
+"tests/unittest/**/*.py" = [
+  "E501",
+  "F541",
+  # get_max_tokens() raises a bare Exception for unknown models upstream;
+  # this test intentionally asserts on it until the production type narrows.
+  "B017",
+]
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B101"]
+tests = []
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--color=yes"
+console_output_style = "progress"
+markers = [
+  "mergeability: live GitHub mergeability API checks",
+  "bot_review: live jclee-bot PR review smoke tests",
+  "canary: tests that mutate allowlisted canary repositories only",
+  "private_canary: tests that mutate the private canary repository (requires repo-scoped token)",
+  "cliproxy_health: CLIProxyAPI health and model availability checks",
+  "deploy_path: live deploy-to-repos path validation against canary repositories",
+  "readonly: read-only live checks that do not mutate GitHub repositories",
+  "security_review: security review workflow canary and policy checks",
+  "app_health: jclee-bot GitHub App and infrastructure health checks",
+]

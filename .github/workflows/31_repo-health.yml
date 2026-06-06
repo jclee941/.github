@@ -1,0 +1,157 @@
+name: Repository Health Check
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - 'README.md'
+      - 'CONTRIBUTING.md'
+      - 'LICENSE'
+      - 'templates/**'
+      - '.github/workflows/31_repo-health.yml'
+      - 'config/repos.yaml'
+  workflow_run:
+    workflows: ["Template Sync", "README Generator", "Auto Deploy Workflows"]
+    types: [completed]
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: repo-health-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  discover-repos:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    outputs:
+      repos: ${{ steps.discover.outputs.repos }}
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+      - name: Discover repos
+        id: discover
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          repos=$(gh api users/jclee941/repos --paginate \
+            --jq '.[] | select(.archived == false) | .name' \
+            | sort | uniq | jq -R . | jq -s -c .)
+          echo "repos=$repos" >> "$GITHUB_OUTPUT"
+          echo "Discovered repos: $repos"
+
+  check-health:
+    needs: discover-repos
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        repo: ${{ fromJson(needs.discover-repos.outputs.repos) }}
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+      - name: Check repository health
+        uses: actions/github-script@v9
+        env:
+          REPO_NAME: ${{ matrix.repo }}
+        with:
+          # GH_PAT is a fine-grained PAT with Issues:write on every target repo;
+          # GITHUB_TOKEN is scoped to this repo only and 403s on cross-repo issue
+          # creation (Resource not accessible by integration).
+          github-token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          script: |
+            const repo = process.env.REPO_NAME;
+            const owner = context.repo.owner;
+            const requiredFiles = [
+              { path: 'README.md', label: 'documentation', critical: true },
+              { path: 'CONTRIBUTING.md', label: 'documentation', critical: false },
+              { path: 'LICENSE', label: 'legal', critical: true },
+            ];
+
+            const missing = [];
+            for (const file of requiredFiles) {
+              try {
+                await github.rest.repos.getContent({
+                  owner,
+                  repo,
+                  path: file.path,
+                });
+              } catch (e) {
+                if (e.status === 404) {
+                  missing.push(file);
+                }
+              }
+            }
+
+            if (missing.length === 0) {
+              console.log(`✅ ${repo}: all required files present`);
+              return;
+            }
+
+            const criticalMissing = missing.filter(f => f.critical);
+            const bodyLines = [
+              `## 🏥 레포지토리 건강 검진 결과`,
+              '',
+              `레포지토리 \`${owner}/${repo}\`의 필수 문서 파일을 점검했습니다.`,
+              '',
+              '### 누락된 파일',
+              '',
+              ...missing.map(f => `- [ ] \`${f.path}\` ${f.critical ? '**(필수)**' : '(권장)'}`),
+              '',
+              '### 권장 조치',
+              '',
+              '1. `README.md` — 프로젝트 소개, 설치/사용 방법, 기여 가이드',
+              '2. `CONTRIBUTING.md` — 기여자를 위한 가이드라인',
+              '3. `LICENSE` — 오픈소스 라이선스',
+              '',
+              '> 자동 생성됨 (Repository Health Check Workflow)',
+            ];
+
+            const title = criticalMissing.length > 0
+              ? `[BOT] 필수 문서 누락: ${missing.map(f => f.path).join(', ')}`
+              : `[BOT] 권장 문서 누락: ${missing.map(f => f.path).join(', ')}`;
+
+            // Check for existing open issue
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              labels: 'documentation,repo-health',
+              state: 'open',
+            });
+            const existing = issues.find(i => i.title.includes('문서 누락'));
+
+            if (existing) {
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: existing.number,
+                body: bodyLines.join('\n'),
+              });
+              console.log(`🔄 Updated issue #${existing.number} in ${repo}`);
+            } else {
+              await github.rest.issues.create({
+                owner,
+                repo,
+                title,
+                body: bodyLines.join('\n'),
+                labels: ['documentation', 'repo-health'],
+              });
+              console.log(`📝 Created health issue in ${repo}`);
+            }
+      - name: Checkout (for composite action resolution)
+        if: failure()
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-on-failure
