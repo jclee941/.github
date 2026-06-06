@@ -82,10 +82,22 @@ The package provides three deterministic, unit-testable services:
 
 ## Test & quality history
 
-| Milestone | Tests | Notes |
-|-----------|------:|-------|
+Test counts are reproducible from the repo root **with the dev virtualenv active**
+(`hypothesis` is required for the property tests; without it the property suite is
+not collected and the count is lower):
+
+```bash
+source .venv/bin/activate
+python -m pytest tests/unittest/test_evolution_*.py -q   # evolution suite
+```
+
+| Milestone | Evolution tests | Notes |
+|-----------|----------------:|-------|
 | Generic + recursive (PR #463) | 141 | baseline after merge |
-| Parallel recursive descent (`21436372`) | 150 | +9 (determinism, concurrency, global thread bound, permit-leak safety, hypothesis) |
+| Parallel recursive descent (`21436372`) | 150 | +9 (determinism, concurrency, global thread bound, permit-leak safety, hypothesis property) |
+
+> The `150` figure is the count produced by the command above in the dev venv at
+> commit `21436372`. Run it yourself to reproduce.
 
 All changes are TDD (RED → GREEN), `ruff`-clean, and reviewed via the Oracle
 gate before merge. Notable defects caught & fixed during review:

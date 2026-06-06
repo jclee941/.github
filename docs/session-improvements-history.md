@@ -83,10 +83,22 @@ Alongside the above, the full standardization audit was run across the 16
 
 ## Verification summary | 검증 요약
 
+Test counts are reproducible **from the repo root with the dev virtualenv
+active** (`hypothesis` is required for the evolution property tests):
+
+```bash
+source .venv/bin/activate
+python -m pytest tests/unittest/test_evolution_*.py -q   # -> 150 passed
+python -m pytest tests/unittest -q                      # -> 744 passed
+```
+
 | Area | Evidence |
 |------|----------|
-| Evolution package | 150 unit tests pass; Oracle-reviewed (multi-round) |
-| Repo-wide tests | 743 pass, 0 regressions |
-| Workflows | `actionlint` clean |
+| Evolution package | `150 passed` (command above, dev venv); Oracle-reviewed (multi-round) |
+| Repo-wide unit tests | `744 passed` (dev venv); requires the venv deps (without it the suite under-collects) |
+| Workflows | `actionlint` clean (`41_pages-deploy.yml`, `60_ci-auto-heal.yml`) |
 | Docs | `markdownlint` clean |
 | Pages site | live HTTP 200 (`index.html`, `downstream-standardization.html`) |
+
+> Counts are environment-qualified on purpose: a checkout without the dev venv
+> (no `hypothesis`) collects fewer tests, so always activate `.venv` to reproduce.
