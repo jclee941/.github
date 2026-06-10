@@ -40,7 +40,8 @@ include-package-data = true
 where = ["."]
 include = [
   "pr_agent*",
-] # include pr_agent and any sub-packages it finds under it.
+  "jclee_bot*",
+] # include upstream pr_agent + fork-owned jclee_bot package.
 
 [project.scripts]
 pr-agent = "pr_agent.cli:run"
