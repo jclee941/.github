@@ -8,6 +8,14 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Static-check binaries used by the App Checks-API runner (jclee_bot.checks):
+# gitleaks (secret-scan) and actionlint (workflow lint).
+RUN curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz" \
+      | tar -xz -C /usr/local/bin gitleaks \
+    && curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz" \
+      | tar -xz -C /usr/local/bin actionlint \
+    && chmod +x /usr/local/bin/gitleaks /usr/local/bin/actionlint
+
 WORKDIR /app
 
 # Install python deps first for layer cache
@@ -17,6 +25,7 @@ RUN pip install --no-cache-dir . \
 
 # Copy app source
 COPY pr_agent pr_agent
+COPY jclee_bot jclee_bot
 COPY .pr_agent.toml ./
 
 ENV PYTHONPATH=/app \
@@ -34,4 +43,4 @@ CMD ["python", "-m", "gunicorn", \
      "-k", "uvicorn.workers.UvicornWorker", \
      "-c", "pr_agent/servers/gunicorn_config.py", \
      "--forwarded-allow-ips", "*", \
-     "pr_agent.servers.github_app:app"]
+     "jclee_bot.app:app"]

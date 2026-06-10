@@ -163,7 +163,7 @@ jobs:
 
       - name: Fast unittest smoke (AGENTS.md minimum gate)
         run: |
-          python -m pytest tests/unittest/test_fix_json_escape_char.py -v
+          python -m pytest tests/unittest/test_fix_json_escape_char.py tests/unittest/test_jclee_bot_checks.py tests/unittest/test_jclee_bot_app.py -v
 
       - name: Verify automation naming conventions
         run: |
