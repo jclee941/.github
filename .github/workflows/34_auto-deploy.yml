@@ -17,6 +17,7 @@ on:
       - 'pyproject.toml'
       - '.github/actions/notify-on-failure/**'
       - '.github/actions/setup-python-compatible/**'
+      - '.github/actions/setup-build-cache/**'
   workflow_dispatch:
 permissions:
   contents: read

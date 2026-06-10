@@ -115,6 +115,9 @@ var extraFiles = []string{
 	// Local composite action that makes Python setup work on self-hosted Debian
 	// runners (actions/setup-python only ships CPython for GitHub-hosted Ubuntu).
 	".github/actions/setup-python-compatible/action.yml",
+	// Local composite action that routes build caches (Go/pip/uv/npm/Docker)
+	// to the NFS-backed /mnt/nas-cache mount on self-hosted runners.
+	".github/actions/setup-build-cache/action.yml",
 }
 
 // removedWorkflows lists workflows that were previously deployed but are no longer
