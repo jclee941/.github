@@ -20,14 +20,13 @@ JsonObject: TypeAlias = dict[str, JsonValue]
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_OWNER = "jclee941"
 
-MUTATION_ALLOWED_REPOS = {"jclee941/automation-e2e-public", "jclee941/automation-e2e-private"}
+MUTATION_ALLOWED_REPOS = {"jclee941/automation-e2e-private"}
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REPOS_CONFIG = REPO_ROOT / "config" / "repos.yaml"
 REQUIRED_WORKFLOWS = ["pr-review.yml", "pr-checks.yml", "gitleaks.yml", "actionlint.yml"]
 REQUIRED_FILES = [".github/dependabot.yml", ".github/CODEOWNERS", ".github/PULL_REQUEST_TEMPLATE.md"]
 REQUIRED_CONTEXTS = ["pr-checks / Check PR Title", "pr-checks / Check Branch Name", "Gitleaks / scan"]
 
-E2E_CANARY_PUBLIC_REPO = os.getenv("E2E_CANARY_PUBLIC_REPO", "jclee941/automation-e2e-public")
 E2E_CANARY_PRIVATE_REPO = os.getenv("E2E_CANARY_PRIVATE_REPO", "jclee941/automation-e2e-private")
 E2E_CLIPROXY_API_KEY = os.getenv("E2E_CLIPROXY_API_KEY") or os.getenv("CLIPROXY_API_KEY")
 
@@ -164,12 +163,6 @@ def repo_inventory(github_client: requests.Session) -> dict[str, JsonObject]:
             "default_branch": str(default_branch),
         }
     return inventory
-
-
-@pytest.fixture(scope="session")
-def canary_public_repo() -> str:
-    """Return the public canary repository allowed for live mutation tests."""
-    return E2E_CANARY_PUBLIC_REPO
 
 
 @pytest.fixture(scope="session")

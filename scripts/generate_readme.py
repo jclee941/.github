@@ -58,10 +58,10 @@ def _is_transient(error: Exception) -> bool:
 # jclee941 repo are LLM hallucinations (e.g. jclee941/CLIProxyAPI,
 # jclee941/github-bot) that 404 and fail the docs-sync link-check.
 _KNOWN_JCLEE_REPOS = {
-    ".github", "account", "blacklist", "bug", "hycu", "hycu_fsds",
-    "idle-outpost", "opencode", "propose", "pr-agent", "resume",
-    "safetywallet", "splunk", "terraform", "tmux", "youtube",
-    "automation-e2e-public",
+    ".github", "account", "ai-dacon", "blacklist", "bug", "firewall",
+    "hycu", "hycu_fsds", "idle-outpost", "jclee941", "learnprint",
+    "opencode", "propose", "pr-agent", "resume", "safetywallet",
+    "splunk", "terraform", "tmux", "youtube",
 }
 
 

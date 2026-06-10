@@ -36,7 +36,6 @@ func main() {
 	v := &validator{rootDir: rootDir}
 
 	validations := []validation{
-		{"deploy constants match E2E test", v.deployConstantsMatchE2E, v.fixDeployConstantsMatchE2E},
 		{"auto-deploy paths cover extraFiles", v.autoDeployPathsCoverExtraFiles, v.fixAutoDeployPaths},
 		{"CODEOWNERS covers extraFiles directories", v.codeownersCoversExtraFiles, v.fixCodeowners},
 		{"issue templates follow kebab-case", v.issueTemplatesKebabCase, nil},

@@ -25,9 +25,8 @@ and do not fail just because live credentials are unavailable.
 
 ## Safety mechanisms
 
-Live mutation is restricted to dedicated canary repositories only:
+Live mutation is restricted to a dedicated canary repository only:
 
-- `jclee941/automation-e2e-public`
 - `jclee941/automation-e2e-private`
 
 Every mutation helper in `conftest.py` calls `guard_mutation(repo)` before creating branches, writing files, deleting
@@ -44,7 +43,6 @@ managed automation rollout checks.
 | Variable | Fallback | Purpose |
 | --- | --- | --- |
 | `E2E_GITHUB_TOKEN` | `GH_TOKEN` | GitHub API and `gh` CLI authentication for live checks. |
-| `E2E_CANARY_PUBLIC_REPO` | `jclee941/automation-e2e-public` | Public canary repository for allowlisted mutation tests. |
 | `E2E_CANARY_PRIVATE_REPO` | `jclee941/automation-e2e-private` | Private canary repository for allowlisted mutation tests. |
 | `E2E_CLIPROXY_API_KEY` | `CLIPROXY_API_KEY` | Optional CLIProxyAPI connectivity checks. |
 

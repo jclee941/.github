@@ -26,11 +26,7 @@ tests/e2e_live/
 | Test file | Marker | What it checks |
 |-----------|--------|----------------|
 | test_fleet_health.py | readonly | Automation state across all 16 repos |
-| test_canary_pr.py | canary | PR open, edit, close on automation-e2e-public |
-| test_bot_review.py | bot_review | jclee-bot posts a review comment |
-| test_security_review.py | security_review | Security label triggers deep review |
-| test_mergeability.py | mergeability | Required checks block/allow merge |
-| test_deploy_path.py | deploy_path | Workflow files propagate downstream |
+| test_security_review.py | security_review | Security workflow fork-guard (static) |
 | test_app_health.py | app_health | GitHub App webhook delivery logs |
 | test_cliproxy_health.py | cliproxy_health | CLIProxy API models list |
 | test_private_canary.py | private_canary | Private repo mutation guard |
@@ -38,14 +34,13 @@ tests/e2e_live/
 
 ## SAFETY MECHANISMS
 
-`guard_mutation()` in `conftest.py` aborts any write operation outside `automation-e2e-public` and `automation-e2e-private`. Tests that mutate repos skip if the target is not a designated canary.
+`guard_mutation()` in `conftest.py` aborts any write operation outside `automation-e2e-private` (the only remaining canary). Tests that mutate repos skip if the target is not the designated canary.
 
 ## ENVIRONMENT VARIABLES
 
 | Variable | Fallback | Purpose |
 | --- | --- | --- |
 | `E2E_GITHUB_TOKEN` | `GH_TOKEN` | GitHub API and `gh` CLI authentication |
-| `E2E_CANARY_PUBLIC_REPO` | `jclee941/automation-e2e-public` | Public canary for mutation tests |
 | `E2E_CANARY_PRIVATE_REPO` | `jclee941/automation-e2e-private` | Private canary for mutation tests |
 | `E2E_CLIPROXY_API_KEY` | `CLIPROXY_API_KEY` | Optional CLIProxyAPI connectivity checks |
 
