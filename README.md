@@ -8,7 +8,7 @@
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange.svg)](LICENSE)
 [![Upstream](https://img.shields.io/badge/upstream-qodo--ai%2Fpr--agent-red.svg)](https://github.com/qodo-ai/pr-agent)
 [![CLIProxy](https://img.shields.io/badge/LLM%20Gateway-CLIProxyAPI-purple.svg)](https://cliproxy.jclee.me/v1)
-[![Workflows](https://img.shields.io/badge/workflows-47-yellowgreen.svg)](#github-workflows-47-total--github-워크플로우-47개)
+[![Workflows](https://img.shields.io/badge/workflows-49-yellowgreen.svg)](#github-workflows-49-total--github-워크플로우-49개)
 [![Go Tools](https://img.shields.io/badge/go--tools-8-blue.svg)](#go-automation-tools-8-total--go-자동화-도구-8개)
 
 ---
@@ -19,7 +19,7 @@
 - [Features | 기능](#features--기능)
 - [Architecture | 아키텍처](#architecture--아키텍처)
 - [Automation Inventory | 자동화 인벤토리](#automation-inventory--자동화-인벤토리)
-  - [GitHub Workflows 47 total | GitHub 워크플로우 47개](#github-workflows-47-total--github-워크플로우-47개)
+  - [GitHub Workflows 49 total | GitHub 워크플로우 49개](#github-workflows-49-total--github-워크플로우-49개)
   - [Go Automation Tools 8 total | Go 자동화 도구 8개](#go-automation-tools-8-total--go-자동화-도구-8개)
 - [Repository Structure | 저장소 구조](#repository-structure--저장소-구조)
 - [Quick Start | 빠른 시작](#quick-start--빠른-시작)
@@ -203,7 +203,7 @@ flow TB
 
 ## Automation Inventory | 자동화 인벤토리
 
-### GitHub Workflows 47 total | GitHub 워크플로우 47개
+### GitHub Workflows 49 total | GitHub 워크플로우 49개
 
 #### PR/Branch Automation (3)
 
@@ -282,7 +282,7 @@ flow TB
 | `30_runtime-health-check.yml` | schedule | Runtime environment validation |
 | `32_org-health-report.yml` | schedule | Organization-level health dashboard |
 
-#### Infrastructure & Deployment (7)
+#### Infrastructure & Deployment (8)
 
 | Workflow File | Trigger | Description |
 |---------------|---------|-------------|
@@ -293,6 +293,7 @@ flow TB
 | `37_ci-failure-issues.yml` | workflow_run | Auto-create issues on CI failure |
 | `40_repo-review-batch.yml` | manual | Batch repository review |
 | `41_pages-deploy.yml` | push, manual | GitHub Pages docs site deployment |
+| `46_nas-cache-prune.yml` | workflow_run, manual | Prune the NFS-backed build cache on the self-hosted runner |
 
 #### Testing (2)
 
@@ -397,6 +398,7 @@ github-bot/
 │   │   ├── 43_reusable-issue-management.yml
 │   │   ├── 44_reusable-pr-checks.yml
 │   │   ├── 45_reusable-gitleaks.yml
+│   │   ├── 46_nas-cache-prune.yml
 │   │   ├── 60_ci-auto-heal.yml
 │   │   ├── 90_sanity.yml
 │   │   ├── 91_issue-classification.yml

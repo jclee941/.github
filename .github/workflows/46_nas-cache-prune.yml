@@ -1,0 +1,75 @@
+name: NAS Cache Prune
+
+# Prune the NFS-backed build cache (/mnt/nas-cache) so it does not grow without
+# bound on the NAS. Event-driven (no cron, per repo policy): runs after the
+# image build completes and on manual dispatch. Self-hosted only — on
+# GitHub-hosted runners there is no NAS mount and the job no-ops.
+on:
+  workflow_run:
+    workflows: ["Build and Push App Image"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      max_age_days:
+        description: Delete cache files older than this many days
+        required: false
+        default: "30"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nas-cache-prune
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+      - name: Checkout local actions
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Prune NAS build cache
+        if: runner.environment == 'self-hosted'
+        shell: bash
+        env:
+          MAX_AGE_DAYS: ${{ github.event.inputs.max_age_days || '30' }}
+        run: |
+          set -euo pipefail
+          NAS="/mnt/nas-cache"
+          if [ ! -d "$NAS" ]; then
+            echo "NAS mount $NAS not present; nothing to prune."
+            exit 0
+          fi
+
+          echo "Before:"
+          du -sh "$NAS" 2>/dev/null || true
+
+          # 1. Drop rotated/stale Docker buildx cache leftovers.
+          find "$NAS" -path '*/docker-buildx.old' -prune -exec rm -rf {} + 2>/dev/null || true
+          find "$NAS" -path '*/docker-buildx-new' -type d -mtime +2 \
+            -prune -exec rm -rf {} + 2>/dev/null || true
+
+          # 2. Age out stale cache files across all caches.
+          find "$NAS" -type f -mtime "+${MAX_AGE_DAYS}" -delete 2>/dev/null || true
+
+          # 3. Remove now-empty directories (keep the top-level tree).
+          find "$NAS" -mindepth 2 -type d -empty -delete 2>/dev/null || true
+
+          echo "After:"
+          du -sh "$NAS" 2>/dev/null || true
+
+      - name: No-op on GitHub-hosted
+        if: runner.environment != 'self-hosted'
+        run: echo "GitHub-hosted runner has no NAS mount; nothing to prune."
+
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-on-failure
