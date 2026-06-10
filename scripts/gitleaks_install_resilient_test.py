@@ -15,6 +15,7 @@ so a silent fetch failure surfaces a clear error instead of a confusing
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import yaml
@@ -54,4 +55,23 @@ def test_install_verifies_download_nonempty() -> None:
 def test_install_still_extracts_and_chmods() -> None:
     run = _install_run()
     assert "tar -xzf /tmp/gitleaks.tar.gz" in run
-    assert 'chmod +x "$HOME/.local/bin/gitleaks"' in run
+    assert "chmod +x" in run
+
+
+def test_install_tolerates_unset_home() -> None:
+    """The self-hosted 'propose' runner has HOME unset; combined with `set -u`,
+    any bare `$HOME` reference aborts the step with 'HOME: unbound variable'.
+    The install dir must use a default-expansion (e.g. ${HOME:-...}) so an unset
+    HOME does not kill the step."""
+    run = _install_run()
+    # Strip comment lines so a $HOME mention inside a comment is not flagged.
+    code = "\n".join(
+        line for line in run.splitlines() if not line.lstrip().startswith("#")
+    )
+    # No bare $HOME / ${HOME} without a default may appear in executable code.
+    bare_home = re.findall(r"\$\{?HOME(?![:%\-])", code)
+    assert not bare_home, (
+        "Install gitleaks must not reference HOME without a default "
+        "(${HOME:-...}); the self-hosted runner has HOME unset under set -u. "
+        f"Found {len(bare_home)} bare reference(s)."
+    )

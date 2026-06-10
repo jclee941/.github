@@ -71,10 +71,13 @@ jobs:
             echo "::error::gitleaks download failed or produced an empty file" >&2
             exit 1
           fi
-          mkdir -p "$HOME/.local/bin"
-          tar -xzf /tmp/gitleaks.tar.gz -C "$HOME/.local/bin" gitleaks
-          chmod +x "$HOME/.local/bin/gitleaks"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          # The self-hosted runner may have HOME unset; under `set -u` a bare
+          # $HOME aborts the step. Use a default-expanded install dir.
+          BIN_DIR="${HOME:-/usr/local}/.local/bin"
+          mkdir -p "$BIN_DIR"
+          tar -xzf /tmp/gitleaks.tar.gz -C "$BIN_DIR" gitleaks
+          chmod +x "$BIN_DIR/gitleaks"
+          echo "$BIN_DIR" >> "$GITHUB_PATH"
 
       - name: Run gitleaks detect
         run: |
