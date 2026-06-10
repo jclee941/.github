@@ -9,7 +9,7 @@ on:
   pull_request:
     types: [opened, edited, synchronize, reopened, ready_for_review, closed]
   workflow_run:
-    workflows: ["PR Checks", "Issue Management", "Repository Health Check"]
+    workflows: ["Issue Management", "Repository Health Check"]
     types: [completed]
   workflow_dispatch:
 

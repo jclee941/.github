@@ -56,18 +56,17 @@ The live suite is designed around these categories (30 tests total):
 
 1. **Repository inventory checks** (`readonly`) — verify every managed repository is reachable and report its visibility and default
    branch.
-2. **Workflow deployment checks** (`readonly`) — verify required workflows exist, including `pr-review.yml`, `pr-checks.yml`,
-   `gitleaks.yml`, and `actionlint.yml`.
+2. **Workflow deployment checks** (`readonly`) — verify required workflows exist: this is now trivial because the jclee-bot GitHub App drives CI centrally; only `pr-review.yml` is still required on each managed repo.
 3. **Required file checks** (`readonly`) — verify automation support files exist: `.github/dependabot.yml`, `.github/CODEOWNERS`, and
    `.github/PULL_REQUEST_TEMPLATE.md`.
-4. **Branch protection checks** (`readonly`) — verify required status contexts are configured: `pr-checks / Check PR Title`,
-   `pr-checks / Check Branch Name`, and `Gitleaks / scan`.
+4. **Branch protection checks** (`readonly`) — verify required status contexts are configured: `jclee-bot / pr-metadata` and
+   `jclee-bot / secret-scan` (App-reported Checks API contexts).
 5. **Recent activity checks** (`readonly`) — inspect recent PRs, workflow conclusions, and bot comments without modifying production
    repositories.
 6. **Canary mutation checks** (`canary`) — exercise branch, file, PR, and workflow behavior only in the allowlisted public canary
    repository.
-7. **Go CLI dry-run checks** (`readonly`) — verify `deploy-to-repos`, `branch-protection`, and `repo-review` Go scripts run in
-   dry-run mode without errors.
+7. **Go CLI dry-run checks** (`readonly`) — verify `branch-protection` and `repo-review` Go scripts run in dry-run mode without
+   errors.
 8. **Bot review smoke tests** (`bot_review`) — verify jclee-bot responds to `/review` triggers, skips drafts, and reports
    fatal errors.
 
@@ -76,8 +75,7 @@ The live suite is designed around these categories (30 tests total):
 9. **Security review workflow guards** (`security_review`) — live label-trigger test + static YAML analysis of
    `pull_request_target` fork/head-repo guards.
 10. **Mergeability API checks** (`mergeability`) — assert valid PRs are `mergeable=True` and invalid PRs are `blocked`.
-11. **Live deployment-path validation** (`deploy_path`) — run `deploy-to-repos --canary-repos` for real, verify PR creation and
-    cleanup.
+11. _(removed: live deployment-path validation — the deploy-to-repos deploy path no longer exists; the jclee-bot App is the only per-repo CI check source.)_
 12. **Private canary coverage** (`private_canary`) — mutation test against `automation-e2e-private`, skips on missing `repo`
     scope.
 13. **GitHub App health checks** (`app_health`) — bot recent activity, webhook reachability, app installation, CLIProxy

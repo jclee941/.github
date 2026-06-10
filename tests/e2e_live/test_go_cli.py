@@ -67,32 +67,14 @@ def run_go_cli(args: Sequence[str], env: Mapping[str, str], timeout: int = 60) -
         pytest.fail(f"go CLI timed out after {timeout}s\nstdout:\n{stdout}\nstderr:\n{stderr}")
 
 
-@pytest.mark.skipif(GO_MISSING, reason="go binary is not available on PATH")
-def test_deploy_to_repos_dry_run(dry_run_env: Mapping[str, str]) -> None:
-    result = run_go_cli(["./cmd/deploy-to-repos", "--dry-run"], dry_run_env)
-
-    assert result.returncode == 0, result.stderr
-    assert "resume" in result.stdout
-    assert "pr-agent" not in result.stdout
-    assert "pr-review.yml" in result.stdout or "actionlint.yml" in result.stdout
-
-
-@pytest.mark.skipif(GO_MISSING, reason="go binary is not available on PATH")
-def test_deploy_to_repos_canary_dry_run(dry_run_env: Mapping[str, str]) -> None:
-    result = run_go_cli(["./cmd/deploy-to-repos", "--dry-run", "--repos=resume"], dry_run_env)
-
-    assert result.returncode == 0, result.stderr
-    assert "resume" in result.stdout
-    assert "pr-agent" not in result.stdout
-
 
 @pytest.mark.skipif(GO_MISSING, reason="go binary is not available on PATH")
 def test_branch_protection_dry_run(dry_run_env: Mapping[str, str]) -> None:
     result = run_go_cli(["./cmd/branch-protection", "--dry-run"], dry_run_env)
 
     assert result.returncode == 0, result.stderr
-    assert "pr-checks / Check PR Title" in result.stdout
-    assert "Gitleaks / scan" in result.stdout
+    assert "jclee-bot / pr-metadata" in result.stdout
+    assert "jclee-bot / secret-scan" in result.stdout
 
 
 def test_branch_protection_json_valid() -> None:
@@ -104,9 +86,8 @@ def test_branch_protection_json_valid() -> None:
     status_checks = cast(dict[str, object], payload["required_status_checks"])
 
     assert status_checks["contexts"] == [
-        "pr-checks / Check PR Title",
-        "pr-checks / Check Branch Name",
-        "Gitleaks / scan",
+        "jclee-bot / pr-metadata",
+        "jclee-bot / secret-scan",
     ]
     assert payload["enforce_admins"] is False
     assert payload["allow_force_pushes"] is False

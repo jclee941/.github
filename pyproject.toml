@@ -114,7 +114,6 @@ markers = [
   "canary: tests that mutate allowlisted canary repositories only",
   "private_canary: tests that mutate the private canary repository (requires repo-scoped token)",
   "cliproxy_health: CLIProxyAPI health and model availability checks",
-  "deploy_path: live deploy-to-repos path validation against canary repositories",
   "readonly: read-only live checks that do not mutate GitHub repositories",
   "security_review: security review workflow canary and policy checks",
   "app_health: jclee-bot GitHub App and infrastructure health checks",

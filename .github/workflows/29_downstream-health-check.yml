@@ -6,7 +6,7 @@ name: Downstream Health Check
 
 on:
   workflow_run:
-    workflows: ["Auto Deploy Workflows", "PR Checks", "Gitleaks", "actionlint"]
+    workflows: ["Auto Deploy Workflows"]
     types: [completed]
   repository_dispatch:
     types: [downstream-health-check]
@@ -63,8 +63,11 @@ jobs:
           # which is not installed on the self-hosted Debian runner. PyYAML is
           # installed on demand so this works regardless of the base image.
           python3 -c 'import yaml' 2>/dev/null || pip install --quiet pyyaml
-          REPOS=$(python3 -c 'import yaml; d=yaml.safe_load(open(".github-inventory/config/repos.yaml")); print(" ".join(r["name"] for r in d["repositories"] if r.get("automation",{}).get("health_check")))')
-          WORKFLOWS=("actionlint" "pr-checks" "gitleaks")
+          # Per-repo CI conclusions (actionlint, pr-checks, gitleaks) are no longer the right signal:
+          # downstream CI is now App-driven (jclee-bot App + GitHub-native CodeQL/Dependabot). The per-
+          # workflow conclusion sweep is intentionally left empty so the job is a clean no-op success;
+          # the issue-close step below will retire any pre-existing health-check issue.
+          WORKFLOWS=()
           FAILURES=()
 
           for REPO in $REPOS; do

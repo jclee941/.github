@@ -6,7 +6,7 @@ on:
   # NOTE: no `issue_comment:` trigger — 17 comments on stale PRs, which would
   # re-fire it via the comment event. Driven by pull_request + workflow_run.
   workflow_run:
-    workflows: ["PR Checks", "Sanity"]
+    workflows: ["Sanity"]
     types: [completed]
   workflow_dispatch:
 

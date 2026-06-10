@@ -26,9 +26,9 @@ All upstream pr-agent features are preserved: `/review`, `/improve`, `/describe`
 | `.github/workflows/90_sanity.yml` | **NEW** | Fork CI gate (replaces upstream CI) |
 | `.github/workflows/06_codeql.yml` | **NEW** | Python SAST (security-extended + quality queries) |
 | `.github/workflows/05_gitleaks.yml` | **NEW** | Secret-pattern scan on every PR/push |
-| `.github/workflows/04_actionlint.yml` | **NEW** | GitHub Actions YAML semantic linter |
+| `.github/workflows/04_actionlint.yml` | **NEW** (later **removed**) | GitHub Actions YAML semantic linter; superseded by the jclee-bot `actionlint` check. |
 | `.github/workflows/35_auto-hardcode-scan.yml` | **NEW** | Weekly hardcode-pattern scan on `ubuntu-latest` (was self-hosted) |
-| `.github/CODEOWNERS` | **NEW** | Auto-reviewer assignment |
+| `jclee_bot/` (App) | **NEW** | Python package implementing the GitHub App's Checks-API runner: `jclee-bot / pr-metadata`, `jclee-bot / secret-scan`, `jclee-bot / actionlint`. Replaces the per-repo 03/04/05/06/07/08/09/44/45 workflows. |
 | `.github/PULL_REQUEST_TEMPLATE.md` | **NEW** | Bilingual PR template (Korean + English) |
 | `docs/git-workflow-gap-analysis.md` | **NEW** | Workflow automation gap analysis report |
 | `.github/ISSUE_TEMPLATE/` | **NEW** | Bug / Feature / Security issue templates (replaces upstream) |
@@ -36,9 +36,9 @@ All upstream pr-agent features are preserved: `/review`, `/improve`, `/describe`
 | `.github/release-drafter.yml` + `.github/workflows/23_release-drafter.yml` | **NEW** | Conventional-Commits-aware release draft automation |
 | `.markdownlint.json` | **NEW** | Local markdownlint overrides (line_length=120, tables/code blocks exempt) |
 | `.gitleaksignore` | **NEW** | Fingerprint allowlist for upstream pr-agent test fixtures |
-| `scripts/go.mod` + `scripts/cmd/{branch-protection,deploy-to-repos,sync-secrets,repo-review}/main.go` | **NEW** | Module-restructured Go scripts to enable `go test`. Invoke via `(cd scripts && go run ./cmd/<name>)`. |
-| `scripts/cmd/branch-protection/main_test.go` + `scripts/cmd/deploy-to-repos/main_test.go` | **NEW** | Table-driven tests for pure-logic helpers (16 test cases) |
-| `scripts/cmd/deploy-to-repos/main.go` | **NEW** | Deploy `10_pr-review.yml` to `jclee941/*` repos |
+| `scripts/go.mod` + `scripts/cmd/{branch-protection,sync-secrets,repo-review,rulesets-manager,validate-naming}/main.go` | **NEW** | Module-restructured Go scripts to enable `go test`. Invoke via `(cd scripts && go run ./cmd/<name>)`. |
+| `scripts/cmd/branch-protection/main_test.go` | **NEW** | Table-driven tests for pure-logic helpers (16 test cases) |
+| `scripts/cmd/validate-naming/main_test.go` | **NEW** | Table-driven tests for naming + orphan-workflow + readme-inventory validators |
 | `scripts/cmd/rulesets-manager/main.go` | **NEW** | GitHub Rulesets manager — supplements branch protection with ruleset-based controls (list/apply/delete) |
 | `README.md` | **REPLACED** | Fork-specific readme (upstream moved to `docs/pr-agent-upstream-README.md`) |
 | `AGENTS.md` | **REPLACED** | This file |
@@ -94,19 +94,13 @@ github-bot/
 │   ├── 10_pr-review.yml               # FORK: ubuntu-latest + cli_proxy (matrix: minimax-m2.7, gpt-5.5)
 │   ├── 11_security-pr-review.yml      # FORK: deep security review (Korean, label-gated)
 │   ├── 90_sanity.yml                  # FORK: CI gate (replaces upstream CI)
-│   ├── 03_pr-checks.yml               # PR validation (size, title, branch, description)
-│   ├── 05_gitleaks.yml                # Secret scanning
-│   ├── 06_codeql.yml                  # Python SAST
-│   ├── 04_actionlint.yml              # Workflow YAML linter
 │   ├── 12_dependabot-auto-merge.yml   # Auto-merge patch/minor updates
-│   ├── 34_auto-deploy.yml             # Deploy workflows to downstream repos
-│   └── ...                            # 47 more workflows (56 total; see .github/workflows/)
+│   ├── 36_build-and-push-app.yml      # Build & push the jclee-bot App image
+│   ├── 37_ci-failure-issues.yml       # Auto-create ci-failure issues on workflow_run
+│   └── ...                            # 5 source-repo workflows + jclee-bot App drives per-repo CI via Checks API (pr-metadata, secret-scan, actionlint)
 ├── scripts/
-│   ├── cmd/                         # Go tool entry points (8 tools)
+│   ├── cmd/                         # Go tool entry points (5 tools)
 │   │   ├── branch-protection/main.go
-│   │   ├── deploy-to-repos/main.go
-│   │   ├── drift-detector/main.go
-│   │   ├── repo-metadata/main.go
 │   │   ├── repo-review/main.go
 │   │   ├── rulesets-manager/main.go
 │   │   ├── sync-secrets/main.go
@@ -148,7 +142,7 @@ github-bot/
 | Hardcode pattern scan | `.github/workflows/35_auto-hardcode-scan.yml` | Weekly cron + manual dispatch on `ubuntu-latest`, 15-minute timeout |
 | Slash command handling | `pr_agent/servers/github_app.py`, `github_action_runner.py` | |
 | Add a git provider | `pr_agent/git_providers/` | implement base class |
-| Deploy to another repo | `scripts/cmd/deploy-to-repos/main.go` | Automates workflow + dependabot config sync to 11 downstream public repos (excludes `.github` source and `pr-agent` fork) |
+| Apply branch protection | `scripts/cmd/branch-protection/main.go` | Enables auto-merge + safe protection on default branches of 16 public+private repos (includes `.github`) |
 | Apply branch protection | `scripts/cmd/branch-protection/main.go` | Enables auto-merge + safe protection on default branches of 12 public repos (includes `.github`) |
 | Dependabot auto-merge config | `.github/workflows/12_dependabot-auto-merge.yml` | Auto-approves + merges patch/minor + github-actions PRs; majors flagged for review |
 | Dependabot updates schedule | `.github/dependabot.yml` | Weekly `github-actions` + `pip` ecosystem PRs |
@@ -200,20 +194,17 @@ github-bot/
 | Component | File | Behavior |
 |-----------|------|----------|
 | Auto-merge enable | repo settings | `allow_auto_merge=true`, `delete_branch_on_merge=true` |
-| Branch protection | default branch | **3 required contexts**: `pr-checks / Check PR Title` (Conventional Commits), `pr-checks / Check Branch Name` (standard prefixes), `Gitleaks / scan` (secret-pattern detection). 4 advisory contexts (Size, Description, Large Files, Sensitive Files) comment-only. CodeQL surfaces results via Security tab, not as a required check. No force-push, no deletion, no admin enforcement. |
+| Branch protection | default branch | **2 required App contexts**: `jclee-bot / pr-metadata` (title convention, PR size, sensitive files) and `jclee-bot / secret-scan` (gitleaks). Dependabot auto-merge still requires its own `12_dependabot-auto-merge` status. No force-push, no deletion, no admin enforcement. |
 | Dependency updates | `.github/dependabot.yml` | Weekly `github-actions` + `pip` ecosystem PRs (pip groups minor+patch) |
 | Auto-merge policy | `.github/workflows/12_dependabot-auto-merge.yml` | patch + minor + github_actions → squash auto-merge after required checks pass; major → manual review comment; null update-type → manual review comment |
-| PR validation | `.github/workflows/03_pr-checks.yml` | sanity gates before merge |
+| PR validation | jclee-bot App (`jclee-bot / pr-metadata` check) | App-reported check covering title convention, PR size, sensitive files. Replaces the old `03_pr-checks.yml` and `09_semantic-pr.yml` workflows. |
 | Auto-review | `.github/workflows/10_pr-review.yml` | Runs on every PR opened by anyone except `dependabot[bot]` and drafts (Dependabot has its own auto-merge path). Posts review via `pr-agent` against cli_proxy. |
-| Secret scanning | `.github/workflows/05_gitleaks.yml` | Required check on every PR/push; full-history scan on master |
-| Workflow lint | `.github/workflows/04_actionlint.yml` | Validates GHA YAML semantics on workflow changes |
-| Dependency Review | `.github/workflows/07_dependency-review.yml` | PR open/edit | Scans PR dependencies for known vulnerabilities (moderate+) |
+| Secret scanning | jclee-bot App (`jclee-bot / secret-scan` check) | App-reported gitleaks run; replaces the old `05_gitleaks.yml` per-repo workflow. |
+| Workflow lint | jclee-bot App (`jclee-bot / actionlint` check) | App-reported actionlint run on PRs that touch `.github/workflows/**`. Replaces the old `04_actionlint.yml`. |
+| Dependency Review | GitHub-native Dependabot security alerts | Replaces the old `07_dependency-review.yml` workflow. |
 | Release Notes | `.github/workflows/24_release-notes.yml` | Tag push | Auto-generates categorized release notes from conventional commits |
 | Documentation sync | `.github/workflows/21_docs-sync.yml` | PR open/edit/push | Markdown lint, link check, README sync validation, API docs check |
 | README generator | `.github/workflows/20_readme-gen.yml` | Weekly (Sundays) + manual | Auto-generates README.md via CLIProxyAPI (minimax-m2.7 → gpt-5.5 fallback). |
-| Template sync | `.github/workflows/22_template-sync.yml` | Weekly (Sundays) + manual | Deploys standard `README.md`, `CONTRIBUTING.md`, `LICENSE` templates to downstream repos |
-| Security scoring | `.github/workflows/08_scorecard.yml` | PR open/push | OpenSSF Scorecard security scoring with harden-runner |
-| Semantic PR validation | `.github/workflows/09_semantic-pr.yml` | PR open/edit/synchronize | Enforces Conventional Commits format via amannn/action-semantic-pull-request |
 | Runtime security | all workflows | every run | step-security/harden-runner@v2 with egress-policy: audit |
 | ELK health monitoring | `.github/workflows/26_elk-health-check.yml` | Daily 06:00 UTC | Checks Elasticsearch connectivity, index health, creates issues on failure |
 | ELK setup | `.github/workflows/27_elk-setup.yml` | Weekly (Sundays) + manual | Deploys index templates and ILM policies to Elasticsearch |
@@ -223,37 +214,37 @@ github-bot/
 | Workflow | File | Schedule | Behavior |
 |----------|------|----------|----------|
 | Bot Auto-Fix | `.github/workflows/14_bot-auto-fix.yml` | PR open/edit | Auto-fixes naming violations on PRs via `validate-naming --fix` |
-| Drift Detector | `.github/workflows/33_drift-detector.yml` | Daily 06:00 UTC | Detects downstream drift from source workflows; self-healing matrix with `--self_heal=true` |
+| Bot Health Monitor | `.github/workflows/28_bot-health-monitor.yml` | Daily 06:00 UTC | Checks CLIProxyAPI connectivity and jclee-bot review activity;
+creates critical alerts |
 | Bot Health Monitor | `.github/workflows/28_bot-health-monitor.yml` | Daily 06:00 UTC | Checks CLIProxyAPI connectivity and jclee-bot review activity; creates critical alerts |
-| Org Health Report | `.github/workflows/32_org-health-report.yml` | Weekly Monday 09:00 UTC | Generates comprehensive health report: open PRs/issues, stale PRs, last commits per repo |
 | Repo Health Check | `.github/workflows/31_repo-health.yml` | Weekly (Mondays 02:00 UTC) | Checks all repos for required documentation files (README.md, CONTRIBUTING.md, LICENSE); creates issues for gaps |
-| Org Health Report | `.github/workflows/32_org-health-report.yml` | Weekly Monday 09:00 UTC | Generates comprehensive health report: open PRs/issues, stale PRs, last commits per repo |
 
 ### Operations
 
-```bash
-# 1. Edit a workflow in .github/workflows/, or .github/dependabot.yml,
-#    or .github/CODEOWNERS, or .github/PULL_REQUEST_TEMPLATE.md, or scripts/cmd/deploy-to-repos/main.go
-# 2. Commit + push to master
-# 3. 34_auto-deploy.yml runs deploy-to-repos.go (→ scripts/cmd/deploy-to-repos/main.go) on a GitHub-hosted ubuntu-latest runner
-#    → opens/updates PR "chore: standardize automation workflows + dependabot config"
-#    in each downstream repo (force-push branch via --force-with-lease)
-# 4. Each downstream PR auto-merges once its required branch-protection contexts pass (Title + Branch [+ Gitleaks after Phase 3])
+In the App era there is no per-repo file deploy: the jclee-bot GitHub App
+(see `jclee_bot/` Python package) handles PR/CI checks centrally via the
+Checks API. Per-repo CI workflow files were removed; the App is the only
+required-check source. To change behavior:
 
-# Manual deploy (local dev / CI bypass):
-(cd scripts && go run ./cmd/deploy-to-repos) --dry-run                       # preview all
-(cd scripts && go run ./cmd/deploy-to-repos) --repos=resume                  # canary one
-(cd scripts && go run ./cmd/deploy-to-repos)                                 # apply to all 11 downstream public repos (excludes pr-agent fork)
+```bash
+# 1. Edit a workflow in .github/workflows/, .github/dependabot.yml,
+#    .github/CODEOWNERS, .github/PULL_REQUEST_TEMPLATE.md,
+#    .github/actions/<composite>/, scripts/cmd/<tool>/main.go, or
+#    jclee_bot/ (the App package).
+# 2. Commit + push to master
+# 3. 90_sanity.yml gates the change; the App image is rebuilt by
+#    36_build-and-push-app.yml and posts checks to every jclee941/* repo
+#    on the next PR (no downstream file sync needed).
 
 # Re-apply branch protection + auto-merge settings:
 (cd scripts && go run ./cmd/branch-protection) --dry-run
+(cd scripts && go run ./cmd/branch-protection)
 # Apply rulesets (supplements branch protection with GitHub Rulesets):
 (cd scripts && go run ./cmd/rulesets-manager) --dry-run                    # preview all
 (cd scripts && go run ./cmd/rulesets-manager) --repos=resume               # canary one
 (cd scripts && go run ./cmd/rulesets-manager)                              # apply to all
 (cd scripts && go run ./cmd/rulesets-manager) --mode=list                  # list existing rulesets
 (cd scripts && go run ./cmd/rulesets-manager) --mode=delete --dry-run      # preview deletion
-(cd scripts && go run ./cmd/branch-protection)
 
 # Sync CLIPROXY_API_KEY (and other shared secrets) to every public repo:
 CLIPROXY_API_KEY=$(grep '^CLIPROXY_API_KEY=' .env | cut -d= -f2-) \
@@ -262,7 +253,7 @@ CLIPROXY_API_KEY=$(grep '^CLIPROXY_API_KEY=' .env | cut -d= -f2-) \
 
 ### Why pr-agent is handled separately
 
-`jclee941/pr-agent` is a hard fork of `qodo-ai/pr-agent`. It carries upstream's own workflows (build-and-test.yaml, codeql.yml, release-drafter.yml, etc.) which would be overwritten by the deploy script. The fork is therefore excluded from `deploy-to-repos.go` (→ `scripts/cmd/deploy-to-repos/main.go`), but it has its own fork-local `.github/dependabot.yml` (github-actions + pip ecosystems) and `.github/workflows/12_dependabot-auto-merge.yml` that are maintained directly on a `fork/*` branch. Sync upstream via `git fetch upstream && git merge upstream/main`.
+`jclee941/pr-agent` is a hard fork of `qodo-ai/pr-agent`. It carries upstream's own workflows (build-and-test.yaml, codeql.yml, release-drafter.yml, etc.) and must not be auto-overwritten by the jclee-bot App. The fork is therefore excluded from the App's branch-protection rollout, but it has its own fork-local `.github/dependabot.yml` (github-actions + pip ecosystems) and `.github/workflows/12_dependabot-auto-merge.yml` that are maintained directly on a `fork/*` branch. Sync upstream via `git fetch upstream && git merge upstream/main`.
 
 ## PR REVIEW WORKFLOW BEHAVIOR
 
@@ -431,18 +422,12 @@ git fetch upstream
 git log upstream/main..HEAD --oneline    # see our fork-specific commits
 git merge upstream/main                    # may conflict in configuration.toml, .pr_agent.toml
 git push origin main
-
 # ==================
-# Deploy workflow to another jclee941 repo
+# Manually rotate CLIPROXY_API_KEY in a single jclee941 repo
 # ==================
-# Option 1: automated deploy script (opens PRs)
-(cd scripts && go run ./cmd/deploy-to-repos)
-
-# Option 2: manual deploy
 REPO=jclee941/<target-repo>
 gh -R "$REPO" secret set CLIPROXY_API_KEY --body "$(cat /home/jclee/.cache/sisyphus/cliproxy-api-key)"
-# Copy .github/workflows/10_pr-review.yml to the target repo manually
-```
+# (Use scripts/cmd/sync-secrets to rotate across every repo at once.)
 
 ## CONVENTIONS
 
@@ -455,7 +440,7 @@ gh -R "$REPO" secret set CLIPROXY_API_KEY --body "$(cat /home/jclee/.cache/sisyp
 
 ### File Naming Conventions (`.github/`)
 
-These conventions are enforced by `scripts/cmd/deploy-to-repos/main.go` and its tests.
+These conventions are enforced by `scripts/cmd/validate-naming/main.go` and its tests.
 
 | Pattern | Meaning | Example |
 |---------|---------|---------|
@@ -471,9 +456,7 @@ These conventions are enforced by `scripts/cmd/deploy-to-repos/main.go` and its 
 
 **Deployment branch naming**: `chore/sync-automation-workflows` (reflects full scope: workflows + dependabot + templates).
 
-**Deployment PR title**: `chore: sync automation workflows, dependabot, and templates`.
-
-**`templates/` directory**: Contains `CONTRIBUTING.md`, `LICENSE`, `README.md`. These are deployed to downstream repos by `.github/workflows/22_template-sync.yml` on a weekly schedule.
+**`templates/` directory**: Contains `CONTRIBUTING.md`, `LICENSE`, `README.md`. These are the source of truth for what the per-repo docs-sync workflow ships to downstream repos (community files only; workflows and dependabot config are no longer deployed as files — the jclee-bot App drives PR/CI checks centrally).
 
 ### Workflow Standardization Conventions
 
@@ -483,11 +466,10 @@ Enforced across all `.github/workflows/*.yml` (and `security/`); verified by `90
 |--------|----------|------------|
 | **Numeric prefix** | `NN_<kebab-case>.yml` two-digit prefix by pipeline stage (01-90) | reusable callers keep `reusable-`/`_`/`security/` semantics |
 | **Action pinning** | First-party `actions/*` & `github/*` use semver `@vN`; third-party actions use 40-char commit SHA with `# vX.Y.Z` comment | `step-security/harden-runner@v2` is repo-wide semver (95+ uses) |
-| **Runner selection** | `runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}` | `07_dependency-review.yml`, `08_scorecard.yml` stay `ubuntu-latest` (GitHub-hosted SARIF/dependency API); `13_pr-auto-merge.yml`, `26_elk-health-check.yml`, `27_elk-setup.yml`, `36_build-and-push-app.yml` stay `self-hosted` (homelab) |
+| **Runner selection** | `runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}` | `13_pr-auto-merge.yml`, `26_elk-health-check.yml`, `27_elk-setup.yml`, `36_build-and-push-app.yml` stay `self-hosted` (homelab) |
 | **Failure notification** | Use `uses: ./.github/actions/notify-on-failure` (shared composite, dedup-by-title) for `if: failure()` steps | core issue-reporting logic (e.g. `29_downstream-health-check.yml` `health-check` issues) is NOT a failure-notify step |
 | **Fallback models** | Single canonical chain `["minimax-m2.7", "gpt-5.5"]` across `.pr_agent.toml`, `configuration.toml`, and every workflow `CONFIG__FALLBACK_MODELS` | GitHub App primary is `gpt-5.5` |
-| **PR-review matrix** | `10_pr-review.yml` matrix = `[minimax-m2.7, gpt-5.5]` (Kimi excluded) | GitHub App webhook default = `gpt-5.5` |
-| **Reusable self-refs** | `18_issue-management.yml` & `21_docs-sync.yml` reference `jclee941/.github/.github/workflows/*@master` intentionally (kept in sync by `34_auto-deploy.yml`) | — |
+| **Reusable self-refs** | `18_issue-management.yml` & `21_docs-sync.yml` reference `jclee941/.github/.github/workflows/*@master` intentionally; the App image is rebuilt by `36_build-and-push-app.yml` so each PR runs against the latest composite actions | — |
 | **Harden runner** | `step-security/harden-runner@v2` (egress-policy: audit) as first step in every job with `steps:` | reusable-workflow caller jobs (only `uses:`) are exempt |
 | **POSIX** | Trailing newline at EOF; no duplicate keys; passes `actionlint` | — |
 
@@ -497,9 +479,8 @@ Enforced across all `.github/workflows/*.yml` (and `security/`); verified by `90
 - **Never** commit `.env`, `.secrets.toml`, `pr_agent/settings/.secrets.toml`, or anything under `.cache/`
 - **Never** edit `pr_agent/settings/configuration.toml` beyond the cli_proxy model line — it conflicts with every upstream merge
 - **Never** run PR review on PRs from untrusted forks under `pull_request_target` without a head-repo guard — code execution / token-theft risk. The current guard in `.github/workflows/11_security-pr-review.yml` requires `head.repo.full_name == github.repository`.
-- **Never** push to `main` without running at least `pytest tests/unittest/test_fix_json_escape_char.py`
-- **Never** delete or rename upstream prompt TOML files (e.g. `pr_agent/settings/pr_reviewer_prompts.toml`) — they're the single source of truth for prompts
-- **Never** run the legacy root-level binaries in `scripts/` (`./branch-protection`, `./deploy-to-repos`, `./repo-review`, `./sync-secrets`). Use `(cd scripts && go run ./cmd/<name>)` instead.
+| **PR-review matrix** | `10_pr-review.yml` matrix = `[minimax-m2.7, gpt-5.5]` (Kimi excluded) | GitHub App webhook default = `gpt-5.5` |
+| **Reusable self-refs** | `18_issue-management.yml` & `21_docs-sync.yml` reference `jclee941/.github/.github/workflows/*@master` intentionally; the App image is rebuilt by `36_build-and-push-app.yml` so each PR runs against the latest composite actions | — |
 
 ## SECURITY NOTES
 

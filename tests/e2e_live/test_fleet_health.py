@@ -25,10 +25,12 @@ BOT_LOGIN = "jclee-bot[bot]"
 APP_SLUG = "jclee-bot"
 
 DRIFT_FILES = tuple(f".github/workflows/{workflow}" for workflow in REQUIRED_WORKFLOWS) + tuple(REQUIRED_FILES)
-WORKFLOW_HEALTH_CANDIDATES = {
-    "pr-checks": ("pr-checks.yml", "pr-review.yml"),
-    "gitleaks": ("gitleaks.yml",),
-}
+# App-era: per-repo CI workflow files (pr-checks.yml, gitleaks.yml) are gone
+# because the jclee-bot GitHub App posts Checks API runs centrally. Workflow
+# health is monitored via the bot review smoke tests, not per-repo file
+# presence, so the candidates list is empty until new per-repo workflows are
+# reintroduced.
+WORKFLOW_HEALTH_CANDIDATES: dict[str, tuple[str, ...]] = {}
 SUCCESS_CONCLUSIONS = {"success", "skipped", "neutral"}
 
 JsonObject = dict[str, object]

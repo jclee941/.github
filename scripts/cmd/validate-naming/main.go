@@ -86,7 +86,7 @@ func findRepoRoot() (string, error) {
 	}
 	current := wd
 	for {
-		candidate := filepath.Join(current, ".github", "workflows", "03_pr-checks.yml")
+		candidate := filepath.Join(current, ".pr_agent.toml")
 		if _, err := os.Stat(candidate); err == nil {
 			return current, nil
 		}

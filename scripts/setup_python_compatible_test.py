@@ -21,7 +21,6 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 ACTION = ROOT / ".github/actions/setup-python-compatible/action.yml"
-DEPLOY = ROOT / "scripts/cmd/deploy-to-repos/main.go"
 
 
 def _action() -> dict:
@@ -73,10 +72,3 @@ def test_third_party_action_is_sha_pinned() -> None:
         f"setup-uv must be pinned to a full 40-char SHA, got {ref!r}"
     )
 
-
-def test_action_is_in_deploy_manifest() -> None:
-    deploy = DEPLOY.read_text(encoding="utf-8")
-    assert ".github/actions/setup-python-compatible/action.yml" in deploy, (
-        "composite action must be added to extraFiles so downstream repos "
-        "receive it"
-    )

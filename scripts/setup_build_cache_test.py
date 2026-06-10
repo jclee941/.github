@@ -15,7 +15,6 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 ACTION = ROOT / ".github/actions/setup-build-cache/action.yml"
-DEPLOY = ROOT / "scripts/cmd/deploy-to-repos/main.go"
 
 
 def _action() -> dict:
@@ -101,8 +100,3 @@ def test_falls_back_when_nas_unavailable() -> None:
     assert "write-probe" in run, "no writability probe for the NAS mount"
 
 
-def test_action_in_deploy_manifest() -> None:
-    deploy = DEPLOY.read_text(encoding="utf-8")
-    assert ".github/actions/setup-build-cache/action.yml" in deploy, (
-        "setup-build-cache must be in extraFiles so downstream repos receive it"
-    )

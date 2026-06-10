@@ -2,7 +2,7 @@
 
 ## OVERVIEW
 
-Go automation tools for managing 16 jclee941 repos. Branch protection, workflow deploy, secret sync, repo review.
+Go automation tools for managing 16 jclee941 repos: branch protection, rulesets, secret sync, repo review, naming validation.
 
 ## STRUCTURE
 
@@ -11,46 +11,48 @@ scripts/
 ├── go.mod                               # module github.com/jclee941/.github/scripts
 ├── cmd/
 │   ├── branch-protection/main.go        # auto-merge + branch protection rules
-│   ├── deploy-to-repos/main.go          # push workflows to downstream repos
 │   ├── repo-review/main.go              # batch repo review
-│   └── sync-secrets/main.go             # sync CLIPROXY_API_KEY across repos
+│   ├── rulesets-manager/main.go         # GitHub Rulesets list/apply/delete
+│   ├── sync-secrets/main.go             # sync CLIPROXY_API_KEY across repos
+│   └── validate-naming/main.go          # naming + orphan-workflow + readme-inventory validators
 ├── internal/
 │   └── repos/
 │       └── repos.go                     # shared repo inventory and filtering logic
-├── cmd/deploy-to-repos/main_test.go
-├── cmd/branch-protection/main_test.go
+├── cmd/branch-protection/main_test.go   # table-driven tests (16 cases)
+├── cmd/validate-naming/main_test.go     # table-driven tests for naming/orphan/readme-inventory
 ├── repo_review.py                       # legacy Python helper
 ├── pr_review_runner.py                  # Python PR review invocation helper
-├── generate_readme.py                   # README auto-generation helper
-└── branch-protection, deploy-to-repos,  # legacy binaries (do not use)
-    repo-review, sync-secrets
+└── generate_readme.py                   # README auto-generation helper
 ```
 
 ## WHERE TO LOOK
 
 | Task | File |
 |------|------|
-| Deploy workflows to downstream repos | `cmd/deploy-to-repos/main.go` |
 | Apply branch protection + auto-merge | `cmd/branch-protection/main.go` |
+| Manage GitHub Rulesets (list/apply/delete) | `cmd/rulesets-manager/main.go` |
 | Sync shared secrets across repos | `cmd/sync-secrets/main.go` |
 | Batch repository review | `cmd/repo-review/main.go` |
+| Enforce naming conventions | `cmd/validate-naming/main.go` |
 
 ## COMMANDS
 
 ```bash
 cd scripts
 
-# Deploy workflows
-go run ./cmd/deploy-to-repos --dry-run              # preview all
-go run ./cmd/deploy-to-repos --repos=resume         # canary one repo
-go run ./cmd/deploy-to-repos                        # all 11 downstream public repos
-
 # Branch protection
 go run ./cmd/branch-protection --dry-run
-go run ./cmd/branch-protection                      # apply to all 12 public repos
+go run ./cmd/branch-protection           # apply to all 16 managed repos
+
+# GitHub Rulesets
+go run ./cmd/rulesets-manager --dry-run
 
 # Secret sync
 CLIPROXY_API_KEY=... go run ./cmd/sync-secrets
+
+# Naming + orphan-workflow + readme-inventory validation
+go run ./cmd/validate-naming
+go run ./cmd/validate-naming --fix       # auto-fix where supported
 
 # Tests
 go test ./...

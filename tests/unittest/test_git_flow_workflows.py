@@ -24,8 +24,9 @@ def read_workflow(name: str) -> str:
     """Return raw text of a workflow file.
 
     Workflow files carry an ``NN_`` sequential-numbering prefix (e.g.
-    ``34_auto-deploy.yml``). Callers pass the logical name (``auto-deploy.yml``)
-    and this resolves the prefixed file so the policy tests stay stable across
+    ``30_runtime-health-check.yml``). Callers pass the logical name
+    (``runtime-health-check.yml``) and this resolves the prefixed file so
+    the policy tests stay stable across re-numbering.
     re-numbering.
     """
     path = WF_DIR / name
@@ -38,66 +39,6 @@ def read_workflow(name: str) -> str:
     return path.read_text()
 
 
-# ---------------------------------------------------------------------------
-# T4 – Auto-deploy failure issue lifecycle
-# ---------------------------------------------------------------------------
-
-class TestAutoDeployFailureIssueLifecycle:
-    """
-    Validates two properties about the auto-deploy / issue-failure pipeline:
-
-    1. auto-deploy.yml must NOT contain a direct `gh issue create` step.
-       (Such logic has been offloaded to ci-failure-issues.yml to avoid
-        duplicate issues #18 and #29.)
-
-    2. ci-failure-issues.yml must watch "Auto Deploy Workflows" and have
-       exact-title-match deduplication.
-    """
-
-    def test_auto_deploy_does_not_directly_create_issues(self):
-        """auto-deploy.yml should NOT run `gh issue create` directly.
-
-        Failure-issue creation is handled by ci-failure-issues.yml via
-        workflow_run trigger. Direct gh issue create in auto-deploy
-        produced duplicate issues #18 and #29.
-        """
-        text = read_workflow("auto-deploy.yml")
-
-        # This snippet makes up the gh issue create step in auto-deploy.
-        # The fix removes that step entirely.
-        forbidden_snippet = "gh issue create --repo ${{ github.repository }}"
-        assert (
-            forbidden_snippet not in text
-        ), (
-            "auto-deploy.yml still contains direct `gh issue create` step; "
-            "this creates duplicate issues. "
-            "Offload failure-issue creation to ci-failure-issues.yml."
-        )
-
-    def test_ci_failure_issues_watches_auto_deploy(self):
-        """ci-failure-issues.yml must listen to 'Auto Deploy Workflows'."""
-        text = read_workflow("ci-failure-issues.yml")
-
-        assert '"Auto Deploy Workflows"' in text, (
-            "ci-failure-issues.yml must watch 'Auto Deploy Workflows' "
-            "in its workflow_run trigger"
-        )
-
-    def test_ci_failure_issues_has_exact_title_deduplication(self):
-        """ci-failure-issues.yml must dedupe by exact title, not substring."""
-        text = read_workflow("ci-failure-issues.yml")
-
-        # The --jq filter must use select(.title == "$TITLE") for exact match.
-        # Substring match like :~ would produce false positives.
-        assert "select(.title ==" in text, (
-            "ci-failure-issues.yml must use exact title comparison",
-        )
-
-        # The title pattern must be specific enough for stable dedup
-        assert '"[ci] $WF_NAME failed at' in text, (
-            "ci-failure-issues.yml title prefix must include "
-            '"[ci] $WF_NAME failed at" for stable deduplication'
-        )
 
 
 # ---------------------------------------------------------------------------
@@ -281,35 +222,6 @@ class TestReadmeGeneratorOwnRepo:
         )
 
 
-# ---------------------------------------------------------------------------
-# Template sync must NOT clobber the (LLM-generated) README
-# ---------------------------------------------------------------------------
-
-class TestTemplateSyncDoesNotTouchReadme:
-    """22_template-sync.yml must sync only CONTRIBUTING.md + LICENSE."""
-
-    def test_no_readme_sparse_checkout(self):
-        text = read_workflow("template-sync.yml")
-        assert "templates/README.md" not in text, (
-            "22_template-sync.yml still sparse-checks-out templates/README.md; "
-            "it would clobber the LLM-generated README from 20_readme-gen.yml."
-        )
-
-    def test_no_readme_copy(self):
-        text = read_workflow("template-sync.yml")
-        assert "README.md README.md" not in text and "cp _templates/templates/README.md" not in text, (
-            "22_template-sync.yml still copies a static README over the repo README."
-        )
-
-    def test_does_not_stage_readme(self):
-        text = read_workflow("template-sync.yml")
-        # git add must not include README.md anymore.
-        add_lines = [ln for ln in text.splitlines() if "git add" in ln]
-        for ln in add_lines:
-            assert "README.md" not in ln, (
-                f"22_template-sync.yml still stages README.md: {ln.strip()}"
-            )
-
 
 # ---------------------------------------------------------------------------
 # Auto-merge workflows must self-heal BLOCKED (stale-base) PRs
@@ -352,40 +264,6 @@ class TestAutoMergeSelfHeal:
             )
 
 
-# ---------------------------------------------------------------------------
-# Branch-name check must allow the bot-created branches
-# ---------------------------------------------------------------------------
-
-class TestBranchNameAllowsBotBranches:
-    """44_reusable-pr-checks.yml's branch-name regex must accept every branch
-    prefix that the automation itself creates, or those bot PRs can never pass
-    the required 'Check Branch Name' status and never auto-merge."""
-
-    # Branches that workflows in this repo actually create and open PRs from.
-    BOT_BRANCHES = [
-        "bot/auto-readme-update",   # 20_readme-gen.yml
-        "bot/template-sync",        # 22_template-sync.yml
-    ]
-
-    def _allowed_regex(self) -> str:
-        import re
-        text = read_workflow("reusable-pr-checks.yml")
-        # The branch-name (not PR-title) regex ends with '\/.+'
-        m = re.search(r"const allowed = /(\^\([^/]*\)\\/\.\+)/", text)
-        assert m, "could not locate the branch-name 'allowed' regex"
-        return m.group(1)
-
-    def test_regex_accepts_bot_branches(self):
-        import re
-        pattern = self._allowed_regex()
-        rx = re.compile(pattern)
-        for br in self.BOT_BRANCHES:
-            assert rx.match(br), (
-                f"branch-name regex {pattern!r} rejects bot-created branch {br!r}; "
-                f"the bot PR can never pass 'Check Branch Name' / auto-merge. "
-                f"Add the 'bot' prefix to the allowed list."
-            )
-
 
 # ---------------------------------------------------------------------------
 # Every fixed bot/* branch push must be idempotent across re-runs
@@ -401,7 +279,6 @@ class TestFixedBotBranchPushIsIdempotent:
     # (workflow logical name, fixed branch it pushes to)
     PUSHERS = [
         ("readme-gen.yml", "bot/auto-readme-update"),
-        ("template-sync.yml", "bot/template-sync"),
     ]
 
     def test_no_checkout_dash_b_for_bot_branch(self):
@@ -522,25 +399,27 @@ class TestDocsSyncBrokenLinkIssueStability:
 # ---------------------------------------------------------------------------
 
 class TestStaleFailureIssueAutoRecovery:
-    """Failure/health issues created by scheduled workflows (Gitleaks, Runtime
-    Health, ELK Health, Downstream Health, Bot Health, Drift, CI Auto-Heal)
-    must auto-close when their originating workflow recovers — no manual
-    cleanup. ci-failure-issues.yml is the centralized recovery mechanism:
-    (1) event-driven on workflow_run success, and (2) a manually dispatchable
-    sweep that closes open failure/health issues whose workflow's latest master
-    run is green.
-    """
+    """Failure/health issues created by scheduled workflows (Runtime
+    Health, ELK Health, Downstream Health, Bot Health, CI Auto-Heal, ELK
+    Setup) must auto-close when their originating workflow recovers; no
+    manual cleanup. ci-failure-issues.yml is the centralized recovery
+    mechanism: (1) event-driven on workflow_run success, and (2) a
+    manually dispatchable sweep that closes open failure/health issues
+    whose workflow's latest master run is green."""
 
     def test_watches_all_recoverable_workflows(self):
         text = read_workflow("ci-failure-issues.yml")
-        # The event-driven workflow_run trigger must cover the health/scan
-        # workflows that create recoverable failure issues, not just the
-        # original three.
+        # The event-driven workflow_run trigger must cover every health/scan
+        # workflow that has a stable-titled failure issue that should
+        # auto-close on recovery. Gitleaks / CodeQL / PR Checks / Drift
+        # Detector / Auto Deploy are gone (per-repo CI workflows were
+        # replaced by the jclee-bot App Checks-API runner).
         for wf in [
-            "Gitleaks",
-            "Runtime Health Check",
             "ELK Health Check",
+            "ELK Setup",
+            "Runtime Health Check",
             "Downstream Health Check",
+            "Bot Health Monitor",
             "CI Auto-Heal",
         ]:
             assert f'"{wf}"' in text, (
@@ -553,11 +432,16 @@ class TestStaleFailureIssueAutoRecovery:
         # On workflow_run success, the health/scan workflows' stable issue
         # titles must be closed immediately (event-driven), not only by the
         # daily sweep. Guard that the success path maps these workflow names.
+        # Updated to the App-era watch list: Gitleaks is gone (App does
+        # secret-scan), CodeQL is GitHub-native, PR Checks and Auto Deploy
+        # are gone.
         for sub in [
-            "Gitleaks Scan Failed",
             "ELK Health Check Failed",
+            "ELK Setup Failed",
             "CLIProxyAPI unreachable",
             "Downstream workflow failures detected",
+            "Bot Health Monitor failed",
+            "CI Auto-Heal failed",
         ]:
             assert sub in text, (
                 f"ci-failure-issues.yml event-driven success path must close "

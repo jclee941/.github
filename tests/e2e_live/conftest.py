@@ -23,9 +23,12 @@ GITHUB_OWNER = "jclee941"
 MUTATION_ALLOWED_REPOS = {"jclee941/automation-e2e-private"}
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REPOS_CONFIG = REPO_ROOT / "config" / "repos.yaml"
-REQUIRED_WORKFLOWS = ["pr-review.yml", "pr-checks.yml", "gitleaks.yml", "actionlint.yml"]
+# App-era: downstream CI is driven centrally by the jclee-bot GitHub App
+# (Checks API), so repos no longer carry per-repo CI workflow files. The only
+# expected per-repo file is the App-review wiring is handled by the App webhook.
+REQUIRED_WORKFLOWS: list[str] = []
 REQUIRED_FILES = [".github/dependabot.yml", ".github/CODEOWNERS", ".github/PULL_REQUEST_TEMPLATE.md"]
-REQUIRED_CONTEXTS = ["pr-checks / Check PR Title", "pr-checks / Check Branch Name", "Gitleaks / scan"]
+REQUIRED_CONTEXTS = ["jclee-bot / pr-metadata", "jclee-bot / secret-scan"]
 
 E2E_CANARY_PRIVATE_REPO = os.getenv("E2E_CANARY_PRIVATE_REPO", "jclee941/automation-e2e-private")
 E2E_CLIPROXY_API_KEY = os.getenv("E2E_CLIPROXY_API_KEY") or os.getenv("CLIPROXY_API_KEY")

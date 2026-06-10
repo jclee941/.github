@@ -1,5 +1,6 @@
 # GitHub 계정 고도화 — 브레인스토밍
 
+> **NOTE: superseded** — the deploy subsystem (`scripts/cmd/deploy-to-repos`, `.github/workflows/22_template-sync.yml`, `34_auto-deploy.yml`, `33_drift-detector.yml`) was removed in favor of the jclee-bot GitHub App. The App drives PR/CI checks centrally via the Checks API (see `jclee_bot/` package and `docs/` index). Items in this doc that depend on a downstream file-deploy (template-sync, `extraFiles` allowlist, `cmd/repo-metadata` integration) no longer apply as written; revisit when re-introducing per-repo file automation.
 > Status: **DRAFT for review**. 이 문서는 의사결정용 옵션 정리입니다. 실제 적용은 별도 PR로 진행합니다.
 > Author: jclee-bot stabilization session
 > Scope: `jclee941` 계정 + 16개 레포 전반의 프로필/디스커버리/커뮤니티 표준화

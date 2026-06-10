@@ -11,9 +11,6 @@ on:
   workflow_run:
     workflows:
       - "Sanity"
-      - "PR Checks"
-      - "Gitleaks"
-      - "CodeQL"
       - "Runtime Health Check"
       - "ELK Health Check"
       - "ELK Setup"
@@ -157,8 +154,6 @@ jobs:
           # (and legacy) failure/health issues it creates. On success, close
           # them immediately (event-driven), complementing the manual/recovery sweep.
           case "$WF_NAME" in
-            "Gitleaks") SUBS='Gitleaks Scan Failed' ;;
-            "CodeQL") SUBS='CodeQL Analysis Failed' ;;
             "ELK Health Check") SUBS='ELK Health Check Failed' ;;
             "ELK Setup") SUBS='ELK Setup Failed' ;;
             "Runtime Health Check") SUBS=$(printf '%s\n' 'Bot webhook endpoint unreachable' 'CLIProxyAPI unreachable' 'jclee-bot not responding' 'Runtime Health Check failed') ;;
@@ -317,8 +312,6 @@ jobs:
           # so historical spam issues are also swept.
           # Format: '<title-substring>|<workflow-file>'
           MAP="$(printf '%s\n' \
-            'Gitleaks Scan Failed|05_gitleaks.yml' \
-            'CodeQL Analysis Failed|06_codeql.yml' \
             'ELK Health Check Failed|26_elk-health-check.yml' \
             'ELK Setup Failed|27_elk-setup.yml' \
             'Bot webhook endpoint unreachable|30_runtime-health-check.yml' \

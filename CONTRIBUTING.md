@@ -1,12 +1,12 @@
 # Contributing
 
-`jclee941/.github` is the source of truth for the standard automation that gets deployed across all `jclee941/*` public repositories. Changes here propagate via `34_auto-deploy.yml` to 11 downstream public repos (excludes `pr-agent` fork).
+`jclee941/.github` is the source of truth for the standard automation that runs across all `jclee941/*` public repositories. The jclee-bot GitHub App (see `jclee_bot/` Python package) handles PR/CI checks centrally via the Checks API for every managed repo.
 
 ## Scope
 
 This repo accepts changes to:
 
-- `.github/workflows/**` — workflows that get synced downstream (allowlist in `scripts/cmd/deploy-to-repos/main.go`)
+- `.github/workflows/**` — workflow files in this source repo
 - `.github/dependabot.yml` — Dependabot config synced downstream
 - `.github/CODEOWNERS`, `.github/PULL_REQUEST_TEMPLATE.md`, `.github/ISSUE_TEMPLATE/**` — community files synced downstream via `extraFiles`
 - `scripts/*.go` — deploy / branch-protection / secret-sync tooling
@@ -22,16 +22,15 @@ It does **not** accept contributions that re-implement private business logic, l
    - `fix/<scope>` — bug fix
    - `docs/<scope>` — docs only
    - `refactor/<scope>`, `chore/<scope>`, `test/<scope>` — as appropriate
-   - Allowed alternates enforced by `pr-checks/Check Branch Name`: `dependabot/`, `fork/`, `release/`
+   - Allowed alternates enforced by `jclee-bot / pr-metadata`: `feat/`, `fix/`, `docs/`, `refactor/`, `chore/`, `test/` (plus the alternates `dependabot/`, `fork/`, `release/`)
 2. **PR title**: must follow Conventional Commits — `<type>(<scope>): <subject>`. Examples:
    - `fix(pr-review): unblock LLM review for downstream repos`
    - `docs(rollout): clarify Phase 3 ordering`
 3. **PR description**: minimum 10 characters and must explain the *why*, not just the *what*. The PR template scaffolds this.
 4. **Required status checks** (enforced via branch protection):
-   - `pr-checks / Check PR Title`
-   - `pr-checks / Check Branch Name`
-   - `Gitleaks / scan`
-   Advisory checks (do NOT block merge): PR Size, Description, Large Files, Sensitive Files, CodeQL, actionlint, the AI review.
+   - `jclee-bot / pr-metadata`
+   - `jclee-bot / secret-scan`
+   Advisory checks (do NOT block merge): the AI review, the actionlint context, repo health.
 5. **Auto-merge**: enabled at the repo level. Patch / minor / `github_actions` Dependabot PRs auto-merge after required checks pass; majors require manual review.
 
 ## Local development
@@ -52,8 +51,7 @@ gitleaks detect --redact
 # Build all Go scripts
 for f in scripts/*.go; do go build -o /tmp/check-$(basename "$f" .go) "$f"; done
 
-# Dry-run downstream deploys
-(cd scripts && go run ./cmd/deploy-to-repos) --dry-run
+# Branch protection (dry-run)
 (cd scripts && go run ./cmd/branch-protection) --dry-run
 ```
 
@@ -68,7 +66,7 @@ for f in scripts/*.go; do go build -o /tmp/check-$(basename "$f" .go) "$f"; done
 
 - Never commit `.env`, `.secrets.toml`, `pr_agent/settings/.secrets.toml`, or anything under `.cache/`. They are gitignored.
 - Never paste API keys, tokens, or PII into PR descriptions, issue bodies, or commit messages.
-- The `Gitleaks / scan` workflow blocks merges that introduce real-looking secrets. False positives can be allowlisted in `.gitleaksignore` (commit-pinned fingerprint format).
+- The `jclee-bot / secret-scan` check (gitleaks run inside the App image) blocks merges that introduce real-looking secrets. False positives can be allowlisted in `.gitleaksignore` (commit-pinned fingerprint format).
 - For active vulnerabilities, open a **private** security advisory:
   <https://github.com/jclee941/.github/security/advisories/new>
 
@@ -84,17 +82,16 @@ When you change behavior, also update:
   - cli_proxy integration
 - `docs/git-workflow-gap-analysis.md` — extend/update only if you are closing or reopening a gap (do not silently mutate the as-was/as-is delta).
 
-## Rolling out workflow changes downstream
+## Rolling out workflow changes
 
-`34_auto-deploy.yml` runs on every push to `master` that touches `.github/workflows/**` (or files in `extraFiles`). It opens a PR titled `chore: standardize automation workflows + dependabot config` in each of the 11 downstream public repos (excludes `pr-agent` fork). Required checks must pass downstream before auto-merge fires.
+In the App era there is no per-repo file deploy. The jclee-bot GitHub App posts Checks API runs (`jclee-bot / pr-metadata`, `jclee-bot / secret-scan`, `jclee-bot / actionlint`) to every managed repo on every PR; the runtime image is rebuilt by `36_build-and-push-app.yml` whenever this repo's `master` changes, so a merge here is the only rollout step.
 
-For new required checks, follow the **3-phase rollout** documented in `docs/git-workflow-gap-analysis.md` §7:
+For new required checks, follow the **2-phase rollout**:
 
-1. Merge the source change → workflow becomes advisory downstream
-2. Confirm the new check is green on every downstream repo
-3. Re-run `(cd scripts && go run ./cmd/branch-protection)` to register the new context as required
+1. Merge the source change → the new check is reported as advisory on the next PR
+2. After confirming the new check is green on every downstream repo, re-run `(cd scripts && go run ./cmd/branch-protection)` to register the new context as required
 
-Skipping Phase 2 will deadlock auto-merge across all 11 downstream public repos.
+Skipping Phase 1 will deadlock auto-merge across all 15 managed repos.
 
 ## Code of conduct
 

@@ -1,6 +1,7 @@
 # Git Workflow 자동화 리뷰 및 갭 분석
 
-**대상 저장소**: `jclee941/.github` (모든 `jclee941/*` 리포지토리에 자동 배포되는 워크플로 표준의 출처)
+> **NOTE: superseded** — this analysis predates the App-era refactor that removed the deploy subsystem (`34_auto-deploy.yml`, `33_drift-detector.yml`, `scripts/cmd/deploy-to-repos`, `scripts/cmd/drift-detector`, `scripts/cmd/repo-metadata`) and the per-repo CI workflows (`03_pr-checks`, `04_actionlint`, `05_gitleaks`, `06_codeql`, `07_dependency-review`, `08_scorecard`, `09_semantic-pr`, `22_template-sync`, `44_reusable-pr-checks`, `45_reusable-gitleaks`). Required branch-protection contexts are now the two App-reported contexts `jclee-bot / pr-metadata` and `jclee-bot / secret-scan`, not the historical `pr-checks / Check PR Title` etc. Keep this doc for the as-was/as-is narrative but treat its G-items as historical, not actionable.
+> **대상 저장소**: `jclee941/.github` (모든 `jclee941/*` 리포지토리에 자동 배포되는 워크플로 표준의 출처)
 **분석일**: 2026-05-03
 **분석 + 구현**: 동일 PR
 **분석 범위**: `.github/workflows/`, `.github/dependabot.yml`, `scripts/*.go`, `.git/hooks/`, 커뮤니티 파일

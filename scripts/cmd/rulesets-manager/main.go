@@ -11,7 +11,7 @@
 // Behavior per repo:
 //  1. GET existing rulesets
 //  2. PUT a ruleset named "Default Branch Protection" with:
-//     - required_status_checks: 3 contexts (PR Title, Branch Name, Gitleaks scan)
+//     - required_status_checks: 2 App contexts (jclee-bot / pr-metadata, jclee-bot / secret-scan)
 //     - deletion: prevent branch deletion
 //     - non_fast_forward: prevent force push
 //     - bypass_actors: none (same as current branch protection)
