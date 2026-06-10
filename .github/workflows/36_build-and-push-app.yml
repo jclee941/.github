@@ -5,6 +5,7 @@ on:
     branches: [master]
     paths:
       - 'pr_agent/**'
+      - 'jclee_bot/**'
       - 'Dockerfile.github_app'
       - 'docker-compose.github_app.yml'
       - '.pr_agent.toml'
