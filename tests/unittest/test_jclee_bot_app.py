@@ -97,3 +97,93 @@ class TestGithubChecksPayload:
         assert body["conclusion"] == "failure"
         assert body["output"]["title"] == "bad"
         assert body["output"]["summary"] == "details"
+
+    def test_app_has_raw_context_middleware(self):
+        """Defect #1: the wrapper must keep the upstream RawContextMiddleware so
+        the /api/v1/github_webhooks review path does not 500."""
+        from starlette_context.middleware import RawContextMiddleware
+
+        from jclee_bot.app import app
+
+        classes = [m.cls for m in app.user_middleware]
+        assert RawContextMiddleware in classes, "RawContextMiddleware missing -> review path 500s"
+
+
+class TestChecksReporting:
+    def test_checks_webhook_reports_to_checks_api(self, monkeypatch):
+        """Defect #3/#4: checks_webhook must actually create check runs via the
+        Checks API, not just return a JSON summary."""
+        import json
+
+        from fastapi.testclient import TestClient
+
+        from jclee_bot import app as app_module
+
+        created = []
+
+        def fake_token(*a, **k):
+            return "tok"
+
+        def fake_create(*, token, repo_full_name, result, head_sha):
+            created.append((repo_full_name, result.name, head_sha))
+
+            class R:
+                status_code = 201
+
+            return R()
+
+        # No real diff fetch in unit test: stub changed-files + Checks API.
+        monkeypatch.setattr(app_module, "_installation_token", fake_token, raising=False)
+        monkeypatch.setattr(app_module.github_checks, "create_check_run", fake_create)
+        monkeypatch.setattr(app_module, "_fetch_changed_files", lambda *a, **k: ["a.py"])
+        monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "")
+
+        payload = {
+            "action": "opened",
+            "installation": {"id": 42},
+            "repository": {"full_name": "jclee941/propose"},
+            "pull_request": {
+                "title": "no prefix",
+                "head": {"ref": "x", "sha": "deadbeef"},
+                "base": {"ref": "master"},
+                "additions": 1,
+                "deletions": 0,
+            },
+        }
+        client = TestClient(app_module.app)
+        r = client.post("/api/v1/checks_webhook", content=json.dumps(payload))
+        assert r.status_code == 200
+        # At least pr-metadata (failure) + secret-scan must be reported.
+        names = {c[1] for c in created}
+        assert "jclee-bot / pr-metadata" in names, f"check runs not created: {created}"
+        assert all(c[2] == "deadbeef" for c in created)
+
+    def test_pull_request_on_main_webhook_triggers_checks(self, monkeypatch):
+        """Defect #2: GitHub delivers to the single /api/v1/github_webhooks URL.
+        A pull_request event there must ALSO run the App checks (not only the
+        separate /api/v1/checks_webhook)."""
+        import json
+
+        from fastapi.testclient import TestClient
+
+        from jclee_bot import app as app_module
+
+        ran = []
+        monkeypatch.setattr(app_module, "_run_checks_for_payload",
+                            lambda payload: ran.append(payload.get("action")))
+        monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "")
+
+        payload = {
+            "action": "opened",
+            "installation": {"id": 1},
+            "repository": {"full_name": "jclee941/x"},
+            "pull_request": {"number": 1, "html_url": "https://github.com/jclee941/x/pull/1",
+                             "head": {"ref": "f", "sha": "s"}, "base": {"ref": "master"},
+                             "title": "feat: x", "additions": 1, "deletions": 0},
+            "sender": {"login": "u", "id": 1},
+        }
+        client = TestClient(app_module.app, raise_server_exceptions=False)
+        r = client.post("/api/v1/github_webhooks", content=json.dumps(payload),
+                        headers={"X-GitHub-Event": "pull_request"})
+        assert r.status_code != 500
+        assert "opened" in ran, "checks were not triggered off the main webhook URL"

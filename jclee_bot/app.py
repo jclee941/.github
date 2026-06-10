@@ -1,32 +1,32 @@
-"""Fork-owned ASGI wrapper for the jclee-bot GitHub App.
+"""Fork-owned ASGI app for the jclee-bot GitHub App.
 
-Mounts the upstream pr_agent webhook router (so /review, /improve, /describe
-and issue automation keep working unchanged) and adds the App Checks-API
-runner on a dedicated route. Deployed via Dockerfile.github_app:
+REUSES the upstream pr_agent FastAPI ``app`` object (so its RawContextMiddleware
+and all routes — /api/v1/github_webhooks for reviews, /health, /metrics — keep
+working unchanged) and ADDS the App Checks-API runner route onto it.
+
+On a pull_request webhook the checks route fetches the PR's changed files via
+the GitHub API, runs the static checks against a real checkout, and reports
+each result to the GitHub Checks API. Deployed via Dockerfile.github_app:
 ``gunicorn ... jclee_bot.app:app``.
 """
 from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import os
+import subprocess  # noqa: S404 - fixed-arg git checkout of the PR head
 import tempfile
 from typing import Any
 
-from fastapi import FastAPI, Request, Response
+from fastapi import Request, Response
 
-from jclee_bot import dispatch
+from jclee_bot import dispatch, github_checks
 
-# Re-export the upstream routers so existing webhook + monitoring endpoints
-# (/api/v1/github_webhooks, /health, /ready, /metrics) are preserved.
-from pr_agent.servers.github_app import monitoring_router as upstream_monitoring_router
-from pr_agent.servers.github_app import router as upstream_router
+# Reuse the upstream app object so its middleware + all routes are preserved.
+from pr_agent.servers.github_app import app
 
-app = FastAPI(title="jclee-bot")
-# Preserve upstream PR-review/issue automation routes (e.g.
-# POST /api/v1/github_webhooks).
-app.include_router(upstream_router)
-app.include_router(upstream_monitoring_router)
+GITHUB_API = "https://api.github.com"
 
 
 def _verify_signature(secret: str, payload: bytes, signature: str | None) -> bool:
@@ -38,35 +38,139 @@ def _verify_signature(secret: str, payload: bytes, signature: str | None) -> boo
     return hmac.compare_digest(expected, signature)
 
 
-def _changed_files(payload: dict[str, Any]) -> list[str]:
-    # Populated by the route from the GitHub API; default empty for safety.
-    return payload.get("_changed_files", [])
+def _installation_token(installation_id: int) -> str | None:
+    """Mint an installation token from the App credentials in the environment."""
+    app_id = os.environ.get("GITHUB_APP_ID")
+    private_key = os.environ.get("GITHUB_PRIVATE_KEY")
+    if not (app_id and private_key and installation_id):
+        return None
+    return github_checks.installation_token(app_id, private_key, installation_id)
+
+
+def _fetch_changed_files(token: str, repo_full_name: str, pr_number: int) -> list[str]:
+    """Return the list of file paths changed in the PR via the GitHub API."""
+    import requests
+
+    files: list[str] = []
+    page = 1
+    while True:
+        resp = requests.get(
+            f"{GITHUB_API}/repos/{repo_full_name}/pulls/{pr_number}/files",
+            headers={"Authorization": f"token {token}", "Accept": "application/vnd.github+json"},
+            params={"per_page": 100, "page": page},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        batch = resp.json()
+        if not batch:
+            break
+        files.extend(f["filename"] for f in batch)
+        if len(batch) < 100:
+            break
+        page += 1
+    return files
+
+
+def _checkout_pr_head(token: str, repo_full_name: str, head_sha: str, workspace: str) -> bool:
+    """Shallow-checkout the PR head SHA into workspace for content scanning.
+
+    Returns True on success; failures degrade the file-content checks to a
+    no-op (they then report neutral/empty) instead of crashing the webhook.
+    """
+    url = f"https://x-access-token:{token}@github.com/{repo_full_name}.git"
+    try:
+        subprocess.run(  # noqa: S603 - fixed args
+            ["git", "init", "-q", workspace], check=True, timeout=30,
+        )
+        subprocess.run(  # noqa: S603
+            ["git", "-C", workspace, "fetch", "-q", "--depth", "1", url, head_sha],
+            check=True, timeout=120, capture_output=True,
+        )
+        subprocess.run(  # noqa: S603
+            ["git", "-C", workspace, "checkout", "-q", "FETCH_HEAD"],
+            check=True, timeout=60, capture_output=True,
+        )
+        return True
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
+        return False
+
+
+def _run_checks_for_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Run the App-owned checks for a pull_request payload and report each via
+    the GitHub Checks API. Shared by the standalone endpoint and the webhook tee."""
+    pr = payload.get("pull_request") or {}
+    repo_full_name = payload.get("repository", {}).get("full_name", "")
+    installation_id = payload.get("installation", {}).get("id", 0)
+    head_sha = dispatch.head_sha(payload)
+    pr_number = pr.get("number", 0)
+
+    token = _installation_token(installation_id)
+
+    changed_files: list[str] = []
+    if token and repo_full_name and pr_number:
+        try:
+            changed_files = _fetch_changed_files(token, repo_full_name, pr_number)
+        except Exception:  # noqa: BLE001 - degrade gracefully on API errors
+            changed_files = []
+
+    with tempfile.TemporaryDirectory() as workspace:
+        if token and head_sha and repo_full_name:
+            _checkout_pr_head(token, repo_full_name, head_sha, workspace)
+        results = dispatch.run_checks(
+            payload, changed_files=changed_files, workspace=workspace,
+        )
+
+    reported = []
+    if token and repo_full_name and head_sha:
+        for result in results:
+            try:
+                github_checks.create_check_run(
+                    token=token, repo_full_name=repo_full_name,
+                    result=result, head_sha=head_sha,
+                )
+                reported.append(result.name)
+            except Exception:  # noqa: BLE001 - one failed report must not abort others
+                pass
+
+    return {
+        "head_sha": head_sha,
+        "checks": [{"name": r.name, "conclusion": r.conclusion} for r in results],
+        "reported": reported,
+    }
+
+
+@app.middleware("http")
+async def _tee_pull_request_to_checks(request: Request, call_next):
+    """GitHub Apps have a SINGLE webhook URL. Tee pull_request events delivered
+    to the upstream /api/v1/github_webhooks route into the App checks runner so
+    installing the App runs the checks with no per-repo files. The upstream
+    review handler still processes the same event."""
+    if request.method == "POST" and request.url.path == "/api/v1/github_webhooks":
+        raw = await request.body()
+        event = request.headers.get("X-GitHub-Event", "")
+        secret = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
+        sig = request.headers.get("X-Hub-Signature-256")
+        if event == "pull_request" and _verify_signature(secret, raw, sig):
+            try:
+                payload = json.loads(raw or b"{}")
+                if payload.get("action") in dispatch.PR_ACTIONS:
+                    _run_checks_for_payload(payload)
+            except Exception:  # noqa: BLE001 - checks must never break the review path
+                pass
+    return await call_next(request)
 
 
 @app.post("/api/v1/checks_webhook")
 async def checks_webhook(request: Request, response: Response) -> dict[str, Any]:
-    """Run App-owned static checks for a pull_request webhook and report them
-    via the Checks API. Returns a summary of the check runs attempted."""
+    """Standalone endpoint to run + report the App checks (useful for replay/test)."""
     raw = await request.body()
     secret = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
     sig = request.headers.get("X-Hub-Signature-256")
     if not _verify_signature(secret, raw, sig):
         response.status_code = 401
         return {"error": "invalid signature"}
-
-    import json
-
     payload = json.loads(raw or b"{}")
-    with tempfile.TemporaryDirectory() as workspace:
-        results = dispatch.run_checks(
-            payload,
-            changed_files=_changed_files(payload),
-            workspace=workspace,
-        )
-    return {
-        "head_sha": dispatch.head_sha(payload),
-        "checks": [{"name": r.name, "conclusion": r.conclusion} for r in results],
-    }
+    return _run_checks_for_payload(payload)
 
 
 def start() -> None:  # pragma: no cover - production entrypoint

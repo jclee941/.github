@@ -11,7 +11,8 @@ from typing import Any
 
 from jclee_bot.checks import CheckResult, actionlint_check, pr_metadata, secret_scan
 
-_PR_ACTIONS = {"opened", "synchronize", "reopened", "ready_for_review"}
+PR_ACTIONS = {"opened", "synchronize", "reopened", "ready_for_review"}
+_PR_ACTIONS = PR_ACTIONS  # backward-compat alias
 
 
 def head_sha(payload: dict[str, Any]) -> str:
