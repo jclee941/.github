@@ -2,13 +2,12 @@ name: Organization Health Report
 
 on:
   # NOTE: no `issues:` trigger — this workflow CREATES an org-health issue,
-  # which would re-trigger it via GH_PAT (feedback loop). Driven by
-  # pull_request + workflow_run.
-  pull_request:
-    types: [opened, edited, synchronize, reopened, ready_for_review, closed]
-  workflow_run:
-    workflows: ["PR Checks", "Issue Management", "Repository Health Check"]
-    types: [completed]
+  # which would re-trigger it via GH_PAT (feedback loop). This is a WEEKLY
+  # report, so it runs on a schedule + manual dispatch only. Previously it ran
+  # on every pull_request/workflow_run event, which (combined with open
+  # dependabot PRs + CI churn) spammed near-duplicate all-zero issues.
+  schedule:
+    - cron: '0 6 * * 1'  # Mondays 06:00 UTC
   workflow_dispatch:
 
 permissions:
@@ -21,7 +20,6 @@ concurrency:
 
 jobs:
   report:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
@@ -98,6 +96,15 @@ jobs:
           if [ -n "$EXISTING" ]; then
             gh issue close "$EXISTING" --repo "$GITHUB_REPOSITORY" --comment "Superseded by new weekly report." \
               || echo "::warning::failed to close superseded org-health issue #$EXISTING"
+          fi
+
+          # Suppress all-zero reports: when there are no open PRs, no open
+          # issues, and no stale PRs, there is nothing actionable. Creating an
+          # issue in that case only generates recurring noise that must be
+          # hand-triaged. Close any stale existing report and exit cleanly.
+          if [ "${TOTAL_OPEN_PRS:-0}" -eq 0 ] && [ "${TOTAL_OPEN_ISSUES:-0}" -eq 0 ] && [ "${TOTAL_STALE_PRS:-0}" -eq 0 ]; then
+            echo "All metrics zero — no actionable items; skipping issue creation."
+            exit 0
           fi
 
           gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$BODY" --label "org-health,automation"
