@@ -112,6 +112,9 @@ var extraFiles = []string{
 	// downstream jobs fail with "Can't find action.yml under
 	// .github/actions/notify-on-failure".
 	".github/actions/notify-on-failure/action.yml",
+	// Local composite action that makes Python setup work on self-hosted Debian
+	// runners (actions/setup-python only ships CPython for GitHub-hosted Ubuntu).
+	".github/actions/setup-python-compatible/action.yml",
 }
 
 // removedWorkflows lists workflows that were previously deployed but are no longer

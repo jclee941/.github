@@ -16,6 +16,7 @@ on:
       - 'requirements.txt'
       - 'pyproject.toml'
       - '.github/actions/notify-on-failure/**'
+      - '.github/actions/setup-python-compatible/**'
   workflow_dispatch:
 permissions:
   contents: read
