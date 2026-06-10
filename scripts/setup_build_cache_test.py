@@ -95,8 +95,10 @@ def test_falls_back_when_nas_unavailable() -> None:
     """A missing/unwritable NAS mount must degrade to a local path, not hard-fail."""
     run = _self_hosted_run()
     assert "RUNNER_TEMP" in run, "no local fallback base referenced"
-    # Writability check before committing to the NAS path.
-    assert "-w" in run, "no writability test for the NAS mount"
+    # Active writability probe before committing to the NAS path (a fresh
+    # NFS volume is root-owned, so -w alone is insufficient; the action does
+    # a real touch and may self-heal permissions).
+    assert "write-probe" in run, "no writability probe for the NAS mount"
 
 
 def test_action_in_deploy_manifest() -> None:
