@@ -89,12 +89,19 @@ for repo in "${REPOS[@]}"; do
     -F 'security_and_analysis[secret_scanning_push_protection][status]=enabled' \
     --silent
 
-  # 4. CodeQL default setup (code scanning) — replaces 06_codeql.yml.
+  # 4. CodeQL default setup (code scanning) - replaces 06_codeql.yml.
+  # NOTE: the code-scanning/default-setup PUT can 404 for repos where code
+  # scanning has never been initialized, or when the token lacks the
+  # code-scanning admin grant. In that case enable it once via the repo's
+  # Settings -> Code security -> CodeQL analysis -> Default (UI). The script
+  # attempts the API path and warns (non-fatal) if it is unavailable.
   run gh api -X PUT "repos/$full/code-scanning/default-setup" \
-    -F 'state=configured' -F 'query_suite=default' --silent
+    -f 'state=configured' -f 'query_suite=default' --silent
 done
 
 echo
 echo "Done. The jclee-bot App provides the required merge-gate checks"
 echo "(jclee-bot / pr-metadata, jclee-bot / secret-scan); this script covers the"
 echo "GitHub-native security features that replace the removed per-repo workflows."
+echo "If CodeQL default setup warned with 404, enable it once per repo via"
+echo "Settings -> Code security -> CodeQL analysis -> Default."
