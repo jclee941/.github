@@ -282,7 +282,7 @@ flow TB
 | `30_runtime-health-check.yml` | schedule | Runtime environment validation |
 | `32_org-health-report.yml` | schedule | Organization-level health dashboard |
 
-#### Infrastructure & Deployment (6)
+#### Infrastructure & Deployment (7)
 
 | Workflow File | Trigger | Description |
 |---------------|---------|-------------|
@@ -292,6 +292,7 @@ flow TB
 | `36_build-and-push-app.yml` | push | Container image build and push |
 | `37_ci-failure-issues.yml` | workflow_run | Auto-create issues on CI failure |
 | `40_repo-review-batch.yml` | manual | Batch repository review |
+| `41_pages-deploy.yml` | push, manual | GitHub Pages docs site deployment |
 
 #### Testing (2)
 
@@ -391,6 +392,7 @@ github-bot/
 │   │   ├── 38_e2e.yml
 │   │   ├── 39_e2e-live.yml
 │   │   ├── 40_repo-review-batch.yml
+│   │   ├── 41_pages-deploy.yml
 │   │   ├── 42_reusable-docs-sync.yml
 │   │   ├── 43_reusable-issue-management.yml
 │   │   ├── 44_reusable-pr-checks.yml
