@@ -61,13 +61,10 @@ const rulesetPayload = `{
       "parameters": {
         "required_status_checks": [
           {
-            "context": "pr-checks / Check PR Title"
+            "context": "jclee-bot / pr-metadata"
           },
           {
-            "context": "pr-checks / Check Branch Name"
-          },
-          {
-            "context": "Gitleaks / scan"
+            "context": "jclee-bot / secret-scan"
           }
         ],
         "strict_required_status_checks_policy": false

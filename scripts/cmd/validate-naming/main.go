@@ -694,44 +694,28 @@ func (v *validator) rulesetsManagerRequiredContexts() ([]string, error) {
 }
 
 func (v *validator) producedWorkflowContexts() ([]string, error) {
-	// Guard against the fleet-blocking drift where rulesets required bare
-	// "scan" while GitHub produced "Gitleaks / scan" for the reusable workflow.
-	// Keep this derived from workflow files so renaming caller/called jobs fails
-	// validation before branch protection or rulesets are redeployed.
-	workflowPairs := []struct {
-		caller string
-		jobKey string
-	}{
-		{caller: "03_pr-checks.yml", jobKey: "pr-checks"},
-		{caller: "05_gitleaks.yml", jobKey: "Gitleaks"},
+	// Required merge gates are now produced by the jclee-bot GitHub App Checks
+	// runner (jclee_bot package), not per-repo workflows. Derive the produced
+	// context names from the App check modules so renaming a check name fails
+	// validation before branch protection requires a context that no longer
+	// exists.
+	checkFiles := []string{
+		"jclee_bot/checks/pr_metadata.py",
+		"jclee_bot/checks/secret_scan.py",
+		"jclee_bot/checks/actionlint_check.py",
 	}
-
+	re := regexp.MustCompile(`CHECK_NAME\s*=\s*"([^"]+)"`)
 	var contexts []string
-	for _, pair := range workflowPairs {
-		callerJobs, err := parseWorkflowJobs(v.workflowFile(pair.caller))
+	for _, rel := range checkFiles {
+		b, err := os.ReadFile(filepath.Join(v.rootDir, rel))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read App check %s: %w", rel, err)
 		}
-		callerJob, ok := callerJobs[pair.jobKey]
-		if !ok {
-			return nil, fmt.Errorf("workflow %s missing caller job %q", pair.caller, pair.jobKey)
+		m := re.FindSubmatch(b)
+		if m == nil {
+			return nil, fmt.Errorf("App check %s has no CHECK_NAME constant", rel)
 		}
-		if callerJob.Uses == "" {
-			return nil, fmt.Errorf("workflow %s job %q does not call a reusable workflow", pair.caller, pair.jobKey)
-		}
-
-		calledFile := filepath.Base(callerJob.Uses)
-		calledJobs, err := parseWorkflowJobs(v.workflowFile(calledFile))
-		if err != nil {
-			return nil, err
-		}
-		for _, job := range calledJobs {
-			displayName := job.Key
-			if job.Name != "" {
-				displayName = job.Name
-			}
-			contexts = append(contexts, pair.jobKey+" / "+displayName)
-		}
+		contexts = append(contexts, string(m[1]))
 	}
 	sort.Strings(contexts)
 	return contexts, nil

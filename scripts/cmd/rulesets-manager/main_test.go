@@ -129,8 +129,8 @@ func TestRulesetPayloadJSON(t *testing.T) {
 				t.Error("required_status_checks.parameters.required_status_checks not found or wrong type")
 				continue
 			}
-			if len(checks) != 3 {
-				t.Errorf("expected 3 status checks, got %d", len(checks))
+			if len(checks) != 2 {
+				t.Errorf("expected 2 status checks, got %d", len(checks))
 			}
 		}
 	}
@@ -165,9 +165,8 @@ func TestRulesetPayloadRequiredStatusCheckContexts(t *testing.T) {
 	}
 
 	want := []string{
-		"pr-checks / Check PR Title",
-		"pr-checks / Check Branch Name",
-		"Gitleaks / scan",
+		"jclee-bot / pr-metadata",
+		"jclee-bot / secret-scan",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("required status check contexts = %v, want %v", got, want)
