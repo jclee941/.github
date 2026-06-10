@@ -53,6 +53,16 @@ def test_self_hosted_uses_uv() -> None:
     assert "uv python install" in raw
 
 
+def test_self_hosted_venv_seeds_pip() -> None:
+    """Many workflows call bare `pip`/`python -m pip`; `uv venv` does NOT install
+    pip by default, so the venv must be created with --seed."""
+    raw = ACTION.read_text(encoding="utf-8")
+    assert "--seed" in raw, (
+        "uv venv must use --seed so pip is available in the venv for downstream "
+        "pip/python -m pip steps"
+    )
+
+
 def test_third_party_action_is_sha_pinned() -> None:
     """Repo convention: third-party actions are pinned to a full 40-char SHA."""
     raw = ACTION.read_text(encoding="utf-8")
