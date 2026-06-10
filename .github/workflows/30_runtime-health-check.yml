@@ -3,7 +3,7 @@ name: Runtime Health Check
 on:
   deployment_status:
   workflow_run:
-    workflows: ["Build and Push App Image", "Auto Deploy Workflows"]
+    workflows: ["Build and Push App Image"]
     types: [completed]
   repository_dispatch:
     types: [runtime-health-check]

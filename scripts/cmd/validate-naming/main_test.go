@@ -7,45 +7,6 @@ import (
 	"testing"
 )
 
-func TestExtractYamlPaths(t *testing.T) {
-	// Create temp dir with mock auto-deploy.yml
-	tmpDir := t.TempDir()
-	yamlContent := `on:
-  push:
-    branches: [master]
-    paths:
-      - '.github/workflows/**'
-      - '.github/dependabot.yml'
-      - '.github/ISSUE_TEMPLATE/**'
-  workflow_dispatch:
-`
-	if err := os.MkdirAll(filepath.Join(tmpDir, ".github", "workflows"), 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tmpDir, ".github", "workflows", "34_auto-deploy.yml"), []byte(yamlContent), 0o644); err != nil {
-		t.Fatalf("write file: %v", err)
-	}
-
-	v := &validator{rootDir: tmpDir}
-	paths, err := v.extractAutoDeployPaths()
-	if err != nil {
-		t.Fatalf("extract paths: %v", err)
-	}
-	want := []string{
-		".github/workflows/**",
-		".github/dependabot.yml",
-		".github/ISSUE_TEMPLATE/**",
-	}
-	if len(paths) != len(want) {
-		t.Fatalf("got %d paths, want %d: %v", len(paths), len(want), paths)
-	}
-	for i, w := range want {
-		if paths[i] != w {
-			t.Errorf("path[%d] = %q, want %q", i, paths[i], w)
-		}
-	}
-}
-
 func TestContains(t *testing.T) {
 	if !contains([]string{"a", "b", "c"}, "b") {
 		t.Error("expected contains to find 'b'")
@@ -168,26 +129,11 @@ func TestOrphanReusableWorkflowsDetectsOrphan(t *testing.T) {
 	if err := os.MkdirAll(wfDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	deployDir := filepath.Join(tmpDir, "scripts", "cmd", "deploy-to-repos")
-	if err := os.MkdirAll(deployDir, 0o755); err != nil {
-		t.Fatalf("mkdir deploy: %v", err)
-	}
-
-	// Deploy manifest lists only 45_reusable-gitleaks.yml as deployed downstream.
-	deploy := "package main\n\nvar downstreamWorkflowAllowlist = map[string]struct{}{\n" +
-		"\t\".github/workflows/45_reusable-gitleaks.yml\": {},\n}\n"
-	if err := os.WriteFile(filepath.Join(deployDir, "main.go"), []byte(deploy), 0o644); err != nil {
-		t.Fatalf("write deploy: %v", err)
-	}
 
 	callOnly := "name: x\non:\n  workflow_call:\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n"
-	// 81_auto-merge: workflow_call-only, no caller, NOT in manifest -> ORPHAN.
+	// 81_auto-merge: workflow_call-only, no caller -> ORPHAN.
 	if err := os.WriteFile(filepath.Join(wfDir, "81_auto-merge.yml"), []byte(callOnly), 0o644); err != nil {
 		t.Fatalf("write orphan: %v", err)
-	}
-	// 45_reusable-gitleaks: workflow_call-only but IS in manifest -> OK.
-	if err := os.WriteFile(filepath.Join(wfDir, "45_reusable-gitleaks.yml"), []byte(callOnly), 0o644); err != nil {
-		t.Fatalf("write manifest reusable: %v", err)
 	}
 	// 44_reusable-pr-checks: workflow_call-only but CALLED locally by 03 -> OK.
 	if err := os.WriteFile(filepath.Join(wfDir, "44_reusable-pr-checks.yml"), []byte(callOnly), 0o644); err != nil {
@@ -206,9 +152,6 @@ func TestOrphanReusableWorkflowsDetectsOrphan(t *testing.T) {
 	if !strings.Contains(err.Error(), "81_auto-merge.yml") {
 		t.Fatalf("error should name the orphan file, got: %v", err)
 	}
-	if strings.Contains(err.Error(), "45_reusable-gitleaks.yml") {
-		t.Fatalf("manifest-deployed reusable must not be flagged: %v", err)
-	}
 	if strings.Contains(err.Error(), "44_reusable-pr-checks.yml") {
 		t.Fatalf("locally-called reusable must not be flagged: %v", err)
 	}
@@ -219,14 +162,6 @@ func TestOrphanReusableWorkflowsCleanPasses(t *testing.T) {
 	wfDir := filepath.Join(tmpDir, ".github", "workflows")
 	if err := os.MkdirAll(wfDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
-	}
-	deployDir := filepath.Join(tmpDir, "scripts", "cmd", "deploy-to-repos")
-	if err := os.MkdirAll(deployDir, 0o755); err != nil {
-		t.Fatalf("mkdir deploy: %v", err)
-	}
-	deploy := "package main\n\nvar downstreamWorkflowAllowlist = map[string]struct{}{\n}\n"
-	if err := os.WriteFile(filepath.Join(deployDir, "main.go"), []byte(deploy), 0o644); err != nil {
-		t.Fatalf("write deploy: %v", err)
 	}
 	// Only a normal triggered workflow + a called reusable: no orphans.
 	normal := "name: PR Checks\non:\n  pull_request:\njobs:\n  c:\n    uses: ./.github/workflows/44_reusable-pr-checks.yml\n"
@@ -260,14 +195,6 @@ func TestOrphanReusableWorkflowsInlineForms(t *testing.T) {
 	if err := os.MkdirAll(wfDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	deployDir := filepath.Join(tmpDir, "scripts", "cmd", "deploy-to-repos")
-	if err := os.MkdirAll(deployDir, 0o755); err != nil {
-		t.Fatalf("mkdir deploy: %v", err)
-	}
-	deploy := "package main\n\nvar downstreamWorkflowAllowlist = map[string]struct{}{\n}\n"
-	if err := os.WriteFile(filepath.Join(deployDir, "main.go"), []byte(deploy), 0o644); err != nil {
-		t.Fatalf("write deploy: %v", err)
-	}
 
 	// Inline mapping form: `on: workflow_call` (no indented block).
 	if err := os.WriteFile(filepath.Join(wfDir, "81_inline.yml"), []byte("name: x\non: workflow_call\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n"), 0o644); err != nil {
@@ -294,145 +221,11 @@ func TestOrphanReusableWorkflowsInlineForms(t *testing.T) {
 	}
 }
 
-func TestOrphanReusableWorkflowsManifestParseError(t *testing.T) {
-	tmpDir := t.TempDir()
-	wfDir := filepath.Join(tmpDir, ".github", "workflows")
-	if err := os.MkdirAll(wfDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	// No deploy-to-repos/main.go at all -> manifest unreadable. The validator
-	// must NOT silently treat every reusable as deployed; it must surface the
-	// error rather than masking orphans.
-	if err := os.WriteFile(filepath.Join(wfDir, "45_reusable-gitleaks.yml"), []byte("name: x\non:\n  workflow_call:\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n"), 0o644); err != nil {
-		t.Fatalf("write reusable: %v", err)
-	}
-	v := &validator{rootDir: tmpDir}
-	if err := v.orphanReusableWorkflows(); err == nil {
-		t.Fatal("expected an error when the deploy manifest cannot be read")
-	}
-}
 
-func TestDeployManifestPathsExistDetectsMissing(t *testing.T) {
-	tmpDir := t.TempDir()
-	deployDir := filepath.Join(tmpDir, "scripts", "cmd", "deploy-to-repos")
-	if err := os.MkdirAll(deployDir, 0o755); err != nil {
-		t.Fatalf("mkdir deploy: %v", err)
-	}
-	wfDir := filepath.Join(tmpDir, ".github", "workflows")
-	if err := os.MkdirAll(wfDir, 0o755); err != nil {
-		t.Fatalf("mkdir wf: %v", err)
-	}
-	// Manifest lists two files; only one exists on disk.
-	if err := os.WriteFile(filepath.Join(wfDir, "10_pr-review.yml"), []byte("name: x\n"), 0o644); err != nil {
-		t.Fatalf("write wf: %v", err)
-	}
-	deploy := "package main\n\n" +
-		"var downstreamWorkflowAllowlist = map[string]struct{}{\n" +
-		"\t\".github/workflows/10_pr-review.yml\": {},\n" +
-		"\t\".github/workflows/99_ghost.yml\": {},\n}\n" +
-		"var extraFiles = []string{\n}\n"
-	if err := os.WriteFile(filepath.Join(deployDir, "main.go"), []byte(deploy), 0o644); err != nil {
-		t.Fatalf("write deploy: %v", err)
-	}
-	v := &validator{rootDir: tmpDir}
-	err := v.deployManifestPathsExist()
-	if err == nil {
-		t.Fatal("expected missing manifest path 99_ghost.yml to be flagged")
-	}
-	if !strings.Contains(err.Error(), "99_ghost.yml") {
-		t.Fatalf("error should name the missing path, got: %v", err)
-	}
-	if strings.Contains(err.Error(), "10_pr-review.yml") {
-		t.Fatalf("existing path must not be flagged: %v", err)
-	}
-}
 
-func TestDeployManifestPathsExistRepoClean(t *testing.T) {
-	rootDir, err := findRepoRoot()
-	if err != nil {
-		t.Fatalf("find repo root: %v", err)
-	}
-	v := &validator{rootDir: rootDir}
-	if err := v.deployManifestPathsExist(); err != nil {
-		t.Fatalf("all deploy manifest paths should exist: %v", err)
-	}
-}
 
-func TestDeployManifestConsistencyDetectsOverlap(t *testing.T) {
-	tmpDir := t.TempDir()
-	deployDir := filepath.Join(tmpDir, "scripts", "cmd", "deploy-to-repos")
-	if err := os.MkdirAll(deployDir, 0o755); err != nil {
-		t.Fatalf("mkdir deploy: %v", err)
-	}
-	wfDir := filepath.Join(tmpDir, ".github", "workflows")
-	if err := os.MkdirAll(wfDir, 0o755); err != nil {
-		t.Fatalf("mkdir wf: %v", err)
-	}
-	// 10_pr-review.yml is BOTH in the allowlist AND in removedWorkflows -> a
-	// contradiction (deploy it AND delete it downstream).
-	if err := os.WriteFile(filepath.Join(wfDir, "10_pr-review.yml"), []byte("name: x\n"), 0o644); err != nil {
-		t.Fatalf("write wf: %v", err)
-	}
-	deploy := "package main\n\n" +
-		"var downstreamWorkflowAllowlist = map[string]struct{}{\n" +
-		"\t\".github/workflows/10_pr-review.yml\": {},\n}\n" +
-		"var removedWorkflows = []string{\n" +
-		"\t\".github/workflows/10_pr-review.yml\",\n}\n"
-	if err := os.WriteFile(filepath.Join(deployDir, "main.go"), []byte(deploy), 0o644); err != nil {
-		t.Fatalf("write deploy: %v", err)
-	}
-	v := &validator{rootDir: tmpDir}
-	err := v.deployManifestConsistency()
-	if err == nil {
-		t.Fatal("expected allowlist/removedWorkflows overlap to be flagged")
-	}
-	if !strings.Contains(err.Error(), "10_pr-review.yml") {
-		t.Fatalf("error should name the conflicting path, got: %v", err)
-	}
-}
 
-func TestDeployManifestConsistencyDetectsRemovedStillExists(t *testing.T) {
-	tmpDir := t.TempDir()
-	deployDir := filepath.Join(tmpDir, "scripts", "cmd", "deploy-to-repos")
-	if err := os.MkdirAll(deployDir, 0o755); err != nil {
-		t.Fatalf("mkdir deploy: %v", err)
-	}
-	wfDir := filepath.Join(tmpDir, ".github", "workflows")
-	if err := os.MkdirAll(wfDir, 0o755); err != nil {
-		t.Fatalf("mkdir wf: %v", err)
-	}
-	// removedWorkflows lists a file that STILL exists locally -> it is supposed
-	// to be deleted downstream but is still active here (drift).
-	if err := os.WriteFile(filepath.Join(wfDir, "99_ghost.yml"), []byte("name: x\n"), 0o644); err != nil {
-		t.Fatalf("write wf: %v", err)
-	}
-	deploy := "package main\n\n" +
-		"var downstreamWorkflowAllowlist = map[string]struct{}{\n}\n" +
-		"var removedWorkflows = []string{\n" +
-		"\t\".github/workflows/99_ghost.yml\",\n}\n"
-	if err := os.WriteFile(filepath.Join(deployDir, "main.go"), []byte(deploy), 0o644); err != nil {
-		t.Fatalf("write deploy: %v", err)
-	}
-	v := &validator{rootDir: tmpDir}
-	err := v.deployManifestConsistency()
-	if err == nil {
-		t.Fatal("expected removedWorkflows entry that still exists to be flagged")
-	}
-	if !strings.Contains(err.Error(), "99_ghost.yml") {
-		t.Fatalf("error should name the still-existing removed path, got: %v", err)
-	}
-}
 
-func TestDeployManifestConsistencyRepoClean(t *testing.T) {
-	rootDir, err := findRepoRoot()
-	if err != nil {
-		t.Fatalf("find repo root: %v", err)
-	}
-	v := &validator{rootDir: rootDir}
-	if err := v.deployManifestConsistency(); err != nil {
-		t.Fatalf("deploy manifest should be internally consistent: %v", err)
-	}
-}
 
 func TestReadmeWorkflowInventoryUniqueDetectsDup(t *testing.T) {
 	tmpDir := t.TempDir()

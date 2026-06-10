@@ -3,7 +3,7 @@ name: ELK Health Check
 on:
   deployment_status:
   workflow_run:
-    workflows: ["Build and Push App Image", "Auto Deploy Workflows", "ELK Setup"]
+    workflows: ["Build and Push App Image", "ELK Setup"]
     types: [completed]
   repository_dispatch:
     types: [elk-health-check]

@@ -1,6 +1,6 @@
 name: CI Failure Issues
 
-# When Sanity or Auto Deploy Workflows fails on master, create a
+# When a watched CI workflow (e.g. Sanity) fails on master, create a
 # deduplicated issue. If an open issue already exists for the same
 # (workflow, sha) pair, append a comment instead of creating a duplicate.
 #
@@ -11,7 +11,6 @@ on:
   workflow_run:
     workflows:
       - "Sanity"
-      - "Auto Deploy Workflows"
       - "PR Checks"
       - "Gitleaks"
       - "CodeQL"
@@ -20,7 +19,6 @@ on:
       - "ELK Setup"
       - "Downstream Health Check"
       - "Bot Health Monitor"
-      - "Drift Detector"
       - "CI Auto-Heal"
       - "Repository Health Check"
       - "Auto Hardcode Scan"
@@ -166,7 +164,6 @@ jobs:
             "Runtime Health Check") SUBS=$(printf '%s\n' 'Bot webhook endpoint unreachable' 'CLIProxyAPI unreachable' 'jclee-bot not responding' 'Runtime Health Check failed') ;;
             "Downstream Health Check") SUBS=$(printf '%s\n' 'Downstream workflow failures detected' 'Downstream Health Check failed') ;;
             "Bot Health Monitor") SUBS=$(printf '%s\n' 'bot-health' 'Bot Health Monitor failed') ;;
-            "Drift Detector") SUBS='Drift Detector Failed' ;;
             "CI Auto-Heal") SUBS=$(printf '%s\n' 'CI failure:' 'CI Auto-Heal failed') ;;
             *) echo "::notice::No stable-title mapping for '$WF_NAME'; nothing to close here"; exit 0 ;;
           esac
@@ -189,30 +186,6 @@ jobs:
             done
           done
 
-      - name: On success, close legacy auto-deploy failure issues
-        if: steps.ev.outputs.conclusion == 'success' && steps.ev.outputs.wf_name == 'Auto Deploy Workflows'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DRY_RUN: ${{ inputs.dry_run || 'false' }}
-        run: |
-          set -eu
-          LEGACY_ISSUES=$(gh issue list --repo "$GITHUB_REPOSITORY" \
-            --state open --search "in:title \"chore: auto-deploy failed on\"" \
-            --json number,title --jq '.[] | .number' 2>/dev/null || true)
-          if [ -z "$LEGACY_ISSUES" ]; then
-            echo "::notice::No legacy auto-deploy failure issues to close"
-            exit 0
-          fi
-          for N in $LEGACY_ISSUES; do
-            if [ "$DRY_RUN" = "true" ]; then
-              echo "::notice::DRY-RUN: would close legacy auto-deploy issue #$N"
-              continue
-            fi
-            gh issue close "$N" --repo "$GITHUB_REPOSITORY" \
-              --comment "Resolved by a successful Auto Deploy Workflows run. Auto-closed by jclee-bot." \
-              --reason completed \
-              || echo "::warning::failed to close legacy issue #$N; continuing"
-          done
       - name: Ensure label exists
         if: steps.ev.outputs.conclusion == 'failure'
         env:
@@ -358,7 +331,6 @@ jobs:
             'Bot Health Monitor failed|28_bot-health-monitor.yml' \
             'CI failure:|60_ci-auto-heal.yml' \
             'CI Auto-Heal failed|60_ci-auto-heal.yml' \
-            'Drift Detector Failed|33_drift-detector.yml' \
             'Repository Health Check|31_repo-health.yml')"
 
           # Latest COMPLETED run conclusion for a workflow on the default branch.

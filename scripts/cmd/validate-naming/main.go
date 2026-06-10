@@ -36,17 +36,12 @@ func main() {
 	v := &validator{rootDir: rootDir}
 
 	validations := []validation{
-		{"auto-deploy paths cover extraFiles", v.autoDeployPathsCoverExtraFiles, v.fixAutoDeployPaths},
-		{"CODEOWNERS covers extraFiles directories", v.codeownersCoversExtraFiles, v.fixCodeowners},
 		{"issue templates follow kebab-case", v.issueTemplatesKebabCase, nil},
 		{"workflows follow naming convention", v.workflowsNamingConvention, nil},
-		{"extraFiles have allowed extensions", v.extraFilesExtensions, nil},
 		{"required status checks match workflow check-run names", v.requiredStatusChecksMatchWorkflowContexts, nil},
 		{"notify-on-failure jobs checkout local actions first", v.notifyOnFailureRequiresCheckout, nil},
 		{"workflows query users/ not orgs/ for jclee941", v.noOrgEndpointForUserAccount, nil},
 		{"no orphaned reusable workflows", v.orphanReusableWorkflows, nil},
-		{"deploy manifest paths exist", v.deployManifestPathsExist, nil},
-		{"deploy manifest internally consistent", v.deployManifestConsistency, nil},
 		{"README workflow inventory unique and complete", v.readmeWorkflowInventoryUnique, nil},
 	}
 
@@ -142,48 +137,6 @@ func extractGoConst(filePath string, constNames []string) (map[string]string, er
 	return result, nil
 }
 
-// extractGoSlice reads a Go file and extracts a []string variable by name.
-func extractGoSlice(filePath, varName string) ([]string, error) {
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, filePath, nil, parser.AllErrors)
-	if err != nil {
-		return nil, fmt.Errorf("parse %s: %w", filePath, err)
-	}
-
-	for _, decl := range f.Decls {
-		genDecl, ok := decl.(*ast.GenDecl)
-		if !ok || genDecl.Tok != token.VAR {
-			continue
-		}
-		for _, spec := range genDecl.Specs {
-			valueSpec, ok := spec.(*ast.ValueSpec)
-			if !ok {
-				continue
-			}
-			for _, name := range valueSpec.Names {
-				if name.Name != varName {
-					continue
-				}
-				if len(valueSpec.Values) == 0 {
-					continue
-				}
-				composite, ok := valueSpec.Values[0].(*ast.CompositeLit)
-				if !ok {
-					continue
-				}
-				var items []string
-				for _, elt := range composite.Elts {
-					if lit, ok := elt.(*ast.BasicLit); ok && lit.Kind == token.STRING {
-						items = append(items, strings.Trim(lit.Value, `"`))
-					}
-				}
-				return items, nil
-			}
-		}
-	}
-	return nil, fmt.Errorf("variable %s not found in %s", varName, filePath)
-}
-
 // extractGoStringLiterals reads a Go file and returns ALL string literals that
 // appear in the composite literal assigned to varName. It works for both
 // []string slices (literal elements) and map[string]T maps (the literal keys),
@@ -242,283 +195,6 @@ func extractGoStringLiterals(filePath, varName string) ([]string, error) {
 	return items, nil
 }
 
-func (v *validator) deployConstantsMatchE2E() error {
-	goConsts, err := extractGoConst(v.deployFile(), []string{"branchName", "prTitle"})
-	if err != nil {
-		return err
-	}
-
-	content, err := os.ReadFile(v.e2eFile())
-	if err != nil {
-		return fmt.Errorf("read E2E test: %w", err)
-	}
-	text := string(content)
-
-	branchRe := regexp.MustCompile(`DEPLOY_BRANCH\s*=\s*"([^"]+)"`)
-	titleRe := regexp.MustCompile(`DEPLOY_PR_TITLE\s*=\s*"([^"]+)"`)
-
-	branchMatches := branchRe.FindStringSubmatch(text)
-	titleMatches := titleRe.FindStringSubmatch(text)
-
-	if len(branchMatches) < 2 {
-		return fmt.Errorf("DEPLOY_BRANCH not found in E2E test")
-	}
-	if len(titleMatches) < 2 {
-		return fmt.Errorf("DEPLOY_PR_TITLE not found in E2E test")
-	}
-
-	wantBranch := goConsts["branchName"]
-	wantTitle := goConsts["prTitle"]
-
-	if branchMatches[1] != wantBranch {
-		return fmt.Errorf("branch mismatch: deploy=%q, e2e=%q", wantBranch, branchMatches[1])
-	}
-	if titleMatches[1] != wantTitle {
-		return fmt.Errorf("title mismatch: deploy=%q, e2e=%q", wantTitle, titleMatches[1])
-	}
-
-	return nil
-}
-
-func (v *validator) fixDeployConstantsMatchE2E() error {
-	goConsts, err := extractGoConst(v.deployFile(), []string{"branchName", "prTitle"})
-	if err != nil {
-		return err
-	}
-
-	content, err := os.ReadFile(v.e2eFile())
-	if err != nil {
-		return err
-	}
-	text := string(content)
-
-	branchRe := regexp.MustCompile(`DEPLOY_BRANCH\s*=\s*"([^"]+)"`)
-	titleRe := regexp.MustCompile(`DEPLOY_PR_TITLE\s*=\s*"([^"]+)"`)
-
-	text = branchRe.ReplaceAllString(text, `DEPLOY_BRANCH = "`+goConsts["branchName"]+`"`)
-	text = titleRe.ReplaceAllString(text, `DEPLOY_PR_TITLE = "`+goConsts["prTitle"]+`"`)
-
-	return os.WriteFile(v.e2eFile(), []byte(text), 0o644)
-}
-
-func (v *validator) autoDeployPathsCoverExtraFiles() error {
-	extraFiles, err := extractGoSlice(v.deployFile(), "extraFiles")
-	if err != nil {
-		return err
-	}
-
-	paths, err := v.extractAutoDeployPaths()
-	if err != nil {
-		return err
-	}
-
-	for _, ef := range extraFiles {
-		covered := false
-		for _, tp := range paths {
-			if ef == tp {
-				covered = true
-				break
-			}
-			tpClean := strings.TrimSuffix(tp, "/**")
-			if strings.HasPrefix(filepath.Dir(ef), tpClean) || filepath.Dir(ef) == tpClean {
-				covered = true
-				break
-			}
-		}
-		if !covered {
-			return fmt.Errorf("extraFile %q not covered by 34_auto-deploy.yml paths", ef)
-		}
-	}
-
-	return nil
-}
-
-func (v *validator) fixAutoDeployPaths() error {
-	extraFiles, err := extractGoSlice(v.deployFile(), "extraFiles")
-	if err != nil {
-		return err
-	}
-
-	paths, err := v.extractAutoDeployPaths()
-	if err != nil {
-		return err
-	}
-
-	pathSet := make(map[string]bool)
-	for _, p := range paths {
-		pathSet[p] = true
-	}
-
-	var missing []string
-	for _, ef := range extraFiles {
-		covered := false
-		for _, tp := range paths {
-			if ef == tp {
-				covered = true
-				break
-			}
-			tpClean := strings.TrimSuffix(tp, "/**")
-			if strings.HasPrefix(filepath.Dir(ef), tpClean) || filepath.Dir(ef) == tpClean {
-				covered = true
-				break
-			}
-		}
-		if !covered {
-			dir := filepath.Dir(ef)
-			glob := dir + "/**"
-			if !pathSet[glob] {
-				missing = append(missing, glob)
-				pathSet[glob] = true
-			}
-		}
-	}
-
-	if len(missing) == 0 {
-		return nil
-	}
-
-	content, err := os.ReadFile(v.autoDeployFile())
-	if err != nil {
-		return err
-	}
-
-	text := string(content)
-	// Insert missing paths before the first non-path, non-comment line after paths section
-	lines := strings.Split(text, "\n")
-	insertIdx := -1
-	for i, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "- '") || strings.HasPrefix(trimmed, "-\"") {
-			insertIdx = i + 1
-		}
-	}
-	if insertIdx == -1 {
-		return fmt.Errorf("could not find insertion point in 34_auto-deploy.yml")
-	}
-
-	var newLines []string
-	for _, m := range missing {
-		newLines = append(newLines, fmt.Sprintf("      - '%s'", m))
-	}
-
-	lines = append(lines[:insertIdx], append(newLines, lines[insertIdx:]...)...)
-	return os.WriteFile(v.autoDeployFile(), []byte(strings.Join(lines, "\n")), 0o644)
-}
-
-func (v *validator) codeownersCoversExtraFiles() error {
-	extraFiles, err := extractGoSlice(v.deployFile(), "extraFiles")
-	if err != nil {
-		return err
-	}
-
-	content, err := os.ReadFile(v.codeownersFile())
-	if err != nil {
-		return fmt.Errorf("read CODEOWNERS: %w", err)
-	}
-
-	lines := strings.Split(string(content), "\n")
-	var patterns []string
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		parts := strings.Fields(line)
-		if len(parts) >= 2 {
-			patterns = append(patterns, parts[0])
-		}
-	}
-
-	for _, ef := range extraFiles {
-		dir := "/" + filepath.Dir(ef) + "/"
-		covered := false
-		for _, pattern := range patterns {
-			patDir := filepath.Dir(pattern)
-			if patDir == "." {
-				patDir = pattern
-			}
-			patDir = strings.TrimSuffix(patDir, "/")
-			checkDir := strings.TrimSuffix(dir, "/")
-			if strings.HasPrefix(checkDir, patDir) || checkDir == patDir {
-				covered = true
-				break
-			}
-		}
-		if !covered {
-			return fmt.Errorf("extraFile %q directory %q not covered by CODEOWNERS patterns", ef, dir)
-		}
-	}
-
-	return nil
-}
-
-func (v *validator) fixCodeowners() error {
-	extraFiles, err := extractGoSlice(v.deployFile(), "extraFiles")
-	if err != nil {
-		return err
-	}
-
-	content, err := os.ReadFile(v.codeownersFile())
-	if err != nil {
-		return err
-	}
-
-	lines := strings.Split(string(content), "\n")
-	var patterns []string
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		parts := strings.Fields(line)
-		if len(parts) >= 2 {
-			patterns = append(patterns, parts[0])
-		}
-	}
-
-	var missing []string
-	for _, ef := range extraFiles {
-		dir := "/" + filepath.Dir(ef) + "/"
-		covered := false
-		for _, pattern := range patterns {
-			patDir := filepath.Dir(pattern)
-			if patDir == "." {
-				patDir = pattern
-			}
-			patDir = strings.TrimSuffix(patDir, "/")
-			checkDir := strings.TrimSuffix(dir, "/")
-			if strings.HasPrefix(checkDir, patDir) || checkDir == patDir {
-				covered = true
-				break
-			}
-		}
-		if !covered && !contains(missing, dir) {
-			missing = append(missing, dir)
-		}
-	}
-
-	if len(missing) == 0 {
-		return nil
-	}
-
-	// Append missing entries before the last blank line or at end
-	insertIdx := len(lines)
-	for i := len(lines) - 1; i >= 0; i-- {
-		if strings.TrimSpace(lines[i]) != "" {
-			insertIdx = i + 1
-			break
-		}
-	}
-
-	var newLines []string
-	for _, m := range missing {
-		newLines = append(newLines, fmt.Sprintf("%s\t@jclee941", m))
-	}
-
-	lines = append(lines[:insertIdx], append(newLines, lines[insertIdx:]...)...)
-	return os.WriteFile(v.codeownersFile(), []byte(strings.Join(lines, "\n")), 0o644)
-}
-
 func (v *validator) issueTemplatesKebabCase() error {
 	templateDir := filepath.Join(v.rootDir, ".github", "ISSUE_TEMPLATE")
 	entries, err := os.ReadDir(templateDir)
@@ -563,32 +239,6 @@ func (v *validator) workflowsNamingConvention() error {
 		}
 		if !kebabRe.MatchString(name) {
 			return fmt.Errorf("workflow %q does not follow kebab-case.yml convention", name)
-		}
-	}
-
-	return nil
-}
-
-func (v *validator) extraFilesExtensions() error {
-	extraFiles, err := extractGoSlice(v.deployFile(), "extraFiles")
-	if err != nil {
-		return err
-	}
-
-	allowed := map[string]bool{
-		".yml":  true,
-		".yaml": true,
-		".md":   true,
-		".json": true,
-		".js":   true,
-		".cjs":  true,
-		"":      true,
-	}
-
-	for _, ef := range extraFiles {
-		ext := filepath.Ext(ef)
-		if !allowed[ext] {
-			return fmt.Errorf("extraFile %q has disallowed extension %q", ef, ext)
 		}
 	}
 
@@ -857,9 +507,8 @@ func (v *validator) noOrgEndpointForUserAccount() error {
 }
 
 // orphanReusableWorkflows flags reusable workflows (on: workflow_call only)
-// that are neither called by any local workflow nor deployed to downstream
-// repos via the deploy manifest. Such files are dead duplicates of active
-// workflows and must be removed to prevent GitOps drift / inventory rot.
+// that are not called by any local workflow. Such files are dead duplicates
+// of active workflows and must be removed to prevent inventory rot.
 func (v *validator) orphanReusableWorkflows() error {
 	workflowsDir := filepath.Join(v.rootDir, ".github", "workflows")
 
@@ -892,27 +541,12 @@ func (v *validator) orphanReusableWorkflows() error {
 		return fmt.Errorf("walk workflows dir: %w", walkErr)
 	}
 
-	// Deploy manifest: workflows pushed to downstream repos are legitimately
-	// consumed even without a local caller. A parse failure must NOT be
-	// swallowed (that would mask real orphans), so surface it.
-	deployed := map[string]bool{}
-	manifest, err := extractGoStringLiterals(v.deployFile(), "downstreamWorkflowAllowlist")
-	if err != nil {
-		return fmt.Errorf("read deploy manifest downstreamWorkflowAllowlist: %w", err)
-	}
-	for _, p := range manifest {
-		deployed[filepath.Base(p)] = true
-	}
-
 	var orphans []string
 	for rel, body := range contents {
 		if !isWorkflowCallOnly(body) {
 			continue
 		}
 		base := filepath.Base(rel)
-		if deployed[base] {
-			continue
-		}
 		// Called by any other local workflow? A `uses:` reference ends in the
 		// file's base name (e.g. ./.github/workflows/44_x.yml or
 		// jclee941/.github/.github/workflows/44_x.yml@ref).
@@ -933,73 +567,7 @@ func (v *validator) orphanReusableWorkflows() error {
 
 	if len(orphans) > 0 {
 		sort.Strings(orphans)
-		return fmt.Errorf("orphaned reusable workflows (workflow_call-only, no local caller, not deployed downstream): %s", strings.Join(orphans, ", "))
-	}
-	return nil
-}
-
-// deployManifestPathsExist verifies that every file path listed in the deploy
-// manifest (downstreamWorkflowAllowlist + extraFiles) actually exists in the
-// repo. A stale manifest entry pointing at a renamed/removed file would cause
-// silent deploy gaps downstream, so this is a deploy-integrity invariant.
-func (v *validator) deployManifestPathsExist() error {
-	var missing []string
-	for _, varName := range []string{"downstreamWorkflowAllowlist", "extraFiles"} {
-		paths, err := extractGoStringLiterals(v.deployFile(), varName)
-		if err != nil {
-			return fmt.Errorf("read deploy manifest %s: %w", varName, err)
-		}
-		for _, p := range paths {
-			if _, statErr := os.Stat(filepath.Join(v.rootDir, p)); statErr != nil {
-				missing = append(missing, p)
-			}
-		}
-	}
-	if len(missing) > 0 {
-		sort.Strings(missing)
-		return fmt.Errorf("deploy manifest references non-existent files: %s", strings.Join(missing, ", "))
-	}
-	return nil
-}
-
-// deployManifestConsistency enforces internal consistency of the deploy
-// manifest: (1) no path may be in BOTH downstreamWorkflowAllowlist and
-// removedWorkflows (deploy-it-and-delete-it contradiction); (2) every path in
-// removedWorkflows must NOT still exist locally (it is meant to be deleted
-// downstream, so an active local file of the same path is drift).
-func (v *validator) deployManifestConsistency() error {
-	allow, err := extractGoStringLiterals(v.deployFile(), "downstreamWorkflowAllowlist")
-	if err != nil {
-		return fmt.Errorf("read deploy manifest downstreamWorkflowAllowlist: %w", err)
-	}
-	removed, err := extractGoStringLiterals(v.deployFile(), "removedWorkflows")
-	if err != nil {
-		return fmt.Errorf("read deploy manifest removedWorkflows: %w", err)
-	}
-
-	allowSet := map[string]bool{}
-	for _, p := range allow {
-		allowSet[p] = true
-	}
-
-	var conflicts []string
-	var stillExist []string
-	for _, p := range removed {
-		if allowSet[p] {
-			conflicts = append(conflicts, p)
-		}
-		if _, statErr := os.Stat(filepath.Join(v.rootDir, p)); statErr == nil {
-			stillExist = append(stillExist, p)
-		}
-	}
-
-	if len(conflicts) > 0 {
-		sort.Strings(conflicts)
-		return fmt.Errorf("deploy manifest conflict: paths in BOTH downstreamWorkflowAllowlist and removedWorkflows: %s", strings.Join(conflicts, ", "))
-	}
-	if len(stillExist) > 0 {
-		sort.Strings(stillExist)
-		return fmt.Errorf("removedWorkflows lists files that still exist locally (should be deleted or removed from the list): %s", strings.Join(stillExist, ", "))
+		return fmt.Errorf("orphaned reusable workflows (workflow_call-only, no local caller): %s", strings.Join(orphans, ", "))
 	}
 	return nil
 }
@@ -1184,60 +752,13 @@ func parseWorkflowJobs(filePath string) (map[string]workflowJob, error) {
 	return jobs, nil
 }
 
-// extractAutoDeployPaths extracts trigger paths from 34_auto-deploy.yml content.
-func (v *validator) extractAutoDeployPaths() ([]string, error) {
-	content, err := os.ReadFile(v.autoDeployFile())
-	if err != nil {
-		return nil, fmt.Errorf("read 34_auto-deploy.yml: %w", err)
-	}
-
-	var paths []string
-	inPaths := false
-	for _, line := range strings.Split(string(content), "\n") {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "paths:" {
-			inPaths = true
-			continue
-		}
-		if inPaths {
-			if path, ok := strings.CutPrefix(trimmed, "-"); ok {
-				path = strings.TrimSpace(path)
-				paths = append(paths, strings.Trim(path, `"'`))
-			} else if trimmed != "" && !strings.HasPrefix(trimmed, "#") {
-				break
-			}
-		}
-	}
-	return paths, nil
-}
-
 // Helper methods for file paths
-func (v *validator) deployFile() string {
-	return filepath.Join(v.rootDir, "scripts", "cmd", "deploy-to-repos", "main.go")
-}
-
 func (v *validator) branchProtectionFile() string {
 	return filepath.Join(v.rootDir, "scripts", "cmd", "branch-protection", "main.go")
 }
 
 func (v *validator) rulesetsManagerFile() string {
 	return filepath.Join(v.rootDir, "scripts", "cmd", "rulesets-manager", "main.go")
-}
-
-func (v *validator) workflowFile(name string) string {
-	return filepath.Join(v.rootDir, ".github", "workflows", name)
-}
-
-func (v *validator) e2eFile() string {
-	return filepath.Join(v.rootDir, "tests", "e2e_live", "test_deploy_path.py")
-}
-
-func (v *validator) autoDeployFile() string {
-	return filepath.Join(v.rootDir, ".github", "workflows", "34_auto-deploy.yml")
-}
-
-func (v *validator) codeownersFile() string {
-	return filepath.Join(v.rootDir, ".github", "CODEOWNERS")
 }
 
 func contains(slice []string, item string) bool {

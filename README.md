@@ -8,7 +8,7 @@
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange.svg)](LICENSE)
 [![Upstream](https://img.shields.io/badge/upstream-qodo--ai%2Fpr--agent-red.svg)](https://github.com/qodo-ai/pr-agent)
 [![CLIProxy](https://img.shields.io/badge/LLM%20Gateway-CLIProxyAPI-purple.svg)](https://cliproxy.jclee.me/v1)
-[![Workflows](https://img.shields.io/badge/workflows-49-yellowgreen.svg)](#github-workflows-49-total--github-워크플로우-49개)
+[![Workflows](https://img.shields.io/badge/workflows-46-yellowgreen.svg)](#github-workflows-46-total--github-워크플로우-46개)
 [![Go Tools](https://img.shields.io/badge/go--tools-8-blue.svg)](#go-automation-tools-8-total--go-자동화-도구-8개)
 
 ---
@@ -19,7 +19,7 @@
 - [Features | 기능](#features--기능)
 - [Architecture | 아키텍처](#architecture--아키텍처)
 - [Automation Inventory | 자동화 인벤토리](#automation-inventory--자동화-인벤토리)
-  - [GitHub Workflows 49 total | GitHub 워크플로우 49개](#github-workflows-49-total--github-워크플로우-49개)
+  - [GitHub Workflows 46 total | GitHub 워크플로우 46개](#github-workflows-46-total--github-워크플로우-46개)
   - [Go Automation Tools 8 total | Go 자동화 도구 8개](#go-automation-tools-8-total--go-자동화-도구-8개)
 - [Repository Structure | 저장소 구조](#repository-structure--저장소-구조)
 - [Quick Start | 빠른 시작](#quick-start--빠른-시작)
@@ -90,7 +90,6 @@ All AI inference is routed through the homelab CLIProxyAPI deployment, enabling 
 
 - **README Generation** (`20_readme-gen.yml`): Automatic README updates
 - **Docs Sync** (`21_docs-sync.yml`, `42_reusable-docs-sync.yml`): Cross-repository documentation sync
-- **Template Sync** (`22_template-sync.yml`): Template standardization
 
 ### Infrastructure & Health Monitoring
 
@@ -101,11 +100,9 @@ All AI inference is routed through the homelab CLIProxyAPI deployment, enabling 
 - **Runtime Health Check** (`30_runtime-health-check.yml`): Runtime environment validation
 - **Repo Health** (`31_repo-health.yml`): Repository health metrics
 - **Org Health Report** (`32_org-health-report.yml`): Organization-level health dashboard
-- **Drift Detector** (`33_drift-detector.yml`): Infrastructure drift detection
 
 ### CI/CD & Automation Tools
 
-- **Auto Deploy** (`34_auto-deploy.yml`): Deployment automation
 - **Build and Push App** (`36_build-and-push-app.yml`): Container image build/push
 - **CI Failure Issues** (`37_ci-failure-issues.yml`): Automatic issue creation on CI failure
 - **E2E Testing** (`38_e2e.yml`, `39_e2e-live.yml`): End-to-end test suites
@@ -203,7 +200,7 @@ flow TB
 
 ## Automation Inventory | 자동화 인벤토리
 
-### GitHub Workflows 49 total | GitHub 워크플로우 49개
+### GitHub Workflows 46 total | GitHub 워크플로우 46개
 
 #### PR/Branch Automation (3)
 
@@ -255,13 +252,12 @@ flow TB
 | `16_stale-repo-identifier.yml` | schedule | Identify repositories with stale content |
 | `17_pr-stale-bot.yml` | schedule | Mark and close stale PRs |
 
-#### Documentation (3)
+#### Documentation (2)
 
 | Workflow File | Trigger | Description |
 |---------------|---------|-------------|
 | `20_readme-gen.yml` | push, pull_request | Automatic README regeneration |
 | `21_docs-sync.yml` | push | Cross-repository documentation sync |
-| `22_template-sync.yml` | push | Template standardization across repos |
 
 #### Release Engineering (3)
 
@@ -282,12 +278,10 @@ flow TB
 | `30_runtime-health-check.yml` | schedule | Runtime environment validation |
 | `32_org-health-report.yml` | schedule | Organization-level health dashboard |
 
-#### Infrastructure & Deployment (8)
+#### Infrastructure & Deployment (6)
 
 | Workflow File | Trigger | Description |
 |---------------|---------|-------------|
-| `33_drift-detector.yml` | schedule | Infrastructure drift detection |
-| `34_auto-deploy.yml` | push, manual | Deployment automation |
 | `35_auto-hardcode-scan.yml` | schedule | Weekly hardcoded credential scan |
 | `36_build-and-push-app.yml` | push | Container image build and push |
 | `37_ci-failure-issues.yml` | workflow_run | Auto-create issues on CI failure |
@@ -374,7 +368,6 @@ github-bot/
 │   │   ├── 19_issue-backfill.yml
 │   │   ├── 20_readme-gen.yml
 │   │   ├── 21_docs-sync.yml
-│   │   ├── 22_template-sync.yml
 │   │   ├── 23_release-drafter.yml
 │   │   ├── 24_release-notes.yml
 │   │   ├── 25_release-publish.yml
@@ -385,8 +378,6 @@ github-bot/
 │   │   ├── 30_runtime-health-check.yml
 │   │   ├── 31_repo-health.yml
 │   │   ├── 32_org-health-report.yml
-│   │   ├── 33_drift-detector.yml
-│   │   ├── 34_auto-deploy.yml
 │   │   ├── 35_auto-hardcode-scan.yml
 │   │   ├── 36_build-and-push-app.yml
 │   │   ├── 37_ci-failure-issues.yml
