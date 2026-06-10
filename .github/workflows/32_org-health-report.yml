@@ -2,12 +2,15 @@ name: Organization Health Report
 
 on:
   # NOTE: no `issues:` trigger — this workflow CREATES an org-health issue,
-  # which would re-trigger it via GH_PAT (feedback loop). This is a WEEKLY
-  # report, so it runs on a schedule + manual dispatch only. Previously it ran
-  # on every pull_request/workflow_run event, which (combined with open
-  # dependabot PRs + CI churn) spammed near-duplicate all-zero issues.
-  schedule:
-    - cron: '0 6 * * 1'  # Mondays 06:00 UTC
+  # which would re-trigger it via GH_PAT (feedback loop). Driven by
+  # pull_request + workflow_run. All-zero reports are suppressed before issue
+  # creation (see the create step) so routine CI churn no longer spawns
+  # near-duplicate empty reports.
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review, closed]
+  workflow_run:
+    workflows: ["PR Checks", "Issue Management", "Repository Health Check"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -20,6 +23,7 @@ concurrency:
 
 jobs:
   report:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
