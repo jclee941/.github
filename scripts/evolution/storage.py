@@ -31,6 +31,7 @@ from scripts.evolution.models import (
     SuggestionOutcome,
     WeightUpdateResult,
 )
+from scripts.evolution.refinement import default_candidate_serializer
 
 SCHEMA_VERSION = 2
 
@@ -431,6 +432,16 @@ class EvolutionStore:
         normalized_text: str = "",
         outcome_source: str = "unknown",
     ) -> int:
+        """Low-level bulk-load upsert for suggestion outcomes.
+
+        WARNING (issue #486): this method uses ``ON CONFLICT(repo, suggestion_id)
+        DO UPDATE`` and therefore SILENTLY OVERWRITES an existing outcome. It does
+        NOT enforce duplicate/conflict semantics. Callers that need idempotency or
+        conflict detection must go through ``EvolutionScorer.record_outcome`` /
+        ``apply_outcome`` (which raise ``DuplicateOutcomeError`` on conflict).
+        Use this method only for trusted bulk-load paths that intentionally bypass
+        the scorer.
+        """
         with self.transaction() as conn:
             cur = conn.execute(
                 """
@@ -762,7 +773,7 @@ class EvolutionStore:
         max_observed_depth: int | None,
         candidate_serializer: CandidateSerializer | None,
     ) -> None:
-        serialize = candidate_serializer or (lambda c: c if isinstance(c, str) else str(c))
+        serialize = candidate_serializer or default_candidate_serializer
         initial_quality = result.iterations[0].critique.quality if result.iterations else None
         conn.execute(
             """

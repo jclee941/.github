@@ -333,3 +333,34 @@ class TestRecursivePersistence:
         assert row["node_path"] == ""
         assert row["depth"] == 0
         assert row["is_recursive_root"] == 0
+
+    def test_non_str_candidate_without_serializer_raises(self, store):
+        """Issue #487/#484: persisting a non-str candidate without an explicit
+        serializer must fail loudly (ValidationError), not silently fall back to a
+        non-deterministic repr-based str(c)."""
+        from scripts.evolution.errors import ValidationError
+        from scripts.evolution.models import (
+            Critique,
+            RefinementConfig,
+            RefinementIteration,
+            RefinementResult,
+            RefinementStopReason,
+        )
+
+        candidate = {"section": "intro"}  # non-str candidate
+        it = RefinementIteration(
+            iteration=0,
+            candidate=candidate,
+            candidate_hash="deadbeef",
+            critique=Critique(1.0, "q"),
+            accepted=True,
+        )
+        result = RefinementResult(
+            initial_candidate=candidate,
+            final_candidate=candidate,
+            final_quality=1.0,
+            stop_reason=RefinementStopReason.THRESHOLD_REACHED,
+            iterations=(it,),
+        )
+        with pytest.raises(ValidationError):
+            store.record_refinement_run("nonstr-1", result, RefinementConfig())
