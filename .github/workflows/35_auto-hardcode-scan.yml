@@ -97,6 +97,9 @@ jobs:
               ".github/",
               # deployment scripts: legitimate hardcoded homelab references
               "scripts/", "github_action/",
+              # fork-owned App code: legitimate bind address (0.0.0.0) and the
+              # public GitHub API base URL; high-signal secret detectors still run.
+              "jclee_bot/",
           )
 
           findings = []
