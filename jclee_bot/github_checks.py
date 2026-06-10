@@ -60,4 +60,5 @@ def create_check_run(
         json=check_run_payload(result, head_sha),
         timeout=30,
     )
+    resp.raise_for_status()  # a rejected check run must NOT be counted as reported
     return resp

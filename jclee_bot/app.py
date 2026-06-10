@@ -97,14 +97,21 @@ def _checkout_pr_head(token: str, repo_full_name: str, head_sha: str, workspace:
 
 def _run_checks_for_payload(payload: dict[str, Any]) -> dict[str, Any]:
     """Run the App-owned checks for a pull_request payload and report each via
-    the GitHub Checks API. Shared by the standalone endpoint and the webhook tee."""
+    the GitHub Checks API. Shared by the standalone endpoint and the webhook tee.
+
+    Fully exception-safe: any token/API/scan failure degrades to an empty result
+    rather than raising, so neither the replay endpoint nor the (backgrounded)
+    webhook tee can crash."""
     pr = payload.get("pull_request") or {}
     repo_full_name = payload.get("repository", {}).get("full_name", "")
     installation_id = payload.get("installation", {}).get("id", 0)
     head_sha = dispatch.head_sha(payload)
     pr_number = pr.get("number", 0)
 
-    token = _installation_token(installation_id)
+    try:
+        token = _installation_token(installation_id)
+    except Exception:  # noqa: BLE001 - missing/invalid App creds must not 500
+        token = None
 
     changed_files: list[str] = []
     if token and repo_full_name and pr_number:
@@ -154,7 +161,14 @@ async def _tee_pull_request_to_checks(request: Request, call_next):
             try:
                 payload = json.loads(raw or b"{}")
                 if payload.get("action") in dispatch.PR_ACTIONS:
-                    _run_checks_for_payload(payload)
+                    # Run the (blocking: git fetch + gitleaks + actionlint +
+                    # Checks API) work in a background thread so the upstream
+                    # webhook is acknowledged promptly and GitHub does not retry.
+                    import asyncio
+
+                    asyncio.get_event_loop().run_in_executor(
+                        None, _run_checks_for_payload, payload
+                    )
             except Exception:  # noqa: BLE001 - checks must never break the review path
                 pass
     return await call_next(request)

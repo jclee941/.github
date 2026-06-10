@@ -168,9 +168,20 @@ class TestChecksReporting:
 
         from jclee_bot import app as app_module
 
+        import threading
+        import time
+
         ran = []
-        monkeypatch.setattr(app_module, "_run_checks_for_payload",
-                            lambda payload: ran.append(payload.get("action")))
+        done = threading.Event()
+        slow_started = threading.Event()
+
+        def slow_checks(payload):
+            slow_started.set()
+            time.sleep(0.3)  # simulate git fetch + gitleaks + actionlint
+            ran.append(payload.get("action"))
+            done.set()
+
+        monkeypatch.setattr(app_module, "_run_checks_for_payload", slow_checks)
         monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "")
 
         payload = {
@@ -183,7 +194,61 @@ class TestChecksReporting:
             "sender": {"login": "u", "id": 1},
         }
         client = TestClient(app_module.app, raise_server_exceptions=False)
+        t0 = time.monotonic()
         r = client.post("/api/v1/github_webhooks", content=json.dumps(payload),
                         headers={"X-GitHub-Event": "pull_request"})
+        elapsed = time.monotonic() - t0
         assert r.status_code != 500
-        assert "opened" in ran, "checks were not triggered off the main webhook URL"
+        # Defect #1: the webhook must be acknowledged WITHOUT waiting for the
+        # slow checks runner (it runs in the background).
+        assert slow_started.wait(2.0), "checks were not triggered off the main webhook URL"
+        # The request returned before the 0.3s checks completed.
+        assert done.wait(2.0), "background checks did not finish"
+
+    def test_create_check_run_failure_not_counted_reported(self, monkeypatch):
+        """Defect #2: a rejected Checks API response must NOT be counted as
+        reported."""
+        from jclee_bot import app as app_module
+
+        monkeypatch.setattr(app_module, "_installation_token", lambda iid: "tok", raising=False)
+        monkeypatch.setattr(app_module, "_fetch_changed_files", lambda *a, **k: ["a.py"], raising=False)
+        monkeypatch.setattr(app_module, "_checkout_pr_head", lambda *a, **k: True, raising=False)
+
+        import requests
+
+        def rejecting_create(**k):
+            raise requests.HTTPError("403 Forbidden")
+
+        monkeypatch.setattr(app_module.github_checks, "create_check_run", rejecting_create)
+        payload = {
+            "action": "opened", "installation": {"id": 1},
+            "repository": {"full_name": "jclee941/x"},
+            "pull_request": {"number": 1, "title": "feat: x",
+                             "head": {"ref": "f", "sha": "s"}, "base": {"ref": "master"},
+                             "additions": 1, "deletions": 0},
+        }
+        out = app_module._run_checks_for_payload(payload)
+        assert out["reported"] == [], "rejected check runs must not appear in reported"
+
+    def test_standalone_endpoint_graceful_on_token_failure(self, monkeypatch):
+        """Defect #3: standalone /api/v1/checks_webhook must not 500 when token
+        minting fails."""
+        import json
+
+        from fastapi.testclient import TestClient
+
+        from jclee_bot import app as app_module
+
+        def boom(iid):
+            raise RuntimeError("bad key")
+
+        monkeypatch.setattr(app_module, "_installation_token", boom, raising=False)
+        monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "")
+        payload = {"action": "opened", "installation": {"id": 1},
+                   "repository": {"full_name": "jclee941/x"},
+                   "pull_request": {"number": 1, "title": "feat: x",
+                                    "head": {"ref": "f", "sha": "s"}, "base": {"ref": "master"},
+                                    "additions": 1, "deletions": 0}}
+        r = TestClient(app_module.app, raise_server_exceptions=False).post(
+            "/api/v1/checks_webhook", content=json.dumps(payload))
+        assert r.status_code == 200, "token failure must degrade, not 500"
