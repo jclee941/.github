@@ -15,6 +15,7 @@ on:
       - '.ls-lint.yml'
       - 'requirements.txt'
       - 'pyproject.toml'
+      - '.github/actions/notify-on-failure/**'
   workflow_dispatch:
 permissions:
   contents: read

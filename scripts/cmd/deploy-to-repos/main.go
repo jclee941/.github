@@ -107,6 +107,11 @@ var extraFiles = []string{
 	".github/ISSUE_TEMPLATE/config.yml",
 	".github/renovate.json",
 	".github/scripts/issue-classifier.cjs",
+	// Local composite action referenced by many deployed workflows' "Notify on
+	// failure" steps (uses: ./.github/actions/notify-on-failure). Without it,
+	// downstream jobs fail with "Can't find action.yml under
+	// .github/actions/notify-on-failure".
+	".github/actions/notify-on-failure/action.yml",
 }
 
 // removedWorkflows lists workflows that were previously deployed but are no longer
