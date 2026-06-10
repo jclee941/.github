@@ -65,9 +65,20 @@ def _as_float(value: object) -> float:
     return float(cast("SupportsFloat | str", value))
 
 
+def _required(d: dict[str, object], field: str) -> object:
+    """Return d[field], raising a friendly ValueError when it is missing.
+
+    The CLI ingests externally supplied JSON, so a missing required field must
+    surface as a meaningful error rather than a bare KeyError traceback.
+    """
+    if field not in d:
+        raise ValueError(f"missing required field: {field}")
+    return d[field]
+
+
 def _finding_from_dict(d: dict[str, object]) -> ReviewFinding:
     return ReviewFinding(
-        category=_as_str(d["category"]),
+        category=_as_str(_required(d, "category")),
         severity=_as_str(d.get("severity"), "unknown"),
         title=_as_str(d.get("title")),
         content=_as_str(d.get("content")),
@@ -80,11 +91,11 @@ def _finding_from_dict(d: dict[str, object]) -> ReviewFinding:
 def _suggestion_from_dict(d: dict[str, object]) -> Suggestion:
     metadata = d.get("metadata") or {}
     return Suggestion(
-        suggestion_id=_as_str(d["suggestion_id"]),
-        category=_as_str(d["category"]),
+        suggestion_id=_as_str(_required(d, "suggestion_id")),
+        category=_as_str(_required(d, "category")),
         label=_as_str(d.get("label")),
         text=_as_str(d.get("text")),
-        score=_as_float(d["score"]),
+        score=_as_float(_required(d, "score")),
         file_path=_as_str(d.get("relevant_file", d.get("file", d.get("file_path")))),
         start_line=_as_int(d.get("relevant_lines_start", d.get("start_line"))),
         end_line=_as_int(d.get("relevant_lines_end", d.get("end_line"))),
