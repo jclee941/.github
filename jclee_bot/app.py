@@ -95,6 +95,38 @@ def _checkout_pr_head(token: str, repo_full_name: str, head_sha: str, workspace:
         return False
 
 
+# Which checks depend on which fetched context. If that context could not be
+# obtained, the check must report NEUTRAL (not success) so we never publish a
+# misleading green (e.g. a passing secret-scan that scanned nothing).
+_NEEDS_CHECKOUT = {"jclee-bot / secret-scan", "jclee-bot / actionlint"}
+_NEEDS_CHANGED_FILES = {"jclee-bot / pr-metadata", "jclee-bot / actionlint"}
+
+
+def _neutralize_on_missing_context(results, *, files_ok: bool, checkout_ok: bool):
+    from jclee_bot.checks import CheckResult
+
+    out = []
+    for r in results:
+        if r.conclusion == "failure":
+            out.append(r)  # a real failure stands regardless of context
+            continue
+        missing = []
+        if r.name in _NEEDS_CHECKOUT and not checkout_ok:
+            missing.append("PR checkout unavailable")
+        if r.name in _NEEDS_CHANGED_FILES and not files_ok:
+            missing.append("changed-files API unavailable")
+        if missing:
+            out.append(CheckResult(
+                name=r.name,
+                conclusion="neutral",
+                title="skipped (context unavailable)",
+                summary="; ".join(missing) + " — check could not run against real PR content.",
+            ))
+        else:
+            out.append(r)
+    return out
+
+
 def _run_checks_for_payload(payload: dict[str, Any]) -> dict[str, Any]:
     """Run the App-owned checks for a pull_request payload and report each via
     the GitHub Checks API. Shared by the standalone endpoint and the webhook tee.
@@ -114,18 +146,26 @@ def _run_checks_for_payload(payload: dict[str, Any]) -> dict[str, Any]:
         token = None
 
     changed_files: list[str] = []
+    files_ok = False
     if token and repo_full_name and pr_number:
         try:
             changed_files = _fetch_changed_files(token, repo_full_name, pr_number)
+            files_ok = True
         except Exception:  # noqa: BLE001 - degrade gracefully on API errors
-            changed_files = []
+            files_ok = False
 
     with tempfile.TemporaryDirectory() as workspace:
+        checkout_ok = False
         if token and head_sha and repo_full_name:
-            _checkout_pr_head(token, repo_full_name, head_sha, workspace)
+            checkout_ok = _checkout_pr_head(token, repo_full_name, head_sha, workspace)
         results = dispatch.run_checks(
             payload, changed_files=changed_files, workspace=workspace,
         )
+
+    # Never publish a misleading green when the required context was unavailable:
+    # a security/content check that did not actually inspect the PR must be
+    # NEUTRAL, not success.
+    results = _neutralize_on_missing_context(results, files_ok=files_ok, checkout_ok=checkout_ok)
 
     reported = []
     if token and repo_full_name and head_sha:

@@ -252,3 +252,46 @@ class TestChecksReporting:
         r = TestClient(app_module.app, raise_server_exceptions=False).post(
             "/api/v1/checks_webhook", content=json.dumps(payload))
         assert r.status_code == 200, "token failure must degrade, not 500"
+
+    def test_checkout_failure_makes_content_checks_neutral(self, monkeypatch):
+        """Defect: if PR checkout fails, content checks (secret-scan, actionlint)
+        must NOT report success on an empty dir — they must be neutral."""
+        from jclee_bot import app as app_module
+
+        monkeypatch.setattr(app_module, "_installation_token", lambda iid: "tok", raising=False)
+        monkeypatch.setattr(app_module, "_fetch_changed_files", lambda *a, **k: ["a.py"], raising=False)
+        monkeypatch.setattr(app_module, "_checkout_pr_head", lambda *a, **k: False, raising=False)
+        monkeypatch.setattr(app_module.github_checks, "create_check_run",
+                            lambda **k: type("R", (), {"status_code": 201})())
+
+        payload = {"action": "opened", "installation": {"id": 1},
+                   "repository": {"full_name": "jclee941/x"},
+                   "pull_request": {"number": 1, "title": "feat: x",
+                                    "head": {"ref": "f", "sha": "s"}, "base": {"ref": "master"},
+                                    "additions": 1, "deletions": 0}}
+        out = app_module._run_checks_for_payload(payload)
+        by = {c["name"]: c["conclusion"] for c in out["checks"]}
+        assert by["jclee-bot / secret-scan"] == "neutral", "secret-scan must NOT be success when checkout failed"
+
+    def test_changed_files_fetch_failure_makes_metadata_neutral(self, monkeypatch):
+        """Defect: if changed-files fetch fails, pr-metadata must be neutral, not
+        success evaluated against an empty file list."""
+        from jclee_bot import app as app_module
+
+        def boom_files(*a, **k):
+            raise RuntimeError("api down")
+
+        monkeypatch.setattr(app_module, "_installation_token", lambda iid: "tok", raising=False)
+        monkeypatch.setattr(app_module, "_fetch_changed_files", boom_files, raising=False)
+        monkeypatch.setattr(app_module, "_checkout_pr_head", lambda *a, **k: True, raising=False)
+        monkeypatch.setattr(app_module.github_checks, "create_check_run",
+                            lambda **k: type("R", (), {"status_code": 201})())
+
+        payload = {"action": "opened", "installation": {"id": 1},
+                   "repository": {"full_name": "jclee941/x"},
+                   "pull_request": {"number": 1, "title": "feat: x",
+                                    "head": {"ref": "f", "sha": "s"}, "base": {"ref": "master"},
+                                    "additions": 1, "deletions": 0}}
+        out = app_module._run_checks_for_payload(payload)
+        by = {c["name"]: c["conclusion"] for c in out["checks"]}
+        assert by["jclee-bot / pr-metadata"] == "neutral", "pr-metadata must be neutral when changed-files unavailable"
