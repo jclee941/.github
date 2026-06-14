@@ -36,14 +36,18 @@ def mock_git_provider():
     mock_provider.get_user_id.return_value = ""
     mock_provider.get_pr_title.return_value = ""
 
-    with patch("pr_agent.git_providers.get_git_provider_with_context", return_value=mock_provider):
+    with (
+        patch("pr_agent.git_providers.get_git_provider_with_context", return_value=mock_provider),
+        patch("pr_agent.git_providers.utils.get_git_provider_with_context", return_value=mock_provider),
+        patch("pr_agent.servers.github_app.get_git_provider_with_context", return_value=mock_provider),
+    ):
         yield mock_provider
 
 
 @pytest.fixture(scope="session")
 def test_client(mock_git_provider):
     """Create a TestClient for the FastAPI app."""
-    from pr_agent.servers.github_app import app
+    from jclee_bot.app import app
 
     with TestClient(app) as client:
         yield client

@@ -163,13 +163,12 @@ class TestChecksReporting:
         A pull_request event there must ALSO run the App checks (not only the
         separate /api/v1/checks_webhook)."""
         import json
+        import threading
+        import time
 
         from fastapi.testclient import TestClient
 
         from jclee_bot import app as app_module
-
-        import threading
-        import time
 
         ran = []
         done = threading.Event()
@@ -194,15 +193,12 @@ class TestChecksReporting:
             "sender": {"login": "u", "id": 1},
         }
         client = TestClient(app_module.app, raise_server_exceptions=False)
-        t0 = time.monotonic()
         r = client.post("/api/v1/github_webhooks", content=json.dumps(payload),
                         headers={"X-GitHub-Event": "pull_request"})
-        elapsed = time.monotonic() - t0
         assert r.status_code != 500
         # Defect #1: the webhook must be acknowledged WITHOUT waiting for the
         # slow checks runner (it runs in the background).
         assert slow_started.wait(2.0), "checks were not triggered off the main webhook URL"
-        # The request returned before the 0.3s checks completed.
         assert done.wait(2.0), "background checks did not finish"
 
     def test_create_check_run_failure_not_counted_reported(self, monkeypatch):
