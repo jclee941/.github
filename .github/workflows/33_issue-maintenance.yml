@@ -35,7 +35,7 @@ jobs:
           ISSUE_MAINTENANCE_TOKEN: ${{ secrets.APP_ISSUE_MAINTENANCE_TOKEN }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
         run: |
-          set -eu
+          set -euo pipefail
           if [ -z "${ISSUE_MAINTENANCE_TOKEN:-}" ]; then
             echo "::warning::APP_ISSUE_MAINTENANCE_TOKEN is not configured; skipping App issue maintenance."
             exit 0
