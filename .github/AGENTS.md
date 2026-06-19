@@ -31,7 +31,7 @@ Dependabot/Renovate config, issue templates, and PR template.
 | Deep security review | `workflows/11_security-pr-review.yml` |
 | App image build/push | `workflows/36_build-and-push-app.yml` |
 | Live e2e workflow | `workflows/39_e2e-live.yml` |
-| README generation | `workflows/20_readme-gen.yml` |
+| App-owned README automation | `jclee_bot/readme_automation.py`, `jclee_bot/readme_runner.py` |
 | App docs policy check | `jclee_bot/checks/docs_policy.py` |
 | Failure issue creation | `actions/notify-on-failure/action.yml` |
 
@@ -54,3 +54,6 @@ Dependabot/Renovate config, issue templates, and PR template.
 - Do not add `notify-on-failure` without a default-path checkout first.
 - Do not deploy `_*.yml` local-only workflows downstream.
 - Do not duplicate App check behavior with old per-repo CI workflows.
+- Do not restore retired downstream README/template deploy workflows such as
+  `20_readme-gen.yml`, `22_template-sync.yml`, or `34_auto-deploy.yml`; the App path owns
+  cross-repo README automation.

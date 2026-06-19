@@ -7,6 +7,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from ipaddress import ip_address
 from typing import TypeAlias
 from urllib.parse import urlsplit, urlunsplit
 
@@ -60,6 +61,18 @@ def _management_base_url(raw_url: str) -> str:
     return urlunsplit((parsed.scheme, parsed.netloc, DEFAULT_CLIPROXY_MANAGEMENT_BASE_PATH, "", ""))
 
 
+def _is_internal_management_endpoint(base_url: str) -> bool:
+    parsed = urlsplit(base_url)
+    hostname = parsed.hostname or ""
+    if hostname in {"cliproxyapi", "localhost"}:
+        return True
+    try:
+        address = ip_address(hostname)
+    except ValueError:
+        return False
+    return address.is_private or address.is_loopback or address.is_link_local
+
+
 def resolve_cliproxy_management_config(env: Mapping[str, str] | None = None) -> CliproxyManagementConfig | None:
     source = env if env is not None else os.environ
     url = _resolve_optional_secret(
@@ -76,8 +89,15 @@ def resolve_cliproxy_management_config(env: Mapping[str, str] | None = None) -> 
     )
     if not url or not key:
         return None
+    base_url = _management_base_url(url)
     tls_verify = source.get("CLIPROXY_MANAGEMENT_TLS_VERIFY", "true").lower() != "false"
-    return CliproxyManagementConfig(base_url=_management_base_url(url), key=key, tls_verify=tls_verify)
+    if urlsplit(base_url).scheme == "http" and not _is_internal_management_endpoint(base_url):
+        raise CliproxyCredentialError("CLIPROXY_MANAGEMENT_URL http is only allowed for internal endpoints")
+    if not tls_verify and not _is_internal_management_endpoint(base_url):
+        raise CliproxyCredentialError(
+            "CLIPROXY_MANAGEMENT_TLS_VERIFY=false is only allowed for internal endpoints"
+        )
+    return CliproxyManagementConfig(base_url=base_url, key=key, tls_verify=tls_verify)
 
 
 def _management_get_json(config: CliproxyManagementConfig, path: str) -> JsonValue:

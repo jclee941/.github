@@ -37,6 +37,7 @@ services:
       CLIPROXY_ROUTE_FAILURE_THRESHOLD: "${CLIPROXY_ROUTE_FAILURE_THRESHOLD:-1}"
       CLIPROXY_ROUTE_FAILURE_RATIO: "${CLIPROXY_ROUTE_FAILURE_RATIO:-0.5}"
       CLIPROXY_ROUTE_RECENT_SUCCESS_LIMIT: "${CLIPROXY_ROUTE_RECENT_SUCCESS_LIMIT:-0}"
+      README_AUTOMATION_JOB_DIR: /var/lib/jclee-bot/readme-jobs
       OPENAI.KEY: "${CLIPROXY_API_KEY}"
       OPENAI.API_BASE: http://cliproxyapi:8317/v1
       CONFIG.MODEL: gpt-5.5
@@ -69,6 +70,8 @@ services:
 
     networks:
       - cliproxy_net
+    volumes:
+      - readme-job-state:/var/lib/jclee-bot/readme-jobs
 
   # Filebeat: ship logs to Elasticsearch
   filebeat:
@@ -134,3 +137,4 @@ networks:
 
 volumes:
   filebeat-data:
+  readme-job-state:

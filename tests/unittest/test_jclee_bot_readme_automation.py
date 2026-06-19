@@ -5,7 +5,7 @@ import subprocess
 import pytest
 from fastapi.testclient import TestClient
 
-from jclee_bot import readme_automation, readme_jobs, readme_runner
+from jclee_bot import readme_automation, readme_job_worker, readme_jobs, readme_runner
 
 
 def test_run_app_readme_automation_filters_managed_repos(monkeypatch):
@@ -113,6 +113,44 @@ def test_readme_automation_background_returns_pollable_job(monkeypatch, tmp_path
 
     assert status.status_code == 200
     assert status.json()["status"] in {"queued", "running", "completed"}
+
+
+def test_readme_automation_background_rejects_option_like_repo(monkeypatch, tmp_path):
+    from jclee_bot import app as app_module
+
+    monkeypatch.setenv("README_AUTOMATION_TOKEN", "readme")
+    monkeypatch.setenv("GITHUB_APP_ID", "123")
+    monkeypatch.setenv("GITHUB_PRIVATE_KEY", "key")
+    monkeypatch.setenv("README_AUTOMATION_JOB_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        readme_automation,
+        "_spawn_readme_job",
+        lambda **_kwargs: pytest.fail("invalid requests must not spawn workers"),
+    )
+
+    response = TestClient(app_module.app, raise_server_exceptions=False).post(
+        "/api/v1/readme_automation",
+        json={"dry_run": True, "background": True, "repos": ["--dry-run"]},
+        headers={"Authorization": "Bearer readme"},
+    )
+
+    assert response.status_code == 400
+    assert list(tmp_path.glob("*.json")) == []
+
+
+def test_readme_worker_marks_job_failed_when_argparse_rejects_repo(monkeypatch, tmp_path):
+    monkeypatch.setenv("README_AUTOMATION_JOB_DIR", str(tmp_path))
+    job = readme_jobs.create_job(owner="jclee941", repos=["--dry-run"], dry_run=True)
+
+    exit_code = readme_job_worker.main(
+        ["--job-id", str(job["id"]), "--owner", "jclee941", "--repo", "--dry-run"]
+    )
+
+    status = readme_jobs.get_job(str(job["id"]))
+
+    assert exit_code == 2
+    assert status["status"] == "failed"
+    assert status["error"] == "invalid README automation worker arguments"
 
 
 def test_readme_automation_records_job_progress(monkeypatch, tmp_path):

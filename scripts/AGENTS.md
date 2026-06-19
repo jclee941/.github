@@ -2,7 +2,9 @@
 
 ## OVERVIEW
 
-Go automation tools for managing 16 jclee941 repos: branch protection, rulesets, secret sync, repo review, naming validation.
+Go automation tools for the canonical `config/repos.yaml` inventory: branch protection, rulesets,
+secret sync, repo review, naming validation. The inventory currently has 16 entries, with `.github`
+as the source repo and `pr-agent` excluded from rollout-style automation.
 
 ## STRUCTURE
 
@@ -42,7 +44,7 @@ cd scripts
 
 # Branch protection
 go run ./cmd/branch-protection --dry-run
-go run ./cmd/branch-protection           # apply to all 16 managed repos
+go run ./cmd/branch-protection           # apply to eligible repos from config/repos.yaml
 
 # GitHub Rulesets
 go run ./cmd/rulesets-manager --dry-run

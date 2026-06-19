@@ -44,7 +44,7 @@ def run_checks(
             additions=int(pr.get("additions", 0) or 0),
             deletions=int(pr.get("deletions", 0) or 0),
         ),
-        secret_scan.run(workspace=workspace),
+        secret_scan.run(workspace=workspace, changed_files=changed_files),
         actionlint_check.run(changed_files=changed_files, workspace=workspace),
         docs_policy.run(changed_files=changed_files, workspace=workspace),
     ]

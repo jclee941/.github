@@ -6,6 +6,8 @@ checks with zero per-repo workflow files (Oracle architecture A+C).
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from jclee_bot.checks import CheckResult, actionlint_check, docs_policy, pr_metadata, secret_scan
@@ -58,6 +60,18 @@ class TestPrMetadata:
         assert r.conclusion == "failure"
         assert "loc" in r.summary.lower() or "size" in r.summary.lower()
 
+    def test_readme_automation_pr_ignores_size_limit(self):
+        r = pr_metadata.run(
+            title="docs: auto-update README.md",
+            head_ref="bot/auto-readme-update",
+            base_ref="master",
+            changed_files=["README.md"],
+            additions=5000,
+            deletions=10,
+        )
+
+        assert r.conclusion == "success"
+
     def test_sensitive_file_fails(self):
         r = pr_metadata.run(
             title="feat: add config",
@@ -89,6 +103,31 @@ class TestSecretScan:
     def test_skipped_is_neutral(self):
         r = secret_scan.result_from_gitleaks(findings=[], skipped=True)
         assert r.conclusion == "neutral"
+
+    def test_run_scans_only_changed_files(self, monkeypatch, tmp_path):
+        (tmp_path / "README.md").write_text("# ok\n", encoding="utf-8")
+        (tmp_path / ".env").write_text("SECRET=value\n", encoding="utf-8")
+        seen_sources: list[set[str]] = []
+
+        def fake_run(args, **_kwargs):
+            source = tmp_path
+            report_path = None
+            for index, value in enumerate(args):
+                if value == "--source":
+                    source = Path(args[index + 1])
+                if value == "--report-path":
+                    report_path = Path(args[index + 1])
+            seen_sources.append({str(path.relative_to(source)) for path in source.rglob("*") if path.is_file()})
+            report_path.write_text("[]", encoding="utf-8")
+            return None
+
+        monkeypatch.setattr(secret_scan.shutil, "which", lambda _name: "gitleaks")
+        monkeypatch.setattr(secret_scan.subprocess, "run", fake_run)
+
+        r = secret_scan.run(workspace=str(tmp_path), changed_files=["README.md"])
+
+        assert r.conclusion == "success"
+        assert seen_sources == [{"README.md"}]
 
 
 class TestActionlint:

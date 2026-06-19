@@ -40,6 +40,10 @@ def _sensitive(changed_files: Sequence[str]) -> list[str]:
     return hits
 
 
+def _readme_automation_pr(*, head_ref: str, changed_files: Sequence[str]) -> bool:
+    return head_ref == "bot/auto-readme-update" and set(changed_files) == {"README.md"}
+
+
 def run(
     *,
     title: str,
@@ -58,7 +62,9 @@ def run(
         )
 
     total_lines = additions + deletions
-    if total_lines > _MAX_CHANGED_LINES or len(changed_files) > _MAX_CHANGED_FILES:
+    if not _readme_automation_pr(head_ref=head_ref, changed_files=changed_files) and (
+        total_lines > _MAX_CHANGED_LINES or len(changed_files) > _MAX_CHANGED_FILES
+    ):
         problems.append(
             f"PR size too large: {total_lines} changed LOC across "
             f"{len(changed_files)} files (limit {_MAX_CHANGED_LINES} LOC / "

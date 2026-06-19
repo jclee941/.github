@@ -56,6 +56,13 @@ def mark_running(job_id: str) -> None:
     _write_job(job)
 
 
+def mark_spawned(job_id: str, *, pid: int) -> None:
+    job = get_job(job_id)
+    job["worker_pid"] = pid
+    job["updated_at"] = _now()
+    _write_job(job)
+
+
 def mark_progress(job_id: str, repository_result: dict[str, Any]) -> None:
     job = get_job(job_id)
     result = job.setdefault("result", {"dry_run": job.get("dry_run", False), "repositories": []})

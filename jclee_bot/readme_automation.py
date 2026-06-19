@@ -3,6 +3,7 @@ from __future__ import annotations
 import hmac
 import json
 import os
+import re
 import subprocess
 import sys
 from typing import Any
@@ -10,9 +11,15 @@ from typing import Any
 from fastapi import APIRouter, Request, Response
 
 from jclee_bot import readme_jobs
-from jclee_bot.readme_runner import run_app_readme_automation, sanitize_error
+from jclee_bot.readme_runner import run_app_readme_automation
 
 router = APIRouter()
+OWNER_PATTERN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$")
+REPO_PATTERN = re.compile(r"^[A-Za-z0-9._][A-Za-z0-9._-]{0,99}$")
+
+
+class InvalidReadmeAutomationRequest(ValueError):
+    pass
 
 
 def _bearer_token_ok(expected: str, authorization: str | None) -> bool:
@@ -25,15 +32,25 @@ def _expected_token() -> str:
     return os.environ.get("README_AUTOMATION_TOKEN") or os.environ.get("ISSUE_MAINTENANCE_TOKEN", "")
 
 
-def _run_readme_job(job_id: str, **kwargs: Any) -> None:
-    from functools import partial
+def _parse_owner(value: object) -> str:
+    if value is None or value == "":
+        return "jclee941"
+    if not isinstance(value, str) or not OWNER_PATTERN.fullmatch(value):
+        raise InvalidReadmeAutomationRequest("owner must be a GitHub account name")
+    return value
 
-    try:
-        readme_jobs.mark_running(job_id)
-        kwargs["progress"] = partial(readme_jobs.mark_progress, job_id)
-        readme_jobs.mark_finished(job_id, run_app_readme_automation(**kwargs))
-    except Exception as exc:  # noqa: BLE001 - background job status must record failures
-        readme_jobs.mark_failed(job_id, sanitize_error(exc, secrets=[str(kwargs.get("private_key", ""))]))
+
+def _parse_repos(value: object) -> set[str] | None:
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        raise InvalidReadmeAutomationRequest("repos must be a list")
+    repos: set[str] = set()
+    for repo in value:
+        if not isinstance(repo, str) or not REPO_PATTERN.fullmatch(repo):
+            raise InvalidReadmeAutomationRequest("repos must contain GitHub repository names")
+        repos.add(repo)
+    return repos
 
 
 def _spawn_readme_job(*, job_id: str, owner: str, dry_run: bool, repos: set[str] | None) -> None:
@@ -41,16 +58,19 @@ def _spawn_readme_job(*, job_id: str, owner: str, dry_run: bool, repos: set[str]
         sys.executable,
         "-m",
         "jclee_bot.readme_job_worker",
-        "--job-id",
-        job_id,
-        "--owner",
-        owner,
+        f"--job-id={job_id}",
+        f"--owner={owner}",
     ]
     if dry_run:
         args.append("--dry-run")
     for repo in sorted(repos or []):
-        args.extend(["--repo", repo])
-    subprocess.Popen(args, close_fds=True, start_new_session=True)  # noqa: S603
+        args.append(f"--repo={repo}")
+    try:
+        process = subprocess.Popen(args, close_fds=True, start_new_session=True)  # noqa: S603
+    except OSError as exc:
+        readme_jobs.mark_failed(job_id, f"failed to start README automation worker: {exc.strerror or exc}")
+        return
+    readme_jobs.mark_spawned(job_id, pid=process.pid)
 
 
 @router.post("/api/v1/readme_automation")
@@ -66,10 +86,13 @@ async def readme_automation_webhook(request: Request, response: Response) -> dic
         return {"error": "github app credentials unavailable"}
 
     payload = json.loads(await request.body() or b"{}")
-    dry_run = bool(payload.get("dry_run", False))
-    owner = str(payload.get("owner") or "jclee941")
-    repo_values = payload.get("repos")
-    repos = {str(name) for name in repo_values} if isinstance(repo_values, list) else None
+    try:
+        dry_run = bool(payload.get("dry_run", False))
+        owner = _parse_owner(payload.get("owner"))
+        repos = _parse_repos(payload.get("repos"))
+    except InvalidReadmeAutomationRequest as exc:
+        response.status_code = 400
+        return {"error": str(exc)}
     if payload.get("background", True):
         job = readme_jobs.create_job(owner=owner, repos=sorted(repos) if repos is not None else None, dry_run=dry_run)
         _spawn_readme_job(job_id=str(job["id"]), owner=owner, dry_run=dry_run, repos=repos)

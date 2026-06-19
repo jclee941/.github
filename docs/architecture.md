@@ -206,28 +206,21 @@ flowchart LR
 
 ---
 
-## 5. 다운스트림 배포 흐름 (Downstream Deploy)
+## 5. App 기반 레포 자동화 흐름 (Repository Automation)
 
 ```mermaid
 flowchart TD
-    START(("Push to master<br/>(.github)")) --> TRIGGER{"변경된 파일?"}
+    START(("운영 트리거<br/>(webhook / API / schedule)")) --> APP["jclee-bot App<br/>(github-bot-app)"]
     
-    TRIGGER -->|workflows/| DEPLOY["34_auto-deploy.yml"]
-    TRIGGER -->|dependabot.yml| DEPLOY
-    TRIGGER -->|CODEOWNERS| DEPLOY
-    TRIGGER -->|PR template| DEPLOY
-    TRIGGER -->|deploy script| DEPLOY
+    APP --> INSTALL["GitHub App installation<br/>repo + permission 조회"]
+    INSTALL --> TARGETS["config/repos.yaml<br/>관리 대상 필터"]
     
-    DEPLOY --> DRY["Dry-run<br/>Preview"]
-    DRY --> GO{"실행?"}
+    TARGETS --> README["README 자동화<br/>bot/auto-readme-update"]
+    TARGETS --> CHECKS["Checks API<br/>pr-metadata / secret-scan / actionlint"]
+    TARGETS --> ISSUES["Issue automation<br/>label / stale cleanup"]
     
-    GO -->|No| SKIP["스킵"]
-    GO -->|Yes| CLONE["11개 리포 클론"]
-    
-    CLONE --> COPY["워크플로우 + 설정<br/>복사"]
-    COPY --> COMMIT["chore: standardize<br/>automation workflows"]
-    COMMIT --> PUSH["force-with-lease<br/>푸시"]
-    PUSH --> PR{"PR 존재?"}
+    README --> BRANCH["App token clone + render + push"]
+    BRANCH --> PR{"PR 존재?"}
     
     PR -->|Yes| UPDATE["기존 PR 업데이트"]
     PR -->|No| CREATE["신규 PR 생성"]
@@ -241,7 +234,6 @@ flowchart TD
     
     AUTO_MERGE --> END(("배포 완료"))
     MANUAL --> END
-    SKIP --> END
     
     style START fill:#6ba06a,stroke:#333,color:#fff
     style END fill:#4a90d9,stroke:#333,color:#fff
@@ -249,23 +241,12 @@ flowchart TD
     style MANUAL fill:#d9b430,stroke:#333,color:#000
 ```
 
-### 배포 대상 리포지토리 (11개)
+### App 관리 리포지토리
 
-| 리포지토리 | 상태 |
-|-----------|------|
-| `jclee941/resume` | ✅ 자동화 적용 |
-| `jclee941/safetywallet` | ✅ 자동화 적용 |
-| `jclee941/tmux` | ✅ 자동화 적용 |
-| `jclee941/hycu_fsds` | ✅ 자동화 적용 |
-| `jclee941/splunk` | ✅ 자동화 적용 |
-| `jclee941/blacklist` | ✅ 자동화 적용 |
-| `jclee941/opencode` | ✅ 자동화 적용 |
-| `jclee941/terraform` | ✅ 자동화 적용 |
-| `jclee941/account` | ✅ 자동화 적용 |
-| `jclee941/idle-outpost` | ✅ 자동화 적용 |
-| `jclee941/bug` | ✅ 자동화 적용 |
-
-**제외 리포**: `pr-agent` (업스트림 포크, 자체 워크플로우 보유), `hycu`/`youtube`/`propose` (private, Dependabot만)
+`config/repos.yaml`이 단일 인벤토리입니다. `.github`는 소스 리포로 자체 운영되고,
+`pr-agent`는 업스트림 포크라 App 자동화 롤아웃에서 제외됩니다. 나머지 공개/비공개
+대상 리포는 per-repo workflow 배포가 아니라 `jclee-bot` App 토큰과 Checks API 경로로
+운영됩니다.
 
 ---
 
@@ -329,7 +310,7 @@ flowchart LR
     PR --> DOCS["jclee-bot / docs-policy"]
     PR --> DEPENDABOT["12_dependabot-auto-merge.yml<br/>(dependabot만)"]
     
-    PUSH --> AUTO_DEPLOY["34_auto-deploy.yml<br/>(조건부)"]
+    PUSH --> APP_BUILD["36_build-and-push-app.yml<br/>(App image)"]
     PUSH --> RELEASE_D["23_release-drafter.yml"]
     PUSH --> RELEASE_P["25_release-publish.yml"]
     PUSH --> GITLEAKS

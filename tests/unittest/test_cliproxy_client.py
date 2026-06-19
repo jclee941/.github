@@ -70,18 +70,39 @@ def test_management_url_normalizes_panel_url():
     )
 
 
-def test_management_config_allows_self_signed_homelab_tls():
+def test_management_config_allows_internal_management_without_tls_verification():
     config = cliproxy_routing.resolve_cliproxy_management_config(
         {
-            "CLIPROXY_MANAGEMENT_URL": "https://cliproxy.jclee.me/management.html",
+            "CLIPROXY_MANAGEMENT_URL": "http://cliproxyapi:8317/v0/management",
             "CLIPROXY_MANAGEMENT_KEY": "management-key",
             "CLIPROXY_MANAGEMENT_TLS_VERIFY": "false",
         }
     )
 
     assert config is not None
-    assert config.base_url == "https://cliproxy.jclee.me/v0/management"
+    assert config.base_url == "http://cliproxyapi:8317/v0/management"
     assert config.tls_verify is False
+
+
+def test_management_config_rejects_tls_disabled_for_external_url():
+    with pytest.raises(cliproxy_client.CliproxyCredentialError):
+        cliproxy_routing.resolve_cliproxy_management_config(
+            {
+                "CLIPROXY_MANAGEMENT_URL": "https://cliproxy.jclee.me/management.html",
+                "CLIPROXY_MANAGEMENT_KEY": "management-key",
+                "CLIPROXY_MANAGEMENT_TLS_VERIFY": "false",
+            }
+        )
+
+
+def test_management_config_rejects_external_plain_http():
+    with pytest.raises(cliproxy_client.CliproxyCredentialError):
+        cliproxy_routing.resolve_cliproxy_management_config(
+            {
+                "CLIPROXY_MANAGEMENT_URL": "http://cliproxy.jclee.me/v0/management",
+                "CLIPROXY_MANAGEMENT_KEY": "management-key",
+            }
+        )
 
 
 def test_route_models_by_quota_deprioritizes_failed_primary(monkeypatch):
