@@ -77,6 +77,12 @@ class TestWrapperApp:
         paths = {getattr(r, "path", None) for r in app.routes}
         assert "/api/v1/checks_webhook" in paths
 
+    def test_app_exposes_readme_automation_route(self):
+        from jclee_bot.app import app
+
+        paths = {getattr(r, "path", None) for r in app.routes}
+        assert "/api/v1/readme_automation" in paths
+
     def test_app_preserves_health_route(self):
         from jclee_bot.app import app
 

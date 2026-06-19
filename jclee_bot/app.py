@@ -23,9 +23,12 @@ from typing import Any
 from fastapi import Request, Response
 
 from jclee_bot import dispatch, github_checks, issue_maintenance, issue_management
+from jclee_bot.readme_automation import router as readme_automation_router
 
 # Reuse the upstream app object so its middleware + all routes are preserved.
 from pr_agent.servers.github_app import app
+
+app.include_router(readme_automation_router)
 
 GITHUB_API = "https://api.github.com"
 

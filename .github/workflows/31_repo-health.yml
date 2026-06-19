@@ -11,7 +11,7 @@ on:
       - '.github/workflows/31_repo-health.yml'
       - 'config/repos.yaml'
   workflow_run:
-    workflows: ["Template Sync", "README Generator", "Auto Deploy Workflows"]
+    workflows: ["Template Sync", "Auto Deploy Workflows"]
     types: [completed]
   workflow_dispatch:
 permissions:
