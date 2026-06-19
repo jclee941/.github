@@ -149,6 +149,19 @@ class TestActionlint:
         assert r.conclusion == "neutral"
         assert "no workflow" in r.summary.lower()
 
+    def test_deleted_workflow_changes_pass_without_linting_unrelated_workflows(self, tmp_path):
+        (tmp_path / ".github" / "workflows").mkdir(parents=True)
+        (tmp_path / ".github" / "workflows" / "legacy.yml").write_text("name: legacy\n", encoding="utf-8")
+
+        r = actionlint_check.run(
+            changed_files=[".github/workflows/deleted.yml"],
+            workspace=str(tmp_path),
+            actionlint_bin="actionlint",
+        )
+
+        assert r.conclusion == "success"
+        assert "deleted" in r.summary
+
     def test_clean_workflows_pass(self):
         r = actionlint_check.result_from_output(returncode=0, output="", ran=True)
         assert r.conclusion == "success"
