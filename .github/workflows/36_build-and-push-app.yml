@@ -6,6 +6,8 @@ on:
     paths:
       - 'pr_agent/**'
       - 'jclee_bot/**'
+      - 'scripts/**'
+      - 'config/**'
       - 'Dockerfile.github_app'
       - 'docker-compose.github_app.yml'
       - '.pr_agent.toml'
@@ -67,6 +69,9 @@ jobs:
           file: Dockerfile.github_app
           push: true
           tags: registry.jclee.me/github-bot-app:latest
+          build-args: |
+            APP_VERSION=${{ github.sha }}
+            VCS_REF=${{ github.sha }}
           cache-from: type=local,src=${{ env.DOCKER_BUILDX_CACHE }}
           cache-to: type=local,dest=${{ env.DOCKER_BUILDX_CACHE_NEW }},mode=max
 
