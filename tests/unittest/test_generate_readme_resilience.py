@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib.util
-import urllib.error
 from pathlib import Path
 
 import pytest
@@ -25,10 +24,10 @@ def test_call_llm_raises_transient_error_after_exhausting_retries(monkeypatch):
     monkeypatch.setattr(mod, "MODELS", ["m1"])
     monkeypatch.setattr(mod, "_RETRY_BACKOFF_SECONDS", [0, 0])
 
-    def fake_urlopen(req, timeout=0):
-        raise urllib.error.HTTPError("u", 524, "timeout", {}, None)
+    def fake_chat_completion(**_kwargs):
+        raise ConnectionError("timeout")
 
-    monkeypatch.setattr(mod.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(mod, "cliproxy_chat_completion", fake_chat_completion)
     with pytest.raises(mod.TransientLLMError):
         mod.call_llm("sys", "user")
 

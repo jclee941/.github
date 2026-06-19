@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import importlib
 import json
-from urllib.error import URLError
 
 import llm_decide as m
 
@@ -156,24 +155,13 @@ def test_call_llm_falls_back_to_m3_after_primary_failure(monkeypatch):
 
     requested_models = []
 
-    class _Response:
-        def __enter__(self):
-            return self
+    def fake_chat_completion(**kwargs):
+        requested_models.append(kwargs["model"])
+        if kwargs["model"] == "gpt-5.5":
+            raise ConnectionError("primary down")
+        return "ok"
 
-        def __exit__(self, *_args):
-            return False
-
-        def read(self):
-            return json.dumps({"choices": [{"message": {"content": "ok"}}]}).encode()
-
-    def _urlopen(req, timeout):
-        payload = json.loads(req.data.decode())
-        requested_models.append(payload["model"])
-        if payload["model"] == "gpt-5.5":
-            raise URLError("primary down")
-        return _Response()
-
-    monkeypatch.setattr(m.urllib.request, "urlopen", _urlopen)
+    monkeypatch.setattr(m, "cliproxy_chat_completion", fake_chat_completion)
 
     assert m._call_llm("system", "user") == "ok"
     assert requested_models == ["gpt-5.5", "minimax-m3"]

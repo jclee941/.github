@@ -27,6 +27,7 @@ Usage:
 
 Environment:
     CLIPROXY_API_KEY       required for live calls
+    CLIPROXY_API_KEY_OP_REF optional 1Password secret ref used when key is unset
     OPENAI_BASE_URL        default https://cliproxy.jclee.me/v1
     LLM_DECISION_MODEL     default gpt-5.5
     LLM_DECISION_FALLBACK_MODELS default ["minimax-m3"]
@@ -40,8 +41,13 @@ import json
 import os
 import sys
 import time
-import urllib.request
 
+from cliproxy_client import (
+    CliproxyCredentialError,
+    CliproxyMessage,
+    cliproxy_chat_completion,
+    resolve_cliproxy_api_key,
+)
 from llm_decide_policy import DECISION_SPECS, LLMError, failsafe, flatten_output, validate_decision
 
 
@@ -94,34 +100,32 @@ def _build_prompt(decision_type: str, spec: dict, payload: dict) -> tuple[str, s
 
 
 def _call_llm(system: str, user: str) -> str:
-    if not API_KEY:
-        raise LLMError("CLIPROXY_API_KEY not set")
+    try:
+        api_key = API_KEY or resolve_cliproxy_api_key()
+    except CliproxyCredentialError as exc:
+        raise LLMError(str(exc)) from exc
+
     models = [MODEL]
     models.extend(model for model in FALLBACK_MODELS if model not in models)
     last = None
+    messages = [
+        CliproxyMessage(role="system", content=system),
+        CliproxyMessage(role="user", content=user),
+    ]
     for model in models:
-        payload = {
-            "model": model,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            "max_tokens": 1024,
-            "temperature": 0.0,
-        }
         for attempt in range(len(_RETRY_BACKOFF_SECONDS) + 1):
-            req = urllib.request.Request(
-                f"{API_BASE}/chat/completions",
-                data=json.dumps(payload).encode("utf-8"),
-                headers={"Content-Type": "application/json", "Authorization": f"Bearer {API_KEY}"},
-                method="POST",
-            )
             try:
-                with urllib.request.urlopen(req, timeout=_TIMEOUT_SECONDS) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
-                return data["choices"][0]["message"]["content"]
-            except Exception as e:  # noqa: BLE001 - boundary
-                last = e
+                return cliproxy_chat_completion(
+                    model=model,
+                    messages=messages,
+                    api_key=api_key,
+                    base_url=API_BASE,
+                    max_tokens=1024,
+                    temperature=0.0,
+                    timeout_seconds=_TIMEOUT_SECONDS,
+                )
+            except Exception as exc:  # noqa: BLE001 - boundary
+                last = exc
                 if attempt < len(_RETRY_BACKOFF_SECONDS):
                     time.sleep(_RETRY_BACKOFF_SECONDS[attempt])
                     continue

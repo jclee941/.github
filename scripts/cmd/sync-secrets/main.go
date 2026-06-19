@@ -88,7 +88,7 @@ func main() {
 	if len(missing) > 0 {
 		fmt.Fprintf(os.Stderr, "error: required env vars not set: %s\n", strings.Join(missing, ", "))
 		fmt.Fprintln(os.Stderr, "  set them locally before running, e.g.:")
-		fmt.Fprintln(os.Stderr, "    export CLIPROXY_API_KEY=$(op read 'op://Personal/cliproxy/credential')")
+		fmt.Fprintln(os.Stderr, "    export CLIPROXY_API_KEY=$(op read 'op://homelab/cliproxy/credential')")
 		os.Exit(1)
 	}
 

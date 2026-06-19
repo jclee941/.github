@@ -9,19 +9,24 @@ Usage:
 
 Environment:
     CLIPROXY_API_KEY — API key for CLIProxyAPI (required)
+    CLIPROXY_API_KEY_OP_REF — optional 1Password secret ref used when key is unset
     OPENAI_BASE_URL  — CLIProxyAPI endpoint (default: https://cliproxy.jclee.me/v1)
 """
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
 import time
-import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from cliproxy_client import (
+    CliproxyCredentialError,
+    CliproxyMessage,
+    cliproxy_chat_completion,
+    resolve_cliproxy_api_key,
+)
 from generate_readme_cleaning import normalize_llm_readme_response, redact_private_ips, sanitize_links
 from generate_readme_retry import TransientLLMError
 from generate_readme_retry import is_transient as _is_transient
@@ -70,43 +75,37 @@ def call_llm(system: str, user: str) -> str:
     TransientLLMError so the caller can degrade gracefully. A non-transient
     error (bad request, auth) still raises SystemExit immediately.
     """
-    if not API_KEY:
-        raise SystemExit("ERROR: CLIPROXY_API_KEY environment variable is required.")
+    try:
+        api_key = API_KEY or resolve_cliproxy_api_key()
+    except CliproxyCredentialError as exc:
+        raise SystemExit(f"ERROR: {exc}") from exc
 
     last_error = None
     all_transient = True
+    messages = [
+        CliproxyMessage(role="system", content=system),
+        CliproxyMessage(role="user", content=user),
+    ]
     for model in MODELS:
-        payload = {
-            "model": model,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            "max_tokens": MAX_TOKENS,
-            "temperature": 0.3,
-        }
-        req = urllib.request.Request(
-            f"{API_BASE}/chat/completions",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {API_KEY}",
-            },
-            method="POST",
-        )
         # attempt 0 = initial try; subsequent attempts use the backoff list.
         for attempt in range(len(_RETRY_BACKOFF_SECONDS) + 1):
             try:
-                with urllib.request.urlopen(req, timeout=300) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
-                content = data["choices"][0]["message"]["content"]
+                content = cliproxy_chat_completion(
+                    model=model,
+                    messages=messages,
+                    api_key=api_key,
+                    base_url=API_BASE,
+                    max_tokens=MAX_TOKENS,
+                    temperature=0.3,
+                    timeout_seconds=300,
+                )
                 print(f"Generated with model: {model}")
                 return content
-            except Exception as e:  # noqa: BLE001 - boundary; classified below
-                last_error = e
-                transient = _is_transient(e)
+            except Exception as exc:  # noqa: BLE001 - boundary; classified below
+                last_error = exc
+                transient = _is_transient(exc)
                 all_transient = all_transient and transient
-                print(f"Model {model} attempt {attempt + 1} failed: {e}")
+                print(f"Model {model} attempt {attempt + 1} failed: {exc}")
                 if transient and attempt < len(_RETRY_BACKOFF_SECONDS):
                     delay = _RETRY_BACKOFF_SECONDS[attempt]
                     print(f"  transient error; retrying in {delay}s")

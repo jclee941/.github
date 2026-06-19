@@ -212,7 +212,6 @@ def test_is_transient_error_classification():
 def test_call_llm_retries_transient_then_succeeds(monkeypatch):
     """call_llm must retry a transient 524 and succeed on a later attempt
     without raising."""
-    import urllib.error
     mod = _load_module()
     monkeypatch.setattr(mod, "API_KEY", "test-key")
     monkeypatch.setattr(mod, "MODELS", ["m1"])
@@ -220,21 +219,13 @@ def test_call_llm_retries_transient_then_succeeds(monkeypatch):
 
     calls = {"n": 0}
 
-    class FakeResp:
-        def __enter__(self):
-            return self
-        def __exit__(self, *a):
-            return False
-        def read(self):
-            return b'{"choices": [{"message": {"content": "# OK"}}]}'
-
-    def fake_urlopen(req, timeout=0):
+    def fake_chat_completion(**_kwargs):
         calls["n"] += 1
         if calls["n"] < 3:
-            raise urllib.error.HTTPError("u", 524, "timeout", {}, None)
-        return FakeResp()
+            raise ConnectionError("timeout")
+        return "# OK"
 
-    monkeypatch.setattr(mod.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(mod, "cliproxy_chat_completion", fake_chat_completion)
     out = mod.call_llm("sys", "user")
     assert out == "# OK", out
     assert calls["n"] == 3, f"expected 3 attempts (2 retries), got {calls['n']}"
