@@ -5,7 +5,7 @@
 [config]
 # models — FORK: GitHub App default gpt-5.5 via CLIProxyAPI
 model="gpt-5.5"
-fallback_models=["MiniMax-M3"]
+fallback_models=["minimax-m3"]
 #model_reasoning="o4-mini" # dedicated reasoning model for self-reflection
 #model_weak="gpt-4o" # optional, a weaker model to use for some easier tasks
 # CLI

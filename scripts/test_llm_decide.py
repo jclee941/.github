@@ -145,13 +145,13 @@ def test_default_model_chain_uses_gpt55_then_m3(monkeypatch):
     monkeypatch.delenv("LLM_DECISION_FALLBACK_MODELS", raising=False)
     reloaded = importlib.reload(m)
 
-    assert [reloaded.MODEL, *reloaded.FALLBACK_MODELS] == ["gpt-5.5", "MiniMax-M3"]
+    assert [reloaded.MODEL, *reloaded.FALLBACK_MODELS] == ["gpt-5.5", "minimax-m3"]
 
 
 def test_call_llm_falls_back_to_m3_after_primary_failure(monkeypatch):
     monkeypatch.setattr(m, "API_KEY", "test-key")
     monkeypatch.setattr(m, "MODEL", "gpt-5.5")
-    monkeypatch.setattr(m, "FALLBACK_MODELS", ["MiniMax-M3"])
+    monkeypatch.setattr(m, "FALLBACK_MODELS", ["minimax-m3"])
     monkeypatch.setattr(m, "_RETRY_BACKOFF_SECONDS", [])
 
     requested_models = []
@@ -176,7 +176,7 @@ def test_call_llm_falls_back_to_m3_after_primary_failure(monkeypatch):
     monkeypatch.setattr(m.urllib.request, "urlopen", _urlopen)
 
     assert m._call_llm("system", "user") == "ok"
-    assert requested_models == ["gpt-5.5", "MiniMax-M3"]
+    assert requested_models == ["gpt-5.5", "minimax-m3"]
 
 
 # ---- happy path with mocked LLM -------------------------------------------

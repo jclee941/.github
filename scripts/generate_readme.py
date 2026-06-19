@@ -28,7 +28,7 @@ from generate_readme_scan import run_tree
 
 API_BASE = os.environ.get("OPENAI_BASE_URL", "https://cliproxy.jclee.me/v1")
 API_KEY = os.environ.get("CLIPROXY_API_KEY", "")
-MODELS = ["gpt-5.5", "MiniMax-M3"]
+MODELS = ["gpt-5.5", "minimax-m3"]
 MAX_TOKENS = 16000  # README is long; 4000 truncated the JSON mid-string
 
 # Backoff (seconds) between retry attempts for a single model on transient
@@ -175,7 +175,7 @@ def generate_readme(repo_root: Path) -> str:
         "<homelab-host> / <homelab-elk> and the public endpoint https://cliproxy.jclee.me/v1 instead. "
         "Do NOT use bold/emphasis text as a substitute for a heading (markdownlint MD036); "
         "use real '#' headings. "
-        "Current README-gen primary model: gpt-5.5 (fallback: MiniMax-M3 via CLIProxyAPI). "
+        "Current README-gen primary model: gpt-5.5 (fallback: minimax-m3 via CLIProxyAPI). "
         "Do NOT invent GitHub repository URLs: never link to non-existent repos such as "
         "github.com/jclee941/CLIProxyAPI or github.com/jclee941/github-bot. For external "
         "links use only qodo-ai/pr-agent, cliproxy.jclee.me, and bot.jclee.me. "

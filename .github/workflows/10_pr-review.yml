@@ -126,7 +126,7 @@ jobs:
           PR_REVIEW_DEBUG: ${{ vars.PR_REVIEW_DEBUG || '0' }}
           CONFIG.MODEL: ${{ matrix.model }}
           # Canonical fallback chain, enforced by 90_sanity.yml.
-          CONFIG.FALLBACK_MODELS: '["MiniMax-M3"]'
+          CONFIG.FALLBACK_MODELS: '["minimax-m3"]'
           CONFIG.RESPONSE_LANGUAGE: ko
           CONFIG.AI_TIMEOUT: "180"
           CONFIG.CUSTOM_MODEL_MAX_TOKENS: "128000"

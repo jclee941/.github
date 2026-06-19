@@ -27,7 +27,7 @@ def _load_module():
 def test_canonical_model_chain():
     """MODELS must try the requested gpt-5.5 primary before fallback models."""
     mod = _load_module()
-    assert mod.MODELS == ["gpt-5.5", "MiniMax-M3"], (
+    assert mod.MODELS == ["gpt-5.5", "minimax-m3"], (
         f"generate_readme MODELS drifted from canonical model: {mod.MODELS}"
     )
 
@@ -36,7 +36,7 @@ def test_no_stale_model_text_in_prompt():
     """README-generator prompt must not hardcode the retired minimax fallback."""
     text = SCRIPT.read_text()
     assert "minimax-m2.7" not in text, (
-        "generate_readme.py must not hardcode minimax-m2.7; fallback is MiniMax-M3"
+        "generate_readme.py must not hardcode minimax-m2.7; fallback is minimax-m3"
     )
 
 

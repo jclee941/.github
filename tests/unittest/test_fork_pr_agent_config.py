@@ -101,8 +101,8 @@ class TestForkPrAgentConfig:
         assert "config" in data, "Missing [config] section in .pr_agent.toml"
         fallback_models = data["config"].get("fallback_models", [])
 
-        assert fallback_models == ["MiniMax-M3"], (
-            f"Expected fallback_models == ['MiniMax-M3'], got {fallback_models}"
+        assert fallback_models == ["minimax-m3"], (
+            f"Expected fallback_models == ['minimax-m3'], got {fallback_models}"
         )
 
     def test_configuration_toml_was_edited_for_fork(self):

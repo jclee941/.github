@@ -35,7 +35,7 @@ Fork-specific modifications in this repository include:
 
   * pr_agent/settings/configuration.toml
       - Default LLM model set to `gpt-5.5` through CLIProxyAPI
-      - Fallback model set to `MiniMax-M3`
+      - Fallback model set to `minimax-m3`
 
   * .pr_agent.toml
       - Added [config] section with fork model/fallback pinned

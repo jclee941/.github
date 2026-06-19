@@ -128,7 +128,7 @@ jobs:
           primary = c['config']['model']
           canonical_fb = c['config']['fallback_models']
           assert primary == 'gpt-5.5', f'primary model drifted: {primary}'
-          assert canonical_fb == ['MiniMax-M3'], f'canonical fallback drifted: {canonical_fb}'
+          assert canonical_fb == ['minimax-m3'], f'canonical fallback drifted: {canonical_fb}'
           print(f'canonical: primary={primary} fallback={canonical_fb}')
 
           # upstream configuration.toml must share the same fallback chain.
