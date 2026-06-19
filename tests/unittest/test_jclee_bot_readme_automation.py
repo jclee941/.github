@@ -77,11 +77,13 @@ def test_readme_automation_endpoint_runs_sync_when_requested(monkeypatch):
 def test_readme_automation_background_returns_pollable_job(monkeypatch, tmp_path):
     from jclee_bot import app as app_module
 
+    spawned: list[dict[str, object]] = []
+
     monkeypatch.setenv("README_AUTOMATION_TOKEN", "readme")
     monkeypatch.setenv("GITHUB_APP_ID", "123")
     monkeypatch.setenv("GITHUB_PRIVATE_KEY", "key")
     monkeypatch.setenv("README_AUTOMATION_JOB_DIR", str(tmp_path))
-    monkeypatch.setattr(readme_automation, "_run_readme_job", lambda **kwargs: None)
+    monkeypatch.setattr(readme_automation, "_spawn_readme_job", lambda **kwargs: spawned.append(kwargs))
 
     client = TestClient(app_module.app, raise_server_exceptions=False)
     response = client.post(
@@ -95,6 +97,14 @@ def test_readme_automation_background_returns_pollable_job(monkeypatch, tmp_path
     assert body["accepted"] is True
     assert body["dry_run"] is True
     assert body["job_id"]
+    assert spawned == [
+        {
+            "job_id": body["job_id"],
+            "owner": "jclee941",
+            "dry_run": True,
+            "repos": {"propose"},
+        }
+    ]
 
     status = client.get(
         f"/api/v1/readme_automation/jobs/{body['job_id']}",
