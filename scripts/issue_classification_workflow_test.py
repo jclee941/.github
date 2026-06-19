@@ -11,6 +11,8 @@ see, and that a prior review flagged as defects:
     preceded by an `ensureLabel` helper (the labels may not exist in a repo).
   * the merged-PR job must NOT unconditionally skip already-closed issues (GitHub
     auto-closes Closes/Fixes/Resolves #N on merge; we still label + comment them).
+  * downstream repos must load the classifier from the central jclee-bot source
+    checkout, not from a local `.github/scripts` file that is not deployed.
 """
 from __future__ import annotations
 
@@ -56,6 +58,14 @@ def test_every_resolved_addlabels_has_ensurelabel():
         "each resolved-label addLabels site must call ensureLabel('resolved', ...)"
     )
     assert "ensureLabel('duplicate'" in text, "duplicate job must ensureLabel too"
+
+
+def test_classifier_loaded_from_central_source_checkout():
+    text = load_text()
+    assert text.count("repository: jclee941/.github") == 4
+    assert text.count("path: .jclee-bot-source") == 4
+    assert "'.github/scripts/issue-classifier.cjs'" not in text
+    assert text.count("'.jclee-bot-source/.github/scripts/issue-classifier.cjs'") == 4
 
 
 def _merged_pr_job_script(text: str) -> str:
