@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,7 +15,7 @@ var (
 	dryRun        = flag.Bool("dry-run", false, "If true, no issues are created/commented")
 	sinceCommits  = flag.Int("since-commits", 50, "Commits back from HEAD to use as review base")
 	diffSizeLimit = flag.Int("diff-size-limit", 150000, "Max diff char count before skipping a repo")
-	model         = flag.String("model", "MiniMax-M3", "Primary LLM model")
+	model         = flag.String("model", "gpt-5.5", "Primary LLM model")
 	workDir       = flag.String("work-dir", "/tmp/repo-review", "Working directory for clones")
 	owner         = flag.String("owner", "jclee941", "GitHub owner/org")
 )
@@ -91,14 +90,6 @@ func main() {
 
 	fmt.Println()
 	fmt.Printf("repo-review batch finished. failures=%d\n", failed)
-}
-
-func isExecutable(path string) bool {
-	info, err := os.Stat(path)
-	if err != nil {
-		return false
-	}
-	return !info.IsDir() && info.Mode()&0111 != 0
 }
 
 func reviewOneRepo(repo, timestamp, date, prAgentPython string) error {
@@ -241,93 +232,4 @@ func ensureLabels(repo string) {
 		"--color", "5319E7", "--description", "Automated whole-repo code review")
 	_, _ = runCmd("gh", "label", "create", "automated", "--repo", repoFull,
 		"--color", "BFD4F2", "--description", "Auto-managed by jclee-bot")
-}
-
-func runCmd(name string, args ...string) (string, error) {
-	cmd := exec.Command(name, args...)
-	cmd.Env = os.Environ()
-	out, err := cmd.CombinedOutput()
-	return string(out), err
-}
-
-// runPythonWithPrefix runs the python script and prefixes each line of output.
-func runPythonWithPrefix(prAgentPython, repoReviewPy, repoDir, reviewPath string) error {
-	cmd := exec.Command(prAgentPython, repoReviewPy,
-		"--repo-path", repoDir,
-		"--review-path", reviewPath,
-		"--since-commits", fmt.Sprintf("%d", *sinceCommits),
-		"--diff-size-limit", fmt.Sprintf("%d", *diffSizeLimit),
-		"--model", *model,
-		"--response-language", "ko",
-	)
-	cmd.Env = os.Environ()
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return err
-	}
-
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	go prefixLines(stdout, "  [pr-agent] ")
-	go prefixLines(stderr, "  [pr-agent] ")
-
-	return cmd.Wait()
-}
-
-func prefixLines(r io.Reader, prefix string) {
-	buf := make([]byte, 4096)
-	for {
-		n, err := r.Read(buf)
-		if n > 0 {
-			lines := strings.Split(string(buf[:n]), "\n")
-			for i, line := range lines {
-				if i == len(lines)-1 && !strings.HasSuffix(string(buf[:n]), "\n") {
-					// Partial line — buffer it. For simplicity, just print with prefix.
-					fmt.Printf("%s%s", prefix, line)
-				} else {
-					fmt.Printf("%s%s\n", prefix, line)
-				}
-			}
-		}
-		if err != nil {
-			break
-		}
-	}
-}
-
-// resolveReviewScript locates repo_review.py robustly. Under `go run`,
-// os.Args[0] is a /tmp/go-build.../exe path, so the old os.Args[0]-relative
-// lookup failed with Errno 2. Resolution order:
-//  1. $REPO_REVIEW_SCRIPT (explicit override)
-//  2. ./repo_review.py relative to CWD (workflow does `cd scripts && go run ...`)
-//  3. <dir-of-binary>/repo_review.py and ../../repo_review.py (compiled binary)
-func resolveReviewScript() string {
-	if env := os.Getenv("REPO_REVIEW_SCRIPT"); env != "" {
-		return env
-	}
-	candidates := []string{
-		"repo_review.py",
-	}
-	if cwd, err := os.Getwd(); err == nil {
-		candidates = append(candidates, filepath.Join(cwd, "repo_review.py"))
-	}
-	scriptDir := filepath.Dir(os.Args[0])
-	candidates = append(candidates,
-		filepath.Join(scriptDir, "repo_review.py"),
-		filepath.Join(scriptDir, "..", "..", "repo_review.py"),
-	)
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			return c
-		}
-	}
-	// Last resort: cwd-relative path (will surface a clear ENOENT if missing).
-	return "repo_review.py"
 }

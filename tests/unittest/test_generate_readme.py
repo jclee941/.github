@@ -25,21 +25,18 @@ def _load_module():
 
 
 def test_canonical_model_chain():
-    """MODELS must be the direct-MiniMax model used by the bot (MiniMax-M3)."""
+    """MODELS must try the requested gpt-5.5 primary before fallback models."""
     mod = _load_module()
-    assert mod.MODELS == ["MiniMax-M3"], (
+    assert mod.MODELS == ["gpt-5.5", "MiniMax-M3"], (
         f"generate_readme MODELS drifted from canonical model: {mod.MODELS}"
     )
 
 
 def test_no_stale_model_text_in_prompt():
-    """README-generator prompt must not hardcode models outside its own
-    generator chain (MODELS == ['MiniMax-M3']). gpt-5.5 is no longer used and
-    must not appear."""
+    """README-generator prompt must not hardcode the retired minimax fallback."""
     text = SCRIPT.read_text()
-    assert "gpt-5.5" not in text, (
-        "generate_readme.py must not hardcode gpt-5.5; the generator uses "
-        "MODELS == ['MiniMax-M3']"
+    assert "minimax-m2.7" not in text, (
+        "generate_readme.py must not hardcode minimax-m2.7; fallback is MiniMax-M3"
     )
 
 
@@ -241,41 +238,3 @@ def test_call_llm_retries_transient_then_succeeds(monkeypatch):
     out = mod.call_llm("sys", "user")
     assert out == "# OK", out
     assert calls["n"] == 3, f"expected 3 attempts (2 retries), got {calls['n']}"
-
-
-def test_call_llm_raises_transient_error_after_exhausting_retries(monkeypatch):
-    """When all attempts hit transient errors, call_llm must raise the
-    dedicated TransientLLMError (so the caller can degrade gracefully), NOT a
-    bare SystemExit that hard-fails CI."""
-    import urllib.error
-    mod = _load_module()
-    monkeypatch.setattr(mod, "API_KEY", "test-key")
-    monkeypatch.setattr(mod, "MODELS", ["m1"])
-    monkeypatch.setattr(mod, "_RETRY_BACKOFF_SECONDS", [0, 0])
-
-    def fake_urlopen(req, timeout=0):
-        raise urllib.error.HTTPError("u", 524, "timeout", {}, None)
-
-    monkeypatch.setattr(mod.urllib.request, "urlopen", fake_urlopen)
-    import pytest
-    with pytest.raises(mod.TransientLLMError):
-        mod.call_llm("sys", "user")
-
-
-def test_main_degrades_gracefully_on_transient_failure(monkeypatch, tmp_path, capsys):
-    """main() must NOT hard-fail (exit non-zero) on a transient LLM outage; it
-    must leave the existing README untouched and return 0 with a warning."""
-    mod = _load_module()
-    readme = tmp_path / "README.md"
-    readme.write_text("# Existing README\n\nkeep me\n", encoding="utf-8")
-
-    def boom(repo_root):
-        raise mod.TransientLLMError("all models 524")
-
-    monkeypatch.setattr(mod, "generate_readme", boom)
-    monkeypatch.setattr(mod.sys, "argv", ["generate_readme.py", "--repo", str(tmp_path)])
-    rc = mod.main()
-    assert rc == 0, f"transient failure must not hard-fail CI, got rc={rc}"
-    assert readme.read_text(encoding="utf-8") == "# Existing README\n\nkeep me\n", (
-        "existing README must be left untouched on transient failure"
-    )

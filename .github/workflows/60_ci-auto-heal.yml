@@ -49,7 +49,7 @@ jobs:
       - name: Auto-heal failed CI across repos
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+          CLIPROXY_API_KEY: ${{ secrets.CLIPROXY_API_KEY }}
         run: |
           set -eu
           HELPER="$GITHUB_WORKSPACE/_bot-scripts/scripts/llm_decide.py"

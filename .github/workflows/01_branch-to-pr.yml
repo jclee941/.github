@@ -108,7 +108,7 @@ jobs:
       - name: LLM branch-to-PR decision (DP-15)
         id: llm
         env:
-          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+          CLIPROXY_API_KEY: ${{ secrets.CLIPROXY_API_KEY }}
           BRANCH: ${{ steps.meta.outputs.branch }}
           BASE: ${{ steps.meta.outputs.base }}
           TITLE: ${{ steps.meta.outputs.title }}

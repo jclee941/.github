@@ -56,7 +56,7 @@ jobs:
       - name: LLM label decision (DP-5)
         id: llm
         env:
-          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+          CLIPROXY_API_KEY: ${{ secrets.CLIPROXY_API_KEY }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
         run: |

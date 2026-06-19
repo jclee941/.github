@@ -52,8 +52,8 @@ jobs:
 
       - name: Generate README.md
         env:
-          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
-          OPENAI_BASE_URL: https://api.minimax.io/v1
+          CLIPROXY_API_KEY: ${{ secrets.CLIPROXY_API_KEY }}
+          OPENAI_BASE_URL: https://cliproxy.jclee.me/v1
         run: |
           set -eu
           python3 _bot-scripts/scripts/generate_readme.py --repo .

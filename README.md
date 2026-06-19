@@ -39,7 +39,7 @@ This repository is a private hard fork of [qodo-ai/pr-agent](https://github.com/
 |--------|----------------------------|----------------------|
 | LLM Backend | Configurable | CLIProxyAPI at `https://cliproxy.jclee.me/v1` |
 | Default Model | `gpt-4` | `gpt-5.5` via CLIProxy routing |
-| Fallback Models | Varies | `["minimax-m2.7", "gpt-5.5"]` |
+| Fallback Models | Varies | `["MiniMax-M3"]` |
 | Security Scanning | Basic | Deep security review workflow (`11_security-pr-review.yml`) |
 | Workflow Coverage | Core PR tools | 37 workflows + 8 Go automation tools |
 | Runner Environment | GitHub-hosted | GitHub-hosted (`ubuntu-latest`) + homelab API gateway |
@@ -154,7 +154,7 @@ flow TB
         Proxy["CLIProxyAPI Gateway<br/>&lt;homelab-host&gt;:8317"]
         
         subgraph "Model Routing"
-            M1["minimax-m2.7"]
+            M1["MiniMax-M3"]
             M2["kimi-k2.6"]
             M3["gpt-5.5"]
         end
@@ -184,8 +184,8 @@ flow TB
 **Data Flow:**
 
 1. **PR Event Trigger**: GitHub webhook triggers `10_pr-review.yml` on `pull_request` events
-2. **LLM Inference**: Workflow exports `CLI_PROXY_API_KEY` and routes to CLIProxyAPI at `https://cliproxy.jclee.me/v1`
-3. **Model Routing**: The PR-review workflow matrix runs `minimax-m2.7` and `gpt-5.5`; the GitHub App webhook default is `gpt-5.5` with fallback chain `[minimax-m2.7, gpt-5.5]`
+2. **LLM Inference**: Workflow exports `CLIPROXY_API_KEY` and routes to CLIProxyAPI at `https://cliproxy.jclee.me/v1`
+3. **Model Routing**: The PR-review workflow runs `gpt-5.5`; the GitHub App webhook default is `gpt-5.5` with fallback chain `[MiniMax-M3]`
 4. **Security Scanning**: The jclee-bot GitHub App posts `jclee-bot / secret-scan`, `jclee-bot / pr-metadata`, and `jclee-bot / actionlint` check runs; `11_security-pr-review.yml` runs label-gated deep security review in parallel.
 5. **Logging**: Filebeat ships workflow logs to ELK stack at `<homelab-elk>` for monitoring
 
@@ -452,8 +452,8 @@ Create a `.env` file with your CLIProxyAPI credentials:
 
 ```bash
 # .env (gitignored)
-CLI_PROXY_API_KEY=your_api_key_here
-CLI_PROXY_API_BASE=https://cliproxy.jclee.me/v1
+CLIPROXY_API_KEY=your_api_key_here
+OPENAI_BASE_URL=https://cliproxy.jclee.me/v1
 ```
 
 ### Running Locally

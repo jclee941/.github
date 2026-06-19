@@ -67,41 +67,41 @@ jobs:
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -e .
 
-      - name: Verify MiniMax connectivity
+      - name: Verify CLIProxyAPI connectivity
         env:
-          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+          CLIPROXY_API_KEY: ${{ secrets.CLIPROXY_API_KEY }}
         run: |
           set -e
-          HTTP_CODE=$(curl -sS -o /tmp/minimax_test.json -w '%{http_code}' \
+          HTTP_CODE=$(curl -sS -o /tmp/cliproxy_test.json -w '%{http_code}' \
             --max-time 15 \
-            https://api.minimax.io/v1/models \
-            -H "Authorization: Bearer $MINIMAX_API_KEY")
+            https://cliproxy.jclee.me/v1/models \
+            -H "Authorization: Bearer $CLIPROXY_API_KEY")
           if [ "$HTTP_CODE" != "200" ]; then
-            echo "ERROR: MiniMax API returned HTTP $HTTP_CODE"
-            cat /tmp/minimax_test.json
+            echo "ERROR: CLIProxyAPI returned HTTP $HTTP_CODE"
+            cat /tmp/cliproxy_test.json
             exit 1
           fi
-          echo "MiniMax API OK (HTTP 200)"
+          echo "CLIProxyAPI OK (HTTP 200)"
 
       - name: Run deep security review
         working-directory: pr-agent-src
         env:
-          OPENAI__KEY: ${{ secrets.MINIMAX_API_KEY }}
-          OPENAI__API_BASE: https://api.minimax.io/v1
-          OPENAI_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
-          OPENAI_BASE_URL: https://api.minimax.io/v1
+          OPENAI.KEY: ${{ secrets.CLIPROXY_API_KEY }}
+          OPENAI.API_BASE: https://cliproxy.jclee.me/v1
+          OPENAI_API_KEY: ${{ secrets.CLIPROXY_API_KEY }}
+          OPENAI_BASE_URL: https://cliproxy.jclee.me/v1
           LITELLM_LOCAL_MODEL_COST_MAP: "True"
-          CONFIG__MODEL: MiniMax-M3
-          CONFIG__FALLBACK_MODELS: '["MiniMax-M3"]'
-          CONFIG__RESPONSE_LANGUAGE: ko
-          CONFIG__AI_TIMEOUT: '300'
-          CONFIG__CUSTOM_MODEL_MAX_TOKENS: "1000000"
+          CONFIG.MODEL: gpt-5.5
+          CONFIG.FALLBACK_MODELS: '["MiniMax-M3"]'
+          CONFIG.RESPONSE_LANGUAGE: ko
+          CONFIG.AI_TIMEOUT: '300'
+          CONFIG.CUSTOM_MODEL_MAX_TOKENS: "128000"
           GITHUB__USER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_REVIEWER__REQUIRE_SECURITY_REVIEW: 'true'
-          PR_REVIEWER__REQUIRE_TESTS_REVIEW: 'false'
-          PR_REVIEWER__REQUIRE_ESTIMATE_EFFORT_TO_REVIEW: 'false'
-          PR_REVIEWER__NUM_MAX_FINDINGS: '10'
-          PR_REVIEWER__EXTRA_INSTRUCTIONS: |
+          PR_REVIEWER.REQUIRE_SECURITY_REVIEW: 'true'
+          PR_REVIEWER.REQUIRE_TESTS_REVIEW: 'false'
+          PR_REVIEWER.REQUIRE_ESTIMATE_EFFORT_TO_REVIEW: 'false'
+          PR_REVIEWER.NUM_MAX_FINDINGS: '10'
+          PR_REVIEWER.EXTRA_INSTRUCTIONS: |
             이 리뷰는 심층 보안 감사(Deep Security Audit) 모드입니다.
             다음 카테고리별로 체계적으로 점검하십시오:
 
@@ -122,7 +122,7 @@ jobs:
             거짓 양성(false positive)은 배제하고, 실제 악용 가능한 것만 보고하십시오.
             발견 사항이 없다면 "보안 이슈 없음"이라고 명확히 기술하십시오.
 
-          PR_DESCRIPTION__EXTRA_INSTRUCTIONS: |
+          PR_DESCRIPTION.EXTRA_INSTRUCTIONS: |
             PR 설명은 한국어로, 보안 관점에서 작성하십시오.
             이 변경이 공격 표면에 미치는 영향을 명시하십시오.
         run: |

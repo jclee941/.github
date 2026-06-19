@@ -205,7 +205,7 @@ jobs:
         if: steps.ev.outputs.conclusion == 'failure'
         id: llm
         env:
-          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+          CLIPROXY_API_KEY: ${{ secrets.CLIPROXY_API_KEY }}
           WF_NAME: ${{ steps.ev.outputs.wf_name }}
           HEAD_SHA: ${{ steps.ev.outputs.head_sha }}
           SHORT_SHA: ${{ steps.ev.outputs.short_sha }}
