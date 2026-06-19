@@ -307,90 +307,28 @@ class TestFixedBotBranchPushIsIdempotent:
 
 
 # ---------------------------------------------------------------------------
-# Generated README must pass the repo's own docs-sync markdownlint
 # ---------------------------------------------------------------------------
 
 class TestReadmeGeneratorNormalizesMarkdown:
-    """The LLM-generated README must be normalised with the SAME markdownlint
-    tool/config that 42_reusable-docs-sync.yml enforces, or the auto README PR
-    fails 'Documentation Sync' (markdown-lint) on every run."""
-
     def test_runs_markdownlint_fix(self):
         text = read_workflow("readme-gen.yml")
         assert "markdownlint" in text and "--fix" in text, (
             "20_readme-gen.yml must run 'markdownlint --fix README.md' after "
-            "generating the README so it passes the docs-sync markdown-lint check."
+            "generating the README so generated markdown stays deterministic."
         )
 
-    def test_markdownlint_version_matches_docs_sync(self):
-        rg = read_workflow("readme-gen.yml")
-        ds = read_workflow("reusable-docs-sync.yml")
-        import re
-        m = re.search(r"markdownlint-cli@([0-9][0-9.]*)", ds)
-        assert m, "could not find pinned markdownlint-cli version in docs-sync"
-        ver = m.group(1)
-        assert f"markdownlint-cli@{ver}" in rg, (
-            f"20_readme-gen.yml must pin the same markdownlint-cli@{ver} as "
-            f"docs-sync so the generated README is normalised with identical rules."
+    def test_markdownlint_version_is_pinned(self):
+        text = read_workflow("readme-gen.yml")
+        assert "markdownlint-cli@0.43.0" in text, (
+            "20_readme-gen.yml must pin markdownlint-cli so formatting does "
+            "not drift when npm latest changes."
         )
 
     def test_uses_repo_markdownlint_config(self):
         text = read_workflow("readme-gen.yml")
         assert ".markdownlint.json" in text, (
             "20_readme-gen.yml markdownlint --fix must use the repo's "
-            ".markdownlint.json config (same rules as docs-sync)."
-        )
-
-
-# ---------------------------------------------------------------------------
-# Docs-sync broken-link issue stability (no issue spam)
-# ---------------------------------------------------------------------------
-
-class TestDocsSyncBrokenLinkIssueStability:
-    """The reusable docs-sync link-check must NOT spam a new broken-links issue
-    on every failed run. It must deduplicate against an existing open issue
-    (comment instead of create), and it must exclude non-browsable API
-    endpoints (e.g. the CLIProxyAPI /v1 base, which correctly 404s) so genuine
-    docs links are not drowned out by a known false positive.
-    """
-
-    def test_dedupes_broken_link_issue(self):
-        text = read_workflow("reusable-docs-sync.yml")
-        # Must search for an existing open broken-links issue before creating.
-        assert "listForRepo" in text or "issue list" in text, (
-            "reusable-docs-sync.yml must look up existing open broken-links "
-            "issues (issues.listForRepo / gh issue list) before creating, to "
-            "avoid duplicate-issue spam."
-        )
-        # Must comment on the existing issue instead of always creating.
-        assert "createComment" in text, (
-            "reusable-docs-sync.yml must comment on an existing broken-links "
-            "issue (createComment) rather than always creating a new one."
-        )
-
-    def test_stable_dedup_title(self):
-        text = read_workflow("reusable-docs-sync.yml")
-        # The dedup key must be a STABLE title (no per-run date), otherwise
-        # each day's run is a distinct title and dedup never matches.
-        assert "new Date().toISOString" not in text, (
-            "reusable-docs-sync.yml broken-links issue title must be stable "
-            "(no per-run date) so deduplication actually matches."
-        )
-        # The canonical title must be EXACTLY the historical broken-links title
-        # so dedup matches existing issues (guards against typos like 머서/문서).
-        assert "[BOT] \ubb38\uc11c \ub9c1\ud06c \uae68\uc9d0 \uac10\uc9c0" in text, (
-            "reusable-docs-sync.yml canonical broken-links title must be "
-            "exactly '[BOT] \ubb38\uc11c \ub9c1\ud06c \uae68\uc9d0 \uac10\uc9c0'."
-        )
-
-    def test_excludes_api_endpoint_from_link_check(self):
-        text = read_workflow("reusable-docs-sync.yml")
-        # The CLIProxyAPI /v1 base is an API endpoint, not a browsable page;
-        # a bare GET 404s. It must be excluded so lychee does not false-fail.
-        assert "cliproxy" in text and "jclee.me" in text.replace("\\", ""), (
-            "reusable-docs-sync.yml must exclude the CLIProxyAPI endpoint "
-            "(cliproxy.jclee.me) from lychee link-checking; bare /v1 404s and "
-            "causes recurring false broken-link issues."
+            ".markdownlint.json config."
         )
 
 

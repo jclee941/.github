@@ -30,6 +30,7 @@ class CheckResult:
 
 from jclee_bot.checks import (  # noqa: E402  (re-export for convenience)
     actionlint_check,
+    docs_policy,
     pr_metadata,
     secret_scan,
 )
@@ -38,6 +39,7 @@ __all__ = [
     "CheckResult",
     "VALID_CONCLUSIONS",
     "actionlint_check",
+    "docs_policy",
     "pr_metadata",
     "secret_scan",
 ]

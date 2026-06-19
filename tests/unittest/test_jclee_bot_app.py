@@ -34,6 +34,7 @@ class TestDispatch:
         names = {r.name for r in results}
         assert "jclee-bot / pr-metadata" in names
         assert "jclee-bot / secret-scan" in names
+        assert "jclee-bot / docs-policy" in names
 
     def test_metadata_failure_propagates(self):
         results = dispatch.run_checks(

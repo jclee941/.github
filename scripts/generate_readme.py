@@ -23,7 +23,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from generate_readme_cleaning import normalize_llm_readme_response, redact_private_ips, sanitize_links
-from generate_readme_retry import TransientLLMError, is_transient as _is_transient
+from generate_readme_retry import TransientLLMError
+from generate_readme_retry import is_transient as _is_transient
 from generate_readme_scan import run_tree
 
 API_BASE = os.environ.get("OPENAI_BASE_URL", "https://cliproxy.jclee.me/v1")
@@ -157,7 +158,7 @@ def generate_readme(repo_root: Path) -> str:
         "commands reference, and contribution guide. "
         "Be specific about what automation exists - list workflow names and tool names. "
         "When listing workflow files, use their REAL on-disk names including the numeric "
-        "prefix (e.g. 10_pr-review.yml, 03_pr-checks.yml, 90_sanity.yml); never strip the "
+        "prefix (e.g. 10_pr-review.yml, 13_pr-auto-merge.yml, 90_sanity.yml); never strip the "
         "prefix and never invent bare names. "
         "For the architecture section, draw the diagram as a GitHub-native Mermaid "
         "flowchart inside a ```mermaid fenced block. Do NOT hand-draw ASCII/box-drawing "

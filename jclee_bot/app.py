@@ -98,8 +98,8 @@ def _checkout_pr_head(token: str, repo_full_name: str, head_sha: str, workspace:
 # Which checks depend on which fetched context. If that context could not be
 # obtained, the check must report NEUTRAL (not success) so we never publish a
 # misleading green (e.g. a passing secret-scan that scanned nothing).
-_NEEDS_CHECKOUT = {"jclee-bot / secret-scan", "jclee-bot / actionlint"}
-_NEEDS_CHANGED_FILES = {"jclee-bot / pr-metadata", "jclee-bot / actionlint"}
+_NEEDS_CHECKOUT = {"jclee-bot / secret-scan", "jclee-bot / actionlint", "jclee-bot / docs-policy"}
+_NEEDS_CHANGED_FILES = {"jclee-bot / pr-metadata", "jclee-bot / actionlint", "jclee-bot / docs-policy"}
 
 
 def _neutralize_on_missing_context(results, *, files_ok: bool, checkout_ok: bool):

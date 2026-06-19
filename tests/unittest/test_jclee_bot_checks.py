@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from jclee_bot.checks import CheckResult, actionlint_check, pr_metadata, secret_scan
+from jclee_bot.checks import CheckResult, actionlint_check, docs_policy, pr_metadata, secret_scan
 
 
 class TestCheckResult:
@@ -107,3 +107,24 @@ class TestActionlint:
         r = actionlint_check.result_from_output(returncode=1, output=out, ran=True)
         assert r.conclusion == "failure"
         assert "jobss" in r.summary
+
+
+class TestDocsPolicy:
+    def test_markdown_private_ip_fails(self, tmp_path):
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "runbook.md").write_text("connect to 192.168.1.10\n", encoding="utf-8")
+        r = docs_policy.run(changed_files=["docs/runbook.md"], workspace=str(tmp_path))
+        assert r.name == "jclee-bot / docs-policy"
+        assert r.conclusion == "failure"
+        assert "docs/runbook.md:1" in r.summary
+
+    def test_code_change_without_docs_is_neutral(self, tmp_path):
+        r = docs_policy.run(changed_files=["src/app.py"], workspace=str(tmp_path))
+        assert r.conclusion == "neutral"
+        assert "Code changed" in r.summary
+
+    def test_docs_update_passes(self, tmp_path):
+        (tmp_path / "README.md").write_text("# ok\n", encoding="utf-8")
+        r = docs_policy.run(changed_files=["README.md"], workspace=str(tmp_path))
+        assert r.conclusion == "success"

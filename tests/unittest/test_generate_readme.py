@@ -71,7 +71,7 @@ def test_module_imports_without_api_key(monkeypatch):
 
 def test_sanitize_links_strips_nonexistent_jclee_repos():
     """The LLM hallucinates GitHub repo URLs (e.g. jclee941/CLIProxyAPI,
-    jclee941/github-bot) that 404 and fail docs-sync link-check. The generator
+    jclee941/github-bot) that 404 and pollute documentation policy checks. The generator
     must neutralize links to non-existent jclee941 repos."""
     mod = _load_module()
     assert hasattr(mod, "sanitize_links"), (

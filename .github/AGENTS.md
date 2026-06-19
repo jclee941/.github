@@ -32,7 +32,7 @@ Dependabot/Renovate config, issue templates, and PR template.
 | App image build/push | `workflows/36_build-and-push-app.yml` |
 | Live e2e workflow | `workflows/39_e2e-live.yml` |
 | README generation | `workflows/20_readme-gen.yml` |
-| Reusable docs sync | `workflows/42_reusable-docs-sync.yml` |
+| App docs policy check | `jclee_bot/checks/docs_policy.py` |
 | Failure issue creation | `actions/notify-on-failure/action.yml` |
 
 ## CONVENTIONS

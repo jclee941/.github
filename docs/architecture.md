@@ -59,23 +59,23 @@ flowchart TB
 
 ```mermaid
 flowchart TD
-    START(("PR 열림")) --> CHECKS["03_pr-checks.yml<br/>(6가지 검증)"]
+    START(("PR 열림")) --> CHECKS["jclee-bot / pr-metadata<br/>(PR 메타데이터)"]
     
     CHECKS --> TITLE{제목 OK?}
-    TITLE -->|No| FAIL1["❌ Check PR Title<br/>Required"]
+    TITLE -->|No| FAIL1["❌ jclee-bot / pr-metadata<br/>Required"]
     TITLE -->|Yes| BRANCH{브랜치명 OK?}
     
     BRANCH -->|No| FAIL2["❌ Check Branch Name<br/>Required"]
     BRANCH -->|Yes| REVIEW["10_pr-review.yml<br/>(AI 리뷰)"]
     
-    REVIEW --> GITLEAKS["05_gitleaks.yml<br/>(Secret 스캔)"]
+    REVIEW --> GITLEAKS["jclee-bot / secret-scan<br/>(Secret 스캔)"]
     GITLEAKS --> SECRET{Secret 발견?}
-    SECRET -->|Yes| FAIL3["❌ Gitleaks / scan<br/>Required"]
+    SECRET -->|Yes| FAIL3["❌ jclee-bot / secret-scan<br/>Required"]
     SECRET -->|No| OPTIONAL["선택적 검증"]
     
-    OPTIONAL --> CODEQL["06_codeql.yml<br/>(Python SAST)"]
-    OPTIONAL --> ACTIONLINT["04_actionlint.yml<br/>(워크플로우 문법)"]
-    OPTIONAL --> DOCS["21_docs-sync.yml<br/>(문서 품질)"]
+    OPTIONAL --> CODEQL["GitHub-native CodeQL<br/>(SAST)"]
+    OPTIONAL --> ACTIONLINT["jclee-bot / actionlint<br/>(워크플로우 문법)"]
+    OPTIONAL --> DOCS["jclee-bot / docs-policy<br/>(문서 품질)"]
     
     OPTIONAL --> SECURITY{"security-review<br/>라벨?"}
     SECURITY -->|Yes| DEEP["11_security-pr-review.yml<br/>(심층 보안 감사)"]
@@ -116,13 +116,10 @@ flowchart TD
 
 | 검증 항목 | 워크플로우 | 실패 시 |
 |-----------|-----------|---------|
-| PR 설명 길이 | `pr-checks / Check PR Description` | ⚠️ 코멘트만 |
-| PR 크기 (500 LOC) | `pr-checks / Check PR Size` | ⚠️ 코멘트만 |
-| 대용량 파일 | `pr-checks / Check Large Files` | ⚠️ 코멘트만 |
-| 민감 파일 | `pr-checks / Check Sensitive Files` | ⚠️ 코멘트만 |
+| PR 메타데이터 | `jclee-bot / pr-metadata` | ❌ Required |
 | Python SAST | `CodeQL` | ⚠️ Security 탭 |
-| 워크플로우 문법 | `actionlint` | ⚠️ 코멘트만 |
-| 문서 품질 | `docs-sync` | ⚠️ 코멘트만 |
+| 워크플로우 문법 | `jclee-bot / actionlint` | ⚠️ Check Run |
+| 문서 품질 | `jclee-bot / docs-policy` | ⚠️ Check Run |
 | AI 코드 리뷰 | `pr-review` | 💬 리뷰 코멘트 |
 
 ---
@@ -325,12 +322,12 @@ flowchart LR
         ISSUE["issues"]
     end
     
-    PR --> PR_CHECK["03_pr-checks.yml"]
+    PR --> PR_CHECK["jclee-bot / pr-metadata"]
     PR --> PR_REVIEW["10_pr-review.yml"]
-    PR --> GITLEAKS["05_gitleaks.yml"]
-    PR --> CODEQL["06_codeql.yml<br/>(조건부)"]
-    PR --> ACTIONLINT["04_actionlint.yml<br/>(조건부)"]
-    PR --> DOCS["21_docs-sync.yml"]
+    PR --> GITLEAKS["jclee-bot / secret-scan"]
+    PR --> CODEQL["GitHub-native CodeQL<br/>(조건부)"]
+    PR --> ACTIONLINT["jclee-bot / actionlint<br/>(조건부)"]
+    PR --> DOCS["jclee-bot / docs-policy"]
     PR --> DEPENDABOT["12_dependabot-auto-merge.yml<br/>(dependabot만)"]
     
     PUSH --> AUTO_DEPLOY["34_auto-deploy.yml<br/>(조건부)"]
@@ -341,12 +338,10 @@ flowchart LR
     CRON --> HARDSCAN["35_auto-hardcode-scan.yml<br/>(월요일 00:00)"]
     CRON --> ISSUE_MGMT["18_issue-management.yml<br/>(매일 00:00)"]
     CRON --> ISSUE_BACK["19_issue-backfill.yml<br/>(매일 09:00)"]
-    CRON --> CODEQL_S["06_codeql.yml<br/>(월요일 04:23)"]
+    PR --> CODEQL_S["GitHub-native CodeQL"]
     
     ISSUE --> ISSUE_BRANCH["02_issue-to-branch.yml"]
     
-    PR_CHECK --> REUSABLE1["44_reusable-pr-checks.yml"]
-    DOCS --> REUSABLE2["42_reusable-docs-sync.yml"]
     ISSUE_MGMT --> REUSABLE3["43_reusable-issue-management.yml"]
     
     style PR fill:#6ba06a,stroke:#333,color:#fff
