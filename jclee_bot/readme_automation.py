@@ -3,6 +3,7 @@ from __future__ import annotations
 import hmac
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -24,6 +25,10 @@ BODY = "Automated README.md update by jclee-bot App."
 router = APIRouter()
 
 
+class GitCommandError(RuntimeError):
+    pass
+
+
 def _headers(token: str) -> dict[str, str]:
     return {"Authorization": f"token {token}", "Accept": "application/vnd.github+json"}
 
@@ -34,19 +39,53 @@ def _bearer_token_ok(expected: str, authorization: str | None) -> bool:
     return hmac.compare_digest(expected, authorization.removeprefix("Bearer ").strip())
 
 
-def _run_git(args: list[str], *, cwd: Path, timeout: int = 120) -> None:
-    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True, timeout=timeout)  # noqa: S603
+def _sanitize_error(value: object, *, secrets: Iterable[str]) -> str:
+    text = str(value)
+    if isinstance(value, subprocess.CalledProcessError):
+        text = value.stderr or str(value)
+    text = re.sub(r"x-access-token:[^@\s]+@", "x-access-token:***@", text)
+    for secret in secrets:
+        if secret:
+            text = text.replace(secret, "***")
+    return text.strip() or "operation failed"
+
+
+def _run_git(args: list[str], *, cwd: Path, timeout: int = 120, safe_args: list[str] | None = None) -> None:
+    try:
+        completed = subprocess.run(  # noqa: S603
+            ["git", *args],
+            cwd=cwd,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        command = " ".join(["git", *(safe_args or args)])
+        raise GitCommandError(f"{command}: timed out after {timeout}s") from exc
+    if completed.returncode != 0:
+        command = " ".join(["git", *(safe_args or args)])
+        detail = completed.stderr.strip() or completed.stdout.strip() or f"exit {completed.returncode}"
+        raise GitCommandError(f"{command}: {detail}")
 
 
 def _clone_repo(*, token: str, repo_full_name: str, default_branch: str, workspace: Path) -> Path:
     repo_path = workspace / "repo"
     url = f"https://x-access-token:{token}@github.com/{repo_full_name}.git"
-    subprocess.run(  # noqa: S603
-        ["git", "clone", "-q", "--depth", "1", "--branch", default_branch, url, str(repo_path)],
-        check=True,
-        capture_output=True,
-        text=True,
+    _run_git(
+        ["clone", "-q", "--depth", "1", "--branch", default_branch, url, str(repo_path)],
+        cwd=workspace,
         timeout=180,
+        safe_args=[
+            "clone",
+            "-q",
+            "--depth",
+            "1",
+            "--branch",
+            default_branch,
+            f"https://github.com/{repo_full_name}.git",
+            str(repo_path),
+        ],
     )
     return repo_path
 
@@ -67,30 +106,33 @@ def _ensure_readme_commit(*, token: str, repo: dict[str, Any], dry_run: bool) ->
     if not repo_full_name:
         return {"repo": repo_full_name, "changed": False, "error": "missing repo name"}
 
-    with tempfile.TemporaryDirectory() as tmp:
-        repo_path = _clone_repo(
-            token=token,
-            repo_full_name=repo_full_name,
-            default_branch=default_branch,
-            workspace=Path(tmp),
-        )
-        readme_path = repo_path / "README.md"
-        old_content = readme_path.read_text(encoding="utf-8") if readme_path.exists() else ""
-        new_content = _render_readme(repo_path)
-        if old_content == new_content:
-            return {"repo": repo_full_name, "changed": False}
-        if dry_run:
-            return {"repo": repo_full_name, "changed": True, "dry_run": True}
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_path = _clone_repo(
+                token=token,
+                repo_full_name=repo_full_name,
+                default_branch=default_branch,
+                workspace=Path(tmp),
+            )
+            readme_path = repo_path / "README.md"
+            old_content = readme_path.read_text(encoding="utf-8") if readme_path.exists() else ""
+            new_content = _render_readme(repo_path)
+            if old_content == new_content:
+                return {"repo": repo_full_name, "changed": False}
+            if dry_run:
+                return {"repo": repo_full_name, "changed": True, "dry_run": True}
 
-        readme_path.write_text(new_content, encoding="utf-8")
-        _run_git(["config", "user.email", "bot@jclee.me"], cwd=repo_path)
-        _run_git(["config", "user.name", "jclee-bot"], cwd=repo_path)
-        _run_git(["checkout", "-B", BRANCH], cwd=repo_path)
-        _run_git(["add", "README.md"], cwd=repo_path)
-        _run_git(["commit", "-m", TITLE], cwd=repo_path)
-        _run_git(["push", "-u", "origin", BRANCH, "--force"], cwd=repo_path, timeout=180)
-        pr_number = _upsert_pr(token=token, repo_full_name=repo_full_name, default_branch=default_branch)
-        return {"repo": repo_full_name, "changed": True, "pr": pr_number}
+            readme_path.write_text(new_content, encoding="utf-8")
+            _run_git(["config", "user.email", "bot@jclee.me"], cwd=repo_path)
+            _run_git(["config", "user.name", "jclee-bot"], cwd=repo_path)
+            _run_git(["checkout", "-B", BRANCH], cwd=repo_path)
+            _run_git(["add", "README.md"], cwd=repo_path)
+            _run_git(["commit", "-m", TITLE], cwd=repo_path)
+            _run_git(["push", "-u", "origin", BRANCH, "--force"], cwd=repo_path, timeout=180)
+            pr_number = _upsert_pr(token=token, repo_full_name=repo_full_name, default_branch=default_branch)
+            return {"repo": repo_full_name, "changed": True, "pr": pr_number}
+    except (GitCommandError, subprocess.CalledProcessError, requests.RequestException) as exc:
+        return {"repo": repo_full_name, "changed": False, "error": _sanitize_error(exc, secrets=[token])}
 
 
 def _upsert_pr(*, token: str, repo_full_name: str, default_branch: str) -> int:
@@ -157,6 +199,18 @@ def _target_names(raw_names: Iterable[str] | None) -> set[str] | None:
     return {name.strip() for name in raw_names if name.strip()}
 
 
+def _contents_permission_error(permission: object, *, dry_run: bool, permission_known: bool) -> str | None:
+    if not permission_known:
+        return None
+    if permission == "write":
+        return None
+    if dry_run and permission == "read":
+        return None
+    required = "read" if dry_run else "write"
+    current = permission or "none"
+    return f"GitHub App repository Contents permission must be {required}; current={current}"
+
+
 def run_app_readme_automation(
     *,
     app_id: str,
@@ -172,9 +226,20 @@ def run_app_readme_automation(
         if installation_id <= 0:
             continue
         token = github_checks.installation_token(app_id, private_key, installation_id)
+        permissions = installation.get("permissions")
+        permission_known = isinstance(permissions, dict)
+        contents_permission = permissions.get("contents") if isinstance(permissions, dict) else None
         for repo in issue_maintenance.installation_repositories(token=token):
             if _repo_allowed(repo, owner=owner, names=allowed):
-                results.append(_ensure_readme_commit(token=token, repo=repo, dry_run=dry_run))
+                permission_error = _contents_permission_error(
+                    contents_permission,
+                    dry_run=dry_run,
+                    permission_known=permission_known,
+                )
+                if permission_error:
+                    results.append({"repo": repo.get("full_name", ""), "changed": False, "error": permission_error})
+                else:
+                    results.append(_ensure_readme_commit(token=token, repo=repo, dry_run=dry_run))
     return {"dry_run": dry_run, "repositories": results}
 
 
