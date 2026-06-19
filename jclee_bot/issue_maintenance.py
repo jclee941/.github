@@ -179,8 +179,21 @@ def upsert_summary_issue(*, token: str, repo_full_name: str, stats: dict[str, in
 
 def maintain_repo(*, token: str, repo_full_name: str, dry_run: bool, now: datetime | None = None) -> dict[str, Any]:
     current_time = now or datetime.now(UTC)
-    issues = list_open_issues(token=token, repo_full_name=repo_full_name)
     actions: list[str] = []
+    try:
+        issues = list_open_issues(token=token, repo_full_name=repo_full_name)
+    except requests.RequestException as exc:
+        issues = []
+        actions.append(f"issue-list-error:{type(exc).__name__}")
+
+    actions.extend(
+        pr_maintenance.maintain_pull_requests(
+            token=token,
+            repo_full_name=repo_full_name,
+            dry_run=dry_run,
+            now=current_time,
+        )
+    )
 
     for issue in issues:
         number = int(issue.get("number", 0) or 0)
@@ -213,14 +226,6 @@ def maintain_repo(*, token: str, repo_full_name: str, dry_run: bool, now: dateti
     )
     if summary_action:
         actions.append(summary_action)
-    actions.extend(
-        pr_maintenance.maintain_pull_requests(
-            token=token,
-            repo_full_name=repo_full_name,
-            dry_run=dry_run,
-            now=current_time,
-        )
-    )
     return {"repo": repo_full_name, "actions": actions, "stats": stats}
 
 

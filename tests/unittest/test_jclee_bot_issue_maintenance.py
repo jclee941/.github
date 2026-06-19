@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
+import requests
 from fastapi.testclient import TestClient
 
 from jclee_bot import issue_maintenance
@@ -70,6 +71,32 @@ class TestIssueMaintenanceDecisions:
 
 
 class TestMaintainRepo:
+    def test_issue_list_error_is_reported_without_blocking_pr_maintenance(self, monkeypatch) -> None:
+        # Given
+        now = datetime(2026, 6, 19, tzinfo=UTC)
+        monkeypatch.setattr(
+            issue_maintenance,
+            "list_open_issues",
+            lambda **kwargs: (_ for _ in ()).throw(requests.ConnectionError("network down")),
+        )
+        monkeypatch.setattr(
+            issue_maintenance.pr_maintenance,
+            "maintain_pull_requests",
+            lambda **kwargs: ["close-pr:9:failed-checks"],
+        )
+
+        # When
+        result = issue_maintenance.maintain_repo(
+            token="tok",
+            repo_full_name="jclee941/propose",
+            dry_run=True,
+            now=now,
+        )
+
+        # Then
+        assert result["actions"] == ["issue-list-error:ConnectionError", "close-pr:9:failed-checks"]
+        assert result["stats"]["total"] == 0
+
     def test_dry_run_reports_mark_and_close_actions_without_mutating(self, monkeypatch) -> None:
         # Given
         now = datetime(2026, 6, 19, tzinfo=UTC)
@@ -138,7 +165,7 @@ class TestMaintainRepo:
         )
 
         # Then
-        assert result["actions"] == ["mark-stale:1", "close-stale:2", "create-summary", "close-pr:9:failed-checks"]
+        assert result["actions"] == ["close-pr:9:failed-checks", "mark-stale:1", "close-stale:2", "create-summary"]
         assert mutations == ["ensure", "add", "comment", "comment", "close"]
 
 
