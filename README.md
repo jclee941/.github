@@ -9,7 +9,7 @@
 [![Upstream](https://img.shields.io/badge/upstream-qodo--ai%2Fpr--agent-red.svg)](https://github.com/qodo-ai/pr-agent)
 [![CLIProxy](https://img.shields.io/badge/LLM%20Gateway-CLIProxyAPI-purple.svg)](https://cliproxy.jclee.me/v1)
 [![Workflows](https://img.shields.io/badge/workflows-37-yellowgreen.svg)](#github-workflows-37-total--github-워크플로우-37개)
-[![Go Tools](https://img.shields.io/badge/go--tools-8-blue.svg)](#go-automation-tools-8-total--go-자동화-도구-8개)
+[![Go Tools](https://img.shields.io/badge/go--tools-5-blue.svg)](#go-automation-tools-5-total--go-자동화-도구-5개)
 
 ---
 
@@ -20,7 +20,7 @@
 - [Architecture | 아키텍처](#architecture--아키텍처)
 - [Automation Inventory | 자동화 인벤토리](#automation-inventory--자동화-인벤토리)
   - [GitHub Workflows 37 total | GitHub 워크플로우 37개](#github-workflows-37-total--github-워크플로우-37개)
-  - [Go Automation Tools 8 total | Go 자동화 도구 8개](#go-automation-tools-8-total--go-자동화-도구-8개)
+  - [Go Automation Tools 5 total | Go 자동화 도구 5개](#go-automation-tools-5-total--go-자동화-도구-5개)
 - [Repository Structure | 저장소 구조](#repository-structure--저장소-구조)
 - [Quick Start | 빠른 시작](#quick-start--빠른-시작)
 - [Local Development | 로컬 개발](#local-development--로컬-개발)
@@ -41,7 +41,7 @@ This repository is a private hard fork of [qodo-ai/pr-agent](https://github.com/
 | Default Model | `gpt-4` | `gpt-5.5` via CLIProxy routing |
 | Fallback Models | Varies | `["minimax-m3"]` |
 | Security Scanning | Basic | Deep security review workflow (`11_security-pr-review.yml`) |
-| Workflow Coverage | Core PR tools | 37 workflows + 8 Go automation tools |
+| Workflow Coverage | Core PR tools | 37 workflows + 5 Go automation tools |
 | Runner Environment | GitHub-hosted | GitHub-hosted (`ubuntu-latest`) + homelab API gateway |
 
 All AI inference is routed through the homelab CLIProxyAPI deployment, enabling cost-effective LLM inference with model fallback and routing capabilities.
@@ -201,7 +201,7 @@ flow TB
 |---------------|---------|-------------|
 | `01_branch-to-pr.yml` | push, manual | Convert feature branches to PRs automatically |
 | `02_issue-to-branch.yml` | issues, manual | Create branches from issue assignments |
-| `15_merged-pr-cleanup.yml` | push | Clean up branches after PR merge |
+| `15_merged-pr-cleanup.yml` | pull_request, manual | Clean up branches after PR merge |
 
 #### PR Quality & Security (0) — moved to the jclee-bot GitHub App
 
@@ -220,58 +220,58 @@ Conventional-commit title enforcement and PR size / sensitive-file checks were f
 
 | Workflow File | Trigger | Description |
 |---------------|---------|-------------|
-| `12_dependabot-auto-merge.yml` | schedule, pull_request | Auto-merge Dependabot updates |
-| `13_pr-auto-merge.yml` | pull_request | Automatic PR merging on approval |
-| `60_ci-auto-heal.yml` | workflow_run | Auto-heal CI failures |
+| `12_dependabot-auto-merge.yml` | pull_request | Auto-merge Dependabot updates |
+| `13_pr-auto-merge.yml` | pull_request_review, pull_request, manual | Automatic PR merging on approval |
+| `60_ci-auto-heal.yml` | workflow_run, check_suite, repository_dispatch, manual | Auto-heal CI failures |
 
 #### Issue Management (3)
 
 | Workflow File | Trigger | Description |
 |---------------|---------|-------------|
-| `18_issue-management.yml` | issues, pull_request | Automated issue handling |
-| `19_issue-backfill.yml` | issues, manual | Sync issues across repositories |
-| `91_issue-classification.yml` | issues | AI-powered issue categorization |
+| `18_issue-management.yml` | issues, issue_comment, manual | Automated issue handling |
+| `19_issue-backfill.yml` | workflow_run, manual | Sync issues across repositories |
+| `91_issue-classification.yml` | issues, issue_comment, pull_request, manual | AI-powered issue categorization |
 
 #### Stale & Cleanup (2)
 
 | Workflow File | Trigger | Description |
 |---------------|---------|-------------|
-| `16_stale-repo-identifier.yml` | schedule | Identify repositories with stale content |
-| `17_pr-stale-bot.yml` | schedule | Mark and close stale PRs |
+| `16_stale-repo-identifier.yml` | push, workflow_run, manual | Identify repositories with stale content |
+| `17_pr-stale-bot.yml` | pull_request, workflow_run, manual | Mark and close stale PRs |
 
 #### Documentation (2)
 
 | Workflow File | Trigger | Description |
 |---------------|---------|-------------|
-| `20_readme-gen.yml` | push, pull_request | Automatic README regeneration |
-| `21_docs-sync.yml` | push | Cross-repository documentation sync |
+| `20_readme-gen.yml` | push, manual | Automatic README regeneration |
+| `21_docs-sync.yml` | push, pull_request, manual | Cross-repository documentation sync |
 
 #### Release Engineering (3)
 
 | Workflow File | Trigger | Description |
 |---------------|---------|-------------|
-| `23_release-drafter.yml` | push | Automated release note drafting |
-| `24_release-notes.yml` | release | Structured release documentation |
-| `25_release-publish.yml` | release | Release publication workflow |
+| `23_release-drafter.yml` | push, pull_request, manual | Automated release note drafting |
+| `24_release-notes.yml` | push, manual | Structured release documentation |
+| `25_release-publish.yml` | push, manual | Release publication workflow |
 
 #### Health Monitoring (6)
 
 | Workflow File | Trigger | Description |
 |---------------|---------|-------------|
-| `26_elk-health-check.yml` | schedule | Elasticsearch/ELK stack monitoring |
-| `27_elk-setup.yml` | manual | ELK infrastructure provisioning |
-| `28_bot-health-monitor.yml` | schedule | Bot service health tracking |
-| `29_downstream-health-check.yml` | schedule | Dependency health monitoring |
-| `30_runtime-health-check.yml` | schedule | Runtime environment validation |
-| `32_org-health-report.yml` | schedule | Organization-level health dashboard |
+| `26_elk-health-check.yml` | deployment_status, workflow_run, repository_dispatch, manual | Elasticsearch/ELK stack monitoring |
+| `27_elk-setup.yml` | push, deployment, repository_dispatch, manual | ELK infrastructure provisioning |
+| `28_bot-health-monitor.yml` | deployment_status, workflow_run, repository_dispatch, manual | Bot service health tracking |
+| `29_downstream-health-check.yml` | workflow_run, repository_dispatch, manual | Dependency health monitoring |
+| `30_runtime-health-check.yml` | deployment_status, workflow_run, repository_dispatch, manual | Runtime environment validation |
+| `32_org-health-report.yml` | pull_request, workflow_run, manual | Organization-level health dashboard |
 
 #### Infrastructure & Deployment (6)
 
 | Workflow File | Trigger | Description |
 |---------------|---------|-------------|
-| `35_auto-hardcode-scan.yml` | schedule | Weekly hardcoded credential scan |
-| `36_build-and-push-app.yml` | push | Container image build and push |
-| `37_ci-failure-issues.yml` | workflow_run | Auto-create issues on CI failure |
+| `35_auto-hardcode-scan.yml` | push, pull_request, workflow_run, manual | Hardcoded credential scan |
+| `36_build-and-push-app.yml` | push, manual | Container image build and push |
+| `37_ci-failure-issues.yml` | workflow_run, repository_dispatch, manual | Auto-create issues on CI failure |
 | `40_repo-review-batch.yml` | manual | Batch repository review |
 | `41_pages-deploy.yml` | push, manual | GitHub Pages docs site deployment |
 | `46_nas-cache-prune.yml` | workflow_run, manual | Prune the NFS-backed build cache on the self-hosted runner |
@@ -280,27 +280,27 @@ Conventional-commit title enforcement and PR size / sensitive-file checks were f
 
 | Workflow File | Trigger | Description |
 |---------------|---------|-------------|
-| `38_e2e.yml` | pull_request | End-to-end test suite |
-| `39_e2e-live.yml` | manual | Live environment E2E testing |
+| `38_e2e.yml` | push, pull_request | End-to-end test suite |
+| `39_e2e-live.yml` | workflow_run, repository_dispatch, manual | Live environment E2E testing |
 
 #### Repository Health (1)
 
 | Workflow File | Trigger | Description |
 |---------------|---------|-------------|
-| `31_repo-health.yml` | schedule | Repository health metrics collection |
+| `31_repo-health.yml` | push, workflow_run, manual | Repository health metrics collection |
 
 #### Security (1)
 
 | Workflow File | Trigger | Description |
 |---------------|---------|-------------|
-| `11_security-pr-review.yml` | pull_request | Deep security review (Korean, `pull_request_target`) |
+| `11_security-pr-review.yml` | pull_request_target | Deep security review (Korean, `pull_request_target`) |
 
 #### Reusable Workflows (2)
 
 | Workflow File | Trigger | Description |
 |---------------|---------|-------------|
-| `42_reusable-docs-sync.yml` | reusable | Shared docs sync |
-| `43_reusable-issue-management.yml` | reusable | Shared issue management |
+| `42_reusable-docs-sync.yml` | workflow_call, manual | Shared docs sync |
+| `43_reusable-issue-management.yml` | workflow_call, manual | Shared issue management |
 
 The deleted `44_reusable-pr-checks.yml` and `45_reusable-gitleaks.yml` were the only callers of the now-removed per-repo `03_pr-checks` and `05_gitleaks` callers; with those gone, the reusables have no callers in this repo.
 

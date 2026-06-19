@@ -3,7 +3,6 @@ name: README Generator
 on:
   # Manual trigger
   workflow_dispatch:
-  # Weekly auto-generation (Sundays 00:00 UTC)
   # Trigger when source/config files change on master
   push:
     branches: [master, main]

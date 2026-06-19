@@ -14,7 +14,7 @@
 //     - required_status_checks: 2 App contexts (jclee-bot / pr-metadata, jclee-bot / secret-scan)
 //     - deletion: prevent branch deletion
 //     - non_fast_forward: prevent force push
-//     - bypass_actors: none (same as current branch protection)
+//     - bypass_actors: RepositoryRole actor_id 5 bypasses as repository admin
 //
 // Rulesets coexist with branch protection. This tool supplements (not replaces)
 // the existing branch-protection.go to enable ruleset-based controls.

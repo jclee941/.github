@@ -196,7 +196,7 @@ repositories:
       topics: [cloudflare-workers, gsap, korean, typescript, wedding-invitation]
       homepage: "https://propose.jclee.me"
 
-  # Fork (excluded from deploy but included in protection)
+  # pr-agent fork excluded from deploy/protection
   - name: pr-agent
     visibility: public
     default_branch: main
