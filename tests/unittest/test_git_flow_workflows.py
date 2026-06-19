@@ -159,10 +159,11 @@ class TestReadmeAutomationOwnedByApp:
         assert not list(WF_DIR.glob("[0-9][0-9]_readme-gen.yml"))
 
     def test_app_worker_owns_readme_branch_and_pr_flow(self):
-        text = (REPO_ROOT / "jclee_bot" / "readme_automation.py").read_text(encoding="utf-8")
-        assert "/api/v1/readme_automation" in text
-        assert "bot/auto-readme-update" in text
-        assert "enablePullRequestAutoMerge" in text
+        router_text = (REPO_ROOT / "jclee_bot" / "readme_automation.py").read_text(encoding="utf-8")
+        runner_text = (REPO_ROOT / "jclee_bot" / "readme_runner.py").read_text(encoding="utf-8")
+        assert "/api/v1/readme_automation" in router_text
+        assert "bot/auto-readme-update" in runner_text
+        assert "enablePullRequestAutoMerge" in runner_text
 
     def test_app_image_contains_readme_helpers(self):
         text = (REPO_ROOT / "Dockerfile.github_app").read_text(encoding="utf-8")
