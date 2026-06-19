@@ -84,6 +84,7 @@ class TestMaintainRepo:
         mutations: list[str] = []
         monkeypatch.setattr(issue_maintenance, "comment_issue", lambda **kwargs: mutations.append("comment"))
         monkeypatch.setattr(issue_maintenance, "close_issue", lambda **kwargs: mutations.append("close"))
+        monkeypatch.setattr(issue_maintenance.pr_maintenance, "maintain_pull_requests", lambda **kwargs: [])
 
         # When
         result = issue_maintenance.maintain_repo(
@@ -122,6 +123,11 @@ class TestMaintainRepo:
             "upsert_summary_issue",
             lambda **kwargs: "create-summary",
         )
+        monkeypatch.setattr(
+            issue_maintenance.pr_maintenance,
+            "maintain_pull_requests",
+            lambda **kwargs: ["close-pr:9:failed-checks"],
+        )
 
         # When
         result = issue_maintenance.maintain_repo(
@@ -132,7 +138,7 @@ class TestMaintainRepo:
         )
 
         # Then
-        assert result["actions"] == ["mark-stale:1", "close-stale:2", "create-summary"]
+        assert result["actions"] == ["mark-stale:1", "close-stale:2", "create-summary", "close-pr:9:failed-checks"]
         assert mutations == ["ensure", "add", "comment", "comment", "close"]
 
 

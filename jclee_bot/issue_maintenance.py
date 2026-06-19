@@ -7,7 +7,7 @@ from typing import Any
 import requests
 import yaml
 
-from jclee_bot import github_checks, issue_management
+from jclee_bot import github_checks, issue_management, pr_maintenance
 
 GITHUB_API = "https://api.github.com"
 STALE_DAYS = 30
@@ -213,6 +213,14 @@ def maintain_repo(*, token: str, repo_full_name: str, dry_run: bool, now: dateti
     )
     if summary_action:
         actions.append(summary_action)
+    actions.extend(
+        pr_maintenance.maintain_pull_requests(
+            token=token,
+            repo_full_name=repo_full_name,
+            dry_run=dry_run,
+            now=current_time,
+        )
+    )
     return {"repo": repo_full_name, "actions": actions, "stats": stats}
 
 
