@@ -67,7 +67,7 @@ repositories:
 
   - name: idle-outpost
     visibility: public
-    default_branch: main
+    default_branch: master
     automation:
       deploy_workflows: true
       branch_protection: true
