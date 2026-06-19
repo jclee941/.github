@@ -27,6 +27,7 @@ def _expected_token() -> str:
 def _run_readme_job(job_id: str, **kwargs: Any) -> None:
     try:
         readme_jobs.mark_running(job_id)
+        kwargs["progress"] = partial(readme_jobs.mark_progress, job_id)
         readme_jobs.mark_finished(job_id, run_app_readme_automation(**kwargs))
     except Exception as exc:  # noqa: BLE001 - background job status must record failures
         readme_jobs.mark_failed(job_id, sanitize_error(exc, secrets=[str(kwargs.get("private_key", ""))]))

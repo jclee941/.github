@@ -56,10 +56,30 @@ def mark_running(job_id: str) -> None:
     _write_job(job)
 
 
+def mark_progress(job_id: str, repository_result: dict[str, Any]) -> None:
+    job = get_job(job_id)
+    result = job.setdefault("result", {"dry_run": job.get("dry_run", False), "repositories": []})
+    repositories = result.setdefault("repositories", [])
+    repositories.append(repository_result)
+    job["status"] = "running"
+    job["progress"] = {
+        "repository_count": len(repositories),
+        "error_count": sum(1 for item in repositories if item.get("error")),
+    }
+    job["updated_at"] = _now()
+    _write_job(job)
+
+
 def mark_finished(job_id: str, result: dict[str, Any]) -> None:
     job = get_job(job_id)
     job["status"] = "completed"
     job["result"] = result
+    repositories = result.get("repositories", [])
+    if isinstance(repositories, list):
+        job["progress"] = {
+            "repository_count": len(repositories),
+            "error_count": sum(1 for item in repositories if isinstance(item, dict) and item.get("error")),
+        }
     job["updated_at"] = _now()
     _write_job(job)
 

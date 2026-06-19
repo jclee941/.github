@@ -6,7 +6,7 @@ import sys
 import tempfile
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import requests
 
@@ -205,6 +205,7 @@ def run_app_readme_automation(
     owner: str,
     dry_run: bool,
     repo_names: set[str] | None = None,
+    progress: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     allowed = _target_names(repo_names)
     results: list[dict[str, Any]] = []
@@ -224,7 +225,10 @@ def run_app_readme_automation(
                     permission_known=permission_known,
                 )
                 if permission_error:
-                    results.append({"repo": repo.get("full_name", ""), "changed": False, "error": permission_error})
+                    result = {"repo": repo.get("full_name", ""), "changed": False, "error": permission_error}
                 else:
-                    results.append(ensure_readme_commit(token=token, repo=repo, dry_run=dry_run))
+                    result = ensure_readme_commit(token=token, repo=repo, dry_run=dry_run)
+                results.append(result)
+                if progress is not None:
+                    progress(result)
     return {"dry_run": dry_run, "repositories": results}
