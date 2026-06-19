@@ -207,7 +207,7 @@ class TestIssueMaintenanceEndpoint:
         # When
         response = TestClient(app_module.app, raise_server_exceptions=False).post(
             "/api/v1/issue_maintenance",
-            json={"dry_run": True},
+            json={"dry_run": True, "background": False},
             headers={"Authorization": "Bearer maint"},
         )
 
@@ -215,3 +215,23 @@ class TestIssueMaintenanceEndpoint:
         assert response.status_code == 200
         assert response.json() == {"dry_run": True, "repositories": []}
         assert calls == [{"app_id": "123", "private_key": "key", "owner": "jclee941", "dry_run": True}]
+
+    def test_defaults_to_background_ack_for_long_maintenance(self, monkeypatch) -> None:
+        # Given
+        from jclee_bot import app as app_module
+
+        monkeypatch.setenv("ISSUE_MAINTENANCE_TOKEN", "maint")
+        monkeypatch.setenv("GITHUB_APP_ID", "123")
+        monkeypatch.setenv("GITHUB_PRIVATE_KEY", "key")
+        monkeypatch.setattr(app_module, "_run_app_issue_maintenance", lambda **kwargs: {"repositories": []})
+
+        # When
+        response = TestClient(app_module.app, raise_server_exceptions=False).post(
+            "/api/v1/issue_maintenance",
+            json={"dry_run": True},
+            headers={"Authorization": "Bearer maint"},
+        )
+
+        # Then
+        assert response.status_code == 200
+        assert response.json() == {"accepted": True, "dry_run": True, "owner": "jclee941"}

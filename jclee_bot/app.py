@@ -17,6 +17,7 @@ import json
 import os
 import subprocess  # noqa: S404 - fixed-arg git checkout of the PR head
 import tempfile
+from functools import partial
 from typing import Any
 
 from fastapi import Request, Response
@@ -206,6 +207,18 @@ def _issue_event_signature_ok(secret: str, payload: bytes, signature: str | None
     return _verify_signature(secret, payload, signature)
 
 
+def _run_app_issue_maintenance(*, app_id: str, private_key: str, owner: str, dry_run: bool) -> dict[str, Any]:
+    try:
+        return issue_maintenance.run_app_maintenance(
+            app_id=app_id,
+            private_key=private_key,
+            owner=owner,
+            dry_run=dry_run,
+        )
+    except Exception:  # noqa: BLE001 - background maintenance must not crash the App worker
+        return {"dry_run": dry_run, "repositories": [], "error": "issue maintenance failed"}
+
+
 def _bearer_token_ok(expected: str, authorization: str | None) -> bool:
     if not expected or not authorization or not authorization.startswith("Bearer "):
         return False
@@ -263,12 +276,16 @@ async def issue_maintenance_webhook(request: Request, response: Response) -> dic
 
     payload = json.loads(await request.body() or b"{}")
     dry_run = bool(payload.get("dry_run", False))
-    return issue_maintenance.run_app_maintenance(
-        app_id=app_id,
-        private_key=private_key,
-        owner=str(payload.get("owner") or "jclee941"),
-        dry_run=dry_run,
-    )
+    owner = str(payload.get("owner") or "jclee941")
+    if payload.get("background", True):
+        import asyncio
+
+        asyncio.get_event_loop().run_in_executor(
+            None,
+            partial(_run_app_issue_maintenance, app_id=app_id, private_key=private_key, owner=owner, dry_run=dry_run),
+        )
+        return {"accepted": True, "dry_run": dry_run, "owner": owner}
+    return _run_app_issue_maintenance(app_id=app_id, private_key=private_key, owner=owner, dry_run=dry_run)
 
 
 @app.post("/api/v1/checks_webhook")
