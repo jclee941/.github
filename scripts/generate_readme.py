@@ -27,6 +27,7 @@ from cliproxy_client import (
     cliproxy_chat_completion,
     resolve_cliproxy_api_key,
 )
+from cliproxy_routing import route_models_by_quota
 from generate_readme_cleaning import normalize_llm_readme_response, redact_private_ips, sanitize_links
 from generate_readme_retry import TransientLLMError
 from generate_readme_retry import is_transient as _is_transient
@@ -86,7 +87,7 @@ def call_llm(system: str, user: str) -> str:
         CliproxyMessage(role="system", content=system),
         CliproxyMessage(role="user", content=user),
     ]
-    for model in MODELS:
+    for model in route_models_by_quota(MODELS):
         # attempt 0 = initial try; subsequent attempts use the backoff list.
         for attempt in range(len(_RETRY_BACKOFF_SECONDS) + 1):
             try:

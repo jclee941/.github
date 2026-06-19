@@ -24,7 +24,7 @@ class CliproxyMessage:
     content: str
 
 
-def _read_1password_secret(secret_ref: str) -> str:
+def _read_1password_secret(secret_ref: str, *, secret_name: str) -> str:
     try:
         completed = subprocess.run(
             ["op", "read", secret_ref],
@@ -36,17 +36,17 @@ def _read_1password_secret(secret_ref: str) -> str:
     except FileNotFoundError as exc:
         raise CliproxyCredentialError("1Password CLI 'op' is not installed") from exc
     except subprocess.TimeoutExpired as exc:
-        raise CliproxyCredentialError("1Password CLI timed out while reading CLIPROXY_API_KEY") from exc
+        raise CliproxyCredentialError(f"1Password CLI timed out while reading {secret_name}") from exc
     except subprocess.CalledProcessError as exc:
         detail = (exc.stderr or exc.stdout or "").strip()
-        message = "1Password CLI failed to read CLIPROXY_API_KEY"
+        message = f"1Password CLI failed to read {secret_name}"
         if detail:
             message = f"{message}: {detail}"
         raise CliproxyCredentialError(message) from exc
 
     value = completed.stdout.strip()
     if not value:
-        raise CliproxyCredentialError("1Password returned an empty CLIPROXY_API_KEY")
+        raise CliproxyCredentialError(f"1Password returned an empty {secret_name}")
     return value
 
 
@@ -58,7 +58,7 @@ def resolve_cliproxy_api_key(env: Mapping[str, str] | None = None) -> str:
 
     secret_ref = source.get("CLIPROXY_API_KEY_OP_REF", "").strip()
     if secret_ref:
-        return _read_1password_secret(secret_ref)
+        return _read_1password_secret(secret_ref, secret_name="CLIPROXY_API_KEY")
 
     raise CliproxyCredentialError("CLIPROXY_API_KEY or CLIPROXY_API_KEY_OP_REF is required")
 

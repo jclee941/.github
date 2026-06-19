@@ -48,6 +48,7 @@ from cliproxy_client import (
     cliproxy_chat_completion,
     resolve_cliproxy_api_key,
 )
+from cliproxy_routing import route_models_by_quota
 from llm_decide_policy import DECISION_SPECS, LLMError, failsafe, flatten_output, validate_decision
 
 
@@ -107,6 +108,7 @@ def _call_llm(system: str, user: str) -> str:
 
     models = [MODEL]
     models.extend(model for model in FALLBACK_MODELS if model not in models)
+    models = route_models_by_quota(models)
     last = None
     messages = [
         CliproxyMessage(role="system", content=system),
