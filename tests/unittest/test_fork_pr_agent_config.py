@@ -92,6 +92,14 @@ class TestForkPrAgentConfig:
             f"Expected [openai].api_base = 'https://cliproxy.jclee.me/v1', got {api_base}"
         )
 
+    def test_provider_base_fallbacks_are_disabled(self):
+        path = self.get_toml_path()
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+
+        assert "openai" in data, "Missing [openai] section in .pr_agent.toml"
+        assert data["openai"].get("api_base_fallbacks") == []
+
     def test_fallback_models_are_canonical_cliproxy_chain(self):
         """Test that fallback_models use the canonical CLIProxy model chain."""
         path = self.get_toml_path()

@@ -13,7 +13,7 @@ Metrics reference (labels and example alert rules):
   Example alert: ``rate(webhook_failures_total[5m]) > 0``.
 - ``llm_failures_total{reason, model}`` — LLM call failures. ``reason`` is one
   of ``rate_limit``, ``timeout``, ``connect``, ``api_error``,
-  ``schema_mismatch``, ``provider_fallback``, ``unknown``; ``model`` is the
+  ``schema_mismatch``, ``unknown``; ``model`` is the
   configured model id (e.g. ``kimi-k2.6``).
   Example alert: ``rate(llm_failures_total{reason="schema_mismatch"}[15m]) > 0``.
 - ``webhook_duration_seconds`` / ``review_duration_seconds`` — latency
@@ -74,7 +74,7 @@ WEBHOOK_FAILURES_TOTAL = Counter(
 def record_llm_failure(reason: str, model: str) -> None:
     """Record an LLM call failure.
 
-    reason: one of 'rate_limit', 'timeout', 'connect', 'api_error', 'schema_mismatch', 'provider_fallback', 'unknown'
+    reason: one of 'rate_limit', 'timeout', 'connect', 'api_error', 'schema_mismatch', 'unknown'
     model: the model name (e.g. 'kimi-k2.6')
     """
     LLM_FAILURES_TOTAL.labels(

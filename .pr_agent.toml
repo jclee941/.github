@@ -25,14 +25,12 @@ response_language = "ko"
 # [openai] — CLIProxyAPI Connection
 # ---------------------------------------------------------------------------
 [openai]
-# FORK: OpenAI-compatible CLIProxyAPI endpoint.
+# FORK: OpenAI-compatible CLIProxyAPI endpoint. This is the only provider base.
 # The api_key is NOT set here; use env var OPENAI_KEY from GitHub Secrets or .env.
 api_base = "https://cliproxy.jclee.me/v1"
-# FORK: provider-level fallback. If the primary api_base is unreachable
-# (connection refused / Cloudflare 524 / timeout), each model is retried
-# against these base URLs in order before moving to the next model.
-# Empty list = no provider fallback (original behavior). The fallback bases
-# must serve the same OpenAI-compatible API and accept the same api_key.
+# FORK: provider/base fallback is intentionally disabled. If CLIProxyAPI is
+# unavailable, fail fast and let the existing model fallback chain run only
+# through the same CLIProxyAPI base.
 api_base_fallbacks = []
 
 # ---------------------------------------------------------------------------
