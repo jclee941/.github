@@ -29,7 +29,7 @@ services:
 
       # CLIProxyAPI (OpenAI-compatible homelab gateway)
       OPENAI.KEY: "${CLIPROXY_API_KEY}"
-      OPENAI.API_BASE: https://cliproxy.jclee.me/v1
+      OPENAI.API_BASE: http://cliproxyapi:8317/v1
       CONFIG.MODEL: gpt-5.5
       CONFIG.FALLBACK_MODELS: '["minimax-m3"]'
       CONFIG.CUSTOM_MODEL_MAX_TOKENS: "128000"
