@@ -86,7 +86,6 @@ All AI inference is routed through the homelab CLIProxyAPI deployment, enabling 
 
 ### Documentation
 
-- **README Generation** (`20_readme-gen.yml`): Automatic README updates
 - **Docs Policy** (`jclee-bot / docs-policy`): App-reported documentation hygiene check for Markdown private IP leaks and docs freshness warnings
 
 ### Infrastructure & Health Monitoring
@@ -241,12 +240,6 @@ Issue opened auto-labeling, stale-label removal, stale issue marking/closing, an
 | `16_stale-repo-identifier.yml` | push, workflow_run, manual | Identify repositories with stale content |
 | `17_pr-stale-bot.yml` | pull_request, workflow_run, manual | Mark and close stale PRs |
 
-#### Documentation (1)
-
-| Workflow File | Trigger | Description |
-|---------------|---------|-------------|
-| `20_readme-gen.yml` | push, manual | Automatic README regeneration |
-
 Downstream documentation checks moved to the App-reported `jclee-bot / docs-policy` context; no downstream documentation workflow is deployed.
 
 #### Release Engineering (3)
@@ -336,7 +329,6 @@ github-bot/
 │   │   ├── 16_stale-repo-identifier.yml
 │   │   ├── 17_pr-stale-bot.yml
 │   │   ├── 19_issue-backfill.yml
-│   │   ├── 20_readme-gen.yml
 │   │   ├── 23_release-drafter.yml
 │   │   ├── 24_release-notes.yml
 │   │   ├── 25_release-publish.yml
