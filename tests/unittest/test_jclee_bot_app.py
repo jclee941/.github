@@ -298,3 +298,4 @@ class TestChecksReporting:
         out = app_module._run_checks_for_payload(payload)
         by = {c["name"]: c["conclusion"] for c in out["checks"]}
         assert by["jclee-bot / pr-metadata"] == "neutral", "pr-metadata must be neutral when changed-files unavailable"
+        assert by["jclee-bot / secret-scan"] == "neutral", "secret-scan must be neutral when changed-files unavailable"
