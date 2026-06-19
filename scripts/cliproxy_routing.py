@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import ssl
 import urllib.error
 import urllib.request
 from collections.abc import Mapping, Sequence
@@ -22,6 +23,7 @@ JsonValue: TypeAlias = str | int | float | bool | None | list["JsonValue"] | dic
 class CliproxyManagementConfig:
     base_url: str
     key: str
+    tls_verify: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,7 +76,8 @@ def resolve_cliproxy_management_config(env: Mapping[str, str] | None = None) -> 
     )
     if not url or not key:
         return None
-    return CliproxyManagementConfig(base_url=_management_base_url(url), key=key)
+    tls_verify = source.get("CLIPROXY_MANAGEMENT_TLS_VERIFY", "true").lower() != "false"
+    return CliproxyManagementConfig(base_url=_management_base_url(url), key=key, tls_verify=tls_verify)
 
 
 def _management_get_json(config: CliproxyManagementConfig, path: str) -> JsonValue:
@@ -83,7 +86,8 @@ def _management_get_json(config: CliproxyManagementConfig, path: str) -> JsonVal
         headers={"Authorization": f"Bearer {config.key}"},
         method="GET",
     )
-    with urllib.request.urlopen(req, timeout=10) as response:
+    context = None if config.tls_verify else ssl._create_unverified_context()  # noqa: S323
+    with urllib.request.urlopen(req, timeout=10, context=context) as response:
         return json.loads(response.read().decode("utf-8"))
 
 

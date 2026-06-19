@@ -70,6 +70,20 @@ def test_management_url_normalizes_panel_url():
     )
 
 
+def test_management_config_allows_self_signed_homelab_tls():
+    config = cliproxy_routing.resolve_cliproxy_management_config(
+        {
+            "CLIPROXY_MANAGEMENT_URL": "https://cliproxy.jclee.me/management.html",
+            "CLIPROXY_MANAGEMENT_KEY": "management-key",
+            "CLIPROXY_MANAGEMENT_TLS_VERIFY": "false",
+        }
+    )
+
+    assert config is not None
+    assert config.base_url == "https://cliproxy.jclee.me/v0/management"
+    assert config.tls_verify is False
+
+
 def test_route_models_by_quota_deprioritizes_failed_primary(monkeypatch):
     monkeypatch.setattr(
         cliproxy_routing,
