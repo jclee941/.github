@@ -136,6 +136,43 @@ class TestMaintainRepo:
         assert mutations == ["ensure", "add", "comment", "comment", "close"]
 
 
+class TestRunAppMaintenance:
+    def test_missing_repo_config_falls_back_to_owner_scoped_app_repos(self, monkeypatch) -> None:
+        # Given
+        monkeypatch.setattr(issue_maintenance, "managed_repo_names", lambda config_path=None: None)
+        monkeypatch.setattr(issue_maintenance, "app_installations", lambda **kwargs: [{"id": 42}])
+        monkeypatch.setattr(issue_maintenance.github_checks, "installation_token", lambda *args: "tok")
+        monkeypatch.setattr(
+            issue_maintenance,
+            "installation_repositories",
+            lambda **kwargs: [
+                {"full_name": "jclee941/propose", "name": "propose"},
+                {"full_name": "other/propose", "name": "propose"},
+            ],
+        )
+        maintained: list[str] = []
+        monkeypatch.setattr(
+            issue_maintenance,
+            "maintain_repo",
+            lambda **kwargs: maintained.append(kwargs["repo_full_name"]) or {"repo": kwargs["repo_full_name"]},
+        )
+
+        # When
+        result = issue_maintenance.run_app_maintenance(
+            app_id="123",
+            private_key="key",
+            owner="jclee941",
+            dry_run=True,
+        )
+
+        # Then
+        assert maintained == ["jclee941/propose"]
+        assert result == {"dry_run": True, "repositories": [{"repo": "jclee941/propose"}]}
+
+    def test_managed_repo_names_returns_none_when_config_file_is_missing(self, tmp_path) -> None:
+        assert issue_maintenance.managed_repo_names(tmp_path / "missing.yml") is None
+
+
 class TestIssueMaintenanceEndpoint:
     def test_rejects_missing_maintenance_token(self, monkeypatch) -> None:
         # Given

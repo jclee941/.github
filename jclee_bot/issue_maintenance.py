@@ -216,8 +216,10 @@ def maintain_repo(*, token: str, repo_full_name: str, dry_run: bool, now: dateti
     return {"repo": repo_full_name, "actions": actions, "stats": stats}
 
 
-def managed_repo_names(config_path: Path | None = None) -> set[str]:
+def managed_repo_names(config_path: Path | None = None) -> set[str] | None:
     path = config_path or Path(__file__).resolve().parents[1] / "config" / "repos.yaml"
+    if not path.exists():
+        return None
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     repos = data.get("repositories", []) if isinstance(data, dict) else []
     return {
@@ -269,6 +271,6 @@ def run_app_maintenance(*, app_id: str, private_key: str, owner: str, dry_run: b
         for repo in installation_repositories(token=token):
             full_name = str(repo.get("full_name", ""))
             name = str(repo.get("name", ""))
-            if full_name.startswith(f"{owner}/") and name in allowed:
+            if full_name.startswith(f"{owner}/") and (allowed is None or name in allowed):
                 results.append(maintain_repo(token=token, repo_full_name=full_name, dry_run=dry_run))
     return {"dry_run": dry_run, "repositories": results}
