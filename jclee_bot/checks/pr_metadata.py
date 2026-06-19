@@ -44,6 +44,12 @@ def _readme_automation_pr(*, head_ref: str, changed_files: Sequence[str]) -> boo
     return head_ref == "bot/auto-readme-update" and set(changed_files) == {"README.md"}
 
 
+def _retired_workflow_cleanup_pr(*, head_ref: str, changed_files: Sequence[str]) -> bool:
+    return head_ref == "bot/remove-downstream-workflows" and all(
+        path.startswith(".github/workflows/") for path in changed_files
+    )
+
+
 def run(
     *,
     title: str,
@@ -62,7 +68,11 @@ def run(
         )
 
     total_lines = additions + deletions
-    if not _readme_automation_pr(head_ref=head_ref, changed_files=changed_files) and (
+    size_exempt = _readme_automation_pr(head_ref=head_ref, changed_files=changed_files) or _retired_workflow_cleanup_pr(
+        head_ref=head_ref,
+        changed_files=changed_files,
+    )
+    if not size_exempt and (
         total_lines > _MAX_CHANGED_LINES or len(changed_files) > _MAX_CHANGED_FILES
     ):
         problems.append(

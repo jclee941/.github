@@ -72,6 +72,18 @@ class TestPrMetadata:
 
         assert r.conclusion == "success"
 
+    def test_retired_workflow_cleanup_pr_ignores_size_limit(self):
+        r = pr_metadata.run(
+            title="chore: remove retired downstream workflows",
+            head_ref="bot/remove-downstream-workflows",
+            base_ref="master",
+            changed_files=[".github/workflows/03_pr-checks.yml", ".github/workflows/20_readme-gen.yml"],
+            additions=0,
+            deletions=5000,
+        )
+
+        assert r.conclusion == "success"
+
     def test_sensitive_file_fails(self):
         r = pr_metadata.run(
             title="feat: add config",
