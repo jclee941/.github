@@ -21,7 +21,7 @@ from typing import Any
 
 from fastapi import Request, Response
 
-from jclee_bot import dispatch, github_checks, issue_management
+from jclee_bot import dispatch, github_checks, issue_maintenance, issue_management
 
 # Reuse the upstream app object so its middleware + all routes are preserved.
 from pr_agent.servers.github_app import app
@@ -200,6 +200,18 @@ def _run_issue_management_for_payload(payload: dict[str, Any], event: str) -> di
         return {"actions": []}
 
 
+def _issue_event_signature_ok(secret: str, payload: bytes, signature: str | None) -> bool:
+    if not secret:
+        return False
+    return _verify_signature(secret, payload, signature)
+
+
+def _bearer_token_ok(expected: str, authorization: str | None) -> bool:
+    if not expected or not authorization or not authorization.startswith("Bearer "):
+        return False
+    return hmac.compare_digest(expected, authorization.removeprefix("Bearer ").strip())
+
+
 @app.middleware("http")
 async def _tee_pull_request_to_checks(request: Request, call_next):
     """GitHub Apps have a SINGLE webhook URL. Tee pull_request events delivered
@@ -211,7 +223,9 @@ async def _tee_pull_request_to_checks(request: Request, call_next):
         event = request.headers.get("X-GitHub-Event", "")
         secret = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
         sig = request.headers.get("X-Hub-Signature-256")
-        if event in {"pull_request", "issues", "issue_comment"} and _verify_signature(secret, raw, sig):
+        pull_request_ok = event == "pull_request" and _verify_signature(secret, raw, sig)
+        issue_event_ok = event in {"issues", "issue_comment"} and _issue_event_signature_ok(secret, raw, sig)
+        if pull_request_ok or issue_event_ok:
             try:
                 payload = json.loads(raw or b"{}")
                 if event == "pull_request" and payload.get("action") in dispatch.PR_ACTIONS:
@@ -232,6 +246,29 @@ async def _tee_pull_request_to_checks(request: Request, call_next):
             except Exception:  # noqa: BLE001 - checks must never break the review path
                 pass
     return await call_next(request)
+
+
+@app.post("/api/v1/issue_maintenance")
+async def issue_maintenance_webhook(request: Request, response: Response) -> dict[str, Any]:
+    expected = os.environ.get("ISSUE_MAINTENANCE_TOKEN", "")
+    if not _bearer_token_ok(expected, request.headers.get("Authorization")):
+        response.status_code = 401
+        return {"error": "invalid token"}
+
+    app_id = os.environ.get("GITHUB_APP_ID", "")
+    private_key = os.environ.get("GITHUB_PRIVATE_KEY", "")
+    if not app_id or not private_key:
+        response.status_code = 503
+        return {"error": "github app credentials unavailable"}
+
+    payload = json.loads(await request.body() or b"{}")
+    dry_run = bool(payload.get("dry_run", False))
+    return issue_maintenance.run_app_maintenance(
+        app_id=app_id,
+        private_key=private_key,
+        owner=str(payload.get("owner") or "jclee941"),
+        dry_run=dry_run,
+    )
 
 
 @app.post("/api/v1/checks_webhook")

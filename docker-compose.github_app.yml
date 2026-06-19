@@ -8,6 +8,7 @@
 #   GITHUB_APP_ID=...
 #   GITHUB_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
 #   GITHUB_WEBHOOK_SECRET=...
+#   ISSUE_MAINTENANCE_TOKEN=...
 #   CLIPROXY_API_KEY=sk-cliproxy-github-bot-...
 services:
   github-bot-app:
@@ -24,6 +25,7 @@ services:
       GITHUB.APP_ID: "${GITHUB_APP_ID}"
       GITHUB.PRIVATE_KEY: "${GITHUB_PRIVATE_KEY}"
       GITHUB.WEBHOOK_SECRET: "${GITHUB_WEBHOOK_SECRET}"
+      ISSUE_MAINTENANCE_TOKEN: "${ISSUE_MAINTENANCE_TOKEN}"
 
       # CLIProxyAPI (OpenAI-compatible homelab gateway)
       OPENAI.KEY: "${CLIPROXY_API_KEY}"

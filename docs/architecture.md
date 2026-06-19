@@ -334,12 +334,12 @@ flowchart LR
     PUSH --> RELEASE_P["25_release-publish.yml"]
     PUSH --> GITLEAKS
     
-    CRON --> HARDSCAN["35_auto-hardcode-scan.yml<br/>(월요일 00:00)"]
-    CRON --> ISSUE_BACK["19_issue-backfill.yml<br/>(매일 09:00)"]
+    PUSH --> HARDSCAN["35_auto-hardcode-scan.yml<br/>(workflow_dispatch / weekly manual)"]
+    PUSH --> ISSUE_BACK["19_issue-backfill.yml<br/>(Sanity workflow_run / manual)"]
     PR --> CODEQL_S["GitHub-native CodeQL"]
     
     ISSUE --> ISSUE_BRANCH["02_issue-to-branch.yml"]
-    ISSUE --> ISSUE_MGMT["jclee-bot App<br/>issue auto-label / stale remove"]
+    ISSUE --> ISSUE_MGMT["jclee-bot App<br/>issue auto-label / stale remove / stale sweep"]
     
     style PR fill:#6ba06a,stroke:#333,color:#fff
     style PUSH fill:#4a90d9,stroke:#333,color:#fff

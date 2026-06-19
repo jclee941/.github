@@ -13,6 +13,7 @@ jclee_bot/
 ├── dispatch.py               # maps pull_request payloads to checks
 ├── github_checks.py          # installation token + Checks API client
 ├── issue_management.py       # issue auto-label + stale-label removal on App webhooks
+├── issue_maintenance.py      # App-owned stale issue sweep + issue stats
 └── checks/
     ├── pr_metadata.py        # title, size, sensitive-file policy
     ├── secret_scan.py        # gitleaks result mapping + invocation
@@ -28,6 +29,7 @@ jclee_bot/
 | Webhook signature / tee behavior | `app.py` |
 | GitHub installation token and check-run API | `github_checks.py` |
 | Issue auto-label or stale-label removal | `issue_management.py`, then `app.py` |
+| Stale issue sweep or issue stats | `issue_maintenance.py`, then `app.py` |
 | Unit tests | `tests/unittest/test_jclee_bot_app.py`, `tests/unittest/test_jclee_bot_checks.py` |
 | Mocked e2e surface | `tests/e2e/test_webhooks.py`, `tests/e2e/test_health.py` |
 
@@ -36,8 +38,8 @@ jclee_bot/
 - Check names are externally visible and branch-protection-sensitive:
   `jclee-bot / pr-metadata`, `jclee-bot / secret-scan`, `jclee-bot / actionlint`.
 - Missing PR context must produce `neutral`, not misleading `success`, for checks that need changed files or checkout.
-- Issue opened auto-labeling and stale-label removal are App-owned; do not restore downstream
-  `18_issue-management.yml` or `43_reusable-issue-management.yml`.
+- Issue opened auto-labeling, stale-label removal, stale issue sweep, and issue stats are App-owned;
+  do not restore the deleted downstream issue-management workflow caller or reusable workflow.
 - `app.py` must not break upstream `/api/v1/github_webhooks`, `/health`, `/ready`, or `/metrics` routes.
 - External tools (`gitleaks`, `actionlint`) degrade to neutral when unavailable; unit-test the pure result mappers.
 - Webhook handling must acknowledge promptly; blocking check work stays off the request path.

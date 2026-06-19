@@ -25,7 +25,7 @@
 | `34_auto-deploy.yml` | `push` to master | `deploy-to-repos.go` 실행 → 11개 다운스트림 동기화 | ⚠️ 타임아웃/concurrency 없음 |
 | `35_auto-hardcode-scan.yml` | `schedule` weekly + dispatch | 하드코드 정규식 스캔 | ⚠️ `self-hosted` 종속 |
 | `21_docs-sync.yml` → `42_reusable-docs-sync.yml` | `pull_request` md/docs | 링크 검사 + markdownlint | ✅ |
-| `18_issue-management.yml` → `43_reusable-issue-management.yml` | issues + schedule | stale 정리 + 자동 라벨 | ✅ |
+| `jclee-bot` App issue webhooks + `33_issue-maintenance.yml` | issues + issue_comment + workflow_run | stale 라벨 제거/부착/종료 + 자동 라벨 + 이슈 통계 | ✅ |
 | `90_sanity.yml` | push/PR | import 스모크 + TOML/YAML parse | ✅ but required check 아님 |
 | `11_security-pr-review.yml` | `pull_request_target` + 라벨 | 심층 보안 리뷰 | ⚠️ 가드 보강 필요 |
 
@@ -304,7 +304,7 @@ python3 -c "import yaml; d=yaml.safe_load(open('.github/dependabot.yml')); print
 | G7 | CONTRIBUTING.md | 포크 전용 기여자 가이드 (rollout sequence 포함) | ✅ 완료 |
 | G8 | release-drafter | `.github/23_release-drafter.yml` + `.github/workflows/23_release-drafter.yml` (Conventional Commits autolabeler) | ✅ 완료 |
 | G14 | Go 스크립트 테스트 | `scripts/cmd/{branch-protection,deploy-to-repos}/main_test.go` (16 case, `(cd scripts && go test ./...)`) | ✅ 완료 |
-| G17 | stale-branch 자동화 | `actions/stale@v9` 기반 워크플로는 별도 PR로 이연 (브랜치 정책 합의 필요) | ⏸️ 의식적 보류 |
+| G17 | stale-branch 자동화 | 브랜치 stale 정책은 별도 PR로 이연 (브랜치 정책 합의 필요) | ⏸️ 의식적 보류 |
 | G19 | 액션 SHA pin | 별도 supply-chain sprint로 이연 (영향 범위 큼) | ⏸️ 의식적 보류 |
 | G20 | post-commit 훅 정리 | `.git/hooks/post-commit`은 commented-out 상태로 무해함; 작업 트리 hook이라 git 추적 불가 | ✅ 검증됨 (no action) |
 

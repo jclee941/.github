@@ -224,14 +224,15 @@ Conventional-commit title enforcement and PR size / sensitive-file checks were f
 | `13_pr-auto-merge.yml` | pull_request_review, pull_request, manual | Automatic PR merging on approval |
 | `60_ci-auto-heal.yml` | workflow_run, check_suite, repository_dispatch, manual | Auto-heal CI failures |
 
-#### Issue Management (2)
+#### Issue Management (3)
 
 | Workflow File | Trigger | Description |
 |---------------|---------|-------------|
 | `19_issue-backfill.yml` | workflow_run, manual | Sync issues across repositories |
+| `33_issue-maintenance.yml` | workflow_run, manual | Trigger App-owned stale issue maintenance across managed repositories |
 | `91_issue-classification.yml` | issues, issue_comment, pull_request, manual | AI-powered issue categorization |
 
-Issue opened auto-labeling and stale-label removal are owned by the `jclee-bot` App webhook path in `jclee_bot/issue_management.py`; no downstream issue-management workflow is deployed.
+Issue opened auto-labeling, stale-label removal, stale issue marking/closing, and issue-summary upkeep are owned by the `jclee-bot` App paths in `jclee_bot/issue_management.py` and `jclee_bot/issue_maintenance.py`; no downstream issue-management workflow is deployed.
 
 #### Stale & Cleanup (2)
 
