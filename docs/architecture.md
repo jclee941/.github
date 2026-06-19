@@ -192,17 +192,16 @@ flowchart LR
         J --> K["15_merged-pr-cleanup.yml<br/>이슈 자동 종료"]
     end
     
-    subgraph 스테일["⏰ 스테일 관리"]
-        L["18_issue-management.yml<br/>(매일 00:00 UTC)"] --> M{"30일 활동 없음?"}
-        M -->|Yes| N["stale 라벨 부착"]
-        N --> O{"7일 추가 경과?"}
-        O -->|Yes| P["이슈 자동 종료"]
-        O -->|No| Q["활동 발생 시<br/>stale 제거"]
+    subgraph 스테일["⏰ 스테일 라벨 정리"]
+        L["jclee-bot App<br/>issues / issue_comment webhook"] --> M{"활동 발생?"}
+        M -->|Issue edited/reopened| Q["stale 라벨 제거"]
+        M -->|Comment created| Q
+        L --> N["Issue opened<br/>키워드 라벨 부착"]
     end
     
     style A fill:#6ba06a,stroke:#333,color:#fff
     style K fill:#4a90d9,stroke:#333,color:#fff
-    style P fill:#d9b430,stroke:#333,color:#000
+    style Q fill:#d9b430,stroke:#333,color:#000
 ```
 
 ---
@@ -336,13 +335,11 @@ flowchart LR
     PUSH --> GITLEAKS
     
     CRON --> HARDSCAN["35_auto-hardcode-scan.yml<br/>(월요일 00:00)"]
-    CRON --> ISSUE_MGMT["18_issue-management.yml<br/>(매일 00:00)"]
     CRON --> ISSUE_BACK["19_issue-backfill.yml<br/>(매일 09:00)"]
     PR --> CODEQL_S["GitHub-native CodeQL"]
     
     ISSUE --> ISSUE_BRANCH["02_issue-to-branch.yml"]
-    
-    ISSUE_MGMT --> REUSABLE3["43_reusable-issue-management.yml"]
+    ISSUE --> ISSUE_MGMT["jclee-bot App<br/>issue auto-label / stale remove"]
     
     style PR fill:#6ba06a,stroke:#333,color:#fff
     style PUSH fill:#4a90d9,stroke:#333,color:#fff

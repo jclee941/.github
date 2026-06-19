@@ -8,7 +8,7 @@
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange.svg)](LICENSE)
 [![Upstream](https://img.shields.io/badge/upstream-qodo--ai%2Fpr--agent-red.svg)](https://github.com/qodo-ai/pr-agent)
 [![CLIProxy](https://img.shields.io/badge/LLM%20Gateway-CLIProxyAPI-purple.svg)](https://cliproxy.jclee.me/v1)
-[![Workflows](https://img.shields.io/badge/workflows-35-yellowgreen.svg)](#github-workflows-35-total--github-워크플로우-35개)
+[![Workflows](https://img.shields.io/badge/workflows-33-yellowgreen.svg)](#github-workflows-33-total--github-워크플로우-33개)
 [![Go Tools](https://img.shields.io/badge/go--tools-5-blue.svg)](#go-automation-tools-5-total--go-자동화-도구-5개)
 
 ---
@@ -19,7 +19,7 @@
 - [Features | 기능](#features--기능)
 - [Architecture | 아키텍처](#architecture--아키텍처)
 - [Automation Inventory | 자동화 인벤토리](#automation-inventory--자동화-인벤토리)
-  - [GitHub Workflows 35 total | GitHub 워크플로우 35개](#github-workflows-35-total--github-워크플로우-35개)
+  - [GitHub Workflows 33 total | GitHub 워크플로우 33개](#github-workflows-33-total--github-워크플로우-33개)
   - [Go Automation Tools 5 total | Go 자동화 도구 5개](#go-automation-tools-5-total--go-자동화-도구-5개)
 - [Repository Structure | 저장소 구조](#repository-structure--저장소-구조)
 - [Quick Start | 빠른 시작](#quick-start--빠른-시작)
@@ -41,7 +41,7 @@ This repository is a private hard fork of [qodo-ai/pr-agent](https://github.com/
 | Default Model | `gpt-4` | `gpt-5.5` via CLIProxy routing |
 | Fallback Models | Varies | `["minimax-m3"]` |
 | Security Scanning | Basic | Deep security review workflow (`11_security-pr-review.yml`) |
-| Workflow Coverage | Core PR tools | 35 workflows + 5 Go automation tools |
+| Workflow Coverage | Core PR tools | 33 workflows + 5 Go automation tools |
 | Runner Environment | GitHub-hosted | GitHub-hosted (`ubuntu-latest`) + homelab API gateway |
 
 All AI inference is routed through the homelab CLIProxyAPI deployment, enabling cost-effective LLM inference with model fallback and routing capabilities.
@@ -66,10 +66,10 @@ All AI inference is routed through the homelab CLIProxyAPI deployment, enabling 
 
 ### Issue Lifecycle Automation
 
-- **Issue Management** (`18_issue-management.yml`, `43_reusable-issue-management.yml`): Automated issue handling
+- **Issue Management** (`jclee-bot` App, `19_issue-backfill.yml`): Automated issue handling
 - **Issue Backfill** (`19_issue-backfill.yml`): Sync issues across repositories
 - **Issue Classification** (`91_issue-classification.yml`): AI-powered issue categorization
-- **Label Management** (`18_issue-management.yml`, `91_issue-classification.yml`): Automated labeling
+- **Label Management** (`jclee-bot` App, `91_issue-classification.yml`): Automated labeling
 - **Stale Management** (`16_stale-repo-identifier.yml`, `17_pr-stale-bot.yml`): Identify and close stale content
 
 ### Pull Request Automation
@@ -193,7 +193,7 @@ flow TB
 
 ## Automation Inventory | 자동화 인벤토리
 
-### GitHub Workflows 35 total | GitHub 워크플로우 35개
+### GitHub Workflows 33 total | GitHub 워크플로우 33개
 
 #### PR/Branch Automation (3)
 
@@ -224,13 +224,14 @@ Conventional-commit title enforcement and PR size / sensitive-file checks were f
 | `13_pr-auto-merge.yml` | pull_request_review, pull_request, manual | Automatic PR merging on approval |
 | `60_ci-auto-heal.yml` | workflow_run, check_suite, repository_dispatch, manual | Auto-heal CI failures |
 
-#### Issue Management (3)
+#### Issue Management (2)
 
 | Workflow File | Trigger | Description |
 |---------------|---------|-------------|
-| `18_issue-management.yml` | issues, issue_comment, manual | Automated issue handling |
 | `19_issue-backfill.yml` | workflow_run, manual | Sync issues across repositories |
 | `91_issue-classification.yml` | issues, issue_comment, pull_request, manual | AI-powered issue categorization |
+
+Issue opened auto-labeling and stale-label removal are owned by the `jclee-bot` App webhook path in `jclee_bot/issue_management.py`; no downstream issue-management workflow is deployed.
 
 #### Stale & Cleanup (2)
 
@@ -296,14 +297,6 @@ Downstream documentation checks moved to the App-reported `jclee-bot / docs-poli
 |---------------|---------|-------------|
 | `11_security-pr-review.yml` | pull_request_target | Deep security review (Korean, `pull_request_target`) |
 
-#### Reusable Workflows (1)
-
-| Workflow File | Trigger | Description |
-|---------------|---------|-------------|
-| `43_reusable-issue-management.yml` | workflow_call, manual | Shared issue management |
-
-The deleted `44_reusable-pr-checks.yml` and `45_reusable-gitleaks.yml` were the only callers of the now-removed per-repo `03_pr-checks` and `05_gitleaks` callers; with those gone, the reusables have no callers in this repo.
-
 #### Fork CI Gate (1)
 
 | Workflow File | Trigger | Description |
@@ -331,7 +324,7 @@ All tools are invoked via `(cd scripts && go run ./cmd/<tool-name>)`.
 ```
 github-bot/
 ├── .github/
-│   ├── workflows/              # GitHub Actions workflows (37 files)
+│   ├── workflows/              # GitHub Actions workflows (33 files)
 │   │   ├── 01_branch-to-pr.yml
 │   │   ├── 02_issue-to-branch.yml
 │   │   ├── 10_pr-review.yml
@@ -341,7 +334,6 @@ github-bot/
 │   │   ├── 15_merged-pr-cleanup.yml
 │   │   ├── 16_stale-repo-identifier.yml
 │   │   ├── 17_pr-stale-bot.yml
-│   │   ├── 18_issue-management.yml
 │   │   ├── 19_issue-backfill.yml
 │   │   ├── 20_readme-gen.yml
 │   │   ├── 23_release-drafter.yml
@@ -361,7 +353,6 @@ github-bot/
 │   │   ├── 39_e2e-live.yml
 │   │   ├── 40_repo-review-batch.yml
 │   │   ├── 41_pages-deploy.yml
-│   │   ├── 43_reusable-issue-management.yml
 │   │   ├── 46_nas-cache-prune.yml
 │   │   ├── 60_ci-auto-heal.yml
 │   │   ├── 90_sanity.yml

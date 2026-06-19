@@ -21,7 +21,7 @@ from typing import Any
 
 from fastapi import Request, Response
 
-from jclee_bot import dispatch, github_checks
+from jclee_bot import dispatch, github_checks, issue_management
 
 # Reuse the upstream app object so its middleware + all routes are preserved.
 from pr_agent.servers.github_app import app
@@ -186,6 +186,20 @@ def _run_checks_for_payload(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _run_issue_management_for_payload(payload: dict[str, Any], event: str) -> dict[str, Any]:
+    installation_id = payload.get("installation", {}).get("id", 0)
+    try:
+        token = _installation_token(installation_id)
+    except Exception:  # noqa: BLE001 - issue automation must not break webhooks
+        token = None
+    if not token:
+        return {"actions": []}
+    try:
+        return issue_management.handle_issue_event(token=token, payload=payload, event=event)
+    except Exception:  # noqa: BLE001 - one failed issue action must not break reviews/checks
+        return {"actions": []}
+
+
 @app.middleware("http")
 async def _tee_pull_request_to_checks(request: Request, call_next):
     """GitHub Apps have a SINGLE webhook URL. Tee pull_request events delivered
@@ -197,10 +211,10 @@ async def _tee_pull_request_to_checks(request: Request, call_next):
         event = request.headers.get("X-GitHub-Event", "")
         secret = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
         sig = request.headers.get("X-Hub-Signature-256")
-        if event == "pull_request" and _verify_signature(secret, raw, sig):
+        if event in {"pull_request", "issues", "issue_comment"} and _verify_signature(secret, raw, sig):
             try:
                 payload = json.loads(raw or b"{}")
-                if payload.get("action") in dispatch.PR_ACTIONS:
+                if event == "pull_request" and payload.get("action") in dispatch.PR_ACTIONS:
                     # Run the (blocking: git fetch + gitleaks + actionlint +
                     # Checks API) work in a background thread so the upstream
                     # webhook is acknowledged promptly and GitHub does not retry.
@@ -208,6 +222,12 @@ async def _tee_pull_request_to_checks(request: Request, call_next):
 
                     asyncio.get_event_loop().run_in_executor(
                         None, _run_checks_for_payload, payload
+                    )
+                elif event in {"issues", "issue_comment"}:
+                    import asyncio
+
+                    asyncio.get_event_loop().run_in_executor(
+                        None, _run_issue_management_for_payload, payload, event
                     )
             except Exception:  # noqa: BLE001 - checks must never break the review path
                 pass
