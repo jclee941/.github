@@ -4,7 +4,7 @@ import hashlib
 import hmac
 import json
 import threading
-from typing import TypedDict
+from typing import Any, TypedDict
 
 from fastapi.testclient import TestClient
 
@@ -31,6 +31,7 @@ def _issue_payload(
     title: str = "Bug: crash in coverage workflow",
     body: str | None = "Please add tests for this error.",
     labels: list[dict[str, str]] | None = None,
+    state: str = "open",
 ) -> dict[str, object]:
     return {
         "action": action,
@@ -40,6 +41,7 @@ def _issue_payload(
             "number": 7,
             "title": title,
             "body": body,
+            "state": state,
             "labels": labels or [],
         },
         "sender": {"login": "octocat", "id": 1},
@@ -113,6 +115,61 @@ class TestShouldRemoveStale:
         assert should_remove is False
 
 
+class TestShouldCreateBranch:
+    def test_returns_true_when_issue_is_opened(self) -> None:
+        # Given
+        payload = _issue_payload(action="opened")
+
+        # When
+        should_create = issue_management.should_create_branch(payload, "issues")
+
+        # Then
+        assert should_create is True
+
+    def test_returns_true_when_issue_gets_in_progress_label(self) -> None:
+        # Given
+        payload = _issue_payload(action="labeled")
+        payload["label"] = {"name": "in-progress"}
+
+        # When
+        should_create = issue_management.should_create_branch(payload, "issues")
+
+        # Then
+        assert should_create is True
+
+    def test_returns_true_when_issue_is_assigned_to_human(self) -> None:
+        # Given
+        payload = _issue_payload(action="assigned")
+        payload["assignee"] = {"login": "jclee941"}
+
+        # When
+        should_create = issue_management.should_create_branch(payload, "issues")
+
+        # Then
+        assert should_create is True
+
+    def test_returns_false_when_issue_is_assigned_to_bot(self) -> None:
+        # Given
+        payload = _issue_payload(action="assigned")
+        payload["assignee"] = {"login": "jclee-bot"}
+
+        # When
+        should_create = issue_management.should_create_branch(payload, "issues")
+
+        # Then
+        assert should_create is False
+
+    def test_returns_false_when_issue_is_closed(self) -> None:
+        # Given
+        payload = _issue_payload(action="opened", state="closed")
+
+        # When
+        should_create = issue_management.should_create_branch(payload, "issues")
+
+        # Then
+        assert should_create is False
+
+
 class TestHandleIssueEvent:
     def test_adds_labels_when_issue_is_opened(self, monkeypatch) -> None:
         # Given
@@ -135,6 +192,7 @@ class TestHandleIssueEvent:
             )
 
         monkeypatch.setattr(issue_management, "add_labels", fake_add_labels)
+        monkeypatch.setattr(issue_management, "create_issue_branch", lambda **kwargs: None)
         payload = _issue_payload()
 
         # When
@@ -152,6 +210,42 @@ class TestHandleIssueEvent:
                 "repo_full_name": "jclee941/propose",
                 "issue_number": 7,
                 "labels": ["bug", "enhancement", "tests"],
+            }
+        ]
+
+    def test_creates_branch_from_master_when_issue_is_opened(self, monkeypatch) -> None:
+        # Given
+        calls: list[dict[str, Any]] = []
+
+        def fake_create_issue_branch(**kwargs: Any) -> str:
+            calls.append(kwargs)
+            return "fix/issue-7-bug-crash-in-coverage-workflow"
+
+        monkeypatch.setattr(issue_management, "add_labels", lambda **kwargs: None)
+        monkeypatch.setattr(issue_management, "create_issue_branch", fake_create_issue_branch)
+        payload = _issue_payload(labels=[{"name": "bug"}])
+
+        # When
+        result = issue_management.handle_issue_event(
+            token="tok",
+            payload=payload,
+            event="issues",
+        )
+
+        # Then
+        assert result == {
+            "actions": [
+                "add-labels:bug,enhancement,tests",
+                "create-branch:fix/issue-7-bug-crash-in-coverage-workflow",
+            ]
+        }
+        assert calls == [
+            {
+                "token": "tok",
+                "repo_full_name": "jclee941/propose",
+                "issue_number": 7,
+                "title": "Bug: crash in coverage workflow",
+                "labels": [{"name": "bug"}, "bug", "enhancement", "tests"],
             }
         ]
 
@@ -206,6 +300,11 @@ class TestHandleIssueEvent:
         )
         monkeypatch.setattr(
             issue_management,
+            "create_issue_branch",
+            lambda **kwargs: calls.append("branch"),
+        )
+        monkeypatch.setattr(
+            issue_management,
             "remove_label",
             lambda **kwargs: calls.append("remove"),
         )
@@ -224,6 +323,109 @@ class TestHandleIssueEvent:
         # Then
         assert result == {"actions": []}
         assert calls == []
+
+
+class TestCreateIssueBranch:
+    def test_creates_issue_branch_from_master_and_comments(self, monkeypatch) -> None:
+        # Given
+        requests: list[tuple[str, str, dict[str, Any] | None]] = []
+
+        class FakeResponse:
+            def __init__(self, status_code: int, payload: dict[str, Any] | None = None) -> None:
+                self.status_code = status_code
+                self._payload = payload or {}
+
+            def json(self) -> dict[str, Any]:
+                return self._payload
+
+            def raise_for_status(self) -> None:
+                if self.status_code >= 400:
+                    raise AssertionError(f"unexpected HTTP status {self.status_code}")
+
+        def fake_get(url: str, **kwargs: Any) -> FakeResponse:
+            requests.append(("GET", url, None))
+            if url.endswith("/git/ref/heads/fix/issue-7-bug-crash-in-coverage-workflow"):
+                return FakeResponse(404)
+            if url.endswith("/git/ref/heads/master"):
+                return FakeResponse(200, {"object": {"sha": "abc123"}})
+            raise AssertionError(f"unexpected GET {url}")
+
+        def fake_post(url: str, **kwargs: Any) -> FakeResponse:
+            requests.append(("POST", url, kwargs.get("json")))
+            return FakeResponse(201)
+
+        monkeypatch.setattr(issue_management.requests, "get", fake_get)
+        monkeypatch.setattr(issue_management.requests, "post", fake_post)
+
+        # When
+        branch = issue_management.create_issue_branch(
+            token="tok",
+            repo_full_name="jclee941/propose",
+            issue_number=7,
+            title="Bug: crash in coverage workflow",
+            labels=[{"name": "bug"}],
+        )
+
+        # Then
+        assert branch == "fix/issue-7-bug-crash-in-coverage-workflow"
+        assert requests == [
+            (
+                "GET",
+                "https://api.github.com/repos/jclee941/propose/git/ref/heads/fix/issue-7-bug-crash-in-coverage-workflow",
+                None,
+            ),
+            (
+                "GET",
+                "https://api.github.com/repos/jclee941/propose/git/ref/heads/master",
+                None,
+            ),
+            (
+                "POST",
+                "https://api.github.com/repos/jclee941/propose/git/refs",
+                {
+                    "ref": "refs/heads/fix/issue-7-bug-crash-in-coverage-workflow",
+                    "sha": "abc123",
+                },
+            ),
+            (
+                "POST",
+                "https://api.github.com/repos/jclee941/propose/issues/7/comments",
+                {
+                    "body": "Branch `fix/issue-7-bug-crash-in-coverage-workflow` created. "
+                    "Push commits to that branch and a draft PR will open automatically."
+                },
+            ),
+        ]
+
+    def test_skips_branch_creation_when_branch_already_exists(self, monkeypatch) -> None:
+        # Given
+        posts: list[str] = []
+
+        class FakeResponse:
+            status_code = 200
+
+            def raise_for_status(self) -> None:
+                raise AssertionError("existing branch should not be treated as an error")
+
+        monkeypatch.setattr(issue_management.requests, "get", lambda *args, **kwargs: FakeResponse())
+        monkeypatch.setattr(
+            issue_management.requests,
+            "post",
+            lambda url, **kwargs: posts.append(url),
+        )
+
+        # When
+        branch = issue_management.create_issue_branch(
+            token="tok",
+            repo_full_name="jclee941/propose",
+            issue_number=7,
+            title="Bug: crash in coverage workflow",
+            labels=[{"name": "bug"}],
+        )
+
+        # Then
+        assert branch is None
+        assert posts == []
 
 
 class TestIssueMiddlewareDispatch:

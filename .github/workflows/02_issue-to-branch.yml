@@ -1,13 +1,6 @@
 name: Issue to Branch
 
-# When an issue gets the `in-progress` label or is assigned, create a
-# branch named <type>/issue-<N>-<slug-of-title> from the default branch.
-# Type derived from issue labels (bug→fix, enhancement→feat, etc.).
-# Idempotent: skip if branch already exists.
-
 on:
-  issues:
-    types: [opened, labeled, assigned]
   workflow_dispatch:
     inputs:
       issue_number:
