@@ -6,6 +6,20 @@ from jclee_bot import issue_management
 
 
 class TestCreateIssueBranch:
+    def test_uses_inferred_string_labels_for_branch_type(self) -> None:
+        # Given
+        labels = ["bug", "enhancement", "tests"]
+
+        # When
+        branch = issue_management.issue_branch_name(
+            issue_number=7,
+            title="Bug: crash in coverage workflow",
+            labels=labels,
+        )
+
+        # Then
+        assert branch == "fix/issue-7-bug-crash-in-coverage-workflow"
+
     def test_creates_issue_branch_from_master_and_comments(self, monkeypatch) -> None:
         # Given
         requests: list[tuple[str, str, dict[str, Any] | None]] = []

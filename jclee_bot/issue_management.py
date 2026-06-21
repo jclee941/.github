@@ -44,7 +44,9 @@ def labels_for_issue(*, title: str, body: str | None) -> list[str]:
 def label_names(labels: Iterable[Any]) -> set[str]:
     names: set[str] = set()
     for label in labels:
-        if isinstance(label, Mapping):
+        if isinstance(label, str):
+            name = label
+        elif isinstance(label, Mapping):
             name = label.get("name")
         else:
             name = getattr(label, "name", None)
