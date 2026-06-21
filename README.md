@@ -110,7 +110,6 @@ All AI inference is routed through the homelab CLIProxyAPI deployment, enabling 
 
 - **Repo Review Batch** (`40_repo-review-batch.yml`): Batch repository review
 - **Branch to PR** (`01_branch-to-pr.yml`): Branch-to-PR conversion automation
-- **Issue to Branch** (`02_issue-to-branch.yml`): Manual issue branch fallback
 - **Merged PR Cleanup** (`15_merged-pr-cleanup.yml`): Post-merge cleanup
 - **Dependabot Auto Merge** (`12_dependabot-auto-merge.yml`): Automated dependency updates
 - **Sanity Check** (`90_sanity.yml`): Fork CI gate
@@ -192,14 +191,13 @@ flow TB
 
 ## Automation Inventory | 자동화 인벤토리
 
-### GitHub Workflows 33 total | GitHub 워크플로우 33개
+### GitHub Workflows 32 total | GitHub 워크플로우 32개
 
-#### PR/Branch Automation (3)
+#### PR/Branch Automation (2)
 
 | Workflow File | Trigger | Description |
 |---------------|---------|-------------|
 | `01_branch-to-pr.yml` | push, manual | Convert feature branches to PRs automatically |
-| `02_issue-to-branch.yml` | manual | Manual issue branch fallback |
 | `15_merged-pr-cleanup.yml` | pull_request, manual | Clean up branches after PR merge |
 
 #### PR Quality & Security (0) — moved to the jclee-bot GitHub App
@@ -318,9 +316,8 @@ All tools are invoked via `(cd scripts && go run ./cmd/<tool-name>)`.
 ```
 github-bot/
 ├── .github/
-│   ├── workflows/              # GitHub Actions workflows (33 files)
+│   ├── workflows/              # GitHub Actions workflows (32 files)
 │   │   ├── 01_branch-to-pr.yml
-│   │   ├── 02_issue-to-branch.yml
 │   │   ├── 10_pr-review.yml
 │   │   ├── 12_dependabot-auto-merge.yml
 │   │   ├── 13_pr-auto-merge.yml
