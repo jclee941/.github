@@ -183,7 +183,7 @@ func TestRulesetConditions(t *testing.T) {
 		t.Errorf("len(Conditions.RefName.Include) = %d, want 1", len(payload.Conditions.RefName.Include))
 	}
 
-	if payload.Conditions.RefName.Include[0] != "~DEFAULT_BRANCH" {
-		t.Errorf("Conditions.RefName.Include[0] = %q, want %q", payload.Conditions.RefName.Include[0], "~DEFAULT_BRANCH")
+	if payload.Conditions.RefName.Include[0] != "refs/heads/master" {
+		t.Errorf("Conditions.RefName.Include[0] = %q, want %q", payload.Conditions.RefName.Include[0], "refs/heads/master")
 	}
 }

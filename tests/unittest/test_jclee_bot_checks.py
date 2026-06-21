@@ -84,6 +84,18 @@ class TestPrMetadata:
 
         assert r.conclusion == "success"
 
+    def test_dependabot_lockfile_update_ignores_size_limit(self):
+        r = pr_metadata.run(
+            title="chore(deps): bump undici and wrangler",
+            head_ref="dependabot/npm_and_yarn/worker/undici-and-wrangler",
+            base_ref="master",
+            changed_files=["worker/package.json", "worker/package-lock.json"],
+            additions=588,
+            deletions=55,
+        )
+
+        assert r.conclusion == "success"
+
     def test_sensitive_file_fails(self):
         r = pr_metadata.run(
             title="feat: add config",

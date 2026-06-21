@@ -14,6 +14,7 @@ from jclee_bot import github_checks, issue_maintenance
 
 GITHUB_API = "https://api.github.com"
 BRANCH = "bot/auto-readme-update"
+TARGET_BRANCH = "master"
 TITLE = "docs: auto-update README.md"
 BODY = "Automated README.md update by jclee-bot App."
 
@@ -89,7 +90,7 @@ def render_readme(repo_path: Path) -> str:
 
 def ensure_readme_commit(*, token: str, repo: dict[str, Any], dry_run: bool) -> dict[str, Any]:
     repo_full_name = str(repo.get("full_name", ""))
-    default_branch = str(repo.get("default_branch") or "master")
+    default_branch = TARGET_BRANCH
     if not repo_full_name:
         return {"repo": repo_full_name, "changed": False, "error": "missing repo name"}
 

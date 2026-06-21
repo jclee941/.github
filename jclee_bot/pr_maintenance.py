@@ -18,7 +18,7 @@ ACTIVE_RUN_STATUSES = ("queued", "in_progress", "requested", "waiting")
 FAILED_PR_STALE_HOURS = 1
 PENDING_PR_STALE_HOURS = 2
 ACTIVE_RUN_STALE_MINUTES = 30
-PROTECTED_BRANCHES = frozenset({"main", "master"})
+PROTECTED_BRANCHES = frozenset({"master"})
 PR_CLEANUP_MESSAGE = (
     "jclee-bot 자동 유지보수: 오래된 자동화 PR이 실패/대기 상태로 남아 있어 닫습니다.\n\n"
     "필요한 변경이면 최신 기준에서 자동화가 다시 생성합니다."

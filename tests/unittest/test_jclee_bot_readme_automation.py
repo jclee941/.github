@@ -249,6 +249,35 @@ def test_readme_automation_sanitizes_git_clone_failure(monkeypatch):
     assert "x-access-token" not in str(result)
 
 
+def test_readme_automation_targets_master_when_repo_default_branch_is_main(monkeypatch, tmp_path):
+    seen: dict[str, str] = {}
+
+    def fake_clone_repo(**kwargs):
+        seen["clone_branch"] = kwargs["default_branch"]
+        repo_path = tmp_path / "repo"
+        repo_path.mkdir()
+        (repo_path / "README.md").write_text("old\n", encoding="utf-8")
+        return repo_path
+
+    monkeypatch.setattr(readme_runner, "clone_repo", fake_clone_repo)
+    monkeypatch.setattr(readme_runner, "render_readme", lambda _repo_path: "new\n")
+    monkeypatch.setattr(readme_runner, "_run_git", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        readme_runner,
+        "upsert_pr",
+        lambda **kwargs: seen.setdefault("pr_base", kwargs["default_branch"]) or 7,
+    )
+
+    result = readme_runner.ensure_readme_commit(
+        token="tok",
+        repo={"full_name": "jclee941/bug", "default_branch": "main"},
+        dry_run=False,
+    )
+
+    assert result["changed"] is True
+    assert seen == {"clone_branch": "master", "pr_base": "master"}
+
+
 def test_readme_automation_reports_missing_contents_permission(monkeypatch):
     monkeypatch.setattr(readme_runner.issue_maintenance, "managed_repo_names", lambda: {"propose"})
     monkeypatch.setattr(

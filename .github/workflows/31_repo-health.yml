@@ -2,7 +2,7 @@ name: Repository Health Check
 
 on:
   push:
-    branches: [master, main]
+    branches: [master]
     paths:
       - 'README.md'
       - 'CONTRIBUTING.md'

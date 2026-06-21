@@ -37,7 +37,6 @@ import (
 // rulesetPayload defines the ruleset to apply.
 // Enforcement: "active" | "disabled" | "evaluate"
 // Target: "branch" | "tag"
-// Conditions.ref_name.include supports: ~DEFAULT_BRANCH, ~ALL, ~ALL_PROTECTION_RULES
 const rulesetPayload = `{
 "name": "Default Branch Protection",
 "target": "branch",
@@ -51,7 +50,7 @@ const rulesetPayload = `{
   ],
 "conditions": {
 "ref_name": {
-"include": ["~DEFAULT_BRANCH"],
+"include": ["refs/heads/master"],
 "exclude": []
 }
 },
@@ -350,12 +349,12 @@ func deleteRulesetByName(repo, name string, dryRun bool) error {
 
 // rulesetPayloadStruct is used for JSON marshaling of the payload.
 type rulesetPayloadStruct struct {
-	Name           string              `json:"name"`
-	Target         string              `json:"target"`
-	Enforcement    string              `json:"enforcement"`
-	BypassActors   []any               `json:"bypass_actors"`
-	Conditions     rulesetConditions   `json:"conditions"`
-	Rules          []rulesetRule       `json:"rules"`
+	Name         string            `json:"name"`
+	Target       string            `json:"target"`
+	Enforcement  string            `json:"enforcement"`
+	BypassActors []any             `json:"bypass_actors"`
+	Conditions   rulesetConditions `json:"conditions"`
+	Rules        []rulesetRule     `json:"rules"`
 }
 
 type rulesetConditions struct {

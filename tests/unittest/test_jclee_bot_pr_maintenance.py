@@ -127,6 +127,22 @@ class TestPullRequestMaintenanceDecisions:
         assert old_plan.reason == "pending-checks"
         assert fresh_plan is None
 
+    def test_only_master_is_protected_from_branch_deletion(self) -> None:
+        # Given
+        master_pr = _pr(number=41, head_ref="master", updated_hours_ago=2)
+        main_pr = _pr(number=42, head_ref="main", updated_hours_ago=2)
+        checks = pr_maintenance.CheckSummary(failed=("build",), pending=())
+
+        # When
+        master_plan = pr_maintenance.plan_pr_cleanup(master_pr, checks=checks, repo_full_name="jclee941/propose", now=NOW)
+        main_plan = pr_maintenance.plan_pr_cleanup(main_pr, checks=checks, repo_full_name="jclee941/propose", now=NOW)
+
+        # Then
+        assert master_plan is not None
+        assert master_plan.can_delete_branch is False
+        assert main_plan is not None
+        assert main_plan.can_delete_branch is True
+
 
 class TestMaintainPullRequests:
     def test_dry_run_reports_pr_and_run_cleanup_without_mutating(self, monkeypatch) -> None:

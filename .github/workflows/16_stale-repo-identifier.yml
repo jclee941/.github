@@ -2,7 +2,7 @@ name: Stale Repository Identifier
 
 on:
   push:
-    branches: [master, main]
+    branches: [master]
   # NOTE: no `issues:` trigger — this workflow CREATES issues, which would
   # re-trigger it via GH_PAT (feedback loop). Driven by push + workflow_run.
   workflow_run:

@@ -50,6 +50,13 @@ def _retired_workflow_cleanup_pr(*, head_ref: str, changed_files: Sequence[str])
     )
 
 
+def _dependabot_lockfile_pr(*, head_ref: str, changed_files: Sequence[str]) -> bool:
+    if not head_ref.startswith("dependabot/"):
+        return False
+
+    return all(path.endswith(("package.json", "package-lock.json")) for path in changed_files)
+
+
 def run(
     *,
     title: str,
@@ -68,9 +75,10 @@ def run(
         )
 
     total_lines = additions + deletions
-    size_exempt = _readme_automation_pr(head_ref=head_ref, changed_files=changed_files) or _retired_workflow_cleanup_pr(
-        head_ref=head_ref,
-        changed_files=changed_files,
+    size_exempt = (
+        _readme_automation_pr(head_ref=head_ref, changed_files=changed_files)
+        or _retired_workflow_cleanup_pr(head_ref=head_ref, changed_files=changed_files)
+        or _dependabot_lockfile_pr(head_ref=head_ref, changed_files=changed_files)
     )
     if not size_exempt and (
         total_lines > _MAX_CHANGED_LINES or len(changed_files) > _MAX_CHANGED_FILES

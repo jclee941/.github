@@ -3,7 +3,7 @@ name: Merged PR Cleanup
 # When a PR is merged:
 #   - close any linked issues (Closes/Fixes/Resolves keyword OR
 #     branch-name issue-N pattern)
-#   - delete the source branch (unless it's master/main/release/*)
+#   - delete the source branch (unless it's master/release/*)
 # Best-effort: missing branch / closed issue → warning, not failure.
 
 on:
@@ -149,7 +149,7 @@ jobs:
           set -eu
           # Skip protected branches.
           case "$HEAD_REF" in
-            master|main|develop|release|release/*)
+            master|develop|release|release/*)
               echo "::notice::Refusing to delete protected branch: $HEAD_REF"
               exit 0 ;;
           esac

@@ -5,7 +5,7 @@ name: Pages Deploy
 
 on:
   push:
-    branches: [master, main]
+    branches: [master]
     paths:
       - 'docs/**'
       - 'README.md'
