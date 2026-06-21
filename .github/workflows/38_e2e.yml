@@ -2,7 +2,7 @@ name: E2E Tests
 
 on:
   push:
-    branches: [master, main]
+    branches: [master]
   pull_request:
 
 permissions:
@@ -44,8 +44,8 @@ jobs:
         env:
           LITELLM_LOCAL_MODEL_COST_MAP: "true"
           GITHUB__WEBHOOK_SECRET: "false"
-          OPENAI__KEY: "test-key"
-          OPENAI__API_BASE: "http://localhost:8317/v1"
+          OPENAI.KEY: "test-key"
+          OPENAI.API_BASE: "http://localhost:8317/v1"
         run: |
           PYTHONPATH=. pytest tests/e2e/ -v --tb=short
 

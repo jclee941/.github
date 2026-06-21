@@ -17,14 +17,18 @@ import json
 import os
 import subprocess  # noqa: S404 - fixed-arg git checkout of the PR head
 import tempfile
+from functools import partial
 from typing import Any
 
 from fastapi import Request, Response
 
-from jclee_bot import dispatch, github_checks
+from jclee_bot import dispatch, github_checks, issue_maintenance, issue_management
+from jclee_bot.readme_automation import router as readme_automation_router
 
 # Reuse the upstream app object so its middleware + all routes are preserved.
 from pr_agent.servers.github_app import app
+
+app.include_router(readme_automation_router)
 
 GITHUB_API = "https://api.github.com"
 
@@ -98,8 +102,13 @@ def _checkout_pr_head(token: str, repo_full_name: str, head_sha: str, workspace:
 # Which checks depend on which fetched context. If that context could not be
 # obtained, the check must report NEUTRAL (not success) so we never publish a
 # misleading green (e.g. a passing secret-scan that scanned nothing).
-_NEEDS_CHECKOUT = {"jclee-bot / secret-scan", "jclee-bot / actionlint"}
-_NEEDS_CHANGED_FILES = {"jclee-bot / pr-metadata", "jclee-bot / actionlint"}
+_NEEDS_CHECKOUT = {"jclee-bot / secret-scan", "jclee-bot / actionlint", "jclee-bot / docs-policy"}
+_NEEDS_CHANGED_FILES = {
+    "jclee-bot / pr-metadata",
+    "jclee-bot / secret-scan",
+    "jclee-bot / actionlint",
+    "jclee-bot / docs-policy",
+}
 
 
 def _neutralize_on_missing_context(results, *, files_ok: bool, checkout_ok: bool):
@@ -186,6 +195,44 @@ def _run_checks_for_payload(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _run_issue_management_for_payload(payload: dict[str, Any], event: str) -> dict[str, Any]:
+    installation_id = payload.get("installation", {}).get("id", 0)
+    try:
+        token = _installation_token(installation_id)
+    except Exception:  # noqa: BLE001 - issue automation must not break webhooks
+        token = None
+    if not token:
+        return {"actions": []}
+    try:
+        return issue_management.handle_issue_event(token=token, payload=payload, event=event)
+    except Exception:  # noqa: BLE001 - one failed issue action must not break reviews/checks
+        return {"actions": []}
+
+
+def _issue_event_signature_ok(secret: str, payload: bytes, signature: str | None) -> bool:
+    if not secret:
+        return False
+    return _verify_signature(secret, payload, signature)
+
+
+def _run_app_issue_maintenance(*, app_id: str, private_key: str, owner: str, dry_run: bool) -> dict[str, Any]:
+    try:
+        return issue_maintenance.run_app_maintenance(
+            app_id=app_id,
+            private_key=private_key,
+            owner=owner,
+            dry_run=dry_run,
+        )
+    except Exception:  # noqa: BLE001 - background maintenance must not crash the App worker
+        return {"dry_run": dry_run, "repositories": [], "error": "issue maintenance failed"}
+
+
+def _bearer_token_ok(expected: str, authorization: str | None) -> bool:
+    if not expected or not authorization or not authorization.startswith("Bearer "):
+        return False
+    return hmac.compare_digest(expected, authorization.removeprefix("Bearer ").strip())
+
+
 @app.middleware("http")
 async def _tee_pull_request_to_checks(request: Request, call_next):
     """GitHub Apps have a SINGLE webhook URL. Tee pull_request events delivered
@@ -197,10 +244,12 @@ async def _tee_pull_request_to_checks(request: Request, call_next):
         event = request.headers.get("X-GitHub-Event", "")
         secret = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
         sig = request.headers.get("X-Hub-Signature-256")
-        if event == "pull_request" and _verify_signature(secret, raw, sig):
+        pull_request_ok = event == "pull_request" and _verify_signature(secret, raw, sig)
+        issue_event_ok = event in {"issues", "issue_comment"} and _issue_event_signature_ok(secret, raw, sig)
+        if pull_request_ok or issue_event_ok:
             try:
                 payload = json.loads(raw or b"{}")
-                if payload.get("action") in dispatch.PR_ACTIONS:
+                if event == "pull_request" and payload.get("action") in dispatch.PR_ACTIONS:
                     # Run the (blocking: git fetch + gitleaks + actionlint +
                     # Checks API) work in a background thread so the upstream
                     # webhook is acknowledged promptly and GitHub does not retry.
@@ -209,9 +258,42 @@ async def _tee_pull_request_to_checks(request: Request, call_next):
                     asyncio.get_event_loop().run_in_executor(
                         None, _run_checks_for_payload, payload
                     )
+                elif event in {"issues", "issue_comment"}:
+                    import asyncio
+
+                    asyncio.get_event_loop().run_in_executor(
+                        None, _run_issue_management_for_payload, payload, event
+                    )
             except Exception:  # noqa: BLE001 - checks must never break the review path
                 pass
     return await call_next(request)
+
+
+@app.post("/api/v1/issue_maintenance")
+async def issue_maintenance_webhook(request: Request, response: Response) -> dict[str, Any]:
+    expected = os.environ.get("ISSUE_MAINTENANCE_TOKEN", "")
+    if not _bearer_token_ok(expected, request.headers.get("Authorization")):
+        response.status_code = 401
+        return {"error": "invalid token"}
+
+    app_id = os.environ.get("GITHUB_APP_ID", "")
+    private_key = os.environ.get("GITHUB_PRIVATE_KEY", "")
+    if not app_id or not private_key:
+        response.status_code = 503
+        return {"error": "github app credentials unavailable"}
+
+    payload = json.loads(await request.body() or b"{}")
+    dry_run = bool(payload.get("dry_run", False))
+    owner = str(payload.get("owner") or "jclee941")
+    if payload.get("background", True):
+        import asyncio
+
+        asyncio.get_event_loop().run_in_executor(
+            None,
+            partial(_run_app_issue_maintenance, app_id=app_id, private_key=private_key, owner=owner, dry_run=dry_run),
+        )
+        return {"accepted": True, "dry_run": dry_run, "owner": owner}
+    return _run_app_issue_maintenance(app_id=app_id, private_key=private_key, owner=owner, dry_run=dry_run)
 
 
 @app.post("/api/v1/checks_webhook")

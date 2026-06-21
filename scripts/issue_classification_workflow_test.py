@@ -11,6 +11,14 @@ see, and that a prior review flagged as defects:
     preceded by an `ensureLabel` helper (the labels may not exist in a repo).
   * the merged-PR job must NOT unconditionally skip already-closed issues (GitHub
     auto-closes Closes/Fixes/Resolves #N on merge; we still label + comment them).
+  * downstream repos must load the classifier from the central jclee-bot source
+    checkout, not from a local `.github/scripts` file that is not deployed.
+  * issue classification must not depend on private self-hosted runner
+    availability; it is lightweight GitHub API automation and should run on
+    GitHub-hosted runners in every downstream repo.
+  * downstream issue classification must use composite actions from the central
+    source checkout, because managed repos are not required to carry local
+    `.github/actions` copies.
 """
 from __future__ import annotations
 
@@ -56,6 +64,28 @@ def test_every_resolved_addlabels_has_ensurelabel():
         "each resolved-label addLabels site must call ensureLabel('resolved', ...)"
     )
     assert "ensureLabel('duplicate'" in text, "duplicate job must ensureLabel too"
+
+
+def test_classifier_loaded_from_central_source_checkout():
+    text = load_text()
+    assert text.count("repository: jclee941/.github") == 4
+    assert text.count("path: .jclee-bot-source") == 4
+    assert "'.github/scripts/issue-classifier.cjs'" not in text
+    assert text.count("'.jclee-bot-source/.github/scripts/issue-classifier.cjs'") == 4
+
+
+def test_issue_classification_uses_github_hosted_runners():
+    text = load_text()
+    assert "github.repository_visibility == 'private' && 'self-hosted'" not in text
+    assert text.count("runs-on: ubuntu-latest") == 4
+
+
+def test_composite_actions_loaded_from_central_source_checkout():
+    text = load_text()
+    assert "uses: ./.github/actions/setup-python-compatible" not in text
+    assert "uses: ./.github/actions/notify-on-failure" not in text
+    assert text.count("uses: ./.jclee-bot-source/.github/actions/setup-python-compatible") == 2
+    assert text.count("uses: ./.jclee-bot-source/.github/actions/notify-on-failure") == 4
 
 
 def _merged_pr_job_script(text: str) -> str:

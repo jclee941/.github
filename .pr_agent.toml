@@ -7,33 +7,30 @@
 # [config] — Core LLM & Behavior Settings
 # ---------------------------------------------------------------------------
 [config]
-# FORK: route all LLM calls through the DIRECT MiniMax API (OpenAI-compatible).
-# Endpoint: https://api.minimax.io/v1  (key: MINIMAX_API_KEY, from 1Password)
-# Available MiniMax models: MiniMax-M3 (primary), MiniMax-M2.7, M2.5, M2.1, M2.
+# FORK: route all LLM calls through homelab CLIProxyAPI.
+# Public endpoint: https://cliproxy.jclee.me/v1
 # Default below is used by the GitHub App. The PR review workflow
-# (.github/workflows/10_pr-review.yml) runs a single-model matrix [MiniMax-M3]
-# with max-parallel 1 (MiniMax rate-limit guard).
-model = "MiniMax-M3"
-fallback_models = ["MiniMax-M3"]
-custom_model_max_tokens = 1000000  # MiniMax-M3 supports a 1M-token context window
-max_model_tokens = 1000000  # do not cap MiniMax-M3 below its 1M context
+# (.github/workflows/10_pr-review.yml) runs gpt-5.5; pr-agent falls back to
+# minimax-m3 through CLIProxy if the primary fails.
+model = "gpt-5.5"
+fallback_models = ["minimax-m3"]
+custom_model_max_tokens = 128000
+max_model_tokens = 128000
 ignore_pr_authors = ["dependabot\\[bot\\]"]  # FORK: skip Dependabot PRs (no linked issues, causes ticket compliance 404s)
 
 # Language: all bot responses in Korean
 response_language = "ko"
 
 # ---------------------------------------------------------------------------
-# [openai] — Direct MiniMax API (OpenAI-compatible)
+# [openai] — CLIProxyAPI Connection
 # ---------------------------------------------------------------------------
 [openai]
-# FORK: direct MiniMax OpenAI-compatible endpoint.
-# The api_key is NOT set here; use env var OPENAI_KEY (=MINIMAX_API_KEY) from GitHub Secrets or .env
-api_base = "https://api.minimax.io/v1"
-# FORK: provider-level fallback. If the primary api_base is unreachable
-# (connection refused / Cloudflare 524 / timeout), each model is retried
-# against these base URLs in order before moving to the next model.
-# Empty list = no provider fallback (original behavior). The fallback bases
-# must serve the same OpenAI-compatible API and accept the same api_key.
+# FORK: OpenAI-compatible CLIProxyAPI endpoint. This is the only provider base.
+# The api_key is NOT set here; use env var OPENAI_KEY from GitHub Secrets or .env.
+api_base = "https://cliproxy.jclee.me/v1"
+# FORK: provider/base fallback is intentionally disabled. If CLIProxyAPI is
+# unavailable, fail fast and let the existing model fallback chain run only
+# through the same CLIProxyAPI base.
 api_base_fallbacks = []
 
 # ---------------------------------------------------------------------------
@@ -114,6 +111,7 @@ pr_commands = [
 # Push trigger (commits pushed to open PR)
 handle_push_trigger = true
 push_commands = ["/improve"]
+push_trigger_second_review_model = "gpt-5.5"
 
 # ---------------------------------------------------------------------------
 # [github_action_config] — Supported PR Actions

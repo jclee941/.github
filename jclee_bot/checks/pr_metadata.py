@@ -40,6 +40,23 @@ def _sensitive(changed_files: Sequence[str]) -> list[str]:
     return hits
 
 
+def _readme_automation_pr(*, head_ref: str, changed_files: Sequence[str]) -> bool:
+    return head_ref == "bot/auto-readme-update" and set(changed_files) == {"README.md"}
+
+
+def _retired_workflow_cleanup_pr(*, head_ref: str, changed_files: Sequence[str]) -> bool:
+    return head_ref == "bot/remove-downstream-workflows" and all(
+        path.startswith(".github/workflows/") for path in changed_files
+    )
+
+
+def _dependabot_lockfile_pr(*, head_ref: str, changed_files: Sequence[str]) -> bool:
+    if not head_ref.startswith("dependabot/"):
+        return False
+
+    return all(path.endswith(("package.json", "package-lock.json")) for path in changed_files)
+
+
 def run(
     *,
     title: str,
@@ -58,7 +75,14 @@ def run(
         )
 
     total_lines = additions + deletions
-    if total_lines > _MAX_CHANGED_LINES or len(changed_files) > _MAX_CHANGED_FILES:
+    size_exempt = (
+        _readme_automation_pr(head_ref=head_ref, changed_files=changed_files)
+        or _retired_workflow_cleanup_pr(head_ref=head_ref, changed_files=changed_files)
+        or _dependabot_lockfile_pr(head_ref=head_ref, changed_files=changed_files)
+    )
+    if not size_exempt and (
+        total_lines > _MAX_CHANGED_LINES or len(changed_files) > _MAX_CHANGED_FILES
+    ):
         problems.append(
             f"PR size too large: {total_lines} changed LOC across "
             f"{len(changed_files)} files (limit {_MAX_CHANGED_LINES} LOC / "

@@ -9,7 +9,6 @@ client-side, and emits an index.html linking all documents. Managed by jclee-bot
 from __future__ import annotations
 
 import html
-import os
 import pathlib
 import re
 import shutil

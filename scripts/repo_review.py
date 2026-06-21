@@ -89,7 +89,7 @@ def configure_pr_agent(model: str, response_language: str, review_path: str) -> 
     s.set("CONFIG.git_provider", "local")
     s.set("CONFIG.publish_output", True)
     s.set("CONFIG.model", model)
-    s.set("CONFIG.fallback_models", ["minimax-m2.7", "gpt-5.5"])
+    s.set("CONFIG.fallback_models", ["minimax-m3"])
     s.set("CONFIG.response_language", response_language)
     s.set("CONFIG.ai_timeout", 180)
     s.set("CONFIG.custom_model_max_tokens", 128000)
@@ -133,7 +133,7 @@ def main() -> int:
         "--since-commits", type=int, default=50, help="Commits back from HEAD to use as base (root if smaller)"
     )
     parser.add_argument("--diff-size-limit", type=int, default=100_000, help="Skip if diff exceeds this many chars")
-    parser.add_argument("--model", default="minimax-m2.7")
+    parser.add_argument("--model", default="gpt-5.5")
     parser.add_argument("--response-language", default="ko")
     args = parser.parse_args()
 

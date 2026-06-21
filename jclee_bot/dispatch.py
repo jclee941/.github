@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from jclee_bot.checks import CheckResult, actionlint_check, pr_metadata, secret_scan
+from jclee_bot.checks import CheckResult, actionlint_check, docs_policy, pr_metadata, secret_scan
 
 PR_ACTIONS = {"opened", "synchronize", "reopened", "ready_for_review"}
 _PR_ACTIONS = PR_ACTIONS  # backward-compat alias
@@ -44,7 +44,8 @@ def run_checks(
             additions=int(pr.get("additions", 0) or 0),
             deletions=int(pr.get("deletions", 0) or 0),
         ),
-        secret_scan.run(workspace=workspace),
+        secret_scan.run(workspace=workspace, changed_files=changed_files),
         actionlint_check.run(changed_files=changed_files, workspace=workspace),
+        docs_policy.run(changed_files=changed_files, workspace=workspace),
     ]
     return results

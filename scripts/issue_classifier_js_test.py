@@ -190,9 +190,11 @@ def test_short_generic_title_with_no_body_overlap_is_not_duplicate():
     cands = [{"number": 73, "title": "build failed again now",
               "body": "completely different eta theta iota kappa lambda mu"}]
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as a:
-        json.dump(new, a); pa = a.name
+        json.dump(new, a)
+        pa = a.name
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as b:
-        json.dump(cands, b); pb = b.name
+        json.dump(cands, b)
+        pb = b.name
     out = run_cli("--mode", "duplicate", "--issue", pa, "--candidates", pb)
     assert out["matches"] == [], f"short generic title w/ no body overlap must not dup: {out['matches']}"
 

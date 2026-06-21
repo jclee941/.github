@@ -8,174 +8,40 @@ Usage:
     python scripts/generate_readme.py [--dry-run]
 
 Environment:
-    MINIMAX_API_KEY  — API key for the direct MiniMax API (required)
-    OPENAI_BASE_URL  — MiniMax endpoint (default: https://api.minimax.io/v1)
+    CLIPROXY_API_KEY — API key for CLIProxyAPI (required)
+    CLIPROXY_API_KEY_OP_REF — optional 1Password secret ref used when key is unset
+    OPENAI_BASE_URL  — CLIProxyAPI endpoint (default: https://cliproxy.jclee.me/v1)
 """
 from __future__ import annotations
 
 import argparse
-import codecs
-import json
 import os
-import re
 import sys
 import time
-import urllib.error
-import urllib.request
 from pathlib import Path
 
-API_BASE = os.environ.get("OPENAI_BASE_URL", "https://api.minimax.io/v1")
-API_KEY = os.environ.get("MINIMAX_API_KEY", "") or os.environ.get("CLIPROXY_API_KEY", "")
-MODELS = ["MiniMax-M3"]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from cliproxy_client import (
+    CliproxyCredentialError,
+    CliproxyMessage,
+    cliproxy_chat_completion,
+    resolve_cliproxy_api_key,
+)
+from cliproxy_routing import route_models_by_quota
+from generate_readme_cleaning import normalize_llm_readme_response, redact_private_ips, sanitize_links
+from generate_readme_retry import TransientLLMError
+from generate_readme_retry import is_transient as _is_transient
+from generate_readme_scan import run_tree
+
+API_BASE = os.environ.get("OPENAI_BASE_URL", "https://cliproxy.jclee.me/v1")
+API_KEY = os.environ.get("CLIPROXY_API_KEY", "")
+MODELS = ["gpt-5.5", "minimax-m3"]
 MAX_TOKENS = 16000  # README is long; 4000 truncated the JSON mid-string
 
 # Backoff (seconds) between retry attempts for a single model on transient
 # backend errors (Cloudflare 524, 502/503, 429, connection/timeouts). The
 # length of this list determines the number of EXTRA attempts per model.
 _RETRY_BACKOFF_SECONDS = [2, 5, 10]
-# HTTP status codes that indicate a transient backend condition worth retrying.
-_TRANSIENT_HTTP_CODES = {429, 500, 502, 503, 504, 520, 522, 524}
-
-
-class TransientLLMError(RuntimeError):
-    """Raised when every model+retry hit a transient backend failure. The
-    caller can catch this to degrade gracefully (skip the README update)
-    instead of hard-failing CI on a temporary LLM outage."""
-
-
-def _is_transient(error: Exception) -> bool:
-    """Classify whether an exception from the LLM call is transient/retryable."""
-    if isinstance(error, urllib.error.HTTPError):
-        return error.code in _TRANSIENT_HTTP_CODES
-    if isinstance(error, (urllib.error.URLError, TimeoutError, ConnectionError)):
-        return True
-    # Socket timeouts surface as OSError on some Python builds.
-    if isinstance(error, OSError):
-        return True
-    return False
-
-# Repos that actually exist under github.com/jclee941. Links to any OTHER
-# jclee941 repo are LLM hallucinations (e.g. jclee941/CLIProxyAPI,
-# jclee941/github-bot) that 404 and fail the docs-sync link-check.
-_KNOWN_JCLEE_REPOS = {
-    ".github", "account", "ai-dacon", "blacklist", "bug", "firewall",
-    "hycu", "hycu_fsds", "idle-outpost", "jclee941", "learnprint",
-    "opencode", "propose", "pr-agent", "resume", "safetywallet",
-    "splunk", "terraform", "tmux", "youtube",
-}
-
-
-def normalize_llm_readme_response(text: str) -> str:
-    """Strip LLM artifacts so only clean Markdown reaches README.md.
-
-    Models (kimi/minimax/gpt via CLIProxyAPI) sometimes emit a <think>...</think>
-    reasoning block and/or wrap the whole README in a fenced JSON object
-    {"content": "..."} (which truncates mid-string at max_tokens). Without this,
-    README.md is published with leaked reasoning and an escaped JSON string
-    instead of real Markdown."""
-    if not text:
-        return text
-    s = text
-    # 1. Remove <think>/<thinking> reasoning blocks.
-    s = re.sub(r"<(think|thinking)\b[^>]*>.*?</\1>", "", s, flags=re.DOTALL | re.IGNORECASE)
-    s = s.strip()
-    # 2. Strip an opening code fence (```json / ```markdown). Handle BOTH closed
-    #    fences and unclosed ones (truncated output that hit max_tokens).
-    s = re.sub(r"^```[a-zA-Z0-9]*\s*\n", "", s)
-    s = re.sub(r"\n```\s*$", "", s).strip()
-    # 3. If the body is (or starts as) a JSON object with a string 'content'
-    #    field, unwrap it. Covers complete and truncated JSON.
-    if s.startswith("{") and '"content"' in s:
-        try:
-            obj = json.loads(s)
-            if isinstance(obj, dict) and isinstance(obj.get("content"), str):
-                s = obj["content"].strip()
-        except (json.JSONDecodeError, ValueError):
-            # Truncated/incomplete JSON (response hit max_tokens mid-string).
-            mcontent = re.search(r'"content"\s*:\s*"', s)
-            if mcontent:
-                body = s[mcontent.end():]
-                body = re.sub(r'"\s*\}\s*$', "", body)
-                try:
-                    s = json.loads('"' + body + '"')
-                except (json.JSONDecodeError, ValueError):
-                    # Truncated output may end mid backslash escape; drop
-                    # undecodable tail bytes rather than crashing the run.
-                    s = codecs.decode(body.encode(), "unicode_escape", errors="ignore")
-                s = s.strip()
-    # 4. Unwrap a trailing markdown fence if the content itself is fenced.
-    fence2 = re.match(r"^```[a-zA-Z0-9]*\s*\n(.*)\n```\s*$", s, flags=re.DOTALL)
-    if fence2:
-        s = fence2.group(1).strip()
-    # 5. Drop empty-link wrappers around badges: [![alt](img)](#) -> ![alt](img).
-    #    The placeholder '(#)' fails markdownlint MD042 (no-empty-links).
-    s = re.sub(r"\[(!\[[^\]]*\]\([^)]*\))\]\(#\)", r"\1", s)
-    return s
-
-
-def sanitize_links(text: str) -> str:
-    """Rewrite links to non-existent github.com/jclee941/<repo> URLs (LLM
-    hallucinations such as jclee941/CLIProxyAPI or jclee941/github-bot) to the
-    canonical source repo so they no longer 404 in the docs-sync link-check.
-
-    Operates on the bare URL, so it works for plain links, badges (nested
-    brackets), and raw URLs alike. Real jclee941 repos and any non-jclee941
-    link (e.g. qodo-ai/pr-agent) are left untouched."""
-    canonical = "https://github.com/jclee941/.github"
-    url_re = re.compile(r"https?://(?:www\.)?github\.com/jclee941/([A-Za-z0-9._-]+)")
-
-    def _replace(m: re.Match) -> str:
-        repo = m.group(1)
-        if repo in _KNOWN_JCLEE_REPOS:
-            return m.group(0)  # real repo, keep the URL
-        return canonical  # hallucinated repo, rewrite to the canonical repo
-
-    return url_re.sub(_replace, text)
-
-
-def redact_private_ips(text: str) -> str:
-    """Replace any RFC1918 private IP (with optional :port) in generated README
-    text with placeholders, so internal homelab addresses never leak even if the
-    LLM ignores the system prompt. Public IPs are left untouched."""
-    ip_re = re.compile(r"\b(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(:\d+)?\b")
-
-    def _is_private(o1: int, o2: int, o3: int, o4: int) -> bool:
-        if any(o > 255 for o in (o1, o2, o3, o4)):
-            return False
-        if o1 == 10:
-            return True
-        if o1 == 172 and 16 <= o2 <= 31:
-            return True
-        if o1 == 192 and o2 == 168:
-            return True
-        return False
-
-    def _replace(m: re.Match) -> str:
-        octets = tuple(int(m.group(i)) for i in range(1, 5))
-        if not _is_private(*octets):
-            return m.group(0)
-        port = m.group(5) or ""
-        return f"<homelab-host>{port}"
-
-    return ip_re.sub(_replace, text)
-
-
-def run_tree(repo_root: Path) -> str:
-    """Return a `tree`-like representation of the repo, excluding noise."""
-    ignore = {".git", ".github", "node_modules", "venv", ".venv", "__pycache__", ".cache", "dist", "build"}
-    lines = []
-    for root, dirs, files in os.walk(repo_root):
-        dirs[:] = [d for d in dirs if d not in ignore and not d.startswith(".")]
-        level = root.replace(str(repo_root), "").count(os.sep)
-        indent = "  " * level
-        rel = Path(root).relative_to(repo_root)
-        lines.append(f"{indent}{rel.name}/")
-        subindent = "  " * (level + 1)
-        for f in sorted(files):
-            if f.startswith(".") or f.endswith((".pyc", ".log")):
-                continue
-            lines.append(f"{subindent}{f}")
-    return "\n".join(lines[:100])  # cap size
 
 
 def read_key_files(repo_root: Path) -> dict[str, str]:
@@ -210,43 +76,37 @@ def call_llm(system: str, user: str) -> str:
     TransientLLMError so the caller can degrade gracefully. A non-transient
     error (bad request, auth) still raises SystemExit immediately.
     """
-    if not API_KEY:
-        raise SystemExit("ERROR: MINIMAX_API_KEY environment variable is required.")
+    try:
+        api_key = API_KEY or resolve_cliproxy_api_key()
+    except CliproxyCredentialError as exc:
+        raise SystemExit(f"ERROR: {exc}") from exc
 
     last_error = None
     all_transient = True
-    for model in MODELS:
-        payload = {
-            "model": model,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            "max_tokens": MAX_TOKENS,
-            "temperature": 0.3,
-        }
-        req = urllib.request.Request(
-            f"{API_BASE}/chat/completions",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {API_KEY}",
-            },
-            method="POST",
-        )
+    messages = [
+        CliproxyMessage(role="system", content=system),
+        CliproxyMessage(role="user", content=user),
+    ]
+    for model in route_models_by_quota(MODELS):
         # attempt 0 = initial try; subsequent attempts use the backoff list.
         for attempt in range(len(_RETRY_BACKOFF_SECONDS) + 1):
             try:
-                with urllib.request.urlopen(req, timeout=300) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
-                content = data["choices"][0]["message"]["content"]
+                content = cliproxy_chat_completion(
+                    model=model,
+                    messages=messages,
+                    api_key=api_key,
+                    base_url=API_BASE,
+                    max_tokens=MAX_TOKENS,
+                    temperature=0.3,
+                    timeout_seconds=300,
+                )
                 print(f"Generated with model: {model}")
                 return content
-            except Exception as e:  # noqa: BLE001 - boundary; classified below
-                last_error = e
-                transient = _is_transient(e)
+            except Exception as exc:  # noqa: BLE001 - boundary; classified below
+                last_error = exc
+                transient = _is_transient(exc)
                 all_transient = all_transient and transient
-                print(f"Model {model} attempt {attempt + 1} failed: {e}")
+                print(f"Model {model} attempt {attempt + 1} failed: {exc}")
                 if transient and attempt < len(_RETRY_BACKOFF_SECONDS):
                     delay = _RETRY_BACKOFF_SECONDS[attempt]
                     print(f"  transient error; retrying in {delay}s")
@@ -298,7 +158,7 @@ def generate_readme(repo_root: Path) -> str:
         "commands reference, and contribution guide. "
         "Be specific about what automation exists - list workflow names and tool names. "
         "When listing workflow files, use their REAL on-disk names including the numeric "
-        "prefix (e.g. 10_pr-review.yml, 03_pr-checks.yml, 90_sanity.yml); never strip the "
+        "prefix (e.g. 10_pr-review.yml, 13_pr-auto-merge.yml, 90_sanity.yml); never strip the "
         "prefix and never invent bare names. "
         "For the architecture section, draw the diagram as a GitHub-native Mermaid "
         "flowchart inside a ```mermaid fenced block. Do NOT hand-draw ASCII/box-drawing "
@@ -316,7 +176,7 @@ def generate_readme(repo_root: Path) -> str:
         "<homelab-host> / <homelab-elk> and the public endpoint https://cliproxy.jclee.me/v1 instead. "
         "Do NOT use bold/emphasis text as a substitute for a heading (markdownlint MD036); "
         "use real '#' headings. "
-        "Current README-gen model: minimax-m2.7 (via CLIProxyAPI). "
+        "Current README-gen primary model: gpt-5.5 (fallback: minimax-m3 via CLIProxyAPI). "
         "Do NOT invent GitHub repository URLs: never link to non-existent repos such as "
         "github.com/jclee941/CLIProxyAPI or github.com/jclee941/github-bot. For external "
         "links use only qodo-ai/pr-agent, cliproxy.jclee.me, and bot.jclee.me. "

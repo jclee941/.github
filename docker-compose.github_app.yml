@@ -8,6 +8,7 @@
 #   GITHUB_APP_ID=...
 #   GITHUB_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
 #   GITHUB_WEBHOOK_SECRET=...
+#   ISSUE_MAINTENANCE_TOKEN=...
 #   CLIPROXY_API_KEY=sk-cliproxy-github-bot-...
 services:
   github-bot-app:
@@ -24,12 +25,24 @@ services:
       GITHUB.APP_ID: "${GITHUB_APP_ID}"
       GITHUB.PRIVATE_KEY: "${GITHUB_PRIVATE_KEY}"
       GITHUB.WEBHOOK_SECRET: "${GITHUB_WEBHOOK_SECRET}"
+      ISSUE_MAINTENANCE_TOKEN: "${ISSUE_MAINTENANCE_TOKEN}"
 
-      # Direct MiniMax API (OpenAI-compatible, public endpoint)
-      OPENAI.KEY: "${MINIMAX_API_KEY}"
-      OPENAI.API_BASE: https://api.minimax.io/v1
-      CONFIG.MODEL: MiniMax-M3
-      CONFIG.CUSTOM_MODEL_MAX_TOKENS: "1000000"
+      # CLIProxyAPI (OpenAI-compatible homelab gateway)
+      CLIPROXY_API_KEY: "${CLIPROXY_API_KEY}"
+      OPENAI_BASE_URL: http://cliproxyapi:8317/v1
+      CLIPROXY_MANAGEMENT_URL: "${CLIPROXY_MANAGEMENT_INTERNAL_URL:-http://cliproxyapi:8317/v0/management}"
+      CLIPROXY_MANAGEMENT_KEY: "${CLIPROXY_MANAGEMENT_KEY:-}"
+      CLIPROXY_MANAGEMENT_TLS_VERIFY: "${CLIPROXY_MANAGEMENT_TLS_VERIFY:-false}"
+      CLIPROXY_DYNAMIC_ROUTING: "${CLIPROXY_DYNAMIC_ROUTING:-true}"
+      CLIPROXY_ROUTE_FAILURE_THRESHOLD: "${CLIPROXY_ROUTE_FAILURE_THRESHOLD:-1}"
+      CLIPROXY_ROUTE_FAILURE_RATIO: "${CLIPROXY_ROUTE_FAILURE_RATIO:-0.5}"
+      CLIPROXY_ROUTE_RECENT_SUCCESS_LIMIT: "${CLIPROXY_ROUTE_RECENT_SUCCESS_LIMIT:-0}"
+      README_AUTOMATION_JOB_DIR: /var/lib/jclee-bot/readme-jobs
+      OPENAI.KEY: "${CLIPROXY_API_KEY}"
+      OPENAI.API_BASE: http://cliproxyapi:8317/v1
+      CONFIG.MODEL: gpt-5.5
+      CONFIG.FALLBACK_MODELS: '["minimax-m3"]'
+      CONFIG.CUSTOM_MODEL_MAX_TOKENS: "128000"
       CONFIG.AI_TIMEOUT: "180"
       PR_REVIEWER.AUTO_CREATE_ISSUES: "true"
       PR_REVIEWER.AUTO_CREATE_ISSUE_LABELS: '["jclee-bot", "review-finding"]'
@@ -57,6 +70,8 @@ services:
 
     networks:
       - cliproxy_net
+    volumes:
+      - readme-job-state:/var/lib/jclee-bot/readme-jobs
 
   # Filebeat: ship logs to Elasticsearch
   filebeat:
@@ -122,3 +137,4 @@ networks:
 
 volumes:
   filebeat-data:
+  readme-job-state:

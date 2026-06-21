@@ -46,7 +46,22 @@ def result_from_gitleaks(*, findings: Sequence[dict], skipped: bool) -> CheckRes
     )
 
 
-def run(*, workspace: str, gitleaks_bin: str | None = None) -> CheckResult:
+def _copy_changed_files(*, workspace: Path, changed_files: Sequence[str], target: Path) -> None:
+    for relative in changed_files:
+        source = workspace / relative
+        if Path(relative).is_absolute() or ".." in Path(relative).parts or not source.is_file():
+            continue
+        destination = target / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+
+
+def run(
+    *,
+    workspace: str,
+    changed_files: Sequence[str] | None = None,
+    gitleaks_bin: str | None = None,
+) -> CheckResult:
     """Run gitleaks over ``workspace`` and return a CheckResult.
 
     Degrades to a neutral result if the gitleaks binary is unavailable, so a
@@ -56,20 +71,37 @@ def run(*, workspace: str, gitleaks_bin: str | None = None) -> CheckResult:
     if not binary:
         return result_from_gitleaks(findings=[], skipped=True)
 
-    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as rep:
-        report_path = rep.name
-    try:
-        subprocess.run(  # noqa: S603 - fixed args, trusted binary
-            [binary, "detect", "--source", workspace, "--no-banner",
-             "--report-format", "json", "--report-path", report_path, "--exit-code", "0"],
-            check=False,
-            capture_output=True,
-            timeout=120,
-        )
-        text = Path(report_path).read_text(encoding="utf-8") or "[]"
-        findings = json.loads(text)
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError):
-        return result_from_gitleaks(findings=[], skipped=True)
-    finally:
-        Path(report_path).unlink(missing_ok=True)
+    with tempfile.TemporaryDirectory() as scan_dir:
+        scan_root = Path(scan_dir) / "changed"
+        if changed_files is None:
+            scan_root = Path(workspace)
+        else:
+            _copy_changed_files(workspace=Path(workspace), changed_files=changed_files, target=scan_root)
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as rep:
+            report_path = rep.name
+        try:
+            subprocess.run(  # noqa: S603 - fixed args, trusted binary
+                [
+                    binary,
+                    "detect",
+                    "--source",
+                    str(scan_root),
+                    "--no-banner",
+                    "--report-format",
+                    "json",
+                    "--report-path",
+                    report_path,
+                    "--exit-code",
+                    "0",
+                ],
+                check=False,
+                capture_output=True,
+                timeout=120,
+            )
+            text = Path(report_path).read_text(encoding="utf-8") or "[]"
+            findings = json.loads(text)
+        except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError):
+            return result_from_gitleaks(findings=[], skipped=True)
+        finally:
+            Path(report_path).unlink(missing_ok=True)
     return result_from_gitleaks(findings=findings, skipped=False)

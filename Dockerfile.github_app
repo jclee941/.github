@@ -26,11 +26,19 @@ RUN pip install --no-cache-dir . \
 # Copy app source
 COPY pr_agent pr_agent
 COPY jclee_bot jclee_bot
+COPY scripts/*.py scripts/
+COPY config config
 COPY .pr_agent.toml ./
+
+ARG APP_VERSION=local
+ARG VCS_REF=unknown
+RUN printf '%s\n' "${APP_VERSION}" > pr_agent/build_number.txt
 
 ENV PYTHONPATH=/app \
     PORT=3000 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    APP_VERSION="${APP_VERSION}" \
+    GIT_SHA="${VCS_REF}"
 
 EXPOSE 3000
 

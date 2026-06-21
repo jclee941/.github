@@ -16,10 +16,9 @@
 /.pr_agent.toml                     @jclee941
 /pr_agent/settings/configuration.toml @jclee941
 
-# Security-sensitive
+# Security-sensitive App checks
 /.github/workflows/security/        @jclee941
-/.github/workflows/06_codeql.yml    @jclee941
-/.github/workflows/05_gitleaks.yml  @jclee941
+/jclee_bot/checks/                  @jclee941
 /.github/CODEOWNERS                 @jclee941
 
 # Docs / templates

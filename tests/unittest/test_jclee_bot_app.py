@@ -34,6 +34,7 @@ class TestDispatch:
         names = {r.name for r in results}
         assert "jclee-bot / pr-metadata" in names
         assert "jclee-bot / secret-scan" in names
+        assert "jclee-bot / docs-policy" in names
 
     def test_metadata_failure_propagates(self):
         results = dispatch.run_checks(
@@ -75,6 +76,12 @@ class TestWrapperApp:
 
         paths = {getattr(r, "path", None) for r in app.routes}
         assert "/api/v1/checks_webhook" in paths
+
+    def test_app_exposes_readme_automation_route(self):
+        from jclee_bot.app import app
+
+        paths = {getattr(r, "path", None) for r in app.routes}
+        assert "/api/v1/readme_automation" in paths
 
     def test_app_preserves_health_route(self):
         from jclee_bot.app import app
@@ -291,3 +298,4 @@ class TestChecksReporting:
         out = app_module._run_checks_for_payload(payload)
         by = {c["name"]: c["conclusion"] for c in out["checks"]}
         assert by["jclee-bot / pr-metadata"] == "neutral", "pr-metadata must be neutral when changed-files unavailable"
+        assert by["jclee-bot / secret-scan"] == "neutral", "secret-scan must be neutral when changed-files unavailable"

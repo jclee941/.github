@@ -10,6 +10,7 @@ Covers the Oracle-mandated safety contract:
 """
 from __future__ import annotations
 
+import importlib
 import json
 
 import llm_decide as m
@@ -105,7 +106,7 @@ def test_ci_auto_heal_command_must_be_in_allowlist():
 
 def test_fail_open_returns_deterministic_signal_for_non_destructive(monkeypatch):
     # Force the LLM call to raise (unreachable)
-    monkeypatch.setattr(m, "_call_minimax", lambda *a, **k: (_ for _ in ()).throw(m.LLMError("down")))
+    monkeypatch.setattr(m, "_call_llm", lambda *a, **k: (_ for _ in ()).throw(m.LLMError("down")))
     res = m.decide("issue-label", {"title": "x", "body": "y"})
     assert res["ok"] is False
     assert res["source"] == "fallback"
@@ -116,7 +117,7 @@ def test_fail_open_returns_deterministic_signal_for_non_destructive(monkeypatch)
 
 
 def test_fail_closed_for_destructive_on_llm_error(monkeypatch):
-    monkeypatch.setattr(m, "_call_minimax", lambda *a, **k: (_ for _ in ()).throw(m.LLMError("down")))
+    monkeypatch.setattr(m, "_call_llm", lambda *a, **k: (_ for _ in ()).throw(m.LLMError("down")))
     res = m.decide("ci-failure-close", {"workflow": "Gitleaks", "conclusion": "success"})
     assert res["ok"] is False
     assert res["action"] == "noop"          # fail closed: do nothing
@@ -124,7 +125,7 @@ def test_fail_closed_for_destructive_on_llm_error(monkeypatch):
 
 
 def test_malformed_llm_json_triggers_failsafe(monkeypatch):
-    monkeypatch.setattr(m, "_call_minimax", lambda *a, **k: "not json at all {{{")
+    monkeypatch.setattr(m, "_call_llm", lambda *a, **k: "not json at all {{{")
     res = m.decide("issue-label", {"title": "x", "body": "y"})
     assert res["ok"] is False and res["source"] == "fallback"
 
@@ -132,10 +133,38 @@ def test_malformed_llm_json_triggers_failsafe(monkeypatch):
 def test_kill_switch_disables_llm(monkeypatch):
     monkeypatch.setenv("LLM_DECISIONS_ENABLED", "false")
     called = {"n": 0}
-    monkeypatch.setattr(m, "_call_minimax", lambda *a, **k: called.__setitem__("n", called["n"] + 1) or "{}")
+    monkeypatch.setattr(m, "_call_llm", lambda *a, **k: called.__setitem__("n", called["n"] + 1) or "{}")
     res = m.decide("issue-label", {"title": "x"})
     assert called["n"] == 0  # LLM never called when disabled
     assert res["source"] == "fallback"
+
+
+def test_default_model_chain_uses_gpt55_then_m3(monkeypatch):
+    monkeypatch.delenv("LLM_DECISION_MODEL", raising=False)
+    monkeypatch.delenv("LLM_DECISION_FALLBACK_MODELS", raising=False)
+    reloaded = importlib.reload(m)
+
+    assert [reloaded.MODEL, *reloaded.FALLBACK_MODELS] == ["gpt-5.5", "minimax-m3"]
+
+
+def test_call_llm_falls_back_to_m3_after_primary_failure(monkeypatch):
+    monkeypatch.setattr(m, "API_KEY", "test-key")
+    monkeypatch.setattr(m, "MODEL", "gpt-5.5")
+    monkeypatch.setattr(m, "FALLBACK_MODELS", ["minimax-m3"])
+    monkeypatch.setattr(m, "_RETRY_BACKOFF_SECONDS", [])
+
+    requested_models = []
+
+    def fake_chat_completion(**kwargs):
+        requested_models.append(kwargs["model"])
+        if kwargs["model"] == "gpt-5.5":
+            raise ConnectionError("primary down")
+        return "ok"
+
+    monkeypatch.setattr(m, "cliproxy_chat_completion", fake_chat_completion)
+
+    assert m._call_llm("system", "user") == "ok"
+    assert requested_models == ["gpt-5.5", "minimax-m3"]
 
 
 # ---- happy path with mocked LLM -------------------------------------------
@@ -143,7 +172,7 @@ def test_kill_switch_disables_llm(monkeypatch):
 def test_decide_happy_path_label(monkeypatch):
     monkeypatch.setenv("LLM_DECISIONS_ENABLED", "true")
     payload = json.dumps(_good(decision="label", labels=["bug"], confidence=0.95))
-    monkeypatch.setattr(m, "_call_minimax", lambda *a, **k: payload)
+    monkeypatch.setattr(m, "_call_llm", lambda *a, **k: payload)
     res = m.decide("issue-label", {"title": "crash on save", "body": "stacktrace"})
     assert res["ok"] is True and res["source"] == "llm"
     assert res["labels"] == ["bug"]
@@ -153,20 +182,19 @@ def test_decide_happy_path_label(monkeypatch):
 def test_decide_strips_markdown_fence(monkeypatch):
     monkeypatch.setenv("LLM_DECISIONS_ENABLED", "true")
     fenced = "```json\n" + json.dumps(_good(decision="label", labels=["docs"])) + "\n```"
-    monkeypatch.setattr(m, "_call_minimax", lambda *a, **k: fenced)
+    monkeypatch.setattr(m, "_call_llm", lambda *a, **k: fenced)
     res = m.decide("issue-label", {"title": "update readme"})
     assert res["ok"] is True and res["labels"] == ["docs"]
 
 
 def test_decide_strips_thinking_block(monkeypatch):
-    # MiniMax-M3 has thinking ON by default and emits <think>...</think> before
-    # the JSON. The helper must extract the JSON object regardless.
+    # Thinking models can emit <think>...</think> before JSON.
     monkeypatch.setenv("LLM_DECISIONS_ENABLED", "true")
     thinky = (
         "<think>\nThe issue is clearly a bug. I will label it.\n</think>\n\n"
         + json.dumps(_good(decision="label", labels=["bug"], confidence=0.95))
     )
-    monkeypatch.setattr(m, "_call_minimax", lambda *a, **k: thinky)
+    monkeypatch.setattr(m, "_call_llm", lambda *a, **k: thinky)
     res = m.decide("issue-label", {"title": "crash"})
     assert res["ok"] is True, res
     assert res["labels"] == ["bug"]
@@ -176,7 +204,7 @@ def test_decide_extracts_json_with_prose_around(monkeypatch):
     # Even without <think> tags, a thinking model may wrap JSON in prose.
     monkeypatch.setenv("LLM_DECISIONS_ENABLED", "true")
     noisy = "Here is my decision:\n" + json.dumps(_good(decision="label", labels=["docs"])) + "\nDone."
-    monkeypatch.setattr(m, "_call_minimax", lambda *a, **k: noisy)
+    monkeypatch.setattr(m, "_call_llm", lambda *a, **k: noisy)
     res = m.decide("issue-label", {"title": "readme"})
     assert res["ok"] is True and res["labels"] == ["docs"]
 

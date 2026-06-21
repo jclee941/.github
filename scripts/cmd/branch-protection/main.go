@@ -9,8 +9,7 @@
 //
 // Behavior per repo:
 //  1. PATCH /repos/{r}  allow_auto_merge=true, delete_branch_on_merge=true
-//  2. GET   /repos/{r}  -> default_branch
-//  3. PUT   /repos/{r}/branches/{b}/protection  with safe defaults:
+//  2. PUT   /repos/{r}/branches/master/protection  with safe defaults:
 //     - required_status_checks: 2 contexts (see protectionPayload below):
 //     "jclee-bot / pr-metadata", "jclee-bot / secret-scan" (reported by the
 //     jclee-bot App Checks runner). Sanity is fork-only and excluded;
@@ -76,6 +75,8 @@ const protectionPayload = `{
   "lock_branch": false,
   "allow_fork_syncing": true
 }`
+
+const targetBranch = "master"
 
 type result struct {
 	repo   string
@@ -168,15 +169,8 @@ func protectRepo(repo string, dryRun bool) error {
 		return fmt.Errorf("patch repo settings: %w", err)
 	}
 
-	// Step 2: detect default branch
-	branch, err := defaultBranch(full)
-	if err != nil {
-		return fmt.Errorf("detect default branch: %w", err)
-	}
-
-	// Step 3: apply branch protection
-	if err := putBranchProtection(full, branch, dryRun); err != nil {
-		return fmt.Errorf("apply protection on %s: %w", branch, err)
+	if err := putBranchProtection(full, targetBranch, dryRun); err != nil {
+		return fmt.Errorf("apply protection on %s: %w", targetBranch, err)
 	}
 
 	return nil

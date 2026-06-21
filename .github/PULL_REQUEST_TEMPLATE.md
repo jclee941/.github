@@ -37,7 +37,7 @@ Branch / 브랜치: feat/* | fix/* | hotfix/* | docs/* | refactor/* | chore/* | 
 
 - [ ] Backward compatible / 후방 호환성 영향 없음
 - [ ] No security impact / 보안 영향 없음 (if yes, add `security-review` label)
-- [ ] Downstream sync required / 다운스트림 동기화 필요 (`.github/workflows` 변경 시)
+- [ ] App automation impact reviewed / jclee-bot App 자동화 영향 검토 완료
 
 ## Checklist / 체크리스트
 

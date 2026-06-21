@@ -153,73 +153,21 @@ class TestSanityWorkflow:
 
 
 # ---------------------------------------------------------------------------
-# README generator must run on the source repo (jclee941/.github) itself
-# ---------------------------------------------------------------------------
+class TestReadmeAutomationOwnedByApp:
+    def test_readme_generator_workflow_removed(self):
+        assert not (WF_DIR / "20_readme-gen.yml").exists()
+        assert not list(WF_DIR.glob("[0-9][0-9]_readme-gen.yml"))
 
-class TestReadmeGeneratorOwnRepo:
-    """20_readme-gen.yml must keep the source repo's own README current."""
+    def test_app_worker_owns_readme_branch_and_pr_flow(self):
+        router_text = (REPO_ROOT / "jclee_bot" / "readme_automation.py").read_text(encoding="utf-8")
+        runner_text = (REPO_ROOT / "jclee_bot" / "readme_runner.py").read_text(encoding="utf-8")
+        assert "/api/v1/readme_automation" in router_text
+        assert "bot/auto-readme-update" in runner_text
+        assert "enablePullRequestAutoMerge" in runner_text
 
-    def test_does_not_skip_source_repo(self):
-        """The job must NOT carry a guard that skips jclee941/.github."""
-        text = read_workflow("readme-gen.yml")
-        assert "github.repository != 'jclee941/.github'" not in text, (
-            "20_readme-gen.yml still skips the source repo; the bot can never "
-            "auto-update its own README. Remove the repository != guard."
-        )
-
-    def test_single_commit_branch_block(self):
-        """Exactly ONE idempotent bot/auto-readme-update branch block may exist."""
-        text = read_workflow("readme-gen.yml")
-        # checkout -B (not -b) so re-runs are idempotent against the fixed branch.
-        assert text.count("git checkout -B bot/auto-readme-update") == 1, (
-            "20_readme-gen.yml must have exactly one idempotent "
-            "'git checkout -B bot/auto-readme-update' block."
-        )
-        assert "git checkout -b bot/auto-readme-update" not in text, (
-            "20_readme-gen.yml uses non-idempotent 'checkout -b'; use 'checkout -B' "
-            "so repeated runs do not fail on the existing branch."
-        )
-
-    def test_push_is_idempotent_and_pat_authed(self):
-        """Push must be idempotent for both the first run (no remote branch yet)
-        and re-runs, and use GH_PAT so the pushed branch triggers PR checks /
-        auto-merge. [skip ci] must be gone."""
-        text = read_workflow("readme-gen.yml")
-        # checkout -B + plain --force works whether or not the remote branch
-        # exists. An explicit --force-with-lease=...:refs/remotes/... reference
-        # FAILS on the first run with 'cannot parse expected object name' because
-        # the remote-tracking ref does not exist yet.
-        assert "git push -u origin bot/auto-readme-update --force" in text, (
-            "push must use 'git push -u origin bot/auto-readme-update --force' so it "
-            "works on both first-run and re-run without a stale/missing lease."
-        )
-        assert "--force-with-lease" not in text, (
-            "--force-with-lease=...:refs/remotes/origin/... breaks on the first run "
-            "(remote-tracking ref absent). Use plain --force for the bot branch."
-        )
-        commit_lines = [ln for ln in text.splitlines() if "git commit -m" in ln]
-        assert commit_lines, "20_readme-gen.yml has no git commit line"
-        for ln in commit_lines:
-            assert "[skip ci]" not in ln, (
-                "README PR commit must not carry [skip ci]; required checks must run "
-                f"for auto-merge to be satisfiable: {ln.strip()}"
-            )
-        assert "secrets.GH_PAT" in text, (
-            "README Generator must use GH_PAT so the pushed branch triggers PR checks "
-            "and auto-merge can fire (GITHUB_TOKEN pushes do not trigger workflows)."
-        )
-
-    def test_run_blocks_use_set_eu(self):
-        """Shell run blocks must use 'set -eu' (not bare 'set -e')."""
-        text = read_workflow("readme-gen.yml")
-        # No bare 'set -e' line should remain (it must be 'set -eu' or stricter).
-        bare = [
-            ln for ln in text.splitlines()
-            if ln.strip() == "set -e"
-        ]
-        assert not bare, (
-            "20_readme-gen.yml has bare 'set -e' blocks; use 'set -eu'."
-        )
+    def test_app_image_contains_readme_helpers(self):
+        text = (REPO_ROOT / "Dockerfile.github_app").read_text(encoding="utf-8")
+        assert "COPY scripts/*.py scripts/" in text
 
 
 
@@ -266,133 +214,6 @@ class TestAutoMergeSelfHeal:
 
 
 # ---------------------------------------------------------------------------
-# Every fixed bot/* branch push must be idempotent across re-runs
-# ---------------------------------------------------------------------------
-
-class TestFixedBotBranchPushIsIdempotent:
-    """Workflows that push to a FIXED bot/* branch on a repo must use
-    'checkout -B' + plain '--force', never 'checkout -b' + '--force-with-lease'.
-    The latter fails on re-runs with 'stale info' (the branch persists) and on
-    first runs with 'cannot parse expected object name' (no remote-tracking ref).
-    """
-
-    # (workflow logical name, fixed branch it pushes to)
-    PUSHERS = [
-        ("readme-gen.yml", "bot/auto-readme-update"),
-    ]
-
-    def test_no_checkout_dash_b_for_bot_branch(self):
-        for wf, branch in self.PUSHERS:
-            text = read_workflow(wf)
-            assert f"git checkout -b {branch}" not in text, (
-                f"{wf} uses non-idempotent 'git checkout -b {branch}'; use "
-                f"'git checkout -B {branch}' so re-runs do not fail."
-            )
-            assert f"git checkout -B {branch}" in text, (
-                f"{wf} must use 'git checkout -B {branch}'."
-            )
-
-    def test_no_force_with_lease_push_for_bot_branch(self):
-        for wf, branch in self.PUSHERS:
-            text = read_workflow(wf)
-            push_lines = [
-                ln for ln in text.splitlines()
-                if "git push" in ln or ln.strip().startswith("--force")
-            ]
-            for ln in push_lines:
-                assert "--force-with-lease" not in ln, (
-                    f"{wf} pushes the fixed branch {branch} with --force-with-lease, "
-                    f"which fails 'stale info' on re-runs: {ln.strip()}"
-                )
-
-
-# ---------------------------------------------------------------------------
-# Generated README must pass the repo's own docs-sync markdownlint
-# ---------------------------------------------------------------------------
-
-class TestReadmeGeneratorNormalizesMarkdown:
-    """The LLM-generated README must be normalised with the SAME markdownlint
-    tool/config that 42_reusable-docs-sync.yml enforces, or the auto README PR
-    fails 'Documentation Sync' (markdown-lint) on every run."""
-
-    def test_runs_markdownlint_fix(self):
-        text = read_workflow("readme-gen.yml")
-        assert "markdownlint" in text and "--fix" in text, (
-            "20_readme-gen.yml must run 'markdownlint --fix README.md' after "
-            "generating the README so it passes the docs-sync markdown-lint check."
-        )
-
-    def test_markdownlint_version_matches_docs_sync(self):
-        rg = read_workflow("readme-gen.yml")
-        ds = read_workflow("reusable-docs-sync.yml")
-        import re
-        m = re.search(r"markdownlint-cli@([0-9][0-9.]*)", ds)
-        assert m, "could not find pinned markdownlint-cli version in docs-sync"
-        ver = m.group(1)
-        assert f"markdownlint-cli@{ver}" in rg, (
-            f"20_readme-gen.yml must pin the same markdownlint-cli@{ver} as "
-            f"docs-sync so the generated README is normalised with identical rules."
-        )
-
-    def test_uses_repo_markdownlint_config(self):
-        text = read_workflow("readme-gen.yml")
-        assert ".markdownlint.json" in text, (
-            "20_readme-gen.yml markdownlint --fix must use the repo's "
-            ".markdownlint.json config (same rules as docs-sync)."
-        )
-
-
-# ---------------------------------------------------------------------------
-# Docs-sync broken-link issue stability (no issue spam)
-# ---------------------------------------------------------------------------
-
-class TestDocsSyncBrokenLinkIssueStability:
-    """The reusable docs-sync link-check must NOT spam a new broken-links issue
-    on every failed run. It must deduplicate against an existing open issue
-    (comment instead of create), and it must exclude non-browsable API
-    endpoints (e.g. the CLIProxyAPI /v1 base, which correctly 404s) so genuine
-    docs links are not drowned out by a known false positive.
-    """
-
-    def test_dedupes_broken_link_issue(self):
-        text = read_workflow("reusable-docs-sync.yml")
-        # Must search for an existing open broken-links issue before creating.
-        assert "listForRepo" in text or "issue list" in text, (
-            "reusable-docs-sync.yml must look up existing open broken-links "
-            "issues (issues.listForRepo / gh issue list) before creating, to "
-            "avoid duplicate-issue spam."
-        )
-        # Must comment on the existing issue instead of always creating.
-        assert "createComment" in text, (
-            "reusable-docs-sync.yml must comment on an existing broken-links "
-            "issue (createComment) rather than always creating a new one."
-        )
-
-    def test_stable_dedup_title(self):
-        text = read_workflow("reusable-docs-sync.yml")
-        # The dedup key must be a STABLE title (no per-run date), otherwise
-        # each day's run is a distinct title and dedup never matches.
-        assert "new Date().toISOString" not in text, (
-            "reusable-docs-sync.yml broken-links issue title must be stable "
-            "(no per-run date) so deduplication actually matches."
-        )
-        # The canonical title must be EXACTLY the historical broken-links title
-        # so dedup matches existing issues (guards against typos like 머서/문서).
-        assert "[BOT] \ubb38\uc11c \ub9c1\ud06c \uae68\uc9d0 \uac10\uc9c0" in text, (
-            "reusable-docs-sync.yml canonical broken-links title must be "
-            "exactly '[BOT] \ubb38\uc11c \ub9c1\ud06c \uae68\uc9d0 \uac10\uc9c0'."
-        )
-
-    def test_excludes_api_endpoint_from_link_check(self):
-        text = read_workflow("reusable-docs-sync.yml")
-        # The CLIProxyAPI /v1 base is an API endpoint, not a browsable page;
-        # a bare GET 404s. It must be excluded so lychee does not false-fail.
-        assert "cliproxy" in text and "jclee.me" in text.replace("\\", ""), (
-            "reusable-docs-sync.yml must exclude the CLIProxyAPI endpoint "
-            "(cliproxy.jclee.me) from lychee link-checking; bare /v1 404s and "
-            "causes recurring false broken-link issues."
-        )
-
 
 # ---------------------------------------------------------------------------
 # Auto-recovery: stale failure/health issues self-close when workflow recovers

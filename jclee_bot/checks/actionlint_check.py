@@ -9,6 +9,7 @@ from __future__ import annotations
 import shutil
 import subprocess  # noqa: S404 - trusted, fixed-arg actionlint invocation
 from collections.abc import Sequence
+from pathlib import Path
 
 from jclee_bot.checks import CheckResult
 
@@ -17,6 +18,15 @@ CHECK_NAME = "jclee-bot / actionlint"
 
 def _touches_workflows(changed_files: Sequence[str]) -> bool:
     return any(f.startswith(".github/workflows/") for f in changed_files)
+
+
+def _existing_changed_workflows(*, changed_files: Sequence[str], workspace: str) -> list[str]:
+    root = Path(workspace)
+    return [
+        path
+        for path in changed_files
+        if path.startswith(".github/workflows/") and not Path(path).is_absolute() and (root / path).is_file()
+    ]
 
 
 def result_from_output(*, returncode: int, output: str, ran: bool) -> CheckResult:
@@ -53,9 +63,17 @@ def run(*, changed_files: Sequence[str], workspace: str, actionlint_bin: str | N
     binary = actionlint_bin or shutil.which("actionlint")
     if not binary:
         return result_from_output(returncode=0, output="", ran=False)
+    workflow_paths = _existing_changed_workflows(changed_files=changed_files, workspace=workspace)
+    if not workflow_paths:
+        return CheckResult(
+            name=CHECK_NAME,
+            conclusion="success",
+            title="workflow deletions clean",
+            summary="Changed workflow files were deleted; no remaining workflow YAML needed linting.",
+        )
     try:
         proc = subprocess.run(  # noqa: S603 - fixed args, trusted binary
-            [binary, "-no-color"],
+            [binary, "-no-color", *workflow_paths],
             check=False,
             capture_output=True,
             text=True,

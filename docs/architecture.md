@@ -59,23 +59,23 @@ flowchart TB
 
 ```mermaid
 flowchart TD
-    START(("PR 열림")) --> CHECKS["03_pr-checks.yml<br/>(6가지 검증)"]
+    START(("PR 열림")) --> CHECKS["jclee-bot / pr-metadata<br/>(PR 메타데이터)"]
     
     CHECKS --> TITLE{제목 OK?}
-    TITLE -->|No| FAIL1["❌ Check PR Title<br/>Required"]
+    TITLE -->|No| FAIL1["❌ jclee-bot / pr-metadata<br/>Required"]
     TITLE -->|Yes| BRANCH{브랜치명 OK?}
     
     BRANCH -->|No| FAIL2["❌ Check Branch Name<br/>Required"]
     BRANCH -->|Yes| REVIEW["10_pr-review.yml<br/>(AI 리뷰)"]
     
-    REVIEW --> GITLEAKS["05_gitleaks.yml<br/>(Secret 스캔)"]
+    REVIEW --> GITLEAKS["jclee-bot / secret-scan<br/>(Secret 스캔)"]
     GITLEAKS --> SECRET{Secret 발견?}
-    SECRET -->|Yes| FAIL3["❌ Gitleaks / scan<br/>Required"]
+    SECRET -->|Yes| FAIL3["❌ jclee-bot / secret-scan<br/>Required"]
     SECRET -->|No| OPTIONAL["선택적 검증"]
     
-    OPTIONAL --> CODEQL["06_codeql.yml<br/>(Python SAST)"]
-    OPTIONAL --> ACTIONLINT["04_actionlint.yml<br/>(워크플로우 문법)"]
-    OPTIONAL --> DOCS["21_docs-sync.yml<br/>(문서 품질)"]
+    OPTIONAL --> CODEQL["GitHub-native CodeQL<br/>(SAST)"]
+    OPTIONAL --> ACTIONLINT["jclee-bot / actionlint<br/>(워크플로우 문법)"]
+    OPTIONAL --> DOCS["jclee-bot / docs-policy<br/>(문서 품질)"]
     
     OPTIONAL --> SECURITY{"security-review<br/>라벨?"}
     SECURITY -->|Yes| DEEP["11_security-pr-review.yml<br/>(심층 보안 감사)"]
@@ -116,13 +116,10 @@ flowchart TD
 
 | 검증 항목 | 워크플로우 | 실패 시 |
 |-----------|-----------|---------|
-| PR 설명 길이 | `pr-checks / Check PR Description` | ⚠️ 코멘트만 |
-| PR 크기 (500 LOC) | `pr-checks / Check PR Size` | ⚠️ 코멘트만 |
-| 대용량 파일 | `pr-checks / Check Large Files` | ⚠️ 코멘트만 |
-| 민감 파일 | `pr-checks / Check Sensitive Files` | ⚠️ 코멘트만 |
+| PR 메타데이터 | `jclee-bot / pr-metadata` | ❌ Required |
 | Python SAST | `CodeQL` | ⚠️ Security 탭 |
-| 워크플로우 문법 | `actionlint` | ⚠️ 코멘트만 |
-| 문서 품질 | `docs-sync` | ⚠️ 코멘트만 |
+| 워크플로우 문법 | `jclee-bot / actionlint` | ⚠️ Check Run |
+| 문서 품질 | `jclee-bot / docs-policy` | ⚠️ Check Run |
 | AI 코드 리뷰 | `pr-review` | 💬 리뷰 코멘트 |
 
 ---
@@ -195,43 +192,35 @@ flowchart LR
         J --> K["15_merged-pr-cleanup.yml<br/>이슈 자동 종료"]
     end
     
-    subgraph 스테일["⏰ 스테일 관리"]
-        L["18_issue-management.yml<br/>(매일 00:00 UTC)"] --> M{"30일 활동 없음?"}
-        M -->|Yes| N["stale 라벨 부착"]
-        N --> O{"7일 추가 경과?"}
-        O -->|Yes| P["이슈 자동 종료"]
-        O -->|No| Q["활동 발생 시<br/>stale 제거"]
+    subgraph 스테일["⏰ 스테일 라벨 정리"]
+        L["jclee-bot App<br/>issues / issue_comment webhook"] --> M{"활동 발생?"}
+        M -->|Issue edited/reopened| Q["stale 라벨 제거"]
+        M -->|Comment created| Q
+        L --> N["Issue opened<br/>키워드 라벨 부착"]
     end
     
     style A fill:#6ba06a,stroke:#333,color:#fff
     style K fill:#4a90d9,stroke:#333,color:#fff
-    style P fill:#d9b430,stroke:#333,color:#000
+    style Q fill:#d9b430,stroke:#333,color:#000
 ```
 
 ---
 
-## 5. 다운스트림 배포 흐름 (Downstream Deploy)
+## 5. App 기반 레포 자동화 흐름 (Repository Automation)
 
 ```mermaid
 flowchart TD
-    START(("Push to master<br/>(.github)")) --> TRIGGER{"변경된 파일?"}
+    START(("운영 트리거<br/>(webhook / API / schedule)")) --> APP["jclee-bot App<br/>(github-bot-app)"]
     
-    TRIGGER -->|workflows/| DEPLOY["34_auto-deploy.yml"]
-    TRIGGER -->|dependabot.yml| DEPLOY
-    TRIGGER -->|CODEOWNERS| DEPLOY
-    TRIGGER -->|PR template| DEPLOY
-    TRIGGER -->|deploy script| DEPLOY
+    APP --> INSTALL["GitHub App installation<br/>repo + permission 조회"]
+    INSTALL --> TARGETS["config/repos.yaml<br/>관리 대상 필터"]
     
-    DEPLOY --> DRY["Dry-run<br/>Preview"]
-    DRY --> GO{"실행?"}
+    TARGETS --> README["README 자동화<br/>bot/auto-readme-update"]
+    TARGETS --> CHECKS["Checks API<br/>pr-metadata / secret-scan / actionlint"]
+    TARGETS --> ISSUES["Issue automation<br/>label / stale cleanup"]
     
-    GO -->|No| SKIP["스킵"]
-    GO -->|Yes| CLONE["11개 리포 클론"]
-    
-    CLONE --> COPY["워크플로우 + 설정<br/>복사"]
-    COPY --> COMMIT["chore: standardize<br/>automation workflows"]
-    COMMIT --> PUSH["force-with-lease<br/>푸시"]
-    PUSH --> PR{"PR 존재?"}
+    README --> BRANCH["App token clone + render + push"]
+    BRANCH --> PR{"PR 존재?"}
     
     PR -->|Yes| UPDATE["기존 PR 업데이트"]
     PR -->|No| CREATE["신규 PR 생성"]
@@ -245,7 +234,6 @@ flowchart TD
     
     AUTO_MERGE --> END(("배포 완료"))
     MANUAL --> END
-    SKIP --> END
     
     style START fill:#6ba06a,stroke:#333,color:#fff
     style END fill:#4a90d9,stroke:#333,color:#fff
@@ -253,23 +241,12 @@ flowchart TD
     style MANUAL fill:#d9b430,stroke:#333,color:#000
 ```
 
-### 배포 대상 리포지토리 (11개)
+### App 관리 리포지토리
 
-| 리포지토리 | 상태 |
-|-----------|------|
-| `jclee941/resume` | ✅ 자동화 적용 |
-| `jclee941/safetywallet` | ✅ 자동화 적용 |
-| `jclee941/tmux` | ✅ 자동화 적용 |
-| `jclee941/hycu_fsds` | ✅ 자동화 적용 |
-| `jclee941/splunk` | ✅ 자동화 적용 |
-| `jclee941/blacklist` | ✅ 자동화 적용 |
-| `jclee941/opencode` | ✅ 자동화 적용 |
-| `jclee941/terraform` | ✅ 자동화 적용 |
-| `jclee941/account` | ✅ 자동화 적용 |
-| `jclee941/idle-outpost` | ✅ 자동화 적용 |
-| `jclee941/bug` | ✅ 자동화 적용 |
-
-**제외 리포**: `pr-agent` (업스트림 포크, 자체 워크플로우 보유), `hycu`/`youtube`/`propose` (private, Dependabot만)
+`config/repos.yaml`이 단일 인벤토리입니다. `.github`는 소스 리포로 자체 운영되고,
+`pr-agent`는 업스트림 포크라 App 자동화 롤아웃에서 제외됩니다. 나머지 공개/비공개
+대상 리포는 per-repo workflow 배포가 아니라 `jclee-bot` App 토큰과 Checks API 경로로
+운영됩니다.
 
 ---
 
@@ -325,29 +302,25 @@ flowchart LR
         ISSUE["issues"]
     end
     
-    PR --> PR_CHECK["03_pr-checks.yml"]
+    PR --> PR_CHECK["jclee-bot / pr-metadata"]
     PR --> PR_REVIEW["10_pr-review.yml"]
-    PR --> GITLEAKS["05_gitleaks.yml"]
-    PR --> CODEQL["06_codeql.yml<br/>(조건부)"]
-    PR --> ACTIONLINT["04_actionlint.yml<br/>(조건부)"]
-    PR --> DOCS["21_docs-sync.yml"]
+    PR --> GITLEAKS["jclee-bot / secret-scan"]
+    PR --> CODEQL["GitHub-native CodeQL<br/>(조건부)"]
+    PR --> ACTIONLINT["jclee-bot / actionlint<br/>(조건부)"]
+    PR --> DOCS["jclee-bot / docs-policy"]
     PR --> DEPENDABOT["12_dependabot-auto-merge.yml<br/>(dependabot만)"]
     
-    PUSH --> AUTO_DEPLOY["34_auto-deploy.yml<br/>(조건부)"]
+    PUSH --> APP_BUILD["36_build-and-push-app.yml<br/>(App image)"]
     PUSH --> RELEASE_D["23_release-drafter.yml"]
     PUSH --> RELEASE_P["25_release-publish.yml"]
     PUSH --> GITLEAKS
     
-    CRON --> HARDSCAN["35_auto-hardcode-scan.yml<br/>(월요일 00:00)"]
-    CRON --> ISSUE_MGMT["18_issue-management.yml<br/>(매일 00:00)"]
-    CRON --> ISSUE_BACK["19_issue-backfill.yml<br/>(매일 09:00)"]
-    CRON --> CODEQL_S["06_codeql.yml<br/>(월요일 04:23)"]
+    PUSH --> HARDSCAN["35_auto-hardcode-scan.yml<br/>(workflow_dispatch / weekly manual)"]
+    PUSH --> ISSUE_BACK["19_issue-backfill.yml<br/>(Sanity workflow_run / manual)"]
+    PR --> CODEQL_S["GitHub-native CodeQL"]
     
     ISSUE --> ISSUE_BRANCH["02_issue-to-branch.yml"]
-    
-    PR_CHECK --> REUSABLE1["44_reusable-pr-checks.yml"]
-    DOCS --> REUSABLE2["42_reusable-docs-sync.yml"]
-    ISSUE_MGMT --> REUSABLE3["43_reusable-issue-management.yml"]
+    ISSUE --> ISSUE_MGMT["jclee-bot App<br/>issue auto-label / stale remove / stale sweep"]
     
     style PR fill:#6ba06a,stroke:#333,color:#fff
     style PUSH fill:#4a90d9,stroke:#333,color:#fff

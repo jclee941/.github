@@ -1,0 +1,313 @@
+from __future__ import annotations
+
+import subprocess
+
+import pytest
+from fastapi.testclient import TestClient
+
+from jclee_bot import readme_automation, readme_job_worker, readme_jobs, readme_runner
+
+
+def test_run_app_readme_automation_filters_managed_repos(monkeypatch):
+    calls: list[str] = []
+
+    monkeypatch.setattr(readme_runner.issue_maintenance, "managed_repo_names", lambda: {"propose"})
+    monkeypatch.setattr(readme_runner.issue_maintenance, "app_installations", lambda **kwargs: [{"id": 42}])
+    monkeypatch.setattr(readme_runner.github_checks, "installation_token", lambda *args: "tok")
+    monkeypatch.setattr(
+        readme_runner.issue_maintenance,
+        "installation_repositories",
+        lambda **kwargs: [
+            {"full_name": "jclee941/propose", "name": "propose", "default_branch": "master"},
+            {"full_name": "jclee941/skip", "name": "skip", "default_branch": "master"},
+            {"full_name": "someone/propose", "name": "propose", "default_branch": "master"},
+        ],
+    )
+
+    def fake_ensure(**kwargs):
+        calls.append(kwargs["repo"]["full_name"])
+        return {"repo": kwargs["repo"]["full_name"], "changed": True}
+
+    monkeypatch.setattr(readme_runner, "ensure_readme_commit", fake_ensure)
+
+    result = readme_runner.run_app_readme_automation(
+        app_id="123",
+        private_key="key",
+        owner="jclee941",
+        dry_run=True,
+    )
+
+    assert calls == ["jclee941/propose"]
+    assert result == {"dry_run": True, "repositories": [{"repo": "jclee941/propose", "changed": True}]}
+
+
+def test_readme_automation_endpoint_runs_sync_when_requested(monkeypatch):
+    from jclee_bot import app as app_module
+
+    calls: list[dict[str, object]] = []
+
+    def fake_run_app_readme_automation(**kwargs) -> dict[str, object]:
+        calls.append(kwargs)
+        return {"dry_run": True, "repositories": []}
+
+    monkeypatch.setenv("README_AUTOMATION_TOKEN", "readme")
+    monkeypatch.setenv("GITHUB_APP_ID", "123")
+    monkeypatch.setenv("GITHUB_PRIVATE_KEY", "key")
+    monkeypatch.setattr(readme_automation, "run_app_readme_automation", fake_run_app_readme_automation)
+
+    response = TestClient(app_module.app, raise_server_exceptions=False).post(
+        "/api/v1/readme_automation",
+        json={"dry_run": True, "background": False, "repos": ["propose"]},
+        headers={"Authorization": "Bearer readme"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"dry_run": True, "repositories": []}
+    assert calls == [
+        {
+            "app_id": "123",
+            "private_key": "key",
+            "owner": "jclee941",
+            "dry_run": True,
+            "repo_names": {"propose"},
+        }
+    ]
+
+
+def test_readme_automation_background_returns_pollable_job(monkeypatch, tmp_path):
+    from jclee_bot import app as app_module
+
+    spawned: list[dict[str, object]] = []
+
+    monkeypatch.setenv("README_AUTOMATION_TOKEN", "readme")
+    monkeypatch.setenv("GITHUB_APP_ID", "123")
+    monkeypatch.setenv("GITHUB_PRIVATE_KEY", "key")
+    monkeypatch.setenv("README_AUTOMATION_JOB_DIR", str(tmp_path))
+    monkeypatch.setattr(readme_automation, "_spawn_readme_job", lambda **kwargs: spawned.append(kwargs))
+
+    client = TestClient(app_module.app, raise_server_exceptions=False)
+    response = client.post(
+        "/api/v1/readme_automation",
+        json={"dry_run": True, "background": True, "repos": ["propose"]},
+        headers={"Authorization": "Bearer readme"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["accepted"] is True
+    assert body["dry_run"] is True
+    assert body["job_id"]
+    assert spawned == [
+        {
+            "job_id": body["job_id"],
+            "owner": "jclee941",
+            "dry_run": True,
+            "repos": {"propose"},
+        }
+    ]
+
+    status = client.get(
+        f"/api/v1/readme_automation/jobs/{body['job_id']}",
+        headers={"Authorization": "Bearer readme"},
+    )
+
+    assert status.status_code == 200
+    assert status.json()["status"] in {"queued", "running", "completed"}
+
+
+def test_readme_automation_background_rejects_option_like_repo(monkeypatch, tmp_path):
+    from jclee_bot import app as app_module
+
+    monkeypatch.setenv("README_AUTOMATION_TOKEN", "readme")
+    monkeypatch.setenv("GITHUB_APP_ID", "123")
+    monkeypatch.setenv("GITHUB_PRIVATE_KEY", "key")
+    monkeypatch.setenv("README_AUTOMATION_JOB_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        readme_automation,
+        "_spawn_readme_job",
+        lambda **_kwargs: pytest.fail("invalid requests must not spawn workers"),
+    )
+
+    response = TestClient(app_module.app, raise_server_exceptions=False).post(
+        "/api/v1/readme_automation",
+        json={"dry_run": True, "background": True, "repos": ["--dry-run"]},
+        headers={"Authorization": "Bearer readme"},
+    )
+
+    assert response.status_code == 400
+    assert list(tmp_path.glob("*.json")) == []
+
+
+def test_readme_worker_marks_job_failed_when_argparse_rejects_repo(monkeypatch, tmp_path):
+    monkeypatch.setenv("README_AUTOMATION_JOB_DIR", str(tmp_path))
+    job = readme_jobs.create_job(owner="jclee941", repos=["--dry-run"], dry_run=True)
+
+    exit_code = readme_job_worker.main(
+        ["--job-id", str(job["id"]), "--owner", "jclee941", "--repo", "--dry-run"]
+    )
+
+    status = readme_jobs.get_job(str(job["id"]))
+
+    assert exit_code == 2
+    assert status["status"] == "failed"
+    assert status["error"] == "invalid README automation worker arguments"
+
+
+def test_readme_automation_records_job_progress(monkeypatch, tmp_path):
+    monkeypatch.setenv("README_AUTOMATION_JOB_DIR", str(tmp_path))
+    job = readme_jobs.create_job(owner="jclee941", repos=["propose"], dry_run=True)
+
+    readme_jobs.mark_running(str(job["id"]))
+    readme_jobs.mark_progress(str(job["id"]), {"repo": "jclee941/propose", "changed": True})
+    readme_jobs.mark_progress(str(job["id"]), {"repo": "jclee941/bug", "changed": False, "error": "boom"})
+
+    status = readme_jobs.get_job(str(job["id"]))
+
+    assert status["status"] == "running"
+    assert status["progress"] == {"repository_count": 2, "error_count": 1}
+    assert status["result"] == {
+        "dry_run": True,
+        "repositories": [
+            {"repo": "jclee941/propose", "changed": True},
+            {"repo": "jclee941/bug", "changed": False, "error": "boom"},
+        ],
+    }
+
+
+def test_run_app_readme_automation_reports_progress(monkeypatch):
+    progress: list[dict[str, object]] = []
+
+    monkeypatch.setattr(readme_runner.issue_maintenance, "managed_repo_names", lambda: {"propose", "bug"})
+    monkeypatch.setattr(readme_runner.issue_maintenance, "app_installations", lambda **kwargs: [{"id": 42}])
+    monkeypatch.setattr(readme_runner.github_checks, "installation_token", lambda *args: "tok")
+    monkeypatch.setattr(
+        readme_runner.issue_maintenance,
+        "installation_repositories",
+        lambda **kwargs: [
+            {"full_name": "jclee941/propose", "name": "propose", "default_branch": "master"},
+            {"full_name": "jclee941/bug", "name": "bug", "default_branch": "master"},
+        ],
+    )
+    monkeypatch.setattr(
+        readme_runner,
+        "ensure_readme_commit",
+        lambda **kwargs: {"repo": kwargs["repo"]["full_name"], "changed": True},
+    )
+
+    result = readme_runner.run_app_readme_automation(
+        app_id="123",
+        private_key="key",
+        owner="jclee941",
+        dry_run=True,
+        progress=progress.append,
+    )
+
+    assert progress == result["repositories"]
+    assert [item["repo"] for item in progress] == ["jclee941/propose", "jclee941/bug"]
+
+
+def test_readme_automation_endpoint_rejects_missing_token(monkeypatch):
+    from jclee_bot import app as app_module
+
+    monkeypatch.delenv("README_AUTOMATION_TOKEN", raising=False)
+    monkeypatch.delenv("ISSUE_MAINTENANCE_TOKEN", raising=False)
+
+    response = TestClient(app_module.app, raise_server_exceptions=False).post(
+        "/api/v1/readme_automation",
+        json={"dry_run": True},
+    )
+
+    assert response.status_code == 401
+
+
+def test_readme_automation_sanitizes_git_clone_failure(monkeypatch):
+    token = "ghs_secret_installation_token"
+
+    def fake_clone_repo(**kwargs):
+        raise subprocess.CalledProcessError(
+            128,
+            [
+                "git",
+                "clone",
+                f"https://x-access-token:{token}@github.com/jclee941/propose.git",
+            ],
+            stderr="remote: Repository not found.",
+        )
+
+    monkeypatch.setattr(readme_runner, "clone_repo", fake_clone_repo)
+
+    result = readme_runner.ensure_readme_commit(
+        token=token,
+        repo={"full_name": "jclee941/propose", "default_branch": "master"},
+        dry_run=True,
+    )
+
+    assert result["repo"] == "jclee941/propose"
+    assert result["changed"] is False
+    assert "error" in result
+    assert token not in str(result)
+    assert "x-access-token" not in str(result)
+
+
+def test_readme_automation_targets_master_when_repo_default_branch_is_main(monkeypatch, tmp_path):
+    seen: dict[str, str] = {}
+
+    def fake_clone_repo(**kwargs):
+        seen["clone_branch"] = kwargs["default_branch"]
+        repo_path = tmp_path / "repo"
+        repo_path.mkdir()
+        (repo_path / "README.md").write_text("old\n", encoding="utf-8")
+        return repo_path
+
+    monkeypatch.setattr(readme_runner, "clone_repo", fake_clone_repo)
+    monkeypatch.setattr(readme_runner, "render_readme", lambda _repo_path: "new\n")
+    monkeypatch.setattr(readme_runner, "_run_git", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        readme_runner,
+        "upsert_pr",
+        lambda **kwargs: seen.setdefault("pr_base", kwargs["default_branch"]) or 7,
+    )
+
+    result = readme_runner.ensure_readme_commit(
+        token="tok",
+        repo={"full_name": "jclee941/bug", "default_branch": "main"},
+        dry_run=False,
+    )
+
+    assert result["changed"] is True
+    assert seen == {"clone_branch": "master", "pr_base": "master"}
+
+
+def test_readme_automation_reports_missing_contents_permission(monkeypatch):
+    monkeypatch.setattr(readme_runner.issue_maintenance, "managed_repo_names", lambda: {"propose"})
+    monkeypatch.setattr(
+        readme_runner.issue_maintenance,
+        "app_installations",
+        lambda **kwargs: [{"id": 42, "permissions": {"issues": "write"}}],
+    )
+    monkeypatch.setattr(readme_runner.github_checks, "installation_token", lambda *args: "tok")
+    monkeypatch.setattr(
+        readme_runner.issue_maintenance,
+        "installation_repositories",
+        lambda **kwargs: [{"full_name": "jclee941/propose", "name": "propose", "default_branch": "master"}],
+    )
+    monkeypatch.setattr(
+        readme_runner,
+        "ensure_readme_commit",
+        lambda **kwargs: pytest.fail("_ensure_readme_commit should not run without contents permission"),
+    )
+
+    result = readme_runner.run_app_readme_automation(
+        app_id="123",
+        private_key="key",
+        owner="jclee941",
+        dry_run=True,
+    )
+
+    assert result["repositories"] == [
+        {
+            "repo": "jclee941/propose",
+            "changed": False,
+            "error": "GitHub App repository Contents permission must be read; current=none",
+        }
+    ]

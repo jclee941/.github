@@ -17,9 +17,6 @@ name: Issue Backfill
 # actually mutates labels.
 
 on:
-  # NOTE: not triggered by `issues:` nor by Issue Management/Classification —
-  # 19 ADDS the in-progress label, which would re-fire those issue workflows
-  # and loop. Driven by a master-activity pulse (Sanity) + manual dispatch.
   workflow_run:
     workflows: ["Sanity"]
     types: [completed]

@@ -2,7 +2,7 @@ name: Stale Repository Identifier
 
 on:
   push:
-    branches: [master, main]
+    branches: [master]
   # NOTE: no `issues:` trigger — this workflow CREATES issues, which would
   # re-trigger it via GH_PAT (feedback loop). Driven by push + workflow_run.
   workflow_run:
@@ -40,7 +40,7 @@ jobs:
         id: stale
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+          CLIPROXY_API_KEY: ${{ secrets.CLIPROXY_API_KEY }}
         run: |
           set -eu
           CUTOFF=$(date -u -d '90 days ago' +%Y-%m-%dT%H:%M:%SZ)

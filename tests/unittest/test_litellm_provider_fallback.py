@@ -15,7 +15,7 @@ def _handler():
 
 @pytest.mark.asyncio
 async def test_no_fallback_configured_propagates_after_single_attempt():
-    """Empty api_base_fallbacks preserves original behavior: one attempt, then raise."""
+    """CLIProxy-only routing makes one attempt, then raises."""
     h = _handler()
     once = AsyncMock(side_effect=openai.APIConnectionError(request=MagicMock()))
     with (
@@ -29,31 +29,29 @@ async def test_no_fallback_configured_propagates_after_single_attempt():
 
 
 @pytest.mark.asyncio
-async def test_connect_failure_switches_to_fallback_base():
-    """A connection/timeout failure on the primary base retries on the fallback base."""
+async def test_configured_fallback_base_is_ignored_for_cliproxy_only_routing():
+    """Even configured fallback bases must not route traffic away from CLIProxyAPI."""
     h = _handler()
     bases = []
 
     async def fake_once(**kwargs):
         bases.append(kwargs.get("api_base"))
-        if kwargs.get("api_base") is None:  # primary base
-            raise openai.APITimeoutError(request=MagicMock())
-        return ("resp", "stop", MagicMock())
+        raise openai.APITimeoutError(request=MagicMock())
 
     with (
         patch.object(h, "_get_completion_once", new=fake_once),
         patch("pr_agent.algo.ai_handlers.litellm_ai_handler.get_settings") as gs,
     ):
         gs.return_value.get.return_value = ["https://backup.example/v1"]
-        resp, finish, _ = await h._get_completion(model="kimi-k2.6")
+        with pytest.raises(openai.APITimeoutError):
+            await h._get_completion(model="kimi-k2.6")
 
-    assert resp == "resp"
-    assert bases == [None, "https://backup.example/v1"]
+    assert bases == [None]
 
 
 @pytest.mark.asyncio
 async def test_rate_limit_does_not_switch_base():
-    """Non-connectivity errors (rate limit) must propagate without trying fallbacks."""
+    """Non-connectivity errors propagate without trying another base."""
     h = _handler()
     once = AsyncMock(
         side_effect=openai.RateLimitError("rl", response=MagicMock(), body=None)
@@ -69,8 +67,8 @@ async def test_rate_limit_does_not_switch_base():
 
 
 @pytest.mark.asyncio
-async def test_all_bases_exhausted_raises_last_error():
-    """If every base fails to connect, the last connection error propagates."""
+async def test_multiple_configured_fallback_bases_are_ignored():
+    """CLIProxy-only routing ignores every configured provider fallback base."""
     h = _handler()
     once = AsyncMock(side_effect=openai.APIConnectionError(request=MagicMock()))
     with (
@@ -80,8 +78,7 @@ async def test_all_bases_exhausted_raises_last_error():
         gs.return_value.get.return_value = ["https://b1/v1", "https://b2/v1"]
         with pytest.raises(openai.APIConnectionError):
             await h._get_completion(model="kimi-k2.6")
-    # primary + 2 fallbacks = 3 attempts
-    assert once.await_count == 3
+    assert once.await_count == 1
 
 
 @pytest.mark.asyncio

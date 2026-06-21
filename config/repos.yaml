@@ -41,7 +41,7 @@ repositories:
 
   - name: bug
     visibility: public
-    default_branch: main
+    default_branch: master
     automation:
       deploy_workflows: true
       branch_protection: true
@@ -67,7 +67,7 @@ repositories:
 
   - name: idle-outpost
     visibility: public
-    default_branch: main
+    default_branch: master
     automation:
       deploy_workflows: true
       branch_protection: true
@@ -196,7 +196,7 @@ repositories:
       topics: [cloudflare-workers, gsap, korean, typescript, wedding-invitation]
       homepage: "https://propose.jclee.me"
 
-  # Fork (excluded from deploy but included in protection)
+  # pr-agent fork excluded from deploy/protection
   - name: pr-agent
     visibility: public
     default_branch: main

@@ -33,7 +33,7 @@ on:
       model:
         description: Primary LLM model
         required: false
-        default: MiniMax-M3
+        default: gpt-5.5
 
 permissions:
   contents: read
@@ -92,25 +92,25 @@ jobs:
           go-version: '1.21'
 
 
-      - name: Verify MiniMax connectivity
+      - name: Verify CLIProxyAPI connectivity
         env:
-          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+          CLIPROXY_API_KEY: ${{ secrets.CLIPROXY_API_KEY }}
         run: |
           set -e
-          if [ -z "$MINIMAX_API_KEY" ]; then
-            echo "::error::MINIMAX_API_KEY secret is not set on this repo."
+          if [ -z "$CLIPROXY_API_KEY" ]; then
+            echo "::error::CLIPROXY_API_KEY secret is not set on this repo."
             exit 1
           fi
-          HTTP_CODE=$(curl -sS -o /tmp/minimax_test.json -w '%{http_code}' \
+          HTTP_CODE=$(curl -sS -o /tmp/cliproxy_test.json -w '%{http_code}' \
             --max-time 15 \
-            https://api.minimax.io/v1/models \
-            -H "Authorization: Bearer $MINIMAX_API_KEY")
+            https://cliproxy.jclee.me/v1/models \
+            -H "Authorization: Bearer $CLIPROXY_API_KEY")
           if [ "$HTTP_CODE" != "200" ]; then
-            echo "::error::MiniMax API returned HTTP $HTTP_CODE"
-            cat /tmp/minimax_test.json
+            echo "::error::CLIProxyAPI returned HTTP $HTTP_CODE"
+            cat /tmp/cliproxy_test.json
             exit 1
           fi
-          echo "MiniMax API OK"
+          echo "CLIProxyAPI OK"
 
       - name: Close stale bot-review issues
         env:
@@ -148,13 +148,13 @@ jobs:
           # os.Args[0] (a /tmp/go-build path under `go run`).
           REPO_REVIEW_SCRIPT: ${{ github.workspace }}/pr-agent-src/scripts/repo_review.py
           # pr-agent settings (mirrors pr-review.yml)
-          OPENAI__KEY: ${{ secrets.MINIMAX_API_KEY }}
-          OPENAI__API_BASE: https://api.minimax.io/v1
-          CONFIG__MODEL: ${{ inputs.model }}
-          CONFIG__FALLBACK_MODELS: '["MiniMax-M3"]'
-          CONFIG__RESPONSE_LANGUAGE: ko
-          CONFIG__AI_TIMEOUT: "180"
-          CONFIG__CUSTOM_MODEL_MAX_TOKENS: "1000000"
+          OPENAI.KEY: ${{ secrets.CLIPROXY_API_KEY }}
+          OPENAI.API_BASE: https://cliproxy.jclee.me/v1
+          CONFIG.MODEL: ${{ inputs.model }}
+          CONFIG.FALLBACK_MODELS: '["minimax-m3"]'
+          CONFIG.RESPONSE_LANGUAGE: ko
+          CONFIG.AI_TIMEOUT: "180"
+          CONFIG.CUSTOM_MODEL_MAX_TOKENS: "128000"
           LITELLM_LOCAL_MODEL_COST_MAP: "true"
         run: |
           set -eu
