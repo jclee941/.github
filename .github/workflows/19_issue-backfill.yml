@@ -3,7 +3,7 @@ name: Issue Backfill
 # Picks up pre-existing open issues that were created BEFORE the
 # git-flow automation was deployed and would otherwise never get a
 # branch. For each candidate it adds the `in-progress` label, which
-# triggers issue-to-branch.yml in the normal way.
+# triggers the jclee-bot GitHub App issue-branch handler in the normal way.
 #
 # Selection rules (every condition must hold):
 #   - state: open
@@ -36,7 +36,7 @@ on:
         required: false
         default: "3"
       label:
-        description: Label to add (default in-progress = triggers issue-to-branch.yml)
+        description: Label to add (default in-progress = triggers jclee-bot App branch creation)
         required: false
         default: in-progress
 
@@ -62,8 +62,8 @@ jobs:
       - name: Pick and label candidates
         env:
           # Use a fine-grained PAT (secrets.GH_PAT) when available so the
-          # subsequent `labeled` event re-fires downstream workflows like
-          # issue-to-branch.yml. With the default GITHUB_TOKEN the event
+          # subsequent `labeled` event reaches the jclee-bot GitHub App
+          # issue branch handler. With the default GITHUB_TOKEN the event
           # is suppressed to prevent recursive cascades, which here means
           # the backfill silently completes without triggering branch
           # creation.

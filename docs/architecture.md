@@ -172,7 +172,7 @@ sequenceDiagram
 flowchart LR
     subgraph 생성["📝 이슈 생성"]
         A["Issue Opened"] --> B{"in-progress 라벨?"}
-        B -->|Yes| C["02_issue-to-branch.yml<br/>브랜치 생성"]
+        B -->|Yes| C["jclee-bot App<br/>브랜치 생성"]
         B -->|No| D["수동 할당 대기"]
     end
     
@@ -181,7 +181,7 @@ flowchart LR
     end
     
     subgraph 백필["🔄 백필"]
-        F["19_issue-backfill.yml<br/>(매일 09:00 UTC)"] --> G["오래된 이슈에<br/>in-progress 라벨"]
+        F["19_issue-backfill.yml<br/>(Sanity 완료 / 수동)"] --> G["오래된 이슈에<br/>in-progress 라벨"]
         G --> C
     end
     
@@ -319,7 +319,7 @@ flowchart LR
     PUSH --> ISSUE_BACK["19_issue-backfill.yml<br/>(Sanity workflow_run / manual)"]
     PR --> CODEQL_S["GitHub-native CodeQL"]
     
-    ISSUE --> ISSUE_BRANCH["02_issue-to-branch.yml"]
+    ISSUE --> ISSUE_BRANCH["jclee-bot App<br/>issue branch"]
     ISSUE --> ISSUE_MGMT["jclee-bot App<br/>issue auto-label / stale remove / stale sweep"]
     
     style PR fill:#6ba06a,stroke:#333,color:#fff
