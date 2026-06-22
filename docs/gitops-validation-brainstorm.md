@@ -33,10 +33,10 @@
 
 | 클러스터 | 멤버 | 중복 성격 | 처리 |
 |---|---|---|---|
-| C1 Auto-merge | `12_dependabot-auto-merge`, `13_pr-auto-merge`, `81_auto-merge` | `81`은 `13`의 기능을 복제한 미사용 reusable | 🔴 `81` 제거 |
+| C1 Auto-merge | `jclee-bot` App merge policy, `81_auto-merge` | `81`은 App merge policy를 복제한 미사용 reusable | 🔴 `81` 제거 |
 | C2 PR 리뷰 | `10_pr-review`(CLIProxy), `11_security-pr-review`(보안 감사), `86_pr-review-security` | `86`은 `security/11`을 복제한 미사용 reusable | 🔴 `86` 제거 |
 | C3 Stale | `16_stale-repo-identifier`, `17_pr-stale-bot`, `88_stale` | `88`은 `16`/`17`을 복제한 미사용 reusable | 🔴 `88` 제거 |
-| C4 이슈 관리 | `jclee-bot` App issue webhooks, `19_issue-backfill`, `82_issue-label`, `83_issue-lifecycle`, `84_labeler` | `82`/`83`/`84`는 App issue webhooks를 복제한 미사용 reusable | 🔴 `82`/`83`/`84` 제거 |
+| C4 이슈 관리 | `jclee-bot` App issue webhooks, `82_issue-label`, `83_issue-lifecycle`, `84_labeler` | `82`/`83`/`84`는 App issue webhooks를 복제한 미사용 reusable | 🔴 `82`/`83`/`84` 제거 |
 | C5 PR 보조 | `03_pr-checks`+`44_reusable-pr-checks`, `85_pr-normalize`, `87_pr-size` | `85`/`87`은 어디서도 호출 안 됨 | 🔴 `85`/`87` 제거 |
 | C6 환영/온보딩 | `89_welcome` | 호출자 없음 | 🔴 `89` 제거 |
 | C7 재사용 CI | `41_reusable-ci` | 호출자 없음, 배포 매니페스트에도 없음 | 🔴 `41` 제거 |
@@ -141,7 +141,7 @@ All validations passed
 
 | ID | 항목 | 근거 | 우선 |
 |---|---|---|---|
-| G1 | `12_dependabot-auto-merge.yml` 의 `\|\| echo "::warning::..."` 오류 삼킴 제거 | `TestDependabotAutoMergeDoesNotSwallowErrors` 가 pristine master에서 이미 FAIL — update-branch 실패가 조용히 무시됨 | 🟠 P1 |
+| G1 | App-owned Dependabot merge policy의 실패 신호 검증 | workflow-owned Dependabot merge 표면은 제거됨 | ✅ App 경로 유지 |
 | G4 | 헬스체크 클러스터(26/28/29/30/31/32) 통합 검토 | 6개 스케줄 워크플로가 유사 패턴 — reusable 1개 + 매트릭스로 통합 가능성 | 🟡 P2 |
 | G5 | README 생성기(LLM)와 인벤토리 자동 동기화 회귀 가드 | 워크플로 추가/삭제 시 README가 LLM 환각 없이 정확히 반영되는지 검사 | 🟡 P2 |
 

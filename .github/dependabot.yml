@@ -13,8 +13,6 @@ updates:
       include: "scope"
 
   # Python dependencies (pyproject.toml + requirements*.txt)
-  # Auto-merge policy in dependabot-auto-merge.yml: patch + minor → squash;
-  # major → manual review.
   - package-ecosystem: "pip"
     directory: "/"
     schedule:

@@ -178,11 +178,6 @@ flowchart LR
         E["Assignee 지정"] --> C
     end
     
-    subgraph 백필["🔄 백필"]
-        F["19_issue-backfill.yml<br/>(Sanity 완료 / 수동)"] --> G["오래된 이슈에<br/>in-progress 라벨"]
-        G --> C
-    end
-    
     subgraph 정리["🧹 정리"]
         C --> H["개발 진행"]
         H --> I["PR 생성"]
@@ -306,7 +301,7 @@ flowchart LR
     PR --> CODEQL["GitHub-native CodeQL<br/>(조건부)"]
     PR --> ACTIONLINT["jclee-bot / actionlint<br/>(조건부)"]
     PR --> DOCS["jclee-bot / docs-policy"]
-    PR --> DEPENDABOT["12_dependabot-auto-merge.yml<br/>(dependabot만)"]
+    PR --> DEPENDABOT["jclee-bot App<br/>Dependabot merge policy"]
     
     PUSH --> APP_BUILD["36_build-and-push-app.yml<br/>(App image)"]
     PUSH --> RELEASE_D["23_release-drafter.yml"]
@@ -314,7 +309,6 @@ flowchart LR
     PUSH --> GITLEAKS
     
     PUSH --> HARDSCAN["35_auto-hardcode-scan.yml<br/>(workflow_dispatch / weekly manual)"]
-    PUSH --> ISSUE_BACK["19_issue-backfill.yml<br/>(Sanity workflow_run / manual)"]
     PR --> CODEQL_S["GitHub-native CodeQL"]
     
     ISSUE --> ISSUE_BRANCH["jclee-bot App<br/>issue branch"]

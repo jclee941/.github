@@ -85,12 +85,7 @@ _REUSABLE: set[str] = set()
 # many repos and is gated to workflow_dispatch to keep token spend explicit
 # (see its header comment). Event-driving it would cause runaway cost.
 #
-# The GitOps workflows below are manual-only deprecation markers. Their former
-# branch/PR/merge behavior is owned by the jclee-bot GitHub App webhook path.
 _MANUAL_ONLY_EXEMPT = {
-    "01_branch-to-pr.yml",
-    "12_dependabot-auto-merge.yml",
-    "13_pr-auto-merge.yml",
     "40_repo-review-batch.yml",
 }
 

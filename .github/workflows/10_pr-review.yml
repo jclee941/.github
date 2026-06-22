@@ -1,7 +1,6 @@
 name: PR Review (CLIProxyAPI)
 
 # Posts an automated AI code review against any non-draft PR.
-# Skips dependabot[bot] (handled by dependabot-auto-merge.yml).
 #
 # This workflow is downstream-portable: it does NOT require the host repo
 # to contain pr-agent source. It clones jclee941/.github at a separate

@@ -154,11 +154,6 @@ func (v *validator) localActionFiles() ([]string, error) {
 }
 
 func workflowOwnedGitOpsHits(fileName string, content string) []string {
-	retiredGitOpsWorkflows := map[string]struct{}{
-		"01_branch-to-pr.yml":          {},
-		"12_dependabot-auto-merge.yml": {},
-		"13_pr-auto-merge.yml":         {},
-	}
 	var hits []string
 	for _, token := range []string{
 		"gh pr create",
@@ -167,18 +162,6 @@ func workflowOwnedGitOpsHits(fileName string, content string) []string {
 	} {
 		if strings.Contains(content, token) {
 			hits = append(hits, fmt.Sprintf("%s retains workflow-owned GitOps mutation %q", fileName, token))
-		}
-	}
-	if _, retired := retiredGitOpsWorkflows[fileName]; !retired {
-		return hits
-	}
-	for _, token := range []string{
-		"pull_request:",
-		"pull_request_review:",
-		"push:",
-	} {
-		if strings.Contains(content, token) {
-			hits = append(hits, fmt.Sprintf("%s retains workflow-owned GitOps surface %q", fileName, token))
 		}
 	}
 	return hits

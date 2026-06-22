@@ -17,10 +17,6 @@ import (
 // caller's environment; missing values fail loud rather than silently
 // erasing the downstream secret.
 //
-// GH_PAT is required so each repo's branch-to-pr.yml can open PRs with a
-// token that triggers downstream pull_request workflows (the default
-// GITHUB_TOKEN does not, which keeps required checks from running and
-// blocks auto-merge).
 var secretsToSync = []string{
 	"CLIPROXY_API_KEY",
 	"GH_PAT",

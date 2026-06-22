@@ -78,7 +78,7 @@ func TestActiveWorkflowsAvoidStaleControlPlaneSurfacesDetectsWorkflowOwnedGitOps
 		t.Fatalf("mkdir: %v", err)
 	}
 
-	bad := `name: Branch to PR
+	bad := `name: workflow-owned GitOps
 on:
   push:
     branches: ['fix/**']
@@ -88,7 +88,7 @@ jobs:
     steps:
       - run: gh pr create --head fix/x --base master
 `
-	if err := os.WriteFile(filepath.Join(wfDir, "01_branch-to-pr.yml"), []byte(bad), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(wfDir, "52_workflow-owned-gitops.yml"), []byte(bad), 0o644); err != nil {
 		t.Fatalf("write bad workflow: %v", err)
 	}
 
@@ -97,7 +97,7 @@ jobs:
 	if err == nil {
 		t.Fatal("expected workflow-owned GitOps automation to be flagged")
 	}
-	if !strings.Contains(err.Error(), "01_branch-to-pr.yml") {
+	if !strings.Contains(err.Error(), "52_workflow-owned-gitops.yml") {
 		t.Fatalf("error should identify GitOps workflow, got: %v", err)
 	}
 }

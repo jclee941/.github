@@ -189,29 +189,6 @@ class TestIssueMaintenanceWorkflow:
         assert "BACKGROUND: false" in text
         assert '.repositories | type == "array"' in text
 
-
-
-# ---------------------------------------------------------------------------
-# Retired GitOps workflows must not mutate PR state
-# ---------------------------------------------------------------------------
-
-class TestRetiredGitOpsWorkflows:
-    WORKFLOWS: list[str] = ["branch-to-pr.yml", "dependabot-auto-merge.yml", "pr-auto-merge.yml"]
-
-    def test_workflows_report_app_ownership(self):
-        for wf in self.WORKFLOWS:
-            text = read_workflow(wf)
-            assert "jclee-bot GitHub App" in text
-
-    def test_workflows_do_not_mutate_prs(self):
-        forbidden = ["gh pr create", "gh pr merge", "gh pr review", "pull_request:", "pull_request_review:", "push:"]
-        for wf in self.WORKFLOWS:
-            text = read_workflow(wf)
-            offenders = [token for token in forbidden if token in text]
-            assert not offenders, f"{wf} must not retain workflow-owned GitOps behavior: {offenders}"
-
-
-
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------

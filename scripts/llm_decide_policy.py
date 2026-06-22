@@ -55,13 +55,6 @@ DECISION_SPECS: dict[str, dict] = {
         "command_allowlist": ["review", "describe", "describe,review", "improve"],
         "summary": "Pick which pr-agent commands to run for a PR.",
     },
-    "branch-to-pr": {
-        "actions": ["open", "noop"],
-        "destructive": False,
-        "fallback": "open",
-        "confidence_threshold": 0.0,
-        "summary": "Decide whether a pushed branch warrants a draft PR.",
-    },
     "ci-failure-close": {
         "actions": ["close", "noop"],
         "destructive": True,
