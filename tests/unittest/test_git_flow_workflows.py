@@ -165,6 +165,16 @@ class TestReadmeAutomationOwnedByApp:
         assert "bot/auto-readme-update" in runner_text
         assert "enablePullRequestAutoMerge" in runner_text
 
+    def test_event_workflow_triggers_app_readme_automation(self):
+        text = read_workflow("readme-automation.yml")
+        assert 'workflows: ["Sanity"]' in text
+        assert "repository_dispatch:" in text
+        assert "readme-automation" in text
+        assert "workflow_dispatch:" in text
+        assert "/api/v1/readme_automation" in text
+        assert ".accepted == true" in text
+        assert "APP_ISSUE_MAINTENANCE_TOKEN" in text
+
     def test_app_image_contains_readme_helpers(self):
         text = (REPO_ROOT / "Dockerfile.github_app").read_text(encoding="utf-8")
         assert "COPY scripts/*.py scripts/" in text
@@ -185,7 +195,7 @@ class TestIssueMaintenanceWorkflow:
 # ---------------------------------------------------------------------------
 
 class TestRetiredGitOpsWorkflows:
-    WORKFLOWS = ["branch-to-pr.yml", "dependabot-auto-merge.yml", "pr-auto-merge.yml"]
+    WORKFLOWS: list[str] = ["branch-to-pr.yml", "dependabot-auto-merge.yml", "pr-auto-merge.yml"]
 
     def test_workflows_report_app_ownership(self):
         for wf in self.WORKFLOWS:
@@ -311,7 +321,7 @@ class TestNotifyFailureTitlesAreStable:
 
     def test_no_run_id_in_notify_titles(self):
         import glob
-        offenders = []
+        offenders: list[str] = []
         for path in glob.glob(str(WF_DIR / "*.yml")) + glob.glob(
             str(WF_DIR / "**" / "*.yml")
         ):
@@ -324,6 +334,5 @@ class TestNotifyFailureTitlesAreStable:
                 ):
                     offenders.append(f"{Path(path).name}: {stripped}")
         assert not offenders, (
-            "notify-on-failure titles must be stable (no run_id) so dedup "
-            "works; offenders: " + "; ".join(offenders)
+            f"notify-on-failure titles must be stable (no run_id) so dedup works; offenders: {'; '.join(offenders)}"
         )

@@ -258,10 +258,11 @@ Downstream documentation checks moved to the App-reported `jclee-bot / docs-poli
 | `30_runtime-health-check.yml` | deployment_status, workflow_run, repository_dispatch, manual | Runtime environment validation |
 | `32_org-health-report.yml` | pull_request, workflow_run, manual | Organization-level health dashboard |
 
-#### Infrastructure & Deployment (6)
+#### Infrastructure & Deployment (7)
 
 | Workflow File | Trigger | Description |
 |---------------|---------|-------------|
+| `34_readme-automation.yml` | workflow_run, repository_dispatch, manual | Trigger App-owned README generation across managed repositories |
 | `35_auto-hardcode-scan.yml` | push, pull_request, workflow_run, manual | Hardcoded credential scan |
 | `36_build-and-push-app.yml` | push, manual | Container image build and push |
 | `37_ci-failure-issues.yml` | workflow_run, repository_dispatch, manual | Auto-create issues on CI failure |
@@ -335,6 +336,7 @@ github-bot/
 │   │   ├── 30_runtime-health-check.yml
 │   │   ├── 31_repo-health.yml
 │   │   ├── 32_org-health-report.yml
+│   │   ├── 34_readme-automation.yml
 │   │   ├── 35_auto-hardcode-scan.yml
 │   │   ├── 36_build-and-push-app.yml
 │   │   ├── 37_ci-failure-issues.yml

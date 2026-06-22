@@ -1,0 +1,101 @@
+name: App README Automation
+
+on:
+  workflow_run:
+    workflows: ["Sanity"]
+    types: [completed]
+  repository_dispatch:
+    types: [readme-automation]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Report planned README updates without opening PRs
+        required: false
+        type: boolean
+        default: true
+      repos:
+        description: Optional comma-separated repository names
+        required: false
+        type: string
+        default: ""
+      wait:
+        description: Poll the App job until completion
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-readme-automation
+  cancel-in-progress: false
+
+jobs:
+  readme-automation:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 20
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Trigger App-owned README automation
+        env:
+          README_AUTOMATION_TOKEN: ${{ secrets.APP_ISSUE_MAINTENANCE_TOKEN }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || github.event_name == 'repository_dispatch' && github.event.client_payload.dry_run || false }}
+          REPOS_INPUT: ${{ github.event_name == 'workflow_dispatch' && inputs.repos || '' }}
+          REPOS_PAYLOAD: ${{ github.event_name == 'repository_dispatch' && toJson(github.event.client_payload.repos) || 'null' }}
+          WAIT_FOR_COMPLETION: ${{ github.event_name == 'workflow_dispatch' && inputs.wait || false }}
+        run: |
+          set -euo pipefail
+          if [ -z "${README_AUTOMATION_TOKEN:-}" ]; then
+            echo "::warning::APP_ISSUE_MAINTENANCE_TOKEN is not configured; skipping App README automation."
+            exit 0
+          fi
+
+          repos_json='null'
+          if [ -n "${REPOS_PAYLOAD}" ] && [ "${REPOS_PAYLOAD}" != "null" ]; then
+            repos_json="$(jq -c 'if type == "array" then . else error("client_payload.repos must be an array") end' <<<"${REPOS_PAYLOAD}")"
+          elif [ -n "${REPOS_INPUT}" ]; then
+            repos_json="$(printf '%s' "${REPOS_INPUT}" | tr ',' '\n' | jq -Rsc 'split("\n") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0))')"
+          fi
+
+          payload="$(jq -cn \
+            --argjson dry_run "${DRY_RUN}" \
+            --argjson repos "${repos_json}" \
+            '{dry_run: $dry_run, background: true, owner: "jclee941"} + if $repos == null then {} else {repos: $repos} end')"
+
+          curl -fsS --retry 3 --retry-delay 5 --max-time 60 \
+            -X POST "https://bot.jclee.me/api/v1/readme_automation" \
+            -H "Authorization: Bearer ${README_AUTOMATION_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "${payload}" \
+            | tee readme-automation-result.json
+          jq -e '.accepted == true and (.job_id | type == "string") and (.owner == "jclee941")' readme-automation-result.json >/dev/null
+
+          if [ "${WAIT_FOR_COMPLETION}" != "true" ]; then
+            exit 0
+          fi
+
+          job_id="$(jq -r '.job_id' readme-automation-result.json)"
+          for _ in $(seq 1 120); do
+            curl -fsS --retry 2 --retry-delay 2 --max-time 30 \
+              -H "Authorization: Bearer ${README_AUTOMATION_TOKEN}" \
+              "https://bot.jclee.me/api/v1/readme_automation/jobs/${job_id}" \
+              | tee readme-automation-job.json
+            status="$(jq -r '.status' readme-automation-job.json)"
+            if [ "${status}" = "finished" ]; then
+              jq -e '.result.repositories | type == "array"' readme-automation-job.json >/dev/null
+              exit 0
+            fi
+            if [ "${status}" = "failed" ]; then
+              jq -r '.error // "README automation job failed"' readme-automation-job.json >&2
+              exit 1
+            fi
+            sleep 5
+          done
+          echo "README automation job did not finish before timeout" >&2
+          exit 1
