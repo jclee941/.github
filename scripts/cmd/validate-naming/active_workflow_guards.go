@@ -105,15 +105,20 @@ func workflowOwnedGitOpsHits(fileName string, content string) []string {
 		"12_dependabot-auto-merge.yml": {},
 		"13_pr-auto-merge.yml":         {},
 	}
-	if _, retired := retiredGitOpsWorkflows[fileName]; !retired {
-		return nil
-	}
-
 	var hits []string
 	for _, token := range []string{
 		"gh pr create",
 		"gh pr merge",
 		"gh pr review",
+	} {
+		if strings.Contains(content, token) {
+			hits = append(hits, fmt.Sprintf("%s retains workflow-owned GitOps mutation %q", fileName, token))
+		}
+	}
+	if _, retired := retiredGitOpsWorkflows[fileName]; !retired {
+		return hits
+	}
+	for _, token := range []string{
 		"pull_request:",
 		"pull_request_review:",
 		"push:",

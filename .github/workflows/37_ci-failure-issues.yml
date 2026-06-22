@@ -93,7 +93,7 @@ jobs:
             exit 1
           fi
           if [[ "$CONCLUSION" == "skipped" ]]; then
-            CONCLUSION="success"
+            CONCLUSION="neutral"
           fi
           # A cancelled run is treated as a failure for issue-creation purposes.
           if [[ "$CONCLUSION" == "cancelled" ]]; then

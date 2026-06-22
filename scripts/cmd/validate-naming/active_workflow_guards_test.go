@@ -102,6 +102,36 @@ jobs:
 	}
 }
 
+func TestActiveWorkflowsAvoidStaleControlPlaneSurfacesDetectsNewWorkflowOwnedGitOps(t *testing.T) {
+	tmpDir := t.TempDir()
+	wfDir := filepath.Join(tmpDir, ".github", "workflows")
+	if err := os.MkdirAll(wfDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	bad := `name: new gitops
+on:
+  workflow_dispatch:
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    steps:
+      - run: gh pr merge 123 --squash
+`
+	if err := os.WriteFile(filepath.Join(wfDir, "52_new-gitops.yml"), []byte(bad), 0o644); err != nil {
+		t.Fatalf("write bad workflow: %v", err)
+	}
+
+	v := &validator{rootDir: tmpDir}
+	err := v.activeWorkflowsAvoidStaleControlPlaneSurfaces()
+	if err == nil {
+		t.Fatal("expected new workflow-owned GitOps automation to be flagged")
+	}
+	if !strings.Contains(err.Error(), "52_new-gitops.yml") {
+		t.Fatalf("error should identify new GitOps workflow, got: %v", err)
+	}
+}
+
 func TestActiveWorkflowsAvoidStaleControlPlaneSurfacesDetectsUndefinedReposLoop(t *testing.T) {
 	tmpDir := t.TempDir()
 	wfDir := filepath.Join(tmpDir, ".github", "workflows")

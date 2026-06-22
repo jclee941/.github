@@ -59,3 +59,25 @@ def test_skipped_not_in_coercion_block() -> None:
         "the coerce-to-failure block must not include 'skipped'; "
         f"region was:\n{region}"
     )
+
+
+def test_skipped_is_not_coerced_to_success() -> None:
+    region = _skipped_region(_compute_event_run())
+    assert 'CONCLUSION="success"' not in region, (
+        "skipped workflow_run events must be neutral, not success; "
+        "otherwise the recovery close path can close failure issues from a skipped run."
+    )
+
+
+def _skipped_region(run: str) -> str:
+    lines = run.splitlines()
+    region = []
+    capture = False
+    for line in lines:
+        if 'CONCLUSION" == "skipped"' in line:
+            capture = True
+        if capture:
+            region.append(line)
+            if line.strip() == "fi":
+                break
+    return "\n".join(region)
