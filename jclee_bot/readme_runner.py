@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-import re
 import subprocess
 import sys
 import tempfile
 from collections.abc import Iterable
+from importlib import import_module
 from pathlib import Path
 from typing import Any, Callable
 
 import requests
 
 from jclee_bot import github_checks, issue_maintenance
+from jclee_bot.git_auth import git_askpass_env, git_env_with_auth, sanitize_access_token_url
 
 GITHUB_API = "https://api.github.com"
 BRANCH = "bot/auto-readme-update"
@@ -31,14 +32,21 @@ def sanitize_error(value: object, *, secrets: Iterable[str]) -> str:
     text = str(value)
     if isinstance(value, subprocess.CalledProcessError):
         text = value.stderr or str(value)
-    text = re.sub(r"x-access-token:[^@\s]+@", "x-access-token:***@", text)
+    text = sanitize_access_token_url(text)
     for secret in secrets:
         if secret:
             text = text.replace(secret, "***")
     return text.strip() or "operation failed"
 
 
-def _run_git(args: list[str], *, cwd: Path, timeout: int = 120, safe_args: list[str] | None = None) -> None:
+def _run_git(
+    args: list[str],
+    *,
+    cwd: Path,
+    timeout: int = 120,
+    safe_args: list[str] | None = None,
+    env: dict[str, str] | None = None,
+) -> None:
     try:
         completed = subprocess.run(  # noqa: S603
             ["git", *args],
@@ -47,6 +55,7 @@ def _run_git(args: list[str], *, cwd: Path, timeout: int = 120, safe_args: list[
             capture_output=True,
             text=True,
             timeout=timeout,
+            env=git_env_with_auth(env),
         )
     except subprocess.TimeoutExpired as exc:
         command = " ".join(["git", *(safe_args or args)])
@@ -59,11 +68,12 @@ def _run_git(args: list[str], *, cwd: Path, timeout: int = 120, safe_args: list[
 
 def clone_repo(*, token: str, repo_full_name: str, default_branch: str, workspace: Path) -> Path:
     repo_path = workspace / "repo"
-    url = f"https://x-access-token:{token}@github.com/{repo_full_name}.git"
+    url = f"https://github.com/{repo_full_name}.git"
     _run_git(
         ["clone", "-q", "--depth", "1", "--branch", default_branch, url, str(repo_path)],
         cwd=workspace,
         timeout=180,
+        env=git_askpass_env(token=token, workspace=workspace),
         safe_args=[
             "clone",
             "-q",
@@ -82,10 +92,12 @@ def render_readme(repo_path: Path) -> str:
     scripts_path = Path(__file__).resolve().parents[1] / "scripts"
     if str(scripts_path) not in sys.path:
         sys.path.insert(0, str(scripts_path))
-    from generate_readme import generate_readme
-    from generate_readme_cleaning import normalize_llm_readme_response, redact_private_ips, sanitize_links
+    generate_readme = import_module("generate_readme").generate_readme
+    cleaning = import_module("generate_readme_cleaning")
 
-    return redact_private_ips(sanitize_links(normalize_llm_readme_response(generate_readme(repo_path))))
+    return cleaning.redact_private_ips(
+        cleaning.sanitize_links(cleaning.normalize_llm_readme_response(generate_readme(repo_path))),
+    )
 
 
 def ensure_readme_commit(*, token: str, repo: dict[str, Any], dry_run: bool) -> dict[str, Any]:
@@ -116,7 +128,12 @@ def ensure_readme_commit(*, token: str, repo: dict[str, Any], dry_run: bool) -> 
             _run_git(["checkout", "-B", BRANCH], cwd=repo_path)
             _run_git(["add", "README.md"], cwd=repo_path)
             _run_git(["commit", "-m", TITLE], cwd=repo_path)
-            _run_git(["push", "-u", "origin", BRANCH, "--force"], cwd=repo_path, timeout=180)
+            _run_git(
+                ["push", "-u", "origin", BRANCH, "--force"],
+                cwd=repo_path,
+                timeout=180,
+                env=git_askpass_env(token=token, workspace=repo_path.parent),
+            )
             pr_number = upsert_pr(token=token, repo_full_name=repo_full_name, default_branch=default_branch)
             return {"repo": repo_full_name, "changed": True, "pr": pr_number}
     except (GitCommandError, subprocess.CalledProcessError, requests.RequestException) as exc:

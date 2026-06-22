@@ -12,12 +12,21 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / "scripts" / "generate_readme.py"
+CLEANING_SCRIPT = REPO_ROOT / "scripts" / "generate_readme_cleaning.py"
 assert SCRIPT.exists(), f"generate_readme.py not found: {SCRIPT}"
 
 
 def _load_module():
     """Import generate_readme.py as a module (no API key required)."""
     spec = importlib.util.spec_from_file_location("generate_readme", SCRIPT)
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _load_cleaning_module():
+    spec = importlib.util.spec_from_file_location("generate_readme_cleaning", CLEANING_SCRIPT)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -181,6 +190,27 @@ def test_sanitize_links_handles_http_and_www():
     assert "jclee941/.github" in out, out
 
 
+def test_known_repos_uses_yaml_parser_for_inventory_variation(tmp_path, monkeypatch):
+    mod = _load_cleaning_module()
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "repos.yaml").write_text(
+        """
+repositories:
+  - visibility: public
+    name: account
+  - name: ".github"
+    automation:
+      branch_protection: true
+  - name: propose
+""",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(mod, "_REPO_ROOT", tmp_path)
+    assert mod._known_jclee_repos() == {".github", "account", "propose"}
+
+
 def test_normalize_strips_thinking_variant():
     """The <thinking>...</thinking> tag variant must also be stripped."""
     mod = _load_module()
@@ -195,14 +225,16 @@ def test_is_transient_error_classification():
     classified as retryable; genuine client errors (4xx other than 429) must
     not."""
     import urllib.error
+    from email.message import Message
+
     mod = _load_module()
     # 524/502/503 + 429 are transient
     for code in (524, 502, 503, 429, 500):
-        e = urllib.error.HTTPError("u", code, "x", {}, None)
+        e = urllib.error.HTTPError("u", code, "x", Message(), None)
         assert mod._is_transient(e), f"HTTP {code} should be transient"
     # 400/401/403/404 are NOT transient
     for code in (400, 401, 403, 404):
-        e = urllib.error.HTTPError("u", code, "x", {}, None)
+        e = urllib.error.HTTPError("u", code, "x", Message(), None)
         assert not mod._is_transient(e), f"HTTP {code} should NOT be transient"
     # URLError (connection) and timeout are transient
     assert mod._is_transient(urllib.error.URLError("connection refused"))

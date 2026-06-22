@@ -49,6 +49,22 @@ class TestIssueMaintenanceDecisions:
             now=now,
         ) is False
 
+    def test_closes_duplicate_bot_review_findings(self) -> None:
+        # Given
+        issue = _issue(
+            labels=[
+                {"name": "duplicate"},
+                {"name": "jclee-bot"},
+                {"name": "review-finding"},
+                {"name": "security"},
+                {"name": "critical"},
+            ],
+        )
+
+        # Then
+        assert issue_maintenance.should_close_duplicate_bot_review(issue) is True
+        assert issue_maintenance.should_close_duplicate_bot_review(_issue(labels=[{"name": "duplicate"}])) is False
+
     def test_computes_issue_statistics_from_open_non_pr_issues(self) -> None:
         # Given
         now = datetime(2026, 6, 19, tzinfo=UTC)
@@ -123,6 +139,43 @@ class TestMaintainRepo:
 
         # Then
         assert result["actions"] == ["mark-stale:1", "close-stale:2"]
+        assert mutations == []
+
+    def test_dry_run_reports_duplicate_bot_review_cleanup(self, monkeypatch) -> None:
+        # Given
+        now = datetime(2026, 6, 19, tzinfo=UTC)
+        monkeypatch.setattr(
+            issue_maintenance,
+            "list_open_issues",
+            lambda **kwargs: [
+                _issue(
+                    number=3,
+                    updated_days_ago=1,
+                    labels=[
+                        {"name": "duplicate"},
+                        {"name": "jclee-bot"},
+                        {"name": "review-finding"},
+                        {"name": "security"},
+                        {"name": "critical"},
+                    ],
+                ),
+            ],
+        )
+        mutations: list[str] = []
+        monkeypatch.setattr(issue_maintenance, "comment_issue", lambda **kwargs: mutations.append("comment"))
+        monkeypatch.setattr(issue_maintenance, "close_issue", lambda **kwargs: mutations.append("close"))
+        monkeypatch.setattr(issue_maintenance.pr_maintenance, "maintain_pull_requests", lambda **kwargs: [])
+
+        # When
+        result = issue_maintenance.maintain_repo(
+            token="tok",
+            repo_full_name="jclee941/propose",
+            dry_run=True,
+            now=now,
+        )
+
+        # Then
+        assert result["actions"] == ["close-duplicate-review:3"]
         assert mutations == []
 
     def test_mutating_run_marks_stale_closes_stale_and_updates_summary(self, monkeypatch) -> None:

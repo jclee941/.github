@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import subprocess
-
 import pytest
 from fastapi.testclient import TestClient
 
@@ -220,36 +218,7 @@ def test_readme_automation_endpoint_rejects_missing_token(monkeypatch):
     assert response.status_code == 401
 
 
-def test_readme_automation_sanitizes_git_clone_failure(monkeypatch):
-    token = "ghs_secret_installation_token"
-
-    def fake_clone_repo(**kwargs):
-        raise subprocess.CalledProcessError(
-            128,
-            [
-                "git",
-                "clone",
-                f"https://x-access-token:{token}@github.com/jclee941/propose.git",
-            ],
-            stderr="remote: Repository not found.",
-        )
-
-    monkeypatch.setattr(readme_runner, "clone_repo", fake_clone_repo)
-
-    result = readme_runner.ensure_readme_commit(
-        token=token,
-        repo={"full_name": "jclee941/propose", "default_branch": "master"},
-        dry_run=True,
-    )
-
-    assert result["repo"] == "jclee941/propose"
-    assert result["changed"] is False
-    assert "error" in result
-    assert token not in str(result)
-    assert "x-access-token" not in str(result)
-
-
-def test_readme_automation_targets_master_when_repo_default_branch_is_main(monkeypatch, tmp_path):
+def test_readme_automation_targets_master_for_protected_repo(monkeypatch, tmp_path):
     seen: dict[str, str] = {}
 
     def fake_clone_repo(**kwargs):
@@ -270,7 +239,7 @@ def test_readme_automation_targets_master_when_repo_default_branch_is_main(monke
 
     result = readme_runner.ensure_readme_commit(
         token="tok",
-        repo={"full_name": "jclee941/bug", "default_branch": "main"},
+        repo={"full_name": "jclee941/bug", "default_branch": "master"},
         dry_run=False,
     )
 

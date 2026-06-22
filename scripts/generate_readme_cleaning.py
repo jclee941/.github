@@ -3,13 +3,11 @@ from __future__ import annotations
 import codecs
 import json
 import re
+from pathlib import Path
 
-_KNOWN_JCLEE_REPOS = {
-    ".github", "account", "ai-dacon", "blacklist", "bug", "firewall",
-    "hycu", "hycu_fsds", "idle-outpost", "jclee941", "learnprint",
-    "opencode", "propose", "pr-agent", "resume", "safetywallet",
-    "splunk", "terraform", "tmux", "youtube",
-}
+import yaml
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def normalize_llm_readme_response(text: str) -> str:
@@ -46,14 +44,36 @@ def _unwrap_json_content(s: str) -> str:
 def sanitize_links(text: str) -> str:
     canonical = "https://github.com/jclee941/.github"
     url_re = re.compile(r"https?://(?:www\.)?github\.com/jclee941/([A-Za-z0-9._-]+)")
+    known_repos = _known_jclee_repos()
 
-    def _replace(m: re.Match) -> str:
+    def _replace(m: re.Match[str]) -> str:
         repo = m.group(1)
-        if repo in _KNOWN_JCLEE_REPOS:
+        if repo in known_repos:
             return m.group(0)
         return canonical
 
     return url_re.sub(_replace, text)
+
+
+def _known_jclee_repos() -> set[str]:
+    inventory = _REPO_ROOT / "config" / "repos.yaml"
+    try:
+        payload = yaml.safe_load(inventory.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return {".github"}
+    if not isinstance(payload, dict):
+        return {".github"}
+    repositories = payload.get("repositories")
+    if not isinstance(repositories, list):
+        return {".github"}
+    repos = {".github"}
+    for repo in repositories:
+        if not isinstance(repo, dict):
+            continue
+        name = repo.get("name")
+        if isinstance(name, str):
+            repos.add(name)
+    return repos
 
 
 def redact_private_ips(text: str) -> str:
@@ -64,7 +84,7 @@ def redact_private_ips(text: str) -> str:
             return False
         return o1 == 10 or (o1 == 172 and 16 <= o2 <= 31) or (o1 == 192 and o2 == 168)
 
-    def _replace(m: re.Match) -> str:
+    def _replace(m: re.Match[str]) -> str:
         octets = tuple(int(m.group(i)) for i in range(1, 5))
         if not _is_private(*octets):
             return m.group(0)

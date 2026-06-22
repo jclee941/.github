@@ -22,7 +22,9 @@ from typing import Any
 
 from fastapi import Request, Response
 
-from jclee_bot import dispatch, github_checks, issue_maintenance, issue_management
+from jclee_bot import dispatch, github_checks, gitops_automation, issue_maintenance, issue_management
+from jclee_bot.context_guards import neutralize_on_missing_context
+from jclee_bot.git_auth import git_askpass_env, git_env_with_auth
 from jclee_bot.readme_automation import router as readme_automation_router
 
 # Reuse the upstream app object so its middleware + all routes are preserved.
@@ -78,17 +80,18 @@ def _fetch_changed_files(token: str, repo_full_name: str, pr_number: int) -> lis
 def _checkout_pr_head(token: str, repo_full_name: str, head_sha: str, workspace: str) -> bool:
     """Shallow-checkout the PR head SHA into workspace for content scanning.
 
-    Returns True on success; failures degrade the file-content checks to a
-    no-op (they then report neutral/empty) instead of crashing the webhook.
+    Returns True on success; failures make required file-content checks fail
+    closed instead of crashing the webhook.
     """
-    url = f"https://x-access-token:{token}@github.com/{repo_full_name}.git"
+    url = f"https://github.com/{repo_full_name}.git"
+    fetch_env = git_env_with_auth(git_askpass_env(token=token, workspace=workspace))
     try:
         subprocess.run(  # noqa: S603 - fixed args
             ["git", "init", "-q", workspace], check=True, timeout=30,
         )
         subprocess.run(  # noqa: S603
             ["git", "-C", workspace, "fetch", "-q", "--depth", "1", url, head_sha],
-            check=True, timeout=120, capture_output=True,
+            check=True, timeout=120, capture_output=True, env=fetch_env,
         )
         subprocess.run(  # noqa: S603
             ["git", "-C", workspace, "checkout", "-q", "FETCH_HEAD"],
@@ -97,43 +100,6 @@ def _checkout_pr_head(token: str, repo_full_name: str, head_sha: str, workspace:
         return True
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
         return False
-
-
-# Which checks depend on which fetched context. If that context could not be
-# obtained, the check must report NEUTRAL (not success) so we never publish a
-# misleading green (e.g. a passing secret-scan that scanned nothing).
-_NEEDS_CHECKOUT = {"jclee-bot / secret-scan", "jclee-bot / actionlint", "jclee-bot / docs-policy"}
-_NEEDS_CHANGED_FILES = {
-    "jclee-bot / pr-metadata",
-    "jclee-bot / secret-scan",
-    "jclee-bot / actionlint",
-    "jclee-bot / docs-policy",
-}
-
-
-def _neutralize_on_missing_context(results, *, files_ok: bool, checkout_ok: bool):
-    from jclee_bot.checks import CheckResult
-
-    out = []
-    for r in results:
-        if r.conclusion == "failure":
-            out.append(r)  # a real failure stands regardless of context
-            continue
-        missing = []
-        if r.name in _NEEDS_CHECKOUT and not checkout_ok:
-            missing.append("PR checkout unavailable")
-        if r.name in _NEEDS_CHANGED_FILES and not files_ok:
-            missing.append("changed-files API unavailable")
-        if missing:
-            out.append(CheckResult(
-                name=r.name,
-                conclusion="neutral",
-                title="skipped (context unavailable)",
-                summary="; ".join(missing) + " — check could not run against real PR content.",
-            ))
-        else:
-            out.append(r)
-    return out
 
 
 def _run_checks_for_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -171,10 +137,10 @@ def _run_checks_for_payload(payload: dict[str, Any]) -> dict[str, Any]:
             payload, changed_files=changed_files, workspace=workspace,
         )
 
-    # Never publish a misleading green when the required context was unavailable:
-    # a security/content check that did not actually inspect the PR must be
-    # NEUTRAL, not success.
-    results = _neutralize_on_missing_context(results, files_ok=files_ok, checkout_ok=checkout_ok)
+    # Never publish a merge-satisfying required check when context was unavailable:
+    # GitHub accepts neutral required checks, so security/content checks must
+    # fail closed unless they are genuinely not applicable.
+    results = neutralize_on_missing_context(results, files_ok=files_ok, checkout_ok=checkout_ok)
 
     reported = []
     if token and repo_full_name and head_sha:
@@ -207,6 +173,24 @@ def _run_issue_management_for_payload(payload: dict[str, Any], event: str) -> di
         return issue_management.handle_issue_event(token=token, payload=payload, event=event)
     except Exception:  # noqa: BLE001 - one failed issue action must not break reviews/checks
         return {"actions": []}
+
+
+def _run_gitops_automation_for_payload(payload: dict[str, Any], event: str) -> dict[str, Any]:
+    installation_id = payload.get("installation", {}).get("id", 0)
+    try:
+        token = _installation_token(installation_id)
+    except Exception:  # noqa: BLE001 - GitOps automation must not break webhooks
+        token = None
+    if not token:
+        return {"actions": []}
+    try:
+        if event == "create":
+            return gitops_automation.handle_create_event(token=token, payload=payload, event=event)
+        if event in {"pull_request", "pull_request_review"}:
+            return gitops_automation.handle_pull_request_auto_merge(token=token, payload=payload, event=event)
+    except Exception:  # noqa: BLE001 - webhook ack must not depend on GitOps side effects
+        return {"actions": []}
+    return {"actions": []}
 
 
 def _issue_event_signature_ok(secret: str, payload: bytes, signature: str | None) -> bool:
@@ -246,23 +230,32 @@ async def _tee_pull_request_to_checks(request: Request, call_next):
         sig = request.headers.get("X-Hub-Signature-256")
         pull_request_ok = event == "pull_request" and _verify_signature(secret, raw, sig)
         issue_event_ok = event in {"issues", "issue_comment"} and _issue_event_signature_ok(secret, raw, sig)
-        if pull_request_ok or issue_event_ok:
+        gitops_event_ok = event in {"create", "pull_request_review"} and _verify_signature(secret, raw, sig)
+        if pull_request_ok or issue_event_ok or gitops_event_ok:
             try:
                 payload = json.loads(raw or b"{}")
-                if event == "pull_request" and payload.get("action") in dispatch.PR_ACTIONS:
-                    # Run the (blocking: git fetch + gitleaks + actionlint +
-                    # Checks API) work in a background thread so the upstream
-                    # webhook is acknowledged promptly and GitHub does not retry.
+                if event == "pull_request":
                     import asyncio
 
-                    asyncio.get_event_loop().run_in_executor(
-                        None, _run_checks_for_payload, payload
-                    )
+                    loop = asyncio.get_event_loop()
+                    if payload.get("action") in dispatch.PR_ACTIONS:
+                        # Run the (blocking: git fetch + gitleaks + actionlint +
+                        # Checks API) work in a background thread so the upstream
+                        # webhook is acknowledged promptly and GitHub does not retry.
+                        loop.run_in_executor(None, _run_checks_for_payload, payload)
+                    if payload.get("action") == "labeled":
+                        loop.run_in_executor(None, _run_gitops_automation_for_payload, payload, event)
                 elif event in {"issues", "issue_comment"}:
                     import asyncio
 
                     asyncio.get_event_loop().run_in_executor(
                         None, _run_issue_management_for_payload, payload, event
+                    )
+                elif event in {"create", "pull_request_review"}:
+                    import asyncio
+
+                    asyncio.get_event_loop().run_in_executor(
+                        None, _run_gitops_automation_for_payload, payload, event
                     )
             except Exception:  # noqa: BLE001 - checks must never break the review path
                 pass

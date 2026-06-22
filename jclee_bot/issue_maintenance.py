@@ -8,76 +8,40 @@ import requests
 import yaml
 
 from jclee_bot import github_checks, issue_management, pr_maintenance
+from jclee_bot.issue_maintenance_rules import (
+    issue_stats,
+    should_close_duplicate_bot_review,
+    should_close_stale,
+    should_mark_stale,
+)
 
 GITHUB_API = "https://api.github.com"
-STALE_DAYS = 30
-CLOSE_DAYS = 7
-EXEMPT_LABELS = {"pinned", "security", "critical"}
 SUMMARY_LABELS = ["issue-summary", "bot"]
 STALE_MESSAGE = (
     "이 이슈는 30일 이상 활동이 없어 `stale` 상태로 전환됩니다. "
     "추가 활동이 없으면 7일 후 자동으로 닫힙니다."
 )
 CLOSE_MESSAGE = "이슈가 7일 이상 활동이 없어 자동으로 닫혔습니다. 필요시 재오픈해주세요."
+DUPLICATE_REVIEW_CLOSE_MESSAGE = (
+    "중복된 `jclee-bot` review-finding 이슈로 자동 정리합니다. "
+    "원본 이슈 또는 PR에 남은 항목만 추적해주세요."
+)
 
 
 def _headers(token: str) -> dict[str, str]:
     return {"Authorization": f"token {token}", "Accept": "application/vnd.github+json"}
 
 
-def parse_github_time(value: str) -> datetime:
-    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
-
-
-def _age_days(issue: dict[str, Any], now: datetime) -> int:
-    updated_at = str(issue.get("updated_at") or issue.get("created_at") or "")
-    if not updated_at:
-        return 0
-    return int((now - parse_github_time(updated_at)).total_seconds() // 86400)
-
-
-def _is_issue(issue: dict[str, Any]) -> bool:
-    return not issue.get("pull_request") and issue.get("state", "open") == "open"
-
-
-def _labels(issue: dict[str, Any]) -> set[str]:
-    return issue_management.label_names(issue.get("labels", []))
-
-
-def should_mark_stale(issue: dict[str, Any], *, now: datetime) -> bool:
-    labels = _labels(issue)
-    if not _is_issue(issue) or "stale" in labels or labels & EXEMPT_LABELS:
-        return False
-    return _age_days(issue, now) >= STALE_DAYS
-
-
-def should_close_stale(issue: dict[str, Any], *, now: datetime) -> bool:
-    labels = _labels(issue)
-    if not _is_issue(issue) or "stale" not in labels or labels & EXEMPT_LABELS:
-        return False
-    return _age_days(issue, now) >= CLOSE_DAYS
-
-
-def issue_stats(issues: list[dict[str, Any]], *, now: datetime) -> dict[str, int]:
-    open_issues = [issue for issue in issues if _is_issue(issue)]
-    stats = {
-        "total": len(open_issues),
-        "no_labels": sum(not _labels(issue) for issue in open_issues),
-        "old": sum(_age_days(issue, now) > STALE_DAYS for issue in open_issues),
-    }
-    for label in ("bug", "enhancement", "documentation", "security", "stale"):
-        stats[label] = sum(label in _labels(issue) for issue in open_issues)
-    return stats
-
-
 def _paginate(token: str, path: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     page = 1
     while True:
+        request_params: dict[str, Any] = {} if params is None else dict(params)
+        request_params.update({"per_page": 100, "page": page})
         resp = requests.get(
             f"{GITHUB_API}{path}",
             headers=_headers(token),
-            params={**(params or {}), "per_page": 100, "page": page},
+            params=request_params,
             timeout=30,
         )
         resp.raise_for_status()
@@ -198,6 +162,17 @@ def maintain_repo(*, token: str, repo_full_name: str, dry_run: bool, now: dateti
     for issue in issues:
         number = int(issue.get("number", 0) or 0)
         if number <= 0:
+            continue
+        if should_close_duplicate_bot_review(issue):
+            actions.append(f"close-duplicate-review:{number}")
+            if not dry_run:
+                comment_issue(
+                    token=token,
+                    repo_full_name=repo_full_name,
+                    issue_number=number,
+                    body=DUPLICATE_REVIEW_CLOSE_MESSAGE,
+                )
+                close_issue(token=token, repo_full_name=repo_full_name, issue_number=number)
             continue
         if should_close_stale(issue, now=current_time):
             actions.append(f"close-stale:{number}")

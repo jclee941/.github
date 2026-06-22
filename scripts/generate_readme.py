@@ -18,20 +18,27 @@ import argparse
 import os
 import sys
 import time
+from importlib import import_module
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from cliproxy_client import (
-    CliproxyCredentialError,
-    CliproxyMessage,
-    cliproxy_chat_completion,
-    resolve_cliproxy_api_key,
-)
-from cliproxy_routing import route_models_by_quota
-from generate_readme_cleaning import normalize_llm_readme_response, redact_private_ips, sanitize_links
-from generate_readme_retry import TransientLLMError
-from generate_readme_retry import is_transient as _is_transient
-from generate_readme_scan import run_tree
+_cliproxy_client = import_module("cliproxy_client")
+_cliproxy_routing = import_module("cliproxy_routing")
+_readme_cleaning = import_module("generate_readme_cleaning")
+_readme_retry = import_module("generate_readme_retry")
+_readme_scan = import_module("generate_readme_scan")
+
+CliproxyCredentialError = _cliproxy_client.CliproxyCredentialError
+CliproxyMessage = _cliproxy_client.CliproxyMessage
+TransientLLMError = _readme_retry.TransientLLMError
+cliproxy_chat_completion = _cliproxy_client.cliproxy_chat_completion
+normalize_llm_readme_response = _readme_cleaning.normalize_llm_readme_response
+redact_private_ips = _readme_cleaning.redact_private_ips
+resolve_cliproxy_api_key = _cliproxy_client.resolve_cliproxy_api_key
+route_models_by_quota = _cliproxy_routing.route_models_by_quota
+run_tree = _readme_scan.run_tree
+sanitize_links = _readme_cleaning.sanitize_links
+_is_transient = _readme_retry.is_transient
 
 API_BASE = os.environ.get("OPENAI_BASE_URL", "https://cliproxy.jclee.me/v1")
 API_KEY = os.environ.get("CLIPROXY_API_KEY", "")
@@ -225,7 +232,7 @@ def main() -> int:
     except TransientLLMError as e:
         # Transient backend outage (e.g. Cloudflare 524): do NOT hard-fail CI.
         # Leave the existing README untouched; the next scheduled run regenerates.
-        print(f"::warning::README generation skipped due to transient LLM outage: {e}")
+        print(f"::warning::README automation skipped due to transient LLM outage: {e}")
         return 0
 
     if args.dry_run:
