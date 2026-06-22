@@ -1,7 +1,0 @@
-{
-  "number": 43,
-  "title": "Export reports to CSV from analytics page",
-  "body": "Please add a way to export the analytics reports as CSV files so we can process them in spreadsheets offline.",
-  "state": "open",
-  "labels": []
-}

@@ -220,8 +220,8 @@ class TestRetiredGitOpsWorkflows:
 
 class TestStaleFailureIssueAutoRecovery:
     """Failure/health issues created by scheduled workflows (Runtime
-    Health, ELK Health, Downstream Health, Bot Health, CI Auto-Heal, ELK
-    Setup) must auto-close when their originating workflow recovers; no
+    Health, ELK Health, Downstream Health, Bot Health, ELK Setup) must
+    auto-close when their originating workflow recovers; no
     manual cleanup. ci-failure-issues.yml is the centralized recovery
     mechanism: (1) event-driven on workflow_run success, and (2) a
     manually dispatchable sweep that closes open failure/health issues
@@ -240,7 +240,6 @@ class TestStaleFailureIssueAutoRecovery:
             "Runtime Health Check",
             "Downstream Health Check",
             "Bot Health Monitor",
-            "CI Auto-Heal",
         ]:
             assert f'"{wf}"' in text, (
                 f"ci-failure-issues.yml workflow_run must watch '{wf}' so its "
@@ -261,7 +260,6 @@ class TestStaleFailureIssueAutoRecovery:
             "CLIProxyAPI unreachable",
             "Downstream workflow failures detected",
             "Bot Health Monitor failed",
-            "CI Auto-Heal failed",
         ]:
             assert sub in text, (
                 f"ci-failure-issues.yml event-driven success path must close "

@@ -41,7 +41,7 @@
 | **G1** | `repo-metadata` 도구는 존재·테스트됨이지만 이를 **주기 실행하는 워크플로우가 없음** (수동 전용) | `scripts/cmd/repo-metadata/main.go` 존재, `.github/workflows/`에 metadata 워크플로우 없음 | description/topics/homepage 드리프트가 자동 보정되지 않음 |
 | **G2** | README 자동화 **정책 충돌** — `20_readme-gen`(AI 생성, Sun 00:00)과 `22_template-sync`(정적 템플릿 덮어쓰기, Sun 01:00)이 같은 `README.md`를 두고 경쟁 PR 생성 | `20_readme-gen.yml:82`, `22_template-sync.yml:78` (`cp ... README.md`) | 나중에 머지되는 쪽이 이김. README 소유권 불명확 |
 | **G3** | `drift-detector`가 **파일 드리프트만** 감지 — repo 메타데이터·branch protection·rulesets·secrets 드리프트는 미감지 | `scripts/cmd/drift-detector/main.go:96-132` (`getManagedFiles`는 워크플로/dependabot/CODEOWNERS만) | 정책 차원의 fleet 일관성 침묵 붕괴 가능 |
-| **G4** | `29_downstream-health-check`가 **3개 워크플로우만** 점검 (`actionlint`, `pr-checks`, `gitleaks`) | `29_downstream-health-check.yml:46` (`WORKFLOWS=(...)`) | pr-review·codeql·dependency-review·docs-sync·auto-merge·ci-auto-heal 실패 미탐지 |
+| **G4** | `29_downstream-health-check`가 **3개 워크플로우만** 점검 (`actionlint`, `pr-checks`, `gitleaks`) | `29_downstream-health-check.yml:46` (`WORKFLOWS=(...)`) | pr-review·codeql·dependency-review·docs-sync·auto-merge 실패 미탐지 |
 | **G5** | `renovate.json`이 배포·감시되지만 **Renovate 실행 워크플로우가 없음** | `deploy-to-repos/main.go:73` (extraFiles), `34_auto-deploy.yml:9` (`.github/renovate.json` watch), 실행 워크플로우 부재 | 외부 Renovate App 미설치 시 config가 무의미(inert) |
 | **G6** | 빌드·이미지 롤아웃(`36_build-and-push-app` + Watchtower) 후 **배포 검증/롤백 게이트 없음** | `36_build-and-push-app.yml:55-63` (`latest` push), 후속 canary gate 부재 | 깨진 이미지가 자동 배포되어도 자동 감지·롤백 없음 |
 

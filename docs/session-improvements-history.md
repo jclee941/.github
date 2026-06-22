@@ -59,13 +59,14 @@ artifacts statically with no Jekyll; fixed by building real HTML in the workflow
 
 ---
 
-## 4. CI auto-heal coverage | CI 자동 복구 범위 확장
+## 4. Removed legacy manual CI recovery | 레거시 수동 CI 복구 제거
 
-**What**: Extended `60_ci-auto-heal.yml`'s `workflow_run` trigger to cover
-**Release Publish** and **Scorecard supply-chain security** (`a345923d`).
+**What**: The legacy workflow-level CI recovery path was removed during the
+App-era cleanup. CI failure visibility now flows through failure issues and
+the `jclee-bot` App-owned checks path.
 
-**Why**: both workflows had failed on `main` after a merge but were absent from
-the auto-heal trigger list, so their failures were never auto-remediated.
+**Why**: manual workflow-level recovery duplicated the App-based automation
+surface and kept obsolete downstream workflow copies alive.
 
 ---
 
@@ -96,7 +97,7 @@ python -m pytest tests/unittest -q                      # -> 744 passed
 |------|----------|
 | Evolution package | `150 passed` (command above, dev venv); Oracle-reviewed (multi-round) |
 | Repo-wide unit tests | `744 passed` (dev venv); requires the venv deps (without it the suite under-collects) |
-| Workflows | `actionlint` clean (`41_pages-deploy.yml`, `60_ci-auto-heal.yml`) |
+| Workflows | `actionlint` clean (`41_pages-deploy.yml`) |
 | Docs | `markdownlint` clean |
 | Pages site | live HTTP 200 (`index.html`, `downstream-standardization.html`) |
 

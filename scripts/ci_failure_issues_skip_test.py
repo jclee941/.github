@@ -3,9 +3,8 @@
 
 The workflow auto-creates a ci-failure issue when a watched workflow_run
 finishes. It previously coerced BOTH `cancelled` and `skipped` conclusions to
-`failure`, which spammed false-positive issues:
-  - `skipped` is normal: e.g. CI Auto-Heal has `if: ... conclusion == 'failure'`
-    so it legitimately skips whenever upstream succeeded. That is NOT a failure.
+`failure`, which spammed false-positive issues. A skipped workflow_run is not
+itself a failure.
 
 These tests pin that `skipped` is NOT treated as a failure (no spurious issue).
 """

@@ -69,18 +69,6 @@ DECISION_SPECS: dict[str, dict] = {
         "confidence_threshold": 0.75,
         "summary": "Decide whether to close a CI-failure issue after recovery.",
     },
-    "ci-auto-heal": {
-        "actions": ["command", "noop"],
-        "destructive": True,
-        "fallback": "closed",
-        "confidence_threshold": 0.75,
-        "command_allowlist": [
-            "fix-markdown", "fix-workflow-yaml", "run-go-fmt",
-            "npm-audit-fix", "npm-lint-fix", "npm-update",
-            "go-mod-tidy", "terraform-fmt", "ruff-fix", "black-format",
-        ],
-        "summary": "Pick a predefined CI auto-heal strategy.",
-    },
     "bot-auto-fix": {
         "actions": ["push", "noop"],
         "destructive": True,

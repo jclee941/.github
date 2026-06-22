@@ -36,7 +36,7 @@
 | C1 Auto-merge | `12_dependabot-auto-merge`, `13_pr-auto-merge`, `81_auto-merge` | `81`은 `13`의 기능을 복제한 미사용 reusable | 🔴 `81` 제거 |
 | C2 PR 리뷰 | `10_pr-review`(CLIProxy), `11_security-pr-review`(보안 감사), `86_pr-review-security` | `86`은 `security/11`을 복제한 미사용 reusable | 🔴 `86` 제거 |
 | C3 Stale | `16_stale-repo-identifier`, `17_pr-stale-bot`, `88_stale` | `88`은 `16`/`17`을 복제한 미사용 reusable | 🔴 `88` 제거 |
-| C4 이슈 관리 | `jclee-bot` App issue webhooks, `19_issue-backfill`, `91_issue-classification`, `82_issue-label`, `83_issue-lifecycle`, `84_labeler` | `82`/`83`/`84`는 App issue webhooks/`91`을 복제한 미사용 reusable | 🔴 `82`/`83`/`84` 제거 |
+| C4 이슈 관리 | `jclee-bot` App issue webhooks, `19_issue-backfill`, `82_issue-label`, `83_issue-lifecycle`, `84_labeler` | `82`/`83`/`84`는 App issue webhooks를 복제한 미사용 reusable | 🔴 `82`/`83`/`84` 제거 |
 | C5 PR 보조 | `03_pr-checks`+`44_reusable-pr-checks`, `85_pr-normalize`, `87_pr-size` | `85`/`87`은 어디서도 호출 안 됨 | 🔴 `85`/`87` 제거 |
 | C6 환영/온보딩 | `89_welcome` | 호출자 없음 | 🔴 `89` 제거 |
 | C7 재사용 CI | `41_reusable-ci` | 호출자 없음, 배포 매니페스트에도 없음 | 🔴 `41` 제거 |
