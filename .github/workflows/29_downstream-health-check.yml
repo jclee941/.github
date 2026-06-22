@@ -14,7 +14,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
 
 concurrency:
   group: downstream-health-check
@@ -104,63 +103,66 @@ jobs:
       - name: Create or update health-check issue
         if: steps.health.outputs.failures_found == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          ISSUE_COMMANDS_TOKEN: ${{ secrets.ISSUE_COMMANDS_TOKEN || secrets.APP_ISSUE_MAINTENANCE_TOKEN }}
           DETAILS: ${{ steps.health.outputs.details }}
         run: |
           set -u
+          if [ -z "${ISSUE_COMMANDS_TOKEN:-}" ]; then
+            echo "::warning::ISSUE_COMMANDS_TOKEN/APP_ISSUE_MAINTENANCE_TOKEN is not configured; skipping jclee-bot issue command."
+            exit 0
+          fi
 
           TITLE="[health-check] Downstream workflow failures detected"
-
-          # Write body to temp file to avoid YAML | conflicts
-          BODY_FILE=$(mktemp)
-          {
-            echo "## Downstream Workflow Health Check Failures"
-            echo ""
-            echo "The following critical workflows have non-success conclusions in downstream repos:"
-            echo ""
-            printf '%s\n' "$DETAILS"
-            echo ""
-            echo "---"
-            echo ""
-            echo "> Automated by downstream-health-check.yml"
-            echo "> Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          } > "$BODY_FILE"
-
-          BODY=$(cat "$BODY_FILE")
-          rm -f "$BODY_FILE"
-
-          # Search for existing open health-check issue
-          EXISTING=$(gh issue list -R "${{ github.repository }}" \
-            --state open --search "in:title \"$TITLE\"" \
-            --json number -q '.[] | .number' 2>/dev/null || true)
-
-          if [ -n "$EXISTING" ]; then
-            gh issue edit "$EXISTING" -R "${{ github.repository }}" --body "$BODY"
-            gh issue comment "$EXISTING" -R "${{ github.repository }}" --body "Updated: ${{ steps.health.outputs.count }} failures detected at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          else
-            gh issue create -R "${{ github.repository }}" \
-              --title "$TITLE" \
-              --body "$BODY" \
-              --label "health-check,automated"
-          fi
+          BODY=$(printf '%s\n' \
+            '## Downstream Workflow Health Check Failures' \
+            '' \
+            'The following critical workflows have non-success conclusions in downstream repos:' \
+            '' \
+            "$DETAILS" \
+            '' \
+            '---' \
+            '' \
+            "> Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            '' \
+            '_jclee-bot에의해자동화됨._')
+          payload="$(jq -cn \
+            --arg repo "${{ github.repository }}" \
+            --arg title "$TITLE" \
+            --arg body "$BODY" \
+            '{repository: $repo, commands: [{type: "upsert_issue", title: $title, body: $body, update_body: true, labels: ["health-check", "automated"]}]}')"
+          curl -fsS --retry 3 --retry-delay 5 --max-time 120 \
+            -X POST "https://bot.jclee.me/api/v1/issue_commands" \
+            -H "Authorization: Bearer ${ISSUE_COMMANDS_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$payload" \
+            | jq -e '.actions | type == "array"' >/dev/null
 
       - name: Close health-check issue if all green
         if: steps.health.outputs.failures_found == 'false'
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          ISSUE_COMMANDS_TOKEN: ${{ secrets.ISSUE_COMMANDS_TOKEN || secrets.APP_ISSUE_MAINTENANCE_TOKEN }}
         run: |
           set -u
+          if [ -z "${ISSUE_COMMANDS_TOKEN:-}" ]; then
+            echo "::warning::ISSUE_COMMANDS_TOKEN/APP_ISSUE_MAINTENANCE_TOKEN is not configured; skipping jclee-bot issue command."
+            exit 0
+          fi
 
           TITLE="[health-check] Downstream workflow failures detected"
-          EXISTING=$(gh issue list -R "${{ github.repository }}" \
-            --state open --search "in:title \"$TITLE\"" \
-            --json number -q '.[] | .number' 2>/dev/null || true)
-
-          if [ -n "$EXISTING" ]; then
-            gh issue close "$EXISTING" -R "${{ github.repository }}" \
-              --comment "All downstream workflows are now green. Resolved at $(date -u +%Y-%m-%dT%H:%M:%SZ)." \
-              --reason completed
-          fi
+          COMMENT="All downstream workflows are now green. Resolved at $(date -u +%Y-%m-%dT%H:%M:%SZ)."$'\n\n''_jclee-bot에의해자동화됨._'
+          payload="$(jq -cn \
+            --arg repo "${{ github.repository }}" \
+            --arg title "$TITLE" \
+            --arg comment "$COMMENT" \
+            '{repository: $repo, commands: [{type: "close_matching_issues", title_contains: $title, labels: ["health-check"], comment: $comment}]}')"
+          curl -fsS --retry 3 --retry-delay 5 --max-time 120 \
+            -X POST "https://bot.jclee.me/api/v1/issue_commands" \
+            -H "Authorization: Bearer ${ISSUE_COMMANDS_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$payload" \
+            | jq -e '.actions | type == "array"' >/dev/null
       - name: Notify on failure
         if: failure()
         uses: ./.github/actions/notify-on-failure
+        with:
+          jclee-bot-token: ${{ secrets.ISSUE_COMMANDS_TOKEN || secrets.APP_ISSUE_MAINTENANCE_TOKEN }}

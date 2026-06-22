@@ -246,14 +246,16 @@ class TestStaleFailureIssueAutoRecovery:
                 "stale failure issue auto-closes on recovery."
             )
 
-    def test_event_driven_close_maps_health_workflow_titles(self):
+    def test_workflow_delegates_issue_mutation_to_app(self):
         text = read_workflow("ci-failure-issues.yml")
-        # On workflow_run success, the health/scan workflows' stable issue
-        # titles must be closed immediately (event-driven), not only by the
-        # daily sweep. Guard that the success path maps these workflow names.
-        # Updated to the App-era watch list: Gitleaks is gone (App does
-        # secret-scan), CodeQL is GitHub-native, PR Checks and Auto Deploy
-        # are gone.
+        assert "/api/v1/ci_failure_issues" in text
+        assert "CI_FAILURE_ISSUES_TOKEN" in text
+        forbidden = ["gh issue create", "gh issue close", "gh issue comment", "gh label create"]
+        offenders = [token for token in forbidden if token in text]
+        assert not offenders, f"ci-failure-issues.yml must delegate issue mutations to jclee-bot: {offenders}"
+
+    def test_app_maps_health_workflow_titles_for_recovery(self):
+        text = (REPO_ROOT / "jclee_bot" / "workflow_issue_automation.py").read_text(encoding="utf-8")
         for sub in [
             "ELK Health Check Failed",
             "ELK Setup Failed",
@@ -262,7 +264,7 @@ class TestStaleFailureIssueAutoRecovery:
             "Bot Health Monitor failed",
         ]:
             assert sub in text, (
-                f"ci-failure-issues.yml event-driven success path must close "
+                f"jclee-bot event-driven success path must close "
                 f"issues titled '{sub}' when the workflow recovers."
             )
 
@@ -277,7 +279,8 @@ class TestStaleFailureIssueAutoRecovery:
         )
         assert m, "could not find workflow_run.workflows block"
         watched = set(re.findall(r'- "([^"]+)"', m.group(1)))
-        cases = set(re.findall(r'"([^"]+)"\)\s*SUBS', text))
+        app_text = (REPO_ROOT / "jclee_bot" / "workflow_issue_automation.py").read_text(encoding="utf-8")
+        cases = set(re.findall(r'\("([^"]+)", \(', app_text))
         missing = cases - watched
         assert not missing, (
             "event-driven case-mapped workflows missing from workflow_run "
@@ -298,12 +301,12 @@ class TestStaleFailureIssueAutoRecovery:
         )
 
     def test_sweep_queries_workflow_run_conclusion(self):
-        text = read_workflow("ci-failure-issues.yml")
+        text = (REPO_ROOT / "jclee_bot" / "workflow_issue_automation.py").read_text(encoding="utf-8")
         # The sweep must determine recovery by querying the originating
         # workflow's latest run conclusion (success) via the Actions API,
         # not by guessing.
         assert "actions/workflows" in text or "/runs" in text, (
-            "ci-failure-issues.yml sweep must query the workflow's run "
+            "jclee-bot sweep must query the workflow's run "
             "conclusion (gh api .../actions/workflows/.../runs) to decide "
             "whether a stale failure issue can be auto-closed."
         )

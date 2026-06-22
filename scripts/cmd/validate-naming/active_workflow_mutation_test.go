@@ -70,6 +70,67 @@ jobs:
 	}
 }
 
+func TestActiveWorkflowsAvoidStaleControlPlaneSurfacesDetectsIssueMutation(t *testing.T) {
+	tmpDir := t.TempDir()
+	wfDir := filepath.Join(tmpDir, ".github", "workflows")
+	if err := os.MkdirAll(wfDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	bad := `name: Legacy Issue Writer
+on:
+  workflow_dispatch:
+jobs:
+  write:
+    runs-on: ubuntu-latest
+    steps:
+      - run: gh issue create --title x --body y
+`
+	if err := os.WriteFile(filepath.Join(wfDir, "41_legacy-issue-writer.yml"), []byte(bad), 0o644); err != nil {
+		t.Fatalf("write bad workflow: %v", err)
+	}
+
+	v := &validator{rootDir: tmpDir}
+	err := v.activeWorkflowsAvoidStaleControlPlaneSurfaces()
+	if err == nil {
+		t.Fatal("expected workflow-owned issue mutation to be flagged")
+	}
+	if !strings.Contains(err.Error(), "workflow-owned issue mutation") {
+		t.Fatalf("error should mention workflow-owned issue mutation, got: %v", err)
+	}
+}
+
+func TestActiveWorkflowsAvoidStaleControlPlaneSurfacesDetectsLocalActionIssueMutation(t *testing.T) {
+	tmpDir := t.TempDir()
+	wfDir := filepath.Join(tmpDir, ".github", "workflows")
+	actionDir := filepath.Join(tmpDir, ".github", "actions", "notify-on-failure")
+	if err := os.MkdirAll(wfDir, 0o755); err != nil {
+		t.Fatalf("mkdir workflows: %v", err)
+	}
+	if err := os.MkdirAll(actionDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	action := `name: Notify
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: gh issue comment 1 --body x
+`
+	if err := os.WriteFile(filepath.Join(actionDir, "action.yml"), []byte(action), 0o644); err != nil {
+		t.Fatalf("write action: %v", err)
+	}
+
+	v := &validator{rootDir: tmpDir}
+	err := v.activeWorkflowsAvoidStaleControlPlaneSurfaces()
+	if err == nil {
+		t.Fatal("expected local action issue mutation to be flagged")
+	}
+	if !strings.Contains(err.Error(), ".github/actions/notify-on-failure/action.yml") {
+		t.Fatalf("error should name the local action, got: %v", err)
+	}
+}
+
 func TestActiveWorkflowsAvoidStaleControlPlaneSurfacesDetectsUnsafeAutoHeal(t *testing.T) {
 	tmpDir := t.TempDir()
 	wfDir := filepath.Join(tmpDir, ".github", "workflows")

@@ -60,3 +60,5 @@ jobs:
       - name: Notify on failure
         if: failure()
         uses: ./.github/actions/notify-on-failure
+        with:
+          jclee-bot-token: ${{ secrets.ISSUE_COMMANDS_TOKEN || secrets.APP_ISSUE_MAINTENANCE_TOKEN }}

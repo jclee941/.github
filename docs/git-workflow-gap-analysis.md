@@ -4,7 +4,7 @@
 
 ## Current Operating Model
 
-Production Git flow automation is App-era:
+Production Git flow automation follows the GitHub App-centered operating model:
 
 - `jclee-bot` posts Checks API runs for PR metadata, secret scanning, and workflow linting.
 - Branch protection and rulesets require the App-owned contexts.

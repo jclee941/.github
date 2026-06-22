@@ -49,6 +49,22 @@ func (v *validator) activeWorkflowsAvoidStaleControlPlaneSurfaces() error {
 		offenders = append(offenders, matrixRepoOutputHits(filepath.Base(file), content)...)
 		offenders = append(offenders, unsafeWorkflowMutationHits(filepath.Base(file), content)...)
 		offenders = append(offenders, workflowOwnedGitOpsHits(filepath.Base(file), content)...)
+		offenders = append(offenders, workflowOwnedIssueMutationHits(filepath.Base(file), content)...)
+	}
+	actionFiles, err := v.localActionFiles()
+	if err != nil {
+		return err
+	}
+	for _, file := range actionFiles {
+		b, readErr := os.ReadFile(file)
+		if readErr != nil {
+			return fmt.Errorf("read action %s: %w", file, readErr)
+		}
+		rel, relErr := filepath.Rel(v.rootDir, file)
+		if relErr != nil {
+			return relErr
+		}
+		offenders = append(offenders, workflowOwnedIssueMutationHits(filepath.ToSlash(rel), string(b))...)
 	}
 	if len(offenders) > 0 {
 		return fmt.Errorf("active workflows retain stale control-plane surfaces: %s", strings.Join(offenders, "; "))
@@ -97,6 +113,44 @@ func unsafeWorkflowMutationHits(fileName string, content string) []string {
 		}
 	}
 	return hits
+}
+
+func workflowOwnedIssueMutationHits(fileName string, content string) []string {
+	var hits []string
+	for _, token := range []string{
+		"gh issue create",
+		"gh issue comment",
+		"gh issue close",
+		"gh issue edit",
+		"gh label create",
+	} {
+		if strings.Contains(content, token) {
+			hits = append(hits, fmt.Sprintf("%s retains workflow-owned issue mutation %q", fileName, token))
+		}
+	}
+	return hits
+}
+
+func (v *validator) localActionFiles() ([]string, error) {
+	actionsDir := filepath.Join(v.rootDir, ".github", "actions")
+	var files []string
+	walkErr := filepath.WalkDir(actionsDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || (!strings.HasSuffix(d.Name(), ".yml") && !strings.HasSuffix(d.Name(), ".yaml")) {
+			return nil
+		}
+		files = append(files, path)
+		return nil
+	})
+	if os.IsNotExist(walkErr) {
+		return nil, nil
+	}
+	if walkErr != nil {
+		return nil, fmt.Errorf("walk local actions dir: %w", walkErr)
+	}
+	return files, nil
 }
 
 func workflowOwnedGitOpsHits(fileName string, content string) []string {

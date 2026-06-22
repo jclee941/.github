@@ -49,6 +49,15 @@ def test_no_stale_model_text_in_prompt():
     )
 
 
+def test_prompt_keeps_jclee_bot_as_automation_surface():
+    text = SCRIPT.read_text()
+    assert "jclee-bot automation surfaces" in text
+    assert "Do NOT render a GitHub workflow inventory table" in text
+    assert "workflow files are implementation triggers" in text
+    assert "jclee-bot에의해자동화됨" in text
+    assert "list all real workflow files grouped by trigger type" not in text
+
+
 def test_no_unreachable_duplicate_function_bodies():
     """read_key_files and generate_readme must each have exactly one body.
 

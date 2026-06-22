@@ -63,7 +63,7 @@ artifacts statically with no Jekyll; fixed by building real HTML in the workflow
 ## 4. Removed legacy manual CI recovery | 레거시 수동 CI 복구 제거
 
 **What**: The legacy workflow-level CI recovery path was removed during the
-App-era cleanup. CI failure visibility now flows through failure issues and
+GitHub App-centered cleanup. CI failure visibility now flows through failure issues and
 the `jclee-bot` App-owned checks path.
 
 **Why**: manual workflow-level recovery duplicated the App-based automation

@@ -8,7 +8,7 @@
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange.svg)](LICENSE)
 [![Upstream](https://img.shields.io/badge/upstream-qodo--ai%2Fpr--agent-red.svg)](https://github.com/qodo-ai/pr-agent)
 [![CLIProxy](https://img.shields.io/badge/LLM%20Gateway-CLIProxyAPI-purple.svg)](https://cliproxy.jclee.me/v1)
-[![Workflows](https://img.shields.io/badge/workflows-31-yellowgreen.svg)](#github-workflows-31-total--github-워크플로우-31개)
+[![jclee-bot](https://img.shields.io/badge/automation-jclee.bot-yellowgreen.svg)](#jclee-bot-automation--jclee-bot-자동화)
 [![Go Tools](https://img.shields.io/badge/go--tools-5-blue.svg)](#go-automation-tools-5-total--go-자동화-도구-5개)
 
 ---
@@ -19,7 +19,7 @@
 - [Features | 기능](#features--기능)
 - [Architecture | 아키텍처](#architecture--아키텍처)
 - [Automation Inventory | 자동화 인벤토리](#automation-inventory--자동화-인벤토리)
-  - [GitHub Workflows 31 total | GitHub 워크플로우 31개](#github-workflows-31-total--github-워크플로우-31개)
+  - [jclee-bot Automation | jclee-bot 자동화](#jclee-bot-automation--jclee-bot-자동화)
   - [Go Automation Tools 5 total | Go 자동화 도구 5개](#go-automation-tools-5-total--go-자동화-도구-5개)
 - [Repository Structure | 저장소 구조](#repository-structure--저장소-구조)
 - [Quick Start | 빠른 시작](#quick-start--빠른-시작)
@@ -38,21 +38,21 @@ This repository is a private hard fork of [qodo-ai/pr-agent](https://github.com/
 
 - a fork-owned `jclee_bot` GitHub App checks runner that posts `pr-metadata`, `secret-scan`, and `actionlint` via the Checks API,
 - a homelab CLIProxyAPI deployment (`https://cliproxy.jclee.me/v1`) that serves as the LLM gateway,
-- **31 GitHub Actions workflows** and **5 Go automation CLIs** that manage 16 downstream repositories end-to-end,
+- `jclee_bot` App-owned automation and **5 Go automation CLIs** that manage 16 downstream repositories end-to-end,
 - an ELK observability stack (Elasticsearch + Kibana) with Filebeat log shipping,
 - issue/PR templates and review prompt packs localized for Korean-first review output.
 
-Production review behavior is **App-era**: the homelab GitHub App posts Checks API runs and reviews; per-repo workflow deployment is no longer the primary rollout path. Workflows and Go tools are still in use for housekeeping, releases, security scanning, and CI failure reporting.
+Production automation follows a **GitHub App-centered operating model**: the homelab GitHub App posts Checks API runs, reviews, issue maintenance, README automation, and CI failure issue cleanup. GitHub Actions are retained only as CI/build surfaces or thin triggers that call `jclee-bot`.
 
 이 저장소는 `jclee941/*` 저장소 생태계 전용으로 커스터마이즈된 [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent)의 비공개 하드 포크입니다. 업스트림 PR-Agent의 핵심 기능(AI 리뷰, PR 설명 생성, 코드 제안, Q&A, 체인지로그, 문서화 도움말)을 그대로 유지하면서 다음을 추가합니다:
 
 - Checks API를 통해 `pr-metadata`, `secret-scan`, `actionlint`를 게시하는 포크 전용 `jclee_bot` GitHub App 검사 러너,
 - LLM 게이트웨이 역할을 하는 homelab CLIProxyAPI 배포(`https://cliproxy.jclee.me/v1`),
-- 16개의 다운스트림 저장소를 종단(end-to-end)으로 관리하는 **31개의 GitHub Actions 워크플로우**와 **5개의 Go 자동화 CLI**,
+- 16개의 다운스트림 저장소를 종단(end-to-end)으로 관리하는 `jclee_bot` App 소유 자동화와 **5개의 Go 자동화 CLI**,
 - Filebeat 로그 수집을 포함한 ELK 관측 가능성 스택(Elasticsearch + Kibana),
 - 한국어 우선 리뷰 출력에 맞춘 이슈/PR 템플릿과 리뷰 프롬프트 팩.
 
-운영 리뷰 동작은 **App 시대**입니다. homelab GitHub App이 Checks API 실행과 리뷰를 게시하며, 저장소별 워크플로우 배포는 더 이상 주요 롤아웃 경로가 아닙니다. 워크플로우와 Go 도구는 housekeeping, 릴리스, 보안 스캔, CI 실패 리포팅에 여전히 사용됩니다.
+운영 자동화는 **GitHub App 중심 운영 모델**을 따릅니다. homelab GitHub App이 Checks API 실행, 리뷰, 이슈 유지보수, README 자동화, CI 실패 이슈 정리를 담당합니다. GitHub Actions는 CI/build 표면 또는 `jclee-bot` 호출용 thin trigger로만 남깁니다.
 
 ---
 
@@ -145,45 +145,18 @@ flowchart TB
 
 ## Automation Inventory | 자동화 인벤토리
 
-### GitHub Workflows 31 total | GitHub 워크플로우 31개
+### jclee-bot Automation | jclee-bot 자동화
 
-Workflow files live under `.github/workflows/` with a numeric stage prefix. The prefix is meaningful: lower numbers run earlier in the PR/issue lifecycle; higher numbers are housekeeping/observability/sanity.
+GitHub Actions do not own PR/issue mutation logic. They either run CI/build work or call the App API. Linked workflow filenames are intentionally omitted from this README inventory because they are implementation triggers, not the automation source of truth.
 
-| Workflow | Trigger | Purpose | 목적 |
-|----------|---------|---------|------|
-| `01_branch-to-pr.yml` | manual | Convert a branch to a PR draft via the App | 브랜치를 PR 드래프트로 변환 |
-| `10_pr-review.yml` | pull_request | AI review of opened/updated PRs (legacy path) | PR AI 리뷰(레거시 경로) |
-| `11_security-pr-review.yml` | pull_request_target | Security-focused PR review | 보안 중심 PR 리뷰 |
-| `12_dependabot-auto-merge.yml` | manual | Auto-merge Dependabot patch/minor | Dependabot 자동 병합 |
-| `13_pr-auto-merge.yml` | manual | Auto-merge routine bot PRs | 봇 PR 자동 병합 |
-| `14_bot-auto-fix.yml` | pull_request | Bot-driven trivial fixes | 봇 자가 수정 |
-| `15_merged-pr-cleanup.yml` | pull_request, manual | Cleanup branches/refs after merge | 병합 후 정리 |
-| `16_stale-repo-identifier.yml` | push, workflow_run, manual | Flag repos without recent activity | 비활성 저장소 식별 |
-| `17_pr-stale-bot.yml` | pull_request, workflow_run, manual | Stale PR labelling/closure | 오래된 PR 처리 |
-| `19_issue-backfill.yml` | workflow_run, manual | Backfill missing issue metadata | 이슈 메타데이터 보강 |
-| `23_release-drafter.yml` | push, pull_request, manual | Draft release notes from PRs | 릴리스 노트 초안 |
-| `24_release-notes.yml` | push, manual | Compile release notes | 릴리스 노트 생성 |
-| `25_release-publish.yml` | push, manual | Publish GitHub release | 릴리스 게시 |
-| `26_elk-health-check.yml` | deployment_status, workflow_run, repository_dispatch, manual | ELK stack health probe | ELK 헬스 체크 |
-| `27_elk-setup.yml` | push, deployment, repository_dispatch, manual | Bootstrap ELK indices/templates | ELK 초기 설정 |
-| `28_bot-health-monitor.yml` | deployment_status, workflow_run, repository_dispatch, manual | GitHub App liveness | App 헬스 모니터 |
-| `29_downstream-health-check.yml` | workflow_run, repository_dispatch, manual | Downstream repo health | 다운스트림 헬스 |
-| `30_runtime-health-check.yml` | deployment_status, workflow_run, repository_dispatch, manual | Runtime process health | 런타임 헬스 |
-| `31_repo-health.yml` | push, workflow_run, manual | Per-repo health snapshot | 저장소 헬스 |
-| `32_org-health-report.yml` | pull_request, workflow_run, manual | Org-wide health digest | 조직 헬스 리포트 |
-| `33_issue-maintenance.yml` | workflow_run, manual | Issue lifecycle housekeeping | 이슈 유지보수 |
-| `34_readme-automation.yml` | workflow_run, repository_dispatch, manual | Automated README updates | README 자동화 |
-| `35_auto-hardcode-scan.yml` | push, pull_request, workflow_run, manual | Scan for hardcoded secrets/URLs | 하드코드 자동 스캔 |
-| `36_build-and-push-app.yml` | push, manual | Build/push `jclee_bot` image | App 이미지 빌드/푸시 |
-| `37_ci-failure-issues.yml` | workflow_run, repository_dispatch, manual | Open issue on CI failure | CI 실패 이슈 생성 |
-| `38_e2e.yml` | push, pull_request | Mocked end-to-end tests | 모의 E2E 테스트 |
-| `39_e2e-live.yml` | workflow_run, repository_dispatch, manual | Live GitHub e2e tests | 라이브 GitHub E2E |
-| `40_repo-review-batch.yml` | manual | Batch review of managed repos | 일괄 리뷰 |
-| `41_pages-deploy.yml` | push, manual | GitHub Pages deploy | Pages 배포 |
-| `46_nas-cache-prune.yml` | workflow_run, manual | Prune NAS caches | NAS 캐시 정리 |
-| `90_sanity.yml` | push, pull_request | Workflow/inventory sanity check | 인벤토리 검증 |
-
-> **Invariant | 규칙** — `scripts/cmd/validate-naming` (and CI) enforces that every workflow keeps its numeric prefix and that the on-disk file list matches the declared inventory.
+| Surface | Owner | Purpose | 목적 |
+|---------|-------|---------|------|
+| PR checks | `jclee-bot` App | Checks API runs for metadata, secrets, actionlint, docs policy | PR 메타데이터, 시크릿, actionlint, 문서 정책 검사 |
+| PR review | `jclee-bot` App + `pr_agent` | Korean-first AI review and suggestions through CLIProxyAPI | CLIProxyAPI 기반 한국어 우선 AI 리뷰 |
+| GitOps | `jclee-bot` App | Branch-to-PR, bot PR merge policy, protected master flow | 브랜치→PR, 봇 PR 병합 정책, master 보호 흐름 |
+| Issue maintenance | `jclee-bot` App | stale marking/closing, duplicate review cleanup, issue summaries | stale/중복 리뷰 이슈 정리와 요약 |
+| README automation | `jclee-bot` App | README creation/update PRs across managed repos | 관리 저장소 README 생성/갱신 PR |
+| CI failure issues | `jclee-bot` App | failure issue creation, recovery close, legacy issue sweep; `jclee-bot에의해자동화됨` | 실패 이슈 등록, 복구 시 닫기, 레거시 이슈 정리 |
 
 ### Go Automation Tools 5 total | Go 자동화 도구 5개
 
@@ -415,7 +388,7 @@ This README is generated and maintained by the `34_readme-automation.yml` workfl
 ## Contribution Guide | 기여 가이드
 
 1. **Fork or branch | 포크 또는 브랜치** — Branch off `master`; one logical change per PR.
-2. **Workflow edits | 워크플로우 편집** — Keep the numeric prefix and follow the staged convention (early-lifecycle first, housekeeping/obs later). The `validate-naming` Go tool will reject mis-prefixed files.
+2. **Workflow edits | 워크플로우 편집** — Keep workflows as CI/build surfaces or thin `jclee-bot` API triggers. PR/issue mutation logic belongs in `jclee_bot/`.
 3. **Python style | Python 스타일** — Ruff-enforced (line length 120, full E/F/B/I ruleset for fork-owned code; cosmetic suppressions allowed per-file for upstream `pr_agent/` to avoid merge friction with `upstream`).
 4. **Tests | 테스트** — Add or update unit tests; for behaviour that touches GitHub, prefer the mocked e2e layer (`tests/e2e/`). Live tests (`tests/e2e_live/`) require the mutation-guard checklist.
 5. **No invented URLs | URL 금지** — Only `qodo-ai/pr-agent`, `cliproxy.jclee.me`, and `bot.jclee.me` are acceptable external links. PRs that introduce other GitHub URLs will be rejected.

@@ -42,7 +42,7 @@ on:
 
 permissions:
   contents: read
-  issues: write
+  issues: read
   pull-requests: read
 
 concurrency:
@@ -68,6 +68,7 @@ jobs:
           # the backfill silently completes without triggering branch
           # creation.
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          ISSUE_COMMANDS_TOKEN: ${{ secrets.ISSUE_COMMANDS_TOKEN || secrets.APP_ISSUE_MAINTENANCE_TOKEN }}
           # Mutate ONLY on an explicit manual dispatch with dry_run=false.
           # Any event-driven (workflow_run) run is always dry-run so it can
           # never add labels (which would re-trigger issue workflows / loop).
@@ -143,12 +144,23 @@ jobs:
             if [ "$DRY_RUN" = "true" ]; then
               echo "| #$n | $TITLE | ${AGE_DAYS}d | DRY-RUN would label |" >> "$GITHUB_STEP_SUMMARY"
             else
-              if gh issue edit "$n" --repo "$REPO" --add-label "$LABEL" >/dev/null 2>&1; then
-                echo "| #$n | $TITLE | ${AGE_DAYS}d | labeled :white_check_mark: |" >> "$GITHUB_STEP_SUMMARY"
-              else
-                echo "| #$n | $TITLE | ${AGE_DAYS}d | label-add failed :x: |" >> "$GITHUB_STEP_SUMMARY"
+              if [ -z "${ISSUE_COMMANDS_TOKEN:-}" ]; then
+                echo "| #$n | $TITLE | ${AGE_DAYS}d | label skipped: missing jclee-bot token |" >> "$GITHUB_STEP_SUMMARY"
                 continue
               fi
+              payload="$(jq -cn \
+                --arg repo "$REPO" \
+                --argjson number "$n" \
+                --arg label "$LABEL" \
+                --arg body "Backfilled label \`$LABEL\` to trigger jclee-bot issue branch automation."$'\n\n''_jclee-bot에의해자동화됨._' \
+                '{repository: $repo, commands: [{type: "label_issue", number: $number, labels: [$label], body: $body}]}')"
+              curl -fsS --retry 3 --retry-delay 5 --max-time 120 \
+                -X POST "https://bot.jclee.me/api/v1/issue_commands" \
+                -H "Authorization: Bearer ${ISSUE_COMMANDS_TOKEN}" \
+                -H "Content-Type: application/json" \
+                -d "$payload" \
+                | jq -e '.actions | type == "array"' >/dev/null
+              echo "| #$n | $TITLE | ${AGE_DAYS}d | labeled :white_check_mark: |" >> "$GITHUB_STEP_SUMMARY"
             fi
             PICKED=$((PICKED + 1))
           done
@@ -165,3 +177,5 @@ jobs:
       - name: Notify on failure
         if: failure()
         uses: ./.github/actions/notify-on-failure
+        with:
+          jclee-bot-token: ${{ secrets.ISSUE_COMMANDS_TOKEN || secrets.APP_ISSUE_MAINTENANCE_TOKEN }}

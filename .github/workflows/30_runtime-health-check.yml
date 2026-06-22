@@ -10,7 +10,6 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
-  issues: write
 
 concurrency:
   group: runtime-health-check
@@ -32,7 +31,7 @@ jobs:
           egress-policy: audit
       - name: Check bot webhook endpoint
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_COMMANDS_TOKEN: ${{ secrets.ISSUE_COMMANDS_TOKEN || secrets.APP_ISSUE_MAINTENANCE_TOKEN }}
           ISSUE_TITLE: 🚨 Bot webhook endpoint unreachable
           ENDPOINT: https://bot.jclee.me/api/v1/github_webhooks
         run: |
@@ -40,20 +39,21 @@ jobs:
 
           upsert_issue() {
             local body="$1"
-            local issue_number
-            issue_number=$(TITLE="$ISSUE_TITLE" gh issue list \
-              --repo "$HEALTH_ISSUE_REPO" \
-              --state open \
-              --search "$ISSUE_TITLE in:title" \
-              --json number,title \
-              --jq ".[] | select(.title == \"$ISSUE_TITLE\") | .number" \
-              | head -n 1 || true)
-
-            if [ -n "$issue_number" ]; then
-              gh issue comment "$issue_number" --repo "$HEALTH_ISSUE_REPO" --body "$body"
-            else
-              gh issue create --repo "$HEALTH_ISSUE_REPO" --title "$ISSUE_TITLE" --body "$body"
+            if [ -z "${ISSUE_COMMANDS_TOKEN:-}" ]; then
+              echo "::warning::ISSUE_COMMANDS_TOKEN/APP_ISSUE_MAINTENANCE_TOKEN is not configured; skipping jclee-bot issue command."
+              return 0
             fi
+            payload="$(jq -cn \
+              --arg repo "$HEALTH_ISSUE_REPO" \
+              --arg title "$ISSUE_TITLE" \
+              --arg body "$body"$'\n\n''_jclee-bot에의해자동화됨._' \
+              '{repository: $repo, commands: [{type: "upsert_issue", title: $title, body: $body, labels: ["runtime-health", "automation"]}]}')"
+            curl -fsS --retry 3 --retry-delay 5 --max-time 120 \
+              -X POST "https://bot.jclee.me/api/v1/issue_commands" \
+              -H "Authorization: Bearer ${ISSUE_COMMANDS_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "$payload" \
+              | jq -e '.actions | type == "array"' >/dev/null
           }
 
           http_code=$(curl -sS -I -o /tmp/app_endpoint_headers.txt -w "%{http_code}" --max-time 10 "$ENDPOINT" || true)
@@ -87,7 +87,7 @@ jobs:
           egress-policy: audit
       - name: Check CLIProxyAPI models endpoint
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_COMMANDS_TOKEN: ${{ secrets.ISSUE_COMMANDS_TOKEN || secrets.APP_ISSUE_MAINTENANCE_TOKEN }}
           ISSUE_TITLE: 🚨 CLIProxyAPI unreachable
           ENDPOINT: https://cliproxy.jclee.me/v1/models
         run: |
@@ -95,20 +95,21 @@ jobs:
 
           upsert_issue() {
             local body="$1"
-            local issue_number
-            issue_number=$(TITLE="$ISSUE_TITLE" gh issue list \
-              --repo "$HEALTH_ISSUE_REPO" \
-              --state open \
-              --search "$ISSUE_TITLE in:title" \
-              --json number,title \
-              --jq ".[] | select(.title == \"$ISSUE_TITLE\") | .number" \
-              | head -n 1 || true)
-
-            if [ -n "$issue_number" ]; then
-              gh issue comment "$issue_number" --repo "$HEALTH_ISSUE_REPO" --body "$body"
-            else
-              gh issue create --repo "$HEALTH_ISSUE_REPO" --title "$ISSUE_TITLE" --body "$body"
+            if [ -z "${ISSUE_COMMANDS_TOKEN:-}" ]; then
+              echo "::warning::ISSUE_COMMANDS_TOKEN/APP_ISSUE_MAINTENANCE_TOKEN is not configured; skipping jclee-bot issue command."
+              return 0
             fi
+            payload="$(jq -cn \
+              --arg repo "$HEALTH_ISSUE_REPO" \
+              --arg title "$ISSUE_TITLE" \
+              --arg body "$body"$'\n\n''_jclee-bot에의해자동화됨._' \
+              '{repository: $repo, commands: [{type: "upsert_issue", title: $title, body: $body, labels: ["runtime-health", "automation"]}]}')"
+            curl -fsS --retry 3 --retry-delay 5 --max-time 120 \
+              -X POST "https://bot.jclee.me/api/v1/issue_commands" \
+              -H "Authorization: Bearer ${ISSUE_COMMANDS_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "$payload" \
+              | jq -e '.actions | type == "array"' >/dev/null
           }
 
           http_code=$(curl -sS -o /tmp/cliproxy_health.json -w "%{http_code}" --max-time 10 "$ENDPOINT" || true)

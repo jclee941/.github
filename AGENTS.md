@@ -11,8 +11,9 @@ Source-of-truth automation repo for `jclee941/*` PR flow. It combines an upstrea
 fork, a fork-owned `jclee_bot` GitHub App checks runner, Go/Python automation scripts, GitHub
 Actions workflows, and downstream community-file templates.
 
-Production review/check behavior is App-era: the homelab GitHub App posts Checks API runs and
-reviews; per-repo workflow deployment is no longer the primary rollout path.
+Production review/check behavior uses a GitHub App-centered operating model: the homelab GitHub
+App posts Checks API runs and reviews; per-repo workflow deployment is no longer the primary
+rollout path.
 
 ## STRUCTURE
 

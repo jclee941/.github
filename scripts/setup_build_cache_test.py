@@ -96,7 +96,6 @@ def test_falls_back_when_nas_unavailable() -> None:
     assert "RUNNER_TEMP" in run, "no local fallback base referenced"
     # Active writability probe before committing to the NAS path (a fresh
     # NFS volume is root-owned, so -w alone is insufficient; the action does
-    # a real touch and may self-heal permissions).
+    # a real touch and may repair permissions).
     assert "write-probe" in run, "no writability probe for the NAS mount"
-
 

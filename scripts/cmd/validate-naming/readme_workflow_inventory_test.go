@@ -7,101 +7,53 @@ import (
 	"testing"
 )
 
-func TestReadmeWorkflowInventoryUniqueDetectsDup(t *testing.T) {
+func TestReadmeUsesJcleeBotAutomationSurfaceDetectsLegacyRow(t *testing.T) {
 	tmpDir := t.TempDir()
-	wfDir := filepath.Join(tmpDir, ".github", "workflows")
-	if err := os.MkdirAll(wfDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(wfDir, "10_pr-review.yml"), []byte("name: x\n"), 0o644); err != nil {
-		t.Fatalf("write wf: %v", err)
-	}
-	// README lists 10_pr-review.yml TWICE in inventory tables.
-	readme := "# R\n\n| Workflow File | Trigger | Description |\n" +
+	readme := "# R\n\n" +
+		"### jclee-bot Automation | jclee-bot 자동화\n\n" +
+		"운영 자동화는 **GitHub App 중심 운영 모델**을 따릅니다.\n\n" +
+		"jclee-bot에의해자동화됨\n\n" +
+		"| Workflow File | Trigger | Description |\n" +
 		"|---|---|---|\n" +
-		"| `10_pr-review.yml` | pull_request | a |\n" +
-		"| `10_pr-review.yml` | pull_request | dup |\n"
+		"| `37_ci-failure-issues.yml` | workflow_run | legacy |\n"
 	if err := os.WriteFile(filepath.Join(tmpDir, "README.md"), []byte(readme), 0o644); err != nil {
 		t.Fatalf("write readme: %v", err)
 	}
+
 	v := &validator{rootDir: tmpDir}
-	err := v.readmeWorkflowInventoryUnique()
+	err := v.readmeUsesJcleeBotAutomationSurface()
 	if err == nil {
-		t.Fatal("expected duplicate README inventory row to be flagged")
+		t.Fatal("expected legacy workflow row to be flagged")
 	}
-	if !strings.Contains(err.Error(), "10_pr-review.yml") {
-		t.Fatalf("error should name the duplicated row, got: %v", err)
+	if !strings.Contains(err.Error(), "workflow file inventory row") {
+		t.Fatalf("error should name workflow rows, got: %v", err)
 	}
 }
 
-func TestReadmeWorkflowInventoryUniqueDetectsMissingOrExtra(t *testing.T) {
+func TestReadmeUsesJcleeBotAutomationSurfaceDetectsMissingMarker(t *testing.T) {
 	tmpDir := t.TempDir()
-	wfDir := filepath.Join(tmpDir, ".github", "workflows")
-	if err := os.MkdirAll(wfDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(wfDir, "10_pr-review.yml"), []byte("name: x\n"), 0o644); err != nil {
-		t.Fatalf("write wf: %v", err)
-	}
-	// README lists a workflow that does NOT exist + omits the real one.
-	readme := "# R\n\n| Workflow File | Trigger | Description |\n" +
-		"|---|---|---|\n" +
-		"| `99_ghost.yml` | pull_request | a |\n"
+	readme := "# R\n\n### jclee-bot Automation | jclee-bot 자동화\n"
 	if err := os.WriteFile(filepath.Join(tmpDir, "README.md"), []byte(readme), 0o644); err != nil {
 		t.Fatalf("write readme: %v", err)
 	}
+
 	v := &validator{rootDir: tmpDir}
-	err := v.readmeWorkflowInventoryUnique()
+	err := v.readmeUsesJcleeBotAutomationSurface()
 	if err == nil {
-		t.Fatal("expected README inventory to mismatch actual workflow set")
+		t.Fatal("expected missing automation markers to be flagged")
+	}
+	if !strings.Contains(err.Error(), "jclee-bot에의해자동화됨") {
+		t.Fatalf("error should name the missing marker, got: %v", err)
 	}
 }
 
-func TestReadmeWorkflowInventoryUniqueRepoClean(t *testing.T) {
+func TestReadmeUsesJcleeBotAutomationSurfaceRepoClean(t *testing.T) {
 	rootDir, err := findRepoRoot()
 	if err != nil {
 		t.Fatalf("find repo root: %v", err)
 	}
 	v := &validator{rootDir: rootDir}
-	if err := v.readmeWorkflowInventoryUnique(); err != nil {
-		t.Fatalf("README workflow inventory should be unique and complete: %v", err)
-	}
-}
-
-func TestReadmeWorkflowInventoryTriggersDetectsMismatch(t *testing.T) {
-	tmpDir := t.TempDir()
-	wfDir := filepath.Join(tmpDir, ".github", "workflows")
-	if err := os.MkdirAll(wfDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	workflow := "name: x\non:\n  pull_request:\n  workflow_dispatch:\njobs:\n  a:\n    runs-on: ubuntu-latest\n"
-	if err := os.WriteFile(filepath.Join(wfDir, "10_pr-review.yml"), []byte(workflow), 0o644); err != nil {
-		t.Fatalf("write wf: %v", err)
-	}
-	readme := "# R\n\n| Workflow File | Trigger | Description |\n" +
-		"|---|---|---|\n" +
-		"| `10_pr-review.yml` | push | a |\n"
-	if err := os.WriteFile(filepath.Join(tmpDir, "README.md"), []byte(readme), 0o644); err != nil {
-		t.Fatalf("write readme: %v", err)
-	}
-
-	v := &validator{rootDir: tmpDir}
-	err := v.readmeWorkflowInventoryTriggers()
-	if err == nil {
-		t.Fatal("expected stale README trigger label to be flagged")
-	}
-	if !strings.Contains(err.Error(), `actual="pull_request, manual"`) {
-		t.Fatalf("error should name the actual trigger label, got: %v", err)
-	}
-}
-
-func TestReadmeWorkflowInventoryTriggersRepoClean(t *testing.T) {
-	rootDir, err := findRepoRoot()
-	if err != nil {
-		t.Fatalf("find repo root: %v", err)
-	}
-	v := &validator{rootDir: rootDir}
-	if err := v.readmeWorkflowInventoryTriggers(); err != nil {
-		t.Fatalf("README workflow triggers should match workflow files: %v", err)
+	if err := v.readmeUsesJcleeBotAutomationSurface(); err != nil {
+		t.Fatalf("README should present jclee-bot automation surface: %v", err)
 	}
 }

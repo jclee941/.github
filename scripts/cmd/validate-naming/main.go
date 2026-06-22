@@ -38,8 +38,7 @@ func main() {
 		{"Go commands derive managed repo inventory from config", v.goCommandsDeriveManagedRepoInventoryFromConfig, nil},
 		{"documentation uses current App required checks", v.docsUseCurrentAppRequiredChecks, nil},
 		{"no orphaned reusable workflows", v.orphanReusableWorkflows, nil},
-		{"README workflow inventory unique and complete", v.readmeWorkflowInventoryUnique, nil},
-		{"README workflow inventory triggers match workflow files", v.readmeWorkflowInventoryTriggers, nil},
+		{"README presents jclee-bot automation surface", v.readmeUsesJcleeBotAutomationSurface, nil},
 	}
 
 	failed := 0

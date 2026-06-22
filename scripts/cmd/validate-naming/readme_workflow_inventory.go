@@ -10,6 +10,51 @@ import (
 	"strings"
 )
 
+func (v *validator) readmeUsesJcleeBotAutomationSurface() error {
+	readmePath := filepath.Join(v.rootDir, "README.md")
+	b, err := os.ReadFile(readmePath)
+	if err != nil {
+		return fmt.Errorf("read README.md: %w", err)
+	}
+	body := string(b)
+
+	required := []string{
+		"jclee-bot Automation",
+		"GitHub App 중심 운영 모델",
+		"jclee-bot에의해자동화됨",
+	}
+	var missing []string
+	for _, marker := range required {
+		if !strings.Contains(body, marker) {
+			missing = append(missing, marker)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("README.md is missing jclee-bot automation marker(s): %s", strings.Join(missing, ", "))
+	}
+
+	forbidden := []string{
+		"GitHub Workflows 31 total",
+		"App-era",
+		"App 시대",
+	}
+	var found []string
+	for _, marker := range forbidden {
+		if strings.Contains(body, marker) {
+			found = append(found, marker)
+		}
+	}
+
+	rowRe := regexp.MustCompile("(?m)^\\| `[^`]+\\.ya?ml` \\|")
+	if rowRe.MatchString(body) {
+		found = append(found, "workflow file inventory row")
+	}
+	if len(found) > 0 {
+		return fmt.Errorf("README.md exposes legacy workflow inventory surface: %s", strings.Join(found, ", "))
+	}
+	return nil
+}
+
 // readmeWorkflowInventoryUnique verifies that the README workflow inventory
 // tables enumerate each workflow exactly once and that the set of enumerated
 // workflows matches the actual files on disk. This guards against the LLM

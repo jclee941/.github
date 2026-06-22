@@ -22,7 +22,15 @@ from typing import Any
 
 from fastapi import Request, Response
 
-from jclee_bot import dispatch, github_checks, gitops_automation, issue_maintenance, issue_management
+from jclee_bot import (
+    dispatch,
+    github_checks,
+    gitops_automation,
+    issue_commands,
+    issue_maintenance,
+    issue_management,
+    workflow_issue_automation,
+)
 from jclee_bot.context_guards import neutralize_on_missing_context
 from jclee_bot.git_auth import git_askpass_env, git_env_with_auth
 from jclee_bot.readme_automation import router as readme_automation_router
@@ -205,6 +213,71 @@ def _run_app_issue_maintenance(*, app_id: str, private_key: str, owner: str, dry
         return {"dry_run": dry_run, "repositories": [], "error": "issue maintenance failed"}
 
 
+def _workflow_run_from_payload(payload: dict[str, Any]) -> workflow_issue_automation.WorkflowRun | None:
+    run = payload.get("workflow_run")
+    if not isinstance(run, dict):
+        return None
+    run_id = int(run.get("id", 0) or 0)
+    if run_id <= 0:
+        return None
+    return workflow_issue_automation.WorkflowRun(
+        name=str(run.get("name") or ""),
+        head_sha=str(run.get("head_sha") or ""),
+        run_id=run_id,
+        conclusion=str(run.get("conclusion") or ""),
+        pr_number=int(run.get("pr_number", 0) or 0),
+        run_url=str(run.get("run_url") or ""),
+    )
+
+
+def _run_app_ci_failure_issues(*, app_id: str, private_key: str, payload: dict[str, Any]) -> dict[str, Any]:
+    repo_full_name = str(payload.get("repository") or "")
+    dry_run = bool(payload.get("dry_run", False))
+    if not repo_full_name:
+        return {"dry_run": dry_run, "actions": [], "error": "repository is required"}
+    token = workflow_issue_automation.installation_token_for_repo(
+        app_id=app_id,
+        private_key=private_key,
+        repo_full_name=repo_full_name,
+    )
+    if not token:
+        return {"dry_run": dry_run, "actions": [], "error": "installation token unavailable"}
+
+    run = _workflow_run_from_payload(payload)
+    if run is None:
+        actions = workflow_issue_automation.sweep_legacy_failure_issues(
+            token=token,
+            repo_full_name=repo_full_name,
+            default_branch=str(payload.get("default_branch") or "master"),
+            dry_run=dry_run,
+        )
+    else:
+        actions = workflow_issue_automation.record_workflow_run(
+            token=token,
+            repo_full_name=repo_full_name,
+            run=run,
+            dry_run=dry_run,
+        )
+    return {"dry_run": dry_run, "repository": repo_full_name, "actions": actions}
+
+
+def _run_app_issue_commands(*, app_id: str, private_key: str, payload: dict[str, Any]) -> dict[str, Any]:
+    repo_full_name = str(payload.get("repository") or "")
+    dry_run = bool(payload.get("dry_run", False))
+    if not repo_full_name:
+        return {"dry_run": dry_run, "actions": [], "error": "repository is required"}
+    token = workflow_issue_automation.installation_token_for_repo(
+        app_id=app_id,
+        private_key=private_key,
+        repo_full_name=repo_full_name,
+    )
+    if not token:
+        return {"dry_run": dry_run, "actions": [], "error": "installation token unavailable"}
+    result = issue_commands.run_issue_commands(token=token, payload=payload)
+    result["repository"] = repo_full_name
+    return result
+
+
 def _bearer_token_ok(expected: str, authorization: str | None) -> bool:
     if not expected or not authorization or not authorization.startswith("Bearer "):
         return False
@@ -281,6 +354,40 @@ async def issue_maintenance_webhook(request: Request, response: Response) -> dic
         )
         return {"accepted": True, "dry_run": dry_run, "owner": owner}
     return _run_app_issue_maintenance(app_id=app_id, private_key=private_key, owner=owner, dry_run=dry_run)
+
+
+@app.post("/api/v1/ci_failure_issues")
+async def ci_failure_issues_webhook(request: Request, response: Response) -> dict[str, Any]:
+    expected = os.environ.get("CI_FAILURE_ISSUES_TOKEN", "") or os.environ.get("ISSUE_MAINTENANCE_TOKEN", "")
+    if not _bearer_token_ok(expected, request.headers.get("Authorization")):
+        response.status_code = 401
+        return {"error": "invalid token"}
+
+    app_id = os.environ.get("GITHUB_APP_ID", "")
+    private_key = os.environ.get("GITHUB_PRIVATE_KEY", "")
+    if not app_id or not private_key:
+        response.status_code = 503
+        return {"error": "github app credentials unavailable"}
+
+    payload = json.loads(await request.body() or b"{}")
+    return _run_app_ci_failure_issues(app_id=app_id, private_key=private_key, payload=payload)
+
+
+@app.post("/api/v1/issue_commands")
+async def issue_commands_webhook(request: Request, response: Response) -> dict[str, Any]:
+    expected = os.environ.get("ISSUE_COMMANDS_TOKEN", "") or os.environ.get("ISSUE_MAINTENANCE_TOKEN", "")
+    if not _bearer_token_ok(expected, request.headers.get("Authorization")):
+        response.status_code = 401
+        return {"error": "invalid token"}
+
+    app_id = os.environ.get("GITHUB_APP_ID", "")
+    private_key = os.environ.get("GITHUB_PRIVATE_KEY", "")
+    if not app_id or not private_key:
+        response.status_code = 503
+        return {"error": "github app credentials unavailable"}
+
+    payload = json.loads(await request.body() or b"{}")
+    return _run_app_issue_commands(app_id=app_id, private_key=private_key, payload=payload)
 
 
 @app.post("/api/v1/checks_webhook")

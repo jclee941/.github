@@ -134,26 +134,28 @@ jobs:
       - name: Close stale bot-review issues
         if: inputs.dry_run != true
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          ISSUE_COMMANDS_TOKEN: ${{ secrets.ISSUE_COMMANDS_TOKEN || secrets.APP_ISSUE_MAINTENANCE_TOKEN }}
           REPOS: ${{ steps.repo_inventory.outputs.repos }}
         run: |
           set -eu
-          CUTOFF=$(date -d '30 days ago' +%Y-%m-%d)
+          if [ -z "${ISSUE_COMMANDS_TOKEN:-}" ]; then
+            echo "::warning::ISSUE_COMMANDS_TOKEN/APP_ISSUE_MAINTENANCE_TOKEN is not configured; skipping jclee-bot stale issue close."
+            exit 0
+          fi
+          CUTOFF=$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)
           for repo in $(echo "$REPOS" | tr ',' ' '); do
-            STALE=$(gh issue list --repo "jclee941/$repo" \
-              --state open --label bot-review \
-              --search "created:<$CUTOFF" \
-              --json number --jq '.[] | .number' 2>/dev/null || true)
-            if [ -z "$STALE" ]; then
-              echo "::notice::No stale bot-review issues in $repo"
-              continue
-            fi
-            for N in $STALE; do
-              gh issue close "$N" --repo "jclee941/$repo" \
-                --comment "Closed automatically: bot-review issue older than 30 days. New review will create a fresh issue if needed." \
-                --reason completed \
-                || echo "::warning::failed to close stale issue #$N in $repo; continuing"
-            done
+            COMMENT='Closed automatically: bot-review issue older than 30 days. New review will create a fresh issue if needed.'$'\n\n''_jclee-bot에의해자동화됨._'
+            payload="$(jq -cn \
+              --arg repo "jclee941/$repo" \
+              --arg cutoff "$CUTOFF" \
+              --arg comment "$COMMENT" \
+              '{repository: $repo, commands: [{type: "close_matching_issues", labels: ["bot-review"], created_before: $cutoff, comment: $comment}]}')"
+            curl -fsS --retry 3 --retry-delay 5 --max-time 120 \
+              -X POST "https://bot.jclee.me/api/v1/issue_commands" \
+              -H "Authorization: Bearer ${ISSUE_COMMANDS_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "$payload" \
+              | jq -e '.actions | type == "array"' >/dev/null
           done
 
       - name: Run repo-review batch
@@ -212,3 +214,5 @@ jobs:
       - name: Notify on failure
         if: failure()
         uses: ./.github/actions/notify-on-failure
+        with:
+          jclee-bot-token: ${{ secrets.ISSUE_COMMANDS_TOKEN || secrets.APP_ISSUE_MAINTENANCE_TOKEN }}
