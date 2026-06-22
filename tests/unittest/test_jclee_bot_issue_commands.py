@@ -35,6 +35,42 @@ def test_issue_command_upsert_dry_run_does_not_mutate(monkeypatch) -> None:
     assert mutations == []
 
 
+def test_issue_command_label_skips_malformed_number() -> None:
+    for malformed_number in ["not-a-number", True, 1.2, float("inf")]:
+        payload = {
+            "repository": "jclee941/.github",
+            "dry_run": True,
+            "commands": [{"type": "label_issue", "number": malformed_number, "labels": ["triage"]}],
+        }
+
+        result = issue_commands.run_issue_commands(token="tok", payload=payload)
+
+        assert result == {
+            "dry_run": True,
+            "actions": ["skip-label:missing-repo-or-number"],
+        }
+
+
+def test_issue_command_close_issues_ignores_malformed_numbers() -> None:
+    payload = {
+        "repository": "jclee941/.github",
+        "dry_run": True,
+        "commands": [
+            {
+                "type": "close_issues",
+                "numbers": ["7", "not-a-number", None, 0, -1, True, 1.2, float("inf"), 8],
+            }
+        ],
+    }
+
+    result = issue_commands.run_issue_commands(token="tok", payload=payload)
+
+    assert result == {
+        "dry_run": True,
+        "actions": ["close:jclee941/.github#7", "close:jclee941/.github#8"],
+    }
+
+
 def test_issue_command_endpoint_delegates_to_app_module(monkeypatch) -> None:
     from jclee_bot import app as app_module
 

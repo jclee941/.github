@@ -23,6 +23,26 @@ def _label_list(value: object) -> list[str]:
     return []
 
 
+def _int_or_zero(value: Any) -> int:
+    if isinstance(value, bool | float):
+        return 0
+    try:
+        return int(value or 0)
+    except (OverflowError, TypeError, ValueError):
+        return 0
+
+
+def _positive_issue_numbers(value: Any) -> list[int]:
+    if not isinstance(value, list):
+        return []
+    numbers: list[int] = []
+    for item in value:
+        number = _int_or_zero(item)
+        if number > 0:
+            numbers.append(number)
+    return numbers
+
+
 def _open_issues(*, token: str, repo_full_name: str, labels: list[str] | None = None) -> list[dict[str, Any]]:
     params = {"state": "open"}
     if labels:
@@ -189,7 +209,7 @@ def _run_close_matching(*, token: str, payload: dict[str, Any], command: dict[st
 
 def _run_label_issue(*, token: str, payload: dict[str, Any], command: dict[str, Any], dry_run: bool) -> str:
     repo_full_name = _command_repo(payload, command)
-    issue_number = int(command.get("number", 0) or 0)
+    issue_number = _int_or_zero(command.get("number"))
     labels = _label_list(command.get("labels"))
     body = str(command.get("body") or "")
     if not repo_full_name or issue_number <= 0:
@@ -210,7 +230,7 @@ def _run_label_issue(*, token: str, payload: dict[str, Any], command: dict[str, 
 
 def _run_close_issues(*, token: str, payload: dict[str, Any], command: dict[str, Any], dry_run: bool) -> list[str]:
     repo_full_name = _command_repo(payload, command)
-    numbers = [int(item) for item in command.get("numbers", []) if int(item) > 0]
+    numbers = _positive_issue_numbers(command.get("numbers"))
     comment = str(command.get("comment") or "")
     if not repo_full_name:
         return ["skip-close:missing-repo"]

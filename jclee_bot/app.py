@@ -217,7 +217,7 @@ def _workflow_run_from_payload(payload: dict[str, Any]) -> workflow_issue_automa
     run = payload.get("workflow_run")
     if not isinstance(run, dict):
         return None
-    run_id = int(run.get("id", 0) or 0)
+    run_id = _int_or_zero(run.get("id"))
     if run_id <= 0:
         return None
     return workflow_issue_automation.WorkflowRun(
@@ -225,7 +225,7 @@ def _workflow_run_from_payload(payload: dict[str, Any]) -> workflow_issue_automa
         head_sha=str(run.get("head_sha") or ""),
         run_id=run_id,
         conclusion=str(run.get("conclusion") or ""),
-        pr_number=int(run.get("pr_number", 0) or 0),
+        pr_number=_int_or_zero(run.get("pr_number")),
         run_url=str(run.get("run_url") or ""),
     )
 
@@ -282,6 +282,15 @@ def _bearer_token_ok(expected: str, authorization: str | None) -> bool:
     if not expected or not authorization or not authorization.startswith("Bearer "):
         return False
     return hmac.compare_digest(expected, authorization.removeprefix("Bearer ").strip())
+
+
+def _int_or_zero(value: Any) -> int:
+    if isinstance(value, bool | float):
+        return 0
+    try:
+        return int(value or 0)
+    except (OverflowError, TypeError, ValueError):
+        return 0
 
 
 @app.middleware("http")
