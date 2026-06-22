@@ -88,6 +88,10 @@ def _ci_failure_title(run: WorkflowRun) -> str:
     return f"[ci] {run.name} failed at {_short_sha(run.head_sha)}"
 
 
+def _recovered_ci_failure_title(*, workflow_name: str, head_sha: str) -> str:
+    return f"[ci] {workflow_name} failed at {_short_sha(head_sha)}"
+
+
 def _open_issues(*, token: str, repo_full_name: str, labels: str | None = None) -> list[dict[str, Any]]:
     params = {"state": "open"}
     if labels:
@@ -208,6 +212,26 @@ def close_recovered_workflow_issues(
     dry_run: bool,
 ) -> list[str]:
     actions: list[str] = []
+    closed_numbers: set[int] = set()
+    for number in _issue_numbers_with_title(
+        token=token,
+        repo_full_name=repo_full_name,
+        title_substring=_recovered_ci_failure_title(workflow_name=workflow_name, head_sha=head_sha),
+    ):
+        if number in closed_numbers:
+            continue
+        closed_numbers.add(number)
+        actions.append(f"close-recovered:{number}:{workflow_name}")
+        if not dry_run:
+            _close(
+                token=token,
+                repo_full_name=repo_full_name,
+                issue_number=number,
+                body=(
+                    f"Resolved: {workflow_name} concluded success on "
+                    f"{head_sha}.\n\n_jclee-bot에의해자동화됨._"
+                ),
+            )
     for name, title_substrings in RECOVERY_TITLE_MAP:
         if name != workflow_name:
             continue
@@ -217,6 +241,9 @@ def close_recovered_workflow_issues(
                 repo_full_name=repo_full_name,
                 title_substring=title_substring,
             ):
+                if number in closed_numbers:
+                    continue
+                closed_numbers.add(number)
                 actions.append(f"close-recovered:{number}:{workflow_name}")
                 if not dry_run:
                     _close(

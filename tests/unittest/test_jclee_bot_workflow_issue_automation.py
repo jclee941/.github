@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from _pytest.monkeypatch import MonkeyPatch
 from fastapi.testclient import TestClient
 
 from jclee_bot import workflow_issue_automation
@@ -105,6 +106,90 @@ def test_success_closes_recovered_and_sweeps_legacy(monkeypatch) -> None:
     )
 
     assert actions == ["close-recovered:7:Runtime Health Check", "close-legacy:8:30_runtime-health-check.yml"]
+
+
+def test_success_closes_current_ci_failure_title(monkeypatch: MonkeyPatch) -> None:
+    # Given
+    closed: list[tuple[int, str]] = []
+
+    def fake_issue_numbers(*, token: str, repo_full_name: str, title_substring: str) -> list[int]:
+        del token, repo_full_name
+        return [12] if title_substring == "[ci] ELK Health Check failed at abcdef12" else []
+
+    monkeypatch.setattr(
+        workflow_issue_automation,
+        "_issue_numbers_with_title",
+        fake_issue_numbers,
+    )
+
+    def fake_close(*, token: str, repo_full_name: str, issue_number: int, body: str) -> None:
+        del token, repo_full_name
+        closed.append((issue_number, body))
+
+    monkeypatch.setattr(workflow_issue_automation, "_close", fake_close)
+
+    # When
+    actions = workflow_issue_automation.close_recovered_workflow_issues(
+        token="tok",
+        repo_full_name="jclee941/.github",
+        workflow_name="ELK Health Check",
+        head_sha="abcdef1234567890abcdef1234567890abcdef12",
+        dry_run=False,
+    )
+
+    # Then
+    assert actions == ["close-recovered:12:ELK Health Check"]
+    expected_body = (
+        "Resolved: ELK Health Check concluded success on "
+        "abcdef1234567890abcdef1234567890abcdef12.\n\n_jclee-bot에의해자동화됨._"
+    )
+    assert closed == [
+        (
+            12,
+            expected_body,
+        )
+    ]
+
+
+def test_success_does_not_close_same_issue_twice_when_titles_overlap(monkeypatch: MonkeyPatch) -> None:
+    # Given
+    closed: list[int] = []
+    lookups: dict[str, list[int]] = {
+        "[ci] Runtime Health Check failed at abcdef12": [12],
+        "Runtime Health Check failed": [12],
+    }
+
+    def fake_issue_numbers(*, token: str, repo_full_name: str, title_substring: str) -> list[int]:
+        del token, repo_full_name
+        return lookups.get(title_substring, [])
+
+    def fake_close(*, token: str, repo_full_name: str, issue_number: int, body: str) -> None:
+        del token, repo_full_name, body
+        closed.append(issue_number)
+
+    monkeypatch.setattr(
+        workflow_issue_automation,
+        "_issue_numbers_with_title",
+        fake_issue_numbers,
+    )
+    monkeypatch.setattr(
+        workflow_issue_automation,
+        "_close",
+        fake_close,
+    )
+
+    # When
+    actions = workflow_issue_automation.close_recovered_workflow_issues(
+        token="tok",
+        repo_full_name="jclee941/.github",
+        workflow_name="Runtime Health Check",
+        head_sha="abcdef1234567890abcdef1234567890abcdef12",
+        dry_run=False,
+    )
+
+    # Then
+    assert actions == ["close-recovered:12:Runtime Health Check"]
+    assert closed == [12]
 
 
 def test_ci_failure_endpoint_delegates_to_app_module(monkeypatch) -> None:
