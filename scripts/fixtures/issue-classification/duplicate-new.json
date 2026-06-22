@@ -1,7 +1,0 @@
-{
-  "number": 42,
-  "title": "Login button not responding on mobile Safari",
-  "body": "On mobile Safari, tapping the login button does nothing and the page freezes. To reproduce: open the login page, tap login, nothing happens.",
-  "state": "open",
-  "labels": []
-}

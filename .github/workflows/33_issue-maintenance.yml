@@ -34,6 +34,7 @@ jobs:
         env:
           ISSUE_MAINTENANCE_TOKEN: ${{ secrets.APP_ISSUE_MAINTENANCE_TOKEN }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+          BACKGROUND: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run == false }}
         run: |
           set -euo pipefail
           if [ -z "${ISSUE_MAINTENANCE_TOKEN:-}" ]; then
@@ -44,5 +45,10 @@ jobs:
             -X POST "https://bot.jclee.me/api/v1/issue_maintenance" \
             -H "Authorization: Bearer ${ISSUE_MAINTENANCE_TOKEN}" \
             -H "Content-Type: application/json" \
-            -d "{\"dry_run\": ${DRY_RUN}}" \
+            -d "{\"dry_run\": ${DRY_RUN}, \"background\": ${BACKGROUND}, \"owner\": \"jclee941\"}" \
             | tee issue-maintenance-result.json
+          if [ "${BACKGROUND}" = "true" ]; then
+            jq -e '.accepted == true and (.owner | type == "string")' issue-maintenance-result.json >/dev/null
+          else
+            jq -e '.repositories | type == "array"' issue-maintenance-result.json >/dev/null
+          fi

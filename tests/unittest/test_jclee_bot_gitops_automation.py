@@ -107,6 +107,31 @@ class TestPullRequestAutoMergeHandler:
         assert result == {"actions": ["enable-auto-merge:3"]}
         assert calls == ["PR_3"]
 
+    def test_enables_auto_merge_when_auto_merge_label_is_already_present(self, monkeypatch) -> None:
+        # Given
+        calls: list[str] = []
+        monkeypatch.setattr(
+            gitops_automation,
+            "enable_auto_merge",
+            lambda token, pull_request_id: calls.append(pull_request_id),
+        )
+        payload = {
+            "action": "ready_for_review",
+            "pull_request": {
+                "number": 5,
+                "node_id": "PR_5",
+                "draft": False,
+                "labels": [{"name": "auto-merge"}],
+            },
+        }
+
+        # When
+        result = gitops_automation.handle_pull_request_auto_merge(token="tok", payload=payload, event="pull_request")
+
+        # Then
+        assert result == {"actions": ["enable-auto-merge:5"]}
+        assert calls == ["PR_5"]
+
     def test_enables_auto_merge_on_human_approval(self, monkeypatch) -> None:
         # Given
         calls: list[str] = []

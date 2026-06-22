@@ -165,51 +165,50 @@ class TestReadmeAutomationOwnedByApp:
         assert "bot/auto-readme-update" in runner_text
         assert "enablePullRequestAutoMerge" in runner_text
 
+    def test_event_workflow_triggers_app_readme_automation(self):
+        text = read_workflow("readme-automation.yml")
+        assert 'workflows: ["Sanity"]' in text
+        assert "repository_dispatch:" in text
+        assert "readme-automation" in text
+        assert "workflow_dispatch:" in text
+        assert "/api/v1/readme_automation" in text
+        assert ".accepted == true" in text
+        assert '"${status}" = "completed"' in text
+        assert "APP_ISSUE_MAINTENANCE_TOKEN" in text
+
     def test_app_image_contains_readme_helpers(self):
         text = (REPO_ROOT / "Dockerfile.github_app").read_text(encoding="utf-8")
         assert "COPY scripts/*.py scripts/" in text
 
 
+class TestIssueMaintenanceWorkflow:
+    def test_foreground_dry_run_and_background_mutation_paths_are_validated(self):
+        text = read_workflow("issue-maintenance.yml")
+        assert "BACKGROUND:" in text
+        assert '\\"background\\": ${BACKGROUND}' in text
+        assert ".accepted == true" in text
+        assert '.repositories | type == "array"' in text
+
+
 
 # ---------------------------------------------------------------------------
-# Auto-merge workflows must self-heal BLOCKED (stale-base) PRs
+# Retired GitOps workflows must not mutate PR state
 # ---------------------------------------------------------------------------
 
-class TestAutoMergeSelfHeal:
-    """12_dependabot-auto-merge.yml and 13_pr-auto-merge.yml must update
-    a stale base branch when GitHub reports mergeStateStatus=BLOCKED while
-    checks pass, so required-context drift unblocks itself. They must NEVER
-    bypass branch protection with --admin."""
+class TestRetiredGitOpsWorkflows:
+    WORKFLOWS: list[str] = ["branch-to-pr.yml", "dependabot-auto-merge.yml", "pr-auto-merge.yml"]
 
-    WORKFLOWS = ["dependabot-auto-merge.yml", "pr-auto-merge.yml"]
-
-    def test_inspects_merge_state_status(self):
+    def test_workflows_report_app_ownership(self):
         for wf in self.WORKFLOWS:
             text = read_workflow(wf)
-            assert "mergeStateStatus" in text, (
-                f"{wf} must inspect mergeStateStatus to detect BLOCKED PRs"
-            )
+            assert "jclee-bot GitHub App" in text
 
-    def test_calls_update_branch(self):
+    def test_workflows_do_not_mutate_prs(self):
+        forbidden = ["gh pr create", "gh pr merge", "gh pr review", "pull_request:", "pull_request_review:", "push:"]
         for wf in self.WORKFLOWS:
             text = read_workflow(wf)
-            assert "update-branch" in text, (
-                f"{wf} must call 'gh pr update-branch' to self-heal stale bases"
-            )
-
-    def test_never_uses_admin_bypass(self):
-        for wf in self.WORKFLOWS:
-            text = read_workflow(wf)
-            # Only flag --admin in executable lines, not in explanatory
-            # comments like 'We never use --admin'.
-            offending = [
-                ln for ln in text.splitlines()
-                if "--admin" in ln and not ln.lstrip().startswith("#")
-            ]
-            assert not offending, (
-                f"{wf} must NOT use --admin (never bypass branch protection): "
-                f"{offending}"
-            )
+            offenders = [token for token in forbidden if token in text]
+            assert not offenders, f"{wf} must not retain workflow-owned GitOps behavior: {offenders}"
 
 
 
@@ -221,8 +220,8 @@ class TestAutoMergeSelfHeal:
 
 class TestStaleFailureIssueAutoRecovery:
     """Failure/health issues created by scheduled workflows (Runtime
-    Health, ELK Health, Downstream Health, Bot Health, CI Auto-Heal, ELK
-    Setup) must auto-close when their originating workflow recovers; no
+    Health, ELK Health, Downstream Health, Bot Health, ELK Setup) must
+    auto-close when their originating workflow recovers; no
     manual cleanup. ci-failure-issues.yml is the centralized recovery
     mechanism: (1) event-driven on workflow_run success, and (2) a
     manually dispatchable sweep that closes open failure/health issues
@@ -241,7 +240,6 @@ class TestStaleFailureIssueAutoRecovery:
             "Runtime Health Check",
             "Downstream Health Check",
             "Bot Health Monitor",
-            "CI Auto-Heal",
         ]:
             assert f'"{wf}"' in text, (
                 f"ci-failure-issues.yml workflow_run must watch '{wf}' so its "
@@ -262,7 +260,6 @@ class TestStaleFailureIssueAutoRecovery:
             "CLIProxyAPI unreachable",
             "Downstream workflow failures detected",
             "Bot Health Monitor failed",
-            "CI Auto-Heal failed",
         ]:
             assert sub in text, (
                 f"ci-failure-issues.yml event-driven success path must close "
@@ -323,7 +320,7 @@ class TestNotifyFailureTitlesAreStable:
 
     def test_no_run_id_in_notify_titles(self):
         import glob
-        offenders = []
+        offenders: list[str] = []
         for path in glob.glob(str(WF_DIR / "*.yml")) + glob.glob(
             str(WF_DIR / "**" / "*.yml")
         ):
@@ -336,6 +333,5 @@ class TestNotifyFailureTitlesAreStable:
                 ):
                     offenders.append(f"{Path(path).name}: {stripped}")
         assert not offenders, (
-            "notify-on-failure titles must be stable (no run_id) so dedup "
-            "works; offenders: " + "; ".join(offenders)
+            f"notify-on-failure titles must be stable (no run_id) so dedup works; offenders: {'; '.join(offenders)}"
         )

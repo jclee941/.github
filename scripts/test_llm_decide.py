@@ -87,8 +87,8 @@ def test_validate_rejects_action_not_in_spec():
 
 # ---- command allowlist (no arbitrary execution) ---------------------------
 
-def test_ci_auto_heal_command_must_be_in_allowlist():
-    spec = m.DECISION_SPECS["ci-auto-heal"]
+def test_pr_command_must_be_in_allowlist():
+    spec = m.DECISION_SPECS["pr-command"]
     assert "command_allowlist" in spec
     ok, _, err = m.validate_decision(
         _good(decision="command", command="rm -rf /", confidence=0.99, risk="low"), spec

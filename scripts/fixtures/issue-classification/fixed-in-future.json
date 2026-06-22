@@ -1,7 +1,0 @@
-{
-  "number": 80,
-  "title": "Slow query on dashboard",
-  "body": "This should be fixed in a future release. Can this be fixed in v2 maybe? For now it needs to be fixed in the query builder.",
-  "state": "open",
-  "labels": [{ "name": "performance" }]
-}

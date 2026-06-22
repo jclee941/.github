@@ -16,7 +16,6 @@ on:
       - "ELK Setup"
       - "Downstream Health Check"
       - "Bot Health Monitor"
-      - "CI Auto-Heal"
       - "Repository Health Check"
       - "Auto Hardcode Scan"
       - "Live E2E Tests"
@@ -93,9 +92,6 @@ jobs:
             echo "::error::Invalid conclusion: $CONCLUSION (must be success, failure, cancelled, or skipped)"
             exit 1
           fi
-          # 'skipped' is NOT a failure: workflows like CI Auto-Heal have
-          # `if: ... conclusion == 'failure'` and legitimately skip when upstream
-          # succeeded. Treat it like success (close stale issues, create none).
           if [[ "$CONCLUSION" == "skipped" ]]; then
             CONCLUSION="success"
           fi
@@ -159,7 +155,6 @@ jobs:
             "Runtime Health Check") SUBS=$(printf '%s\n' 'Bot webhook endpoint unreachable' 'CLIProxyAPI unreachable' 'jclee-bot not responding' 'Runtime Health Check failed') ;;
             "Downstream Health Check") SUBS=$(printf '%s\n' 'Downstream workflow failures detected' 'Downstream Health Check failed') ;;
             "Bot Health Monitor") SUBS=$(printf '%s\n' 'bot-health' 'Bot Health Monitor failed') ;;
-            "CI Auto-Heal") SUBS=$(printf '%s\n' 'CI failure:' 'CI Auto-Heal failed') ;;
             *) echo "::notice::No stable-title mapping for '$WF_NAME'; nothing to close here"; exit 0 ;;
           esac
           printf '%s\n' "$SUBS" | while IFS= read -r sub; do
@@ -322,8 +317,6 @@ jobs:
             'Downstream Health Check failed|29_downstream-health-check.yml' \
             'bot-health|28_bot-health-monitor.yml' \
             'Bot Health Monitor failed|28_bot-health-monitor.yml' \
-            'CI failure:|60_ci-auto-heal.yml' \
-            'CI Auto-Heal failed|60_ci-auto-heal.yml' \
             'Repository Health Check|31_repo-health.yml')"
 
           # Latest COMPLETED run conclusion for a workflow on the default branch.

@@ -243,7 +243,7 @@ async def _tee_pull_request_to_checks(request: Request, call_next):
                         # Checks API) work in a background thread so the upstream
                         # webhook is acknowledged promptly and GitHub does not retry.
                         loop.run_in_executor(None, _run_checks_for_payload, payload)
-                    if payload.get("action") == "labeled":
+                    if payload.get("action") in gitops_automation.AUTO_MERGE_PR_ACTIONS:
                         loop.run_in_executor(None, _run_gitops_automation_for_payload, payload, event)
                 elif event in {"issues", "issue_comment"}:
                     import asyncio

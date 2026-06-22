@@ -1,9 +1,0 @@
-[
-  {
-    "number": 71,
-    "title": "Build failed",
-    "body": "Totally unrelated context about a different subsystem, database migrations, and a flaky network mock in the integration suite.",
-    "state": "open",
-    "labels": []
-  }
-]

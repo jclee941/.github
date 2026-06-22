@@ -7,6 +7,7 @@ import requests
 
 GITHUB_API = "https://api.github.com"
 AUTO_MERGE_LABEL = "auto-merge"
+AUTO_MERGE_PR_ACTIONS = {"opened", "synchronize", "reopened", "ready_for_review", "labeled"}
 BRANCH_PREFIXES = (
     "feat/",
     "fix/",
@@ -193,9 +194,14 @@ def should_enable_auto_merge_for_pull_request(payload: dict[str, Any], event: st
         review = payload.get("review") or {}
         author = str((pr.get("user") or {}).get("login") or "")
         return review.get("state") == "approved" and not pr.get("draft") and not author.endswith("[bot]")
-    if event == "pull_request" and payload.get("action") == "labeled":
+    if event == "pull_request" and payload.get("action") in AUTO_MERGE_PR_ACTIONS:
         label = payload.get("label") or {}
-        return label.get("name") == AUTO_MERGE_LABEL and not pr.get("draft")
+        labels = pr.get("labels") or []
+        has_existing_label = (
+            isinstance(labels, list)
+            and any(isinstance(item, dict) and item.get("name") == AUTO_MERGE_LABEL for item in labels)
+        )
+        return (label.get("name") == AUTO_MERGE_LABEL or has_existing_label) and not pr.get("draft")
     return False
 
 
