@@ -170,46 +170,32 @@ class TestReadmeAutomationOwnedByApp:
         assert "COPY scripts/*.py scripts/" in text
 
 
+class TestIssueMaintenanceWorkflow:
+    def test_waits_for_app_maintenance_results(self):
+        text = read_workflow("issue-maintenance.yml")
+        assert '\\"background\\": false' in text
+        assert '.repositories | type == "array"' in text
+
+
 
 # ---------------------------------------------------------------------------
-# Auto-merge workflows must self-heal BLOCKED (stale-base) PRs
+# Retired GitOps workflows must not mutate PR state
 # ---------------------------------------------------------------------------
 
-class TestAutoMergeSelfHeal:
-    """12_dependabot-auto-merge.yml and 13_pr-auto-merge.yml must update
-    a stale base branch when GitHub reports mergeStateStatus=BLOCKED while
-    checks pass, so required-context drift unblocks itself. They must NEVER
-    bypass branch protection with --admin."""
+class TestRetiredGitOpsWorkflows:
+    WORKFLOWS = ["branch-to-pr.yml", "dependabot-auto-merge.yml", "pr-auto-merge.yml"]
 
-    WORKFLOWS = ["dependabot-auto-merge.yml", "pr-auto-merge.yml"]
-
-    def test_inspects_merge_state_status(self):
+    def test_workflows_report_app_ownership(self):
         for wf in self.WORKFLOWS:
             text = read_workflow(wf)
-            assert "mergeStateStatus" in text, (
-                f"{wf} must inspect mergeStateStatus to detect BLOCKED PRs"
-            )
+            assert "jclee-bot GitHub App" in text
 
-    def test_calls_update_branch(self):
+    def test_workflows_do_not_mutate_prs(self):
+        forbidden = ["gh pr create", "gh pr merge", "gh pr review", "pull_request:", "pull_request_review:", "push:"]
         for wf in self.WORKFLOWS:
             text = read_workflow(wf)
-            assert "update-branch" in text, (
-                f"{wf} must call 'gh pr update-branch' to self-heal stale bases"
-            )
-
-    def test_never_uses_admin_bypass(self):
-        for wf in self.WORKFLOWS:
-            text = read_workflow(wf)
-            # Only flag --admin in executable lines, not in explanatory
-            # comments like 'We never use --admin'.
-            offending = [
-                ln for ln in text.splitlines()
-                if "--admin" in ln and not ln.lstrip().startswith("#")
-            ]
-            assert not offending, (
-                f"{wf} must NOT use --admin (never bypass branch protection): "
-                f"{offending}"
-            )
+            offenders = [token for token in forbidden if token in text]
+            assert not offenders, f"{wf} must not retain workflow-owned GitOps behavior: {offenders}"
 
 
 

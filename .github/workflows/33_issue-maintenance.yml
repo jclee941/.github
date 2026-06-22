@@ -44,5 +44,6 @@ jobs:
             -X POST "https://bot.jclee.me/api/v1/issue_maintenance" \
             -H "Authorization: Bearer ${ISSUE_MAINTENANCE_TOKEN}" \
             -H "Content-Type: application/json" \
-            -d "{\"dry_run\": ${DRY_RUN}}" \
+            -d "{\"dry_run\": ${DRY_RUN}, \"background\": false, \"owner\": \"jclee941\"}" \
             | tee issue-maintenance-result.json
+          jq -e '.repositories | type == "array"' issue-maintenance-result.json >/dev/null

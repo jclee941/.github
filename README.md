@@ -8,7 +8,7 @@
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange.svg)](LICENSE)
 [![Upstream](https://img.shields.io/badge/upstream-qodo--ai%2Fpr--agent-red.svg)](https://github.com/qodo-ai/pr-agent)
 [![CLIProxy](https://img.shields.io/badge/LLM%20Gateway-CLIProxyAPI-purple.svg)](https://cliproxy.jclee.me/v1)
-[![Workflows](https://img.shields.io/badge/workflows-33-yellowgreen.svg)](#github-workflows-33-total--github-워크플로우-33개)
+[![Workflows](https://img.shields.io/badge/workflows-32-yellowgreen.svg)](#github-workflows-32-total--github-워크플로우-32개)
 [![Go Tools](https://img.shields.io/badge/go--tools-5-blue.svg)](#go-automation-tools-5-total--go-자동화-도구-5개)
 
 ---
@@ -19,7 +19,7 @@
 - [Features | 기능](#features--기능)
 - [Architecture | 아키텍처](#architecture--아키텍처)
 - [Automation Inventory | 자동화 인벤토리](#automation-inventory--자동화-인벤토리)
-  - [GitHub Workflows 33 total | GitHub 워크플로우 33개](#github-workflows-33-total--github-워크플로우-33개)
+  - [GitHub Workflows 32 total | GitHub 워크플로우 32개](#github-workflows-32-total--github-워크플로우-32개)
   - [Go Automation Tools 5 total | Go 자동화 도구 5개](#go-automation-tools-5-total--go-자동화-도구-5개)
 - [Repository Structure | 저장소 구조](#repository-structure--저장소-구조)
 - [Quick Start | 빠른 시작](#quick-start--빠른-시작)
@@ -41,7 +41,7 @@ This repository is a private hard fork of [qodo-ai/pr-agent](https://github.com/
 | Default Model | `gpt-4` | `gpt-5.5` via CLIProxy routing |
 | Fallback Models | Varies | `["minimax-m3"]` |
 | Security Scanning | Basic | Deep security review workflow (`11_security-pr-review.yml`) |
-| Workflow Coverage | Core PR tools | 33 workflows + 5 Go automation tools |
+| Workflow Coverage | Core PR tools | 32 workflows + 5 Go automation tools |
 | Runner Environment | GitHub-hosted | GitHub-hosted (`ubuntu-latest`) + homelab API gateway |
 
 All AI inference is routed through the homelab CLIProxyAPI deployment, enabling cost-effective LLM inference with model fallback and routing capabilities.
@@ -66,16 +66,15 @@ All AI inference is routed through the homelab CLIProxyAPI deployment, enabling 
 
 ### Issue Lifecycle Automation
 
-- **Issue Management** (`jclee-bot` App, `19_issue-backfill.yml`): Automated issue handling
-- **Issue Backfill** (`19_issue-backfill.yml`): Sync issues across repositories
-- **Issue Classification** (`91_issue-classification.yml`): AI-powered issue categorization
-- **Label Management** (`jclee-bot` App, `91_issue-classification.yml`): Automated labeling
+- **Issue Management** (`jclee-bot` App): Issue opened auto-labeling, issue branch creation, stale-label removal, stale issue maintenance, and issue statistics
+- **Issue Backfill** (`19_issue-backfill.yml`): Source-repo control-plane backfill that labels old issues so the App branch handler can process them
+- **Issue Classification** (`91_issue-classification.yml`): Source-repo AI duplicate/resolution classifier for issue events
 - **Stale Management** (`16_stale-repo-identifier.yml`, `17_pr-stale-bot.yml`): Identify and close stale content
 
 ### Pull Request Automation
 
 - **PR Metadata** (`jclee-bot / pr-metadata`): App-reported check covering title convention, PR size, and sensitive files. Replaces the old `03_pr-checks`, `44_reusable-pr-checks`, and `09_semantic-pr` workflows.
-- **Auto Merge** (`13_pr-auto-merge.yml`): Automatic PR merging
+- **Auto Merge** (`jclee-bot` App): App-owned PR auto-merge enablement; `13_pr-auto-merge.yml` is a manual no-op placeholder
 - **Auto Fix** (`14_bot-auto-fix.yml`): Bot-initiated automatic fixes
 
 ### Release Engineering
@@ -103,15 +102,15 @@ All AI inference is routed through the homelab CLIProxyAPI deployment, enabling 
 - **Build and Push App** (`36_build-and-push-app.yml`): Container image build/push
 - **CI Failure Issues** (`37_ci-failure-issues.yml`): Automatic issue creation on CI failure
 - **E2E Testing** (`38_e2e.yml`, `39_e2e-live.yml`): End-to-end test suites
-- **CI Auto Heal** (`60_ci-auto-heal.yml`): Automatic CI failure remediation
+- **CI Auto Heal** (`60_ci-auto-heal.yml`): Automatic CI failure triage
 - **actionlint** (`jclee-bot / actionlint`): App-reported workflow YAML validation (replaces the deleted `04_actionlint.yml`)
 
 ### Repository Operations
 
 - **Repo Review Batch** (`40_repo-review-batch.yml`): Batch repository review
-- **Branch to PR** (`01_branch-to-pr.yml`): Branch-to-PR conversion automation
+- **Branch to PR** (`jclee-bot` App): Branch create webhooks open PRs and request auto-merge; `01_branch-to-pr.yml` is a manual no-op placeholder
 - **Merged PR Cleanup** (`15_merged-pr-cleanup.yml`): Post-merge cleanup
-- **Dependabot Auto Merge** (`12_dependabot-auto-merge.yml`): Automated dependency updates
+- **Dependabot Auto Merge** (`jclee-bot` App): Dependency PR merge policy is App-owned; `12_dependabot-auto-merge.yml` is a manual no-op placeholder
 - **Sanity Check** (`90_sanity.yml`): Fork CI gate
 
 ---
@@ -197,12 +196,12 @@ flow TB
 
 | Workflow File | Trigger | Description |
 |---------------|---------|-------------|
-| `01_branch-to-pr.yml` | push, manual | Convert feature branches to PRs automatically |
+| `01_branch-to-pr.yml` | manual | Retired no-op placeholder; App handles branch-to-PR automation |
 | `15_merged-pr-cleanup.yml` | pull_request, manual | Clean up branches after PR merge |
 
 #### PR Quality & Security (0) — moved to the jclee-bot GitHub App
 
-Branch protection on managed repos now requires the two App contexts (`pr-metadata`, `secret-scan`).
+Branch protection on managed repos now requires the App contexts (`jclee-bot / pr-metadata`, `jclee-bot / secret-scan`, `jclee-bot / actionlint`).
 
 #### PR Review & Improvement (2)
 
@@ -217,9 +216,9 @@ Conventional-commit title enforcement and PR size / sensitive-file checks were f
 
 | Workflow File | Trigger | Description |
 |---------------|---------|-------------|
-| `12_dependabot-auto-merge.yml` | pull_request | Auto-merge Dependabot updates |
-| `13_pr-auto-merge.yml` | pull_request_review, pull_request, manual | Automatic PR merging on approval |
-| `60_ci-auto-heal.yml` | workflow_run, check_suite, repository_dispatch, manual | Auto-heal CI failures |
+| `12_dependabot-auto-merge.yml` | manual | Retired no-op placeholder; App owns dependency PR merge policy |
+| `13_pr-auto-merge.yml` | manual | Retired no-op placeholder; App owns PR auto-merge enablement |
+| `60_ci-auto-heal.yml` | workflow_run, check_suite, repository_dispatch, manual | Auto-triage CI failures |
 
 #### Issue Management (3)
 

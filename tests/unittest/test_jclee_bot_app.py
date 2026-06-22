@@ -160,7 +160,6 @@ class TestChecksReporting:
         client = TestClient(app_module.app)
         r = client.post("/api/v1/checks_webhook", content=json.dumps(payload))
         assert r.status_code == 200
-        # At least pr-metadata (failure) + secret-scan must be reported.
         names = {c[1] for c in created}
         assert "jclee-bot / pr-metadata" in names, f"check runs not created: {created}"
         assert all(c[2] == "deadbeef" for c in created)
@@ -256,9 +255,7 @@ class TestChecksReporting:
             "/api/v1/checks_webhook", content=json.dumps(payload))
         assert r.status_code == 200, "token failure must degrade, not 500"
 
-    def test_checkout_failure_makes_content_checks_neutral(self, monkeypatch):
-        """Defect: if PR checkout fails, content checks (secret-scan, actionlint)
-        must NOT report success on an empty dir — they must be neutral."""
+    def test_checkout_failure_makes_content_checks_fail(self, monkeypatch):
         from jclee_bot import app as app_module
 
         monkeypatch.setattr(app_module, "_installation_token", lambda iid: "tok", raising=False)
@@ -274,11 +271,9 @@ class TestChecksReporting:
                                     "additions": 1, "deletions": 0}}
         out = app_module._run_checks_for_payload(payload)
         by = {c["name"]: c["conclusion"] for c in out["checks"]}
-        assert by["jclee-bot / secret-scan"] == "neutral", "secret-scan must NOT be success when checkout failed"
+        assert by["jclee-bot / secret-scan"] == "failure", "secret-scan must fail when checkout failed"
 
-    def test_changed_files_fetch_failure_makes_metadata_neutral(self, monkeypatch):
-        """Defect: if changed-files fetch fails, pr-metadata must be neutral, not
-        success evaluated against an empty file list."""
+    def test_changed_files_fetch_failure_makes_metadata_fail(self, monkeypatch):
         from jclee_bot import app as app_module
 
         def boom_files(*a, **k):
@@ -297,5 +292,6 @@ class TestChecksReporting:
                                     "additions": 1, "deletions": 0}}
         out = app_module._run_checks_for_payload(payload)
         by = {c["name"]: c["conclusion"] for c in out["checks"]}
-        assert by["jclee-bot / pr-metadata"] == "neutral", "pr-metadata must be neutral when changed-files unavailable"
-        assert by["jclee-bot / secret-scan"] == "neutral", "secret-scan must be neutral when changed-files unavailable"
+        assert by["jclee-bot / pr-metadata"] == "failure", "pr-metadata must fail when changed-files unavailable"
+        assert by["jclee-bot / secret-scan"] == "failure", "secret-scan must fail when changed-files unavailable"
+        assert by["jclee-bot / actionlint"] == "failure", "actionlint must fail when changed-files unavailable"
