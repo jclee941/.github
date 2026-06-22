@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 from collections.abc import Mapping
 
 import requests
@@ -23,28 +22,8 @@ def repo_names(repo_inventory: Mapping[str, JsonValue], automation_flag: str) ->
 
 
 def gh_get(github_client: requests.Session, url: str, **params: str | int | bool | None) -> requests.Response:
-    """GET with simple rate-limit sleep/retry handling for read-only GitHub REST calls."""
-    for attempt in range(3):
-        filtered_params = {key: str(value) for key, value in params.items() if value is not None}
-        response = github_client.get(url, params=filtered_params)
-        if response.status_code not in {403, 429}:
-            return response
-
-        remaining = response.headers.get("X-RateLimit-Remaining")
-        reset = response.headers.get("X-RateLimit-Reset")
-        retry_after = response.headers.get("Retry-After")
-        if remaining == "0" and reset:
-            wait_seconds = max(int(reset) - int(time.time()), 1)
-        elif retry_after:
-            wait_seconds = max(int(retry_after), 1)
-        else:
-            return response
-
-        if attempt == 2:
-            return response
-        time.sleep(min(wait_seconds, 60))
-
-    raise AssertionError(f"GitHub API GET retry loop exhausted unexpectedly: {url}")
+    filtered_params = {key: str(value) for key, value in params.items() if value is not None}
+    return github_client.get(url, params=filtered_params)
 
 
 def gh_json_object(github_client: requests.Session, url: str, **params: str | int | bool | None) -> JsonObject:

@@ -193,12 +193,6 @@ def _run_gitops_automation_for_payload(payload: dict[str, Any], event: str) -> d
     return {"actions": []}
 
 
-def _issue_event_signature_ok(secret: str, payload: bytes, signature: str | None) -> bool:
-    if not secret:
-        return False
-    return _verify_signature(secret, payload, signature)
-
-
 def _run_app_issue_maintenance(*, app_id: str, private_key: str, owner: str, dry_run: bool) -> dict[str, Any]:
     try:
         return issue_maintenance.run_app_maintenance(
@@ -229,7 +223,7 @@ async def _tee_pull_request_to_checks(request: Request, call_next):
         secret = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
         sig = request.headers.get("X-Hub-Signature-256")
         pull_request_ok = event == "pull_request" and _verify_signature(secret, raw, sig)
-        issue_event_ok = event in {"issues", "issue_comment"} and _issue_event_signature_ok(secret, raw, sig)
+        issue_event_ok = event in {"issues", "issue_comment"} and bool(secret) and _verify_signature(secret, raw, sig)
         gitops_event_ok = event in {"create", "pull_request_review"} and _verify_signature(secret, raw, sig)
         if pull_request_ok or issue_event_ok or gitops_event_ok:
             try:

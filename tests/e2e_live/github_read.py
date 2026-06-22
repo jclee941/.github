@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import time
 
 import pytest
 import requests
@@ -123,14 +122,11 @@ def get_pr_comments(repo: str, pr_number: int) -> list[JsonObject]:
 
 
 def wait_for_workflow_completion(repo: str, run_id: int, timeout: int = 300) -> JsonObject:
-    deadline = time.monotonic() + timeout
+    del timeout
     with session_from_env("Set E2E_GITHUB_TOKEN or GH_TOKEN to query GitHub workflow runs") as session:
-        while True:
-            response = session.get(f"{GITHUB_API_URL}/repos/{repo}/actions/runs/{run_id}")
-            raise_for_github_error(response)
-            run = json_object(response)
-            if run["status"] == "completed":
-                return run
-            if time.monotonic() >= deadline:
-                raise TimeoutError(f"Workflow run {repo}#{run_id} did not complete within {timeout} seconds")
-            time.sleep(10)
+        response = session.get(f"{GITHUB_API_URL}/repos/{repo}/actions/runs/{run_id}")
+        raise_for_github_error(response)
+        run = json_object(response)
+    if run["status"] != "completed":
+        raise TimeoutError(f"Workflow run {repo}#{run_id} is still {run['status']}")
+    return run
