@@ -39,6 +39,31 @@ jobs:
         uses: docker/setup-buildx-action@v3
         with:
           driver: docker-container
+      - name: Reclaim Docker build space
+        if: runner.environment == 'self-hosted'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Before Docker cleanup:"
+          df -h / /var/lib/docker 2>/dev/null || df -h /
+          docker system df || true
+
+          # The App image pulls a large Python dependency graph. Keep the NAS
+          # cache, but reclaim stale local Docker layers before buildx writes
+          # the new image layer set into the self-hosted runner rootfs.
+          docker buildx prune --force --filter 'until=24h' || true
+          docker builder prune --force --filter 'until=24h' || true
+          docker image prune --all --force --filter 'until=24h' || true
+          docker container prune --force || true
+
+          if [ -n "${DOCKER_BUILDX_CACHE_NEW:-}" ]; then
+            rm -rf "$DOCKER_BUILDX_CACHE_NEW"
+            mkdir -p "$DOCKER_BUILDX_CACHE_NEW"
+          fi
+
+          echo "After Docker cleanup:"
+          df -h / /var/lib/docker 2>/dev/null || df -h /
+          docker system df || true
       - name: Check private registry reachability
         id: registry_check
         shell: bash
