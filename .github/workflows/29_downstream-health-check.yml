@@ -6,7 +6,7 @@ name: Downstream Health Check
 
 on:
   workflow_run:
-    workflows: ["Auto Deploy Workflows"]
+    workflows: ["Sanity"]
     types: [completed]
   repository_dispatch:
     types: [downstream-health-check]
@@ -57,12 +57,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
-          set -u
+          set -eu
 
-          # Parse the inventory with python3 (always present) instead of ruby,
-          # which is not installed on the self-hosted Debian runner. PyYAML is
-          # installed on demand so this works regardless of the base image.
-          python3 -c 'import yaml' 2>/dev/null || pip install --quiet pyyaml
+          REPOS=$(cd scripts && go run ./cmd/repo-review --print-default-repos)
+          if [ -z "$REPOS" ]; then
+            echo "warning: could not resolve managed repo inventory"
+            exit 0
+          fi
           # Per-repo CI conclusions (actionlint, pr-checks, gitleaks) are no longer the right signal:
           # downstream CI is now App-driven (jclee-bot App + GitHub-native CodeQL/Dependabot). The per-
           # workflow conclusion sweep is intentionally left empty so the job is a clean no-op success;
@@ -70,7 +71,7 @@ jobs:
           WORKFLOWS=()
           FAILURES=()
 
-          for REPO in $REPOS; do
+          for REPO in $(echo "$REPOS" | tr ',' ' '); do
             FULL="jclee941/$REPO"
             for WF in "${WORKFLOWS[@]}"; do
               # Tolerate repos/workflows that don't exist: gh exits non-zero

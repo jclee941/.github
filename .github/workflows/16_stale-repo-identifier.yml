@@ -6,7 +6,7 @@ on:
   # NOTE: no `issues:` trigger — this workflow CREATES issues, which would
   # re-trigger it via GH_PAT (feedback loop). Driven by push + workflow_run.
   workflow_run:
-    workflows: ["Sanity", "Auto Deploy Workflows"]
+    workflows: ["Sanity"]
     types: [completed]
   workflow_dispatch:
 
@@ -46,13 +46,13 @@ jobs:
           CUTOFF=$(date -u -d '90 days ago' +%Y-%m-%dT%H:%M:%SZ)
           STALE_REPOS=""
 
-          REPOS=$(gh api users/jclee941/repos --paginate --jq '.[] | select(.archived == false) | .name' 2>/dev/null | sort)
+          REPOS=$(cd scripts && go run ./cmd/repo-review --print-default-repos)
           if [ -z "$REPOS" ]; then
-            echo "warning: could not fetch repo list from org"
+            echo "warning: could not resolve managed repo inventory"
             exit 0
           fi
 
-          for REPO in $REPOS; do
+          for REPO in $(echo "$REPOS" | tr ',' ' '); do
             # Get last commit date on default branch
             LAST_COMMIT=$(gh api "repos/jclee941/$REPO/commits?sha=$(gh repo view "jclee941/$REPO" --json defaultBranchRef --jq '.defaultBranchRef.name' 2>/dev/null || echo master)" \
               --jq '.[0].commit.committer.date' 2>/dev/null || echo "")

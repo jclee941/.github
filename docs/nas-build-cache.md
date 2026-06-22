@@ -1,6 +1,6 @@
 # NAS-Backed Build Cache for the Self-Hosted Runner
 
-> **NOTE: mostly historical** — the build cache + HOME-routing design still works for the self-hosted runner, but the section that references the `deploy-to-repos` manifest is obsolete; the deploy subsystem was removed in favor of the jclee-bot GitHub App, which ships the composite actions via the App image (built by `36_build-and-push-app.yml`). The `41_pages-deploy.yml` / `46_nas-cache-prune.yml` runners and the mount paths below remain accurate; the deploy-manifest references in the original doc do not.
+> **NOTE: partially historical** — the build cache + HOME-routing design still works for the self-hosted runner. The old per-repository file rollout references are obsolete; production automation now centers on the `jclee-bot` GitHub App and App image.
 
 The private `propose` repo runs CI on a self-hosted GitHub Actions runner —
 Proxmox **LXC 101** (`runner`, Debian) on node `pve3`. That runner had two
@@ -17,7 +17,7 @@ a stable local path.
 ## Architecture
 
 ```
-Synology NAS (NFS)  192.168.50.215:/volume1/shared
+Synology NAS (NFS)  <redacted-nas-ip>:/volume1/shared
         │  (Proxmox storage "shared", vers=3)
         ▼
 Proxmox host pve3   /mnt/pve/shared/ci-cache
@@ -73,8 +73,8 @@ UID/GID write access on `/volume1/shared/ci-cache` (do **not** enable
 ## Repo wiring (already in this repo)
 
 - `.github/actions/setup-build-cache/action.yml` — exports the cache env vars
-  on self-hosted runners (no-op on GitHub-hosted). Deployed downstream via the
-  `deploy-to-repos` manifest.
+  on self-hosted runners (no-op on GitHub-hosted). Keep this action in this
+  repository as the source implementation.
 - Wired as the first step after checkout in `10_pr-review.yml`,
   `11_security-pr-review.yml`, `14_bot-auto-fix.yml`, and
   `36_build-and-push-app.yml`.

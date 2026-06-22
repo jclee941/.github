@@ -27,16 +27,17 @@ decomposition trees without losing reproducibility.
 
 ---
 
-## 2. Drift-detector visual 구성도 | 다운스트림 표준화 점검 시각화
+## 2. Historical downstream audit visualization
 
-**What**: Improved the downstream standardization audit output from a flat raw
-text/table dump into a GitHub-native **Mermaid 구성도** (`--format=mermaid`):
-per-repo nodes colored by drift severity (clean / warning / critical) with
-drifted-file children, matching `docs/architecture.md` style (`0aa83a8a`).
+**What**: Improved a historical downstream standardization audit output from a
+flat raw text/table dump into a GitHub-native **Mermaid 구성도**:
+per-repo nodes colored by severity with child detail nodes, matching
+`docs/architecture.md` style (`0aa83a8a`).
 
-**Also fixed (critical)**: `drift-detector`'s `findRepoRoot` probed the renamed
-`pr-checks.yml`, returning "could not find repo root" and silently breaking the
-**entire** audit. Switched to the stable `config/repos.yaml` marker (`0aa83a8a`).
+**Also fixed (critical)**: the historical audit command's `findRepoRoot`
+probed a renamed workflow file, returning "could not find repo root" and
+silently breaking the **entire** audit. Switched to the stable
+`config/repos.yaml` marker (`0aa83a8a`).
 
 **Why**: the raw audit output was unreadable and the root-find bug meant the
 audit had not actually been running.
@@ -76,7 +77,7 @@ Alongside the above, the full standardization audit was run across the 16
 `jclee941/*` repos and drift was auto-fixed live:
 
 - Branch protection applied to all 15 managed repos (idempotent).
-- `chore/sync-automation-workflows` PRs opened on all 14 downstream repos
+- `chore/sync-automation-workflows` PRs opened on managed repositories
   (auto-merge squash); several merged on the spot as checks passed.
 - Re-audit confirmed drift dropping as the sync PRs land.
 

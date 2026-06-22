@@ -28,9 +28,14 @@
 
 ## 자동 스캔 (Automated Scanning)
 
-이 조직의 모든 레포는 다음 자동 보안 게이트를 통과해야 PR이 머지됩니다.
+이 조직의 모든 관리 대상 레포는 다음 `jclee-bot` App check를 통과해야 PR이 머지됩니다.
 
-- **Gitleaks** — 모든 PR/push에서 secret 패턴 스캔 (필수 status check)
+- **jclee-bot / secret-scan** — App 이미지 안에서 gitleaks 기반 secret 패턴 스캔
+- **jclee-bot / pr-metadata** — PR 제목, 크기, 민감 파일 변경 정책 검사
+- **jclee-bot / actionlint** — 워크플로우 YAML 변경 시 문법 검사
+
+다음 보안 자동화는 별도 보조 신호로 운영됩니다.
+
 - **CodeQL** — Python SAST 분석
 - **Dependabot** — 의존성 취약점 자동 업데이트
 - **auto-hardcode-scan** — 주간 하드코딩 비밀 스캔

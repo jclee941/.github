@@ -30,7 +30,8 @@ It does **not** accept contributions that re-implement private business logic, l
 4. **Required status checks** (enforced via branch protection):
    - `jclee-bot / pr-metadata`
    - `jclee-bot / secret-scan`
-   Advisory checks (do NOT block merge): the AI review, the actionlint context, repo health.
+   - `jclee-bot / actionlint`
+   Advisory checks (do NOT block merge): the AI review, docs policy, repo health.
 5. **Auto-merge**: enabled at the repo level. Patch / minor / `github_actions` Dependabot PRs auto-merge after required checks pass; majors require manual review.
 
 ## Local development
@@ -58,7 +59,7 @@ for f in scripts/*.go; do go build -o /tmp/check-$(basename "$f" .go) "$f"; done
 ## Commit conventions
 
 - **Conventional Commits required**: `type(scope): subject`. Body explains why; footer references issues / PRs.
-- **Fork-specific commits**: tag with `fork:` scope when the change is a fork override (e.g. `feat(fork): pin model to kimi-k2.6`).
+- **Fork-specific commits**: tag with `fork:` scope when the change is a fork override (e.g. `feat(fork): pin model to gpt-5.5`).
 - **Upstream sync commits**: use `chore(upstream): merge qodo-ai/pr-agent@<sha>`.
 - Keep commits atomic. One logical change per commit.
 

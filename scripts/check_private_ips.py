@@ -3,7 +3,7 @@
 
 Why this exists
 ---------------
-Documentation across this fork and its 11 downstream repos kept leaking
+Documentation across this fork and managed repositories kept leaking
 homelab private IPs (e.g. ``192.168.50.114:8317``) into READMEs and
 architecture diagrams. Private IPs in docs are noise at best and an internal
 network-map disclosure at worst. They should be written as placeholders such

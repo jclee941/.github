@@ -27,8 +27,8 @@ All PRs are automatically checked by:
 
 - **jclee-bot / pr-metadata**: PR size, title, branch name validation
 - **jclee-bot / secret-scan**: Secret scanning
-- **jclee-bot / docs-policy**: Documentation policy checks
-- **jclee-bot**: AI code review (Korean responses)
+- **jclee-bot / actionlint**: Workflow linting when workflow files change
+- **jclee-bot**: AI code review and PR automation (Korean responses; advisory unless branch protection says otherwise)
 
 ---
 
@@ -57,5 +57,5 @@ All PRs are automatically checked by:
 
 - **jclee-bot / pr-metadata**: PR 크기, 제목, 브랜치 이름 검증
 - **jclee-bot / secret-scan**: 민감정보 스캔
-- **jclee-bot / docs-policy**: 문서 정책 검증
-- **jclee-bot**: AI 코드 리뷰 (한국어 응답)
+- **jclee-bot / actionlint**: 워크플로우 파일 변경 시 워크플로우 린트
+- **jclee-bot**: AI 코드 리뷰 및 PR 자동화 (한국어 응답; 브랜치 보호에서 요구하지 않으면 권고)

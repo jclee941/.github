@@ -35,9 +35,12 @@ jobs:
 
       - name: Generate Release Notes
         id: notes
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           set -eu
-          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          TAG="$INPUT_TAG"
           PREVIOUS_TAG=$(git tag --sort=-creatordate | grep -v "$TAG" | head -n 1)
           
           if [ -z "$PREVIOUS_TAG" ]; then
@@ -98,34 +101,27 @@ jobs:
             } >> release_notes.md
           fi
           
-          echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/$PREVIOUS_TAG...$TAG" >> release_notes.md
+          echo "**Full Changelog**: https://github.com/$REPOSITORY/compare/$PREVIOUS_TAG...$TAG" >> release_notes.md
           
           cat release_notes.md
           
-          # Set output for next step
-          BODY=$(cat release_notes.md)
-          {
-            echo "body<<EOF"
-            echo "$BODY"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
       - name: Create or Update Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           set -eu
-          TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          BODY="${{ steps.notes.outputs.body }}"
+          TAG="$INPUT_TAG"
           
           # Check if release exists
-          EXISTING=$(gh release view "$TAG" --repo "${{ github.repository }}" --json url 2>/dev/null || echo "")
+          EXISTING=$(gh release view "$TAG" --repo "$REPOSITORY" --json url 2>/dev/null || echo "")
           
           if [ -n "$EXISTING" ]; then
-            gh release edit "$TAG" --repo "${{ github.repository }}" --notes "$BODY"
+            gh release edit "$TAG" --repo "$REPOSITORY" --notes-file release_notes.md
             echo "Updated release $TAG"
           else
-            gh release create "$TAG" --repo "${{ github.repository }}" --title "$TAG" --notes "$BODY"
+            gh release create "$TAG" --repo "$REPOSITORY" --title "$TAG" --notes-file release_notes.md
             echo "Created release $TAG"
           fi
       - name: Notify on failure

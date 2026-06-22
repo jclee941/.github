@@ -6,7 +6,7 @@ name: Live E2E Tests
 #
 # Required secrets:
 #   - E2E_GITHUB_TOKEN (or GH_TOKEN): GitHub PAT with repo access
-#   - E2E_CLIPROXY_API_KEY (or CLIPROXY_API_KEY): CLIProxyAPI key for bot review tests
+#   - E2E_CLIPROXY_API_KEY (or CLIPROXY_API_KEY): CLIProxyAPI key for optional health tests
 
 on:
   workflow_run:
@@ -67,7 +67,7 @@ jobs:
             readonly-pytest-report.xml
 
   canary:
-    name: Canary PR Lifecycle + Bot Review
+    name: Private Canary + Privileged Workflow Guards
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 20
     needs: readonly

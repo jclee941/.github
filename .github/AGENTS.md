@@ -54,6 +54,5 @@ Dependabot/Renovate config, issue templates, and PR template.
 - Do not add `notify-on-failure` without a default-path checkout first.
 - Do not deploy `_*.yml` local-only workflows downstream.
 - Do not duplicate App check behavior with old per-repo CI workflows.
-- Do not restore retired downstream README/template deploy workflows such as
-  `20_readme-gen.yml`, `22_template-sync.yml`, or `34_auto-deploy.yml`; the App path owns
-  cross-repo README automation.
+- Do not restore retired downstream README/template deploy workflows; App-era
+  automation owns cross-repo policy checks and README automation.

@@ -11,7 +11,7 @@ on:
       - '.github/workflows/31_repo-health.yml'
       - 'config/repos.yaml'
   workflow_run:
-    workflows: ["Template Sync", "Auto Deploy Workflows"]
+    workflows: ["Sanity"]
     types: [completed]
   workflow_dispatch:
 permissions:
@@ -34,15 +34,18 @@ jobs:
         uses: step-security/harden-runner@v2
         with:
           egress-policy: audit
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
       - name: Discover repos
         id: discover
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -eu
-          repos=$(gh api users/jclee941/repos --paginate \
-            --jq '.[] | select(.archived == false) | .name' \
-            | sort | uniq | jq -R . | jq -s -c .)
+          repos=$(cd scripts && go run ./cmd/repo-review --print-default-repos \
+            | jq -R -c 'split(",")')
           echo "repos=$repos" >> "$GITHUB_OUTPUT"
           echo "Discovered repos: $repos"
 

@@ -9,8 +9,7 @@ which blocked every python-using workflow (e.g. open-ready-pr) on that repo.
 
 The fix is a local composite action that branches on `runner.environment`:
 GitHub-hosted uses `actions/setup-python`; self-hosted uses `uv` to install a
-managed Python and expose it on PATH. These tests pin that structure and that
-the action is shipped to downstream repos via the deploy manifest.
+managed Python and expose it on PATH. These tests pin that structure.
 """
 from __future__ import annotations
 
@@ -23,19 +22,24 @@ ROOT = Path(__file__).resolve().parents[1]
 ACTION = ROOT / ".github/actions/setup-python-compatible/action.yml"
 
 
-def _action() -> dict:
-    return yaml.safe_load(ACTION.read_text(encoding="utf-8"))
+def _action() -> dict[str, object]:
+    payload = yaml.safe_load(ACTION.read_text(encoding="utf-8"))
+    assert isinstance(payload, dict)
+    return payload
 
 
 def test_action_exists_and_is_composite() -> None:
     assert ACTION.exists(), f"missing composite action: {ACTION}"
     doc = _action()
-    assert doc.get("runs", {}).get("using") == "composite"
+    runs = doc.get("runs")
+    assert isinstance(runs, dict)
+    assert runs.get("using") == "composite"
 
 
 def test_action_has_python_version_input() -> None:
     doc = _action()
-    inputs = doc.get("inputs", {})
+    inputs = doc.get("inputs")
+    assert isinstance(inputs, dict)
     assert "python-version" in inputs
 
 
@@ -71,4 +75,3 @@ def test_third_party_action_is_sha_pinned() -> None:
     assert re.fullmatch(r"[0-9a-f]{40}", ref), (
         f"setup-uv must be pinned to a full 40-char SHA, got {ref!r}"
     )
-

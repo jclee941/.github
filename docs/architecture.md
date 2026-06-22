@@ -65,7 +65,7 @@ flowchart TD
     TITLE -->|No| FAIL1["❌ jclee-bot / pr-metadata<br/>Required"]
     TITLE -->|Yes| BRANCH{브랜치명 OK?}
     
-    BRANCH -->|No| FAIL2["❌ Check Branch Name<br/>Required"]
+    BRANCH -->|No| FAIL2["❌ jclee-bot / pr-metadata<br/>Required"]
     BRANCH -->|Yes| REVIEW["10_pr-review.yml<br/>(AI 리뷰)"]
     
     REVIEW --> GITLEAKS["jclee-bot / secret-scan<br/>(Secret 스캔)"]
@@ -108,17 +108,15 @@ flowchart TD
 
 | 검증 항목 | 워크플로우 | 실패 시 |
 |-----------|-----------|---------|
-| PR 제목 (Conventional Commits) | `pr-checks / Check PR Title` | ❌ 머지 차단 |
-| 브랜치명 표준 prefix | `pr-checks / Check Branch Name` | ❌ 머지 차단 |
-| Secret 노출 | `Gitleaks / scan` | ❌ 머지 차단 (Phase 3+) |
+| PR 메타데이터 | `jclee-bot / pr-metadata` | ❌ 머지 차단 |
+| Secret 노출 | `jclee-bot / secret-scan` | ❌ 머지 차단 |
+| 워크플로우 문법 | `jclee-bot / actionlint` | ❌ 머지 차단 |
 
 ### 권고 검증 (Advisory Checks)
 
 | 검증 항목 | 워크플로우 | 실패 시 |
 |-----------|-----------|---------|
-| PR 메타데이터 | `jclee-bot / pr-metadata` | ❌ Required |
 | Python SAST | `CodeQL` | ⚠️ Security 탭 |
-| 워크플로우 문법 | `jclee-bot / actionlint` | ⚠️ Check Run |
 | 문서 품질 | `jclee-bot / docs-policy` | ⚠️ Check Run |
 | AI 코드 리뷰 | `pr-review` | 💬 리뷰 코멘트 |
 
@@ -216,7 +214,7 @@ flowchart TD
     INSTALL --> TARGETS["config/repos.yaml<br/>관리 대상 필터"]
     
     TARGETS --> README["README 자동화<br/>bot/auto-readme-update"]
-    TARGETS --> CHECKS["Checks API<br/>pr-metadata / secret-scan / actionlint"]
+    TARGETS --> CHECKS["Checks API<br/>jclee-bot / pr-metadata<br/>jclee-bot / secret-scan<br/>jclee-bot / actionlint"]
     TARGETS --> ISSUES["Issue automation<br/>label / stale cleanup"]
     
     README --> BRANCH["App token clone + render + push"]

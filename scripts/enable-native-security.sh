@@ -11,8 +11,8 @@
 #   - Dependabot security updates + vulnerability alerts [replaces 07_dependency-review]
 #
 # The jclee-bot GitHub App provides the required merge-gate checks
-# (jclee-bot / pr-metadata, jclee-bot / secret-scan). This script covers the
-# platform-owned security features that the App cannot run itself.
+# (jclee-bot / pr-metadata, jclee-bot / secret-scan, jclee-bot / actionlint).
+# This script covers the platform-owned security features that the App cannot run itself.
 #
 # Idempotent. Requires a token with admin on the repos (the repo PAT has it).
 #
@@ -101,7 +101,8 @@ done
 
 echo
 echo "Done. The jclee-bot App provides the required merge-gate checks"
-echo "(jclee-bot / pr-metadata, jclee-bot / secret-scan); this script covers the"
+echo "(jclee-bot / pr-metadata, jclee-bot / secret-scan, jclee-bot / actionlint);"
+echo "this script covers the"
 echo "GitHub-native security features that replace the removed per-repo workflows."
 echo "If CodeQL default setup warned with 404, enable it once per repo via"
 echo "Settings -> Code security -> CodeQL analysis -> Default."

@@ -37,10 +37,10 @@ github-bot/
 | App-owned PR checks | `jclee_bot/` | Posts `pr-metadata`, `secret-scan`, `actionlint` via Checks API |
 | Workflow and reusable-action policy | `.github/` | Numeric workflow stages, local actions, issue/PR templates |
 | Default/fallback model config | `.pr_agent.toml`, `pr_agent/settings/configuration.toml` | Keep fork overrides out of upstream code when possible |
-| Managed repo inventory | `config/repos.yaml` | 16 repos: source, 12 public, 3 private, `pr-agent` excluded from deploy |
+| Managed repo inventory | `config/repos.yaml` | Canonical source for managed repos and per-repo automation flags |
 | Branch protection / rulesets | `scripts/cmd/branch-protection`, `scripts/cmd/rulesets-manager` | Run from `scripts/` |
 | Naming and workflow invariants | `scripts/cmd/validate-naming` | Enforces workflow/template/README inventory rules |
-| README generation | `scripts/generate_readme.py`, `.github/workflows/20_readme-gen.yml` | Redacts private IPs and rejects invented repo links |
+| README automation | `jclee_bot/readme_automation.py`, `jclee_bot/readme_runner.py` | Uses `scripts/generate_readme.py` helpers; redacts private IPs and rejects invented repo links |
 | Review prompt templates | `docs/review-templates/`, `.pr_agent.toml` | Review output is Korean; PR/issue templates are bilingual |
 | Live GitHub tests | `tests/e2e_live/` | Has its own mutation guard instructions |
 

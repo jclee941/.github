@@ -37,11 +37,14 @@ jclee_bot/
 
 - Check names are externally visible and branch-protection-sensitive:
   `jclee-bot / pr-metadata`, `jclee-bot / secret-scan`, `jclee-bot / actionlint`.
-- Missing PR context must produce `neutral`, not misleading `success`, for checks that need changed files or checkout.
+- Missing PR context must make required checks fail closed, not publish a skipped or misleading `success`
+  conclusion. A skipped conclusion is allowed only for genuinely not-applicable cases such as actionlint
+  with no workflow changes.
 - Issue opened auto-labeling, stale-label removal, stale issue sweep, and issue stats are App-owned;
   do not restore the deleted downstream issue-management workflow caller or reusable workflow.
 - `app.py` must not break upstream `/api/v1/github_webhooks`, `/health`, `/ready`, or `/metrics` routes.
-- External tools (`gitleaks`, `actionlint`) degrade to neutral when unavailable; unit-test the pure result mappers.
+- External tools (`gitleaks`, `actionlint`) may map to a skipped advisory result in pure mappers, but required
+  App check publishing must convert unavailable-tool skips to failure.
 - Webhook handling must acknowledge promptly; blocking check work stays off the request path.
 
 ## ANTI-PATTERNS

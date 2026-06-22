@@ -46,5 +46,7 @@ Branch / 브랜치: feat/* | fix/* | hotfix/* | docs/* | refactor/* | chore/* | 
 - [ ] Documentation updated (README/AGENTS.md/docs/) / 관련 문서 업데이트
 - [ ] Tests added/updated / 테스트 추가/갱신 (해당 시)
 
-> This PR is auto-reviewed by `jclee-bot` (cli_proxy + Kimi-k2.6, 한국어 응답).
-> 이 PR은 `jclee-bot`이 자동 리뷰합니다 (cli_proxy + Kimi-k2.6, 한국어 응답).
+> This PR is auto-reviewed by `jclee-bot` (CLIProxyAPI, `gpt-5.5` with `minimax-m3` fallback, Korean response).
+> 이 PR은 `jclee-bot`이 자동 리뷰합니다 (CLIProxyAPI, `gpt-5.5` + `minimax-m3` fallback, 한국어 응답).
+> Required App checks: `jclee-bot / pr-metadata`, `jclee-bot / secret-scan`, `jclee-bot / actionlint`.
+> 필수 App 체크: `jclee-bot / pr-metadata`, `jclee-bot / secret-scan`, `jclee-bot / actionlint`.

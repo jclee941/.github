@@ -7,7 +7,7 @@
 #
 # What it does:
 #   1. Creates the CI cache tree on the NFS share already mounted at
-#      /mnt/pve/shared (NFS 192.168.50.215:/volume1/shared).
+#      /mnt/pve/shared (NFS <redacted-nas-ip>:/volume1/shared).
 #   2. chowns it to the host-mapped UID/GID of the runner user inside the
 #      unprivileged LXC (default 100000 + container-uid).
 #   3. Bind-mounts that tree into the runner LXC at /mnt/nas-cache (mp0).

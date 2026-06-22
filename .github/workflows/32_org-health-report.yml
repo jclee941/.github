@@ -31,6 +31,10 @@ jobs:
         uses: step-security/harden-runner@v2
         with:
           egress-policy: audit
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
       - name: Gather org health metrics
         id: metrics
         env:
@@ -44,13 +48,13 @@ jobs:
 
           CUTOFF_30D=$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)
 
-          REPOS=$(gh api users/jclee941/repos --paginate --jq '.[] | select(.archived == false) | .name' 2>/dev/null | sort)
+          REPOS=$(cd scripts && go run ./cmd/repo-review --print-default-repos)
           if [ -z "$REPOS" ]; then
-            echo "warning: could not fetch repo list from org"
+            echo "warning: could not resolve managed repo inventory"
             exit 0
           fi
 
-          for REPO in $REPOS; do
+          for REPO in $(echo "$REPOS" | tr ',' ' '); do
             # Open PRs
             OPEN_PRS=$(gh api "repos/jclee941/$REPO/pulls" --state open --paginate --jq 'length' 2>/dev/null || echo 0)
             TOTAL_OPEN_PRS=$((TOTAL_OPEN_PRS + OPEN_PRS))

@@ -1,7 +1,7 @@
 name: Repo Review Batch
 
-# Whole-repo automated review across the 12-repo inventory
-# (jclee941/.github + 11 downstream). Each repo is cloned to /tmp,
+# Whole-repo automated review across the protected managed-repo inventory
+# from config/repos.yaml. Each repo is cloned to /tmp,
 # pr-agent's LocalGitProvider produces a review.md against a base
 # branch (root commit for tiny repos; HEAD~N for large), and the
 # resulting markdown is filed as a GitHub issue on the target repo
@@ -16,7 +16,7 @@ on:
       repos:
         description: Comma-separated repo names (no owner)
         required: false
-        default: .github,resume,safetywallet,tmux,hycu_fsds,splunk,blacklist,opencode,terraform,account,idle-outpost,bug
+        default: ""
       dry_run:
         description: If true, no issues are created/commented
         required: false
@@ -112,10 +112,30 @@ jobs:
           fi
           echo "CLIProxyAPI OK"
 
+      - name: Resolve repository inventory
+        id: repo_inventory
+        working-directory: pr-agent-src
+        env:
+          INPUT_REPOS: ${{ inputs.repos }}
+        run: |
+          set -eu
+          if [ -n "$INPUT_REPOS" ]; then
+            repos=$(cd scripts && go run ./cmd/repo-review --normalize-repos --repos "$INPUT_REPOS")
+          else
+            repos=$(cd scripts && go run ./cmd/repo-review --print-default-repos)
+          fi
+          if [ -z "$repos" ]; then
+            echo "::error::resolved repo inventory is empty"
+            exit 1
+          fi
+          echo "repos=$repos" >> "$GITHUB_OUTPUT"
+          echo "Resolved repo inventory: $repos"
+
       - name: Close stale bot-review issues
+        if: inputs.dry_run != true
         env:
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
-          REPOS: ${{ inputs.repos }}
+          REPOS: ${{ steps.repo_inventory.outputs.repos }}
         run: |
           set -eu
           CUTOFF=$(date -d '30 days ago' +%Y-%m-%d)
@@ -156,21 +176,27 @@ jobs:
           CONFIG.AI_TIMEOUT: "180"
           CONFIG.CUSTOM_MODEL_MAX_TOKENS: "128000"
           LITELLM_LOCAL_MODEL_COST_MAP: "true"
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          INPUT_SINCE_COMMITS: ${{ inputs.since_commits }}
+          INPUT_DIFF_SIZE_LIMIT: ${{ inputs.diff_size_limit }}
+          INPUT_MODEL: ${{ inputs.model }}
+          REPOS: ${{ steps.repo_inventory.outputs.repos }}
         run: |
           set -eu
           DRY=""
-          if [ "${{ inputs.dry_run }}" = "true" ]; then DRY="--dry-run"; fi
+          if [ "$INPUT_DRY_RUN" = "true" ]; then DRY="--dry-run"; fi
           cd scripts && go run ./cmd/repo-review \
-            --repos="${{ inputs.repos }}" \
-            --since-commits="${{ inputs.since_commits }}" \
-            --diff-size-limit="${{ inputs.diff_size_limit }}" \
-            --model="${{ inputs.model }}" \
+            --repos="$REPOS" \
+            --since-commits="$INPUT_SINCE_COMMITS" \
+            --diff-size-limit="$INPUT_DIFF_SIZE_LIMIT" \
+            --model="$INPUT_MODEL" \
             $DRY
 
       - name: Summary
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          REPOS: ${{ steps.repo_inventory.outputs.repos }}
         run: |
           set -eu
           {
@@ -178,7 +204,7 @@ jobs:
             echo ""
             echo "| Repo | Open bot-review issue |"
             echo "|------|----------------------|"
-            for repo in $(echo "${{ inputs.repos }}" | tr ',' ' '); do
+            for repo in $(echo "$REPOS" | tr ',' ' '); do
               issue=$(gh issue list --repo "jclee941/$repo" --state open --label bot-review --limit 1 --json number,url --jq '.[0] | "#\(.number) (\(.url))"' 2>/dev/null || echo "?")
               echo "| $repo | ${issue:-none} |"
             done
