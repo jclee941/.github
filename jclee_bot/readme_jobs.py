@@ -1,12 +1,21 @@
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import tempfile
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+ACTIVE_STATUSES = frozenset({"queued", "running"})
+
+
+class InvalidReadmeJobId(ValueError):
+    pass
 
 
 def _job_dir() -> Path:
@@ -17,12 +26,23 @@ def _job_dir() -> Path:
 
 def _job_path(job_id: str) -> Path:
     if not job_id or any(ch not in "0123456789abcdef-" for ch in job_id):
-        raise ValueError("invalid job id")
+        raise InvalidReadmeJobId("invalid job id")
     return _job_dir() / f"{job_id}.json"
 
 
 def _now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+@contextmanager
+def _active_job_lock() -> Iterator[None]:
+    lock_path = _job_dir() / ".active-job.lock"
+    with lock_path.open("w", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 def _write_job(job: dict[str, Any]) -> None:
@@ -47,6 +67,20 @@ def create_job(*, owner: str, repos: list[str] | None, dry_run: bool) -> dict[st
     }
     _write_job(job)
     return job
+
+
+def create_or_reuse_active_job(*, owner: str, repos: list[str] | None, dry_run: bool) -> tuple[dict[str, Any], bool]:
+    with _active_job_lock():
+        for path in sorted(_job_dir().glob("*.json")):
+            job = json.loads(path.read_text(encoding="utf-8"))
+            if (
+                job.get("status") in ACTIVE_STATUSES
+                and job.get("owner") == owner
+                and job.get("repos") == repos
+                and job.get("dry_run") is dry_run
+            ):
+                return job, True
+        return create_job(owner=owner, repos=repos, dry_run=dry_run), False
 
 
 def mark_running(job_id: str) -> None:

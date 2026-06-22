@@ -16,6 +16,7 @@ from jclee_bot.readme_runner import run_app_readme_automation
 router = APIRouter()
 OWNER_PATTERN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$")
 REPO_PATTERN = re.compile(r"^[A-Za-z0-9._][A-Za-z0-9._-]{0,99}$")
+type JsonValue = None | bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"]
 
 
 class InvalidReadmeAutomationRequest(ValueError):
@@ -32,7 +33,7 @@ def _expected_token() -> str:
     return os.environ.get("README_AUTOMATION_TOKEN") or os.environ.get("ISSUE_MAINTENANCE_TOKEN", "")
 
 
-def _parse_owner(value: object) -> str:
+def _parse_owner(value: JsonValue) -> str:
     if value is None or value == "":
         return "jclee941"
     if not isinstance(value, str) or not OWNER_PATTERN.fullmatch(value):
@@ -40,7 +41,7 @@ def _parse_owner(value: object) -> str:
     return value
 
 
-def _parse_repos(value: object) -> set[str] | None:
+def _parse_repos(value: JsonValue) -> set[str] | None:
     if value is None:
         return None
     if not isinstance(value, list):
@@ -94,9 +95,11 @@ async def readme_automation_webhook(request: Request, response: Response) -> dic
         response.status_code = 400
         return {"error": str(exc)}
     if payload.get("background", True):
-        job = readme_jobs.create_job(owner=owner, repos=sorted(repos) if repos is not None else None, dry_run=dry_run)
-        _spawn_readme_job(job_id=str(job["id"]), owner=owner, dry_run=dry_run, repos=repos)
-        return {"accepted": True, "job_id": job["id"], "dry_run": dry_run, "owner": owner}
+        repo_names = sorted(repos) if repos is not None else None
+        job, reused = readme_jobs.create_or_reuse_active_job(owner=owner, repos=repo_names, dry_run=dry_run)
+        if not reused:
+            _spawn_readme_job(job_id=str(job["id"]), owner=owner, dry_run=dry_run, repos=repos)
+        return {"accepted": True, "job_id": job["id"], "dry_run": dry_run, "owner": owner, "reused": reused}
     return run_app_readme_automation(
         app_id=app_id,
         private_key=private_key,

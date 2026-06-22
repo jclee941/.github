@@ -1,9 +1,31 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
+from _pytest.monkeypatch import MonkeyPatch
 from fastapi.testclient import TestClient
 
 from jclee_bot import readme_automation, readme_job_worker, readme_jobs, readme_runner
+
+type SpawnCallValue = bool | set[str] | str | None
+type SpawnCall = dict[str, SpawnCallValue]
+type AutomationCallValue = bool | set[str] | str | None
+type AutomationResult = dict[str, bool | list[dict[str, bool | str]]]
+
+
+def _readme_background_client(monkeypatch: MonkeyPatch, tmp_path: Path, spawned: list[SpawnCall]) -> TestClient:
+    from jclee_bot import app as app_module
+
+    for key, value in {
+        "README_AUTOMATION_TOKEN": "readme",
+        "GITHUB_APP_ID": "123",
+        "GITHUB_PRIVATE_KEY": "key",
+        "README_AUTOMATION_JOB_DIR": str(tmp_path),
+    }.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setattr(readme_automation, "_spawn_readme_job", lambda **kwargs: spawned.append(kwargs))
+    return TestClient(app_module.app, raise_server_exceptions=False)
 
 
 def test_run_app_readme_automation_filters_managed_repos(monkeypatch):
@@ -42,9 +64,9 @@ def test_run_app_readme_automation_filters_managed_repos(monkeypatch):
 def test_readme_automation_endpoint_runs_sync_when_requested(monkeypatch):
     from jclee_bot import app as app_module
 
-    calls: list[dict[str, object]] = []
+    calls: list[dict[str, AutomationCallValue]] = []
 
-    def fake_run_app_readme_automation(**kwargs) -> dict[str, object]:
+    def fake_run_app_readme_automation(**kwargs: AutomationCallValue) -> AutomationResult:
         calls.append(kwargs)
         return {"dry_run": True, "repositories": []}
 
@@ -73,17 +95,9 @@ def test_readme_automation_endpoint_runs_sync_when_requested(monkeypatch):
 
 
 def test_readme_automation_background_returns_pollable_job(monkeypatch, tmp_path):
-    from jclee_bot import app as app_module
+    spawned: list[SpawnCall] = []
 
-    spawned: list[dict[str, object]] = []
-
-    monkeypatch.setenv("README_AUTOMATION_TOKEN", "readme")
-    monkeypatch.setenv("GITHUB_APP_ID", "123")
-    monkeypatch.setenv("GITHUB_PRIVATE_KEY", "key")
-    monkeypatch.setenv("README_AUTOMATION_JOB_DIR", str(tmp_path))
-    monkeypatch.setattr(readme_automation, "_spawn_readme_job", lambda **kwargs: spawned.append(kwargs))
-
-    client = TestClient(app_module.app, raise_server_exceptions=False)
+    client = _readme_background_client(monkeypatch, tmp_path, spawned)
     response = client.post(
         "/api/v1/readme_automation",
         json={"dry_run": True, "background": True, "repos": ["propose"]},
@@ -113,20 +127,43 @@ def test_readme_automation_background_returns_pollable_job(monkeypatch, tmp_path
     assert status.json()["status"] in {"queued", "running", "completed"}
 
 
+def test_readme_automation_background_reuses_identical_active_job(monkeypatch, tmp_path):
+    spawned: list[SpawnCall] = []
+    headers = {"Authorization": "Bearer readme"}
+    first_body = {"dry_run": True, "background": True, "repos": ["propose", "bug"]}
+    second_body = {"dry_run": True, "background": True, "repos": ["bug", "propose"]}
+
+    client = _readme_background_client(monkeypatch, tmp_path, spawned)
+    first = client.post("/api/v1/readme_automation", json=first_body, headers=headers).json()
+    second = client.post("/api/v1/readme_automation", json=second_body, headers=headers).json()
+
+    assert second["job_id"] == first["job_id"]
+    assert second["reused"] is True
+    assert len(spawned) == 1
+
+
+def test_readme_automation_background_does_not_reuse_terminal_jobs(monkeypatch, tmp_path):
+    spawned: list[SpawnCall] = []
+    headers = {"Authorization": "Bearer readme"}
+    request_body = {"dry_run": True, "background": True, "repos": ["propose"]}
+
+    client = _readme_background_client(monkeypatch, tmp_path, spawned)
+    completed = client.post("/api/v1/readme_automation", json=request_body, headers=headers).json()["job_id"]
+    readme_jobs.mark_finished(str(completed), {"dry_run": True, "repositories": []})
+    failed = client.post("/api/v1/readme_automation", json=request_body, headers=headers).json()["job_id"]
+    readme_jobs.mark_failed(str(failed), "worker failed")
+    after_failed = client.post("/api/v1/readme_automation", json=request_body, headers=headers).json()["job_id"]
+
+    assert len({completed, failed, after_failed}) == 3
+    assert len(spawned) == 3
+
+
 def test_readme_automation_background_rejects_option_like_repo(monkeypatch, tmp_path):
-    from jclee_bot import app as app_module
+    spawned: list[SpawnCall] = []
 
-    monkeypatch.setenv("README_AUTOMATION_TOKEN", "readme")
-    monkeypatch.setenv("GITHUB_APP_ID", "123")
-    monkeypatch.setenv("GITHUB_PRIVATE_KEY", "key")
-    monkeypatch.setenv("README_AUTOMATION_JOB_DIR", str(tmp_path))
-    monkeypatch.setattr(
-        readme_automation,
-        "_spawn_readme_job",
-        lambda **_kwargs: pytest.fail("invalid requests must not spawn workers"),
-    )
+    client = _readme_background_client(monkeypatch, tmp_path, spawned)
 
-    response = TestClient(app_module.app, raise_server_exceptions=False).post(
+    response = client.post(
         "/api/v1/readme_automation",
         json={"dry_run": True, "background": True, "repos": ["--dry-run"]},
         headers={"Authorization": "Bearer readme"},
@@ -134,6 +171,7 @@ def test_readme_automation_background_rejects_option_like_repo(monkeypatch, tmp_
 
     assert response.status_code == 400
     assert list(tmp_path.glob("*.json")) == []
+    assert spawned == []
 
 
 def test_readme_worker_marks_job_failed_when_argparse_rejects_repo(monkeypatch, tmp_path):
@@ -173,7 +211,7 @@ def test_readme_automation_records_job_progress(monkeypatch, tmp_path):
 
 
 def test_run_app_readme_automation_reports_progress(monkeypatch):
-    progress: list[dict[str, object]] = []
+    progress: list[dict[str, bool | str]] = []
 
     monkeypatch.setattr(readme_runner.issue_maintenance, "managed_repo_names", lambda: {"propose", "bug"})
     monkeypatch.setattr(readme_runner.issue_maintenance, "app_installations", lambda **kwargs: [{"id": 42}])
