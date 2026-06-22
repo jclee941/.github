@@ -87,7 +87,7 @@ jobs:
               "https://bot.jclee.me/api/v1/readme_automation/jobs/${job_id}" \
               | tee readme-automation-job.json
             status="$(jq -r '.status' readme-automation-job.json)"
-            if [ "${status}" = "finished" ]; then
+            if [ "${status}" = "completed" ]; then
               jq -e '.result.repositories | type == "array"' readme-automation-job.json >/dev/null
               exit 0
             fi

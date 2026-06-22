@@ -173,6 +173,7 @@ class TestReadmeAutomationOwnedByApp:
         assert "workflow_dispatch:" in text
         assert "/api/v1/readme_automation" in text
         assert ".accepted == true" in text
+        assert '"${status}" = "completed"' in text
         assert "APP_ISSUE_MAINTENANCE_TOKEN" in text
 
     def test_app_image_contains_readme_helpers(self):
