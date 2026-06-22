@@ -171,9 +171,11 @@ class TestReadmeAutomationOwnedByApp:
 
 
 class TestIssueMaintenanceWorkflow:
-    def test_waits_for_app_maintenance_results(self):
+    def test_foreground_dry_run_and_background_mutation_paths_are_validated(self):
         text = read_workflow("issue-maintenance.yml")
-        assert '\\"background\\": false' in text
+        assert "BACKGROUND:" in text
+        assert '\\"background\\": ${BACKGROUND}' in text
+        assert ".accepted == true" in text
         assert '.repositories | type == "array"' in text
 
 
