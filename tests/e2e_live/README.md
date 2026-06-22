@@ -13,11 +13,11 @@ pip install -e .
 
 # Read-only live checks
 export E2E_GITHUB_TOKEN="<github token>"  # or GH_TOKEN
-pytest tests/e2e_live -v
+pytest tests/e2e_live -m readonly -v
 
 # Optional checks that need CLIProxyAPI access
 export E2E_CLIPROXY_API_KEY="<cliproxy key>"  # or CLIPROXY_API_KEY
-pytest tests/e2e_live -v
+pytest tests/e2e_live -m "readonly or app_health or cliproxy_health" -v
 ```
 
 The fixtures call `pytest.skip()` when required environment variables are missing, so local unit-test runs remain safe
@@ -29,14 +29,13 @@ Live mutation is restricted to a dedicated canary repository only:
 
 - `jclee941/automation-e2e-private`
 
-Every mutation helper in `conftest.py` calls `guard_mutation(repo)` before creating branches, writing files, deleting
+Every mutation helper in `github_mutation.py` calls `guard_mutation(repo)` before creating branches, writing files, deleting
 branches, or opening pull requests. The guard raises immediately unless the target repository is in
 `MUTATION_ALLOWED_REPOS`.
 
-Production repositories must remain read-only in this suite. Do not add tests that mutate any managed production repo,
-including `.github`, `account`, `blacklist`, `bug`, `hycu_fsds`, `idle-outpost`, `opencode`, `resume`, `safetywallet`,
-`splunk`, `terraform`, `tmux`, `hycu`, `youtube`, or `propose`. The `pr-agent` fork is intentionally excluded from the
-managed automation rollout checks.
+Production repositories must remain read-only in this suite. Do not add tests that mutate any managed production repo
+selected by `config/repos.yaml` with `automation.branch_protection: true`. The `pr-agent` fork is intentionally excluded
+from the managed automation rollout checks.
 
 ## Required environment variables
 
@@ -50,39 +49,26 @@ Never hardcode real secrets in tests, fixtures, docs, or workflow files.
 
 ## Test categories
 
-The live suite is designed around these categories (30 tests total):
+The live suite is designed around these categories (17 tests total):
 
-### v1 — Foundation (18 tests)
+### Current live checks
 
 1. **Repository inventory checks** (`readonly`) — verify every managed repository is reachable and report its visibility and default
    branch.
-2. **Workflow deployment checks** (`readonly`) — verify required workflows exist: this is now trivial because the jclee-bot GitHub App drives CI centrally; only `pr-review.yml` is still required on each managed repo.
+2. **Workflow deployment checks** (`readonly`) — verify required workflow inventory is empty because the jclee-bot GitHub App drives CI centrally.
 3. **Required file checks** (`readonly`) — verify automation support files exist: `.github/dependabot.yml`, `.github/CODEOWNERS`, and
    `.github/PULL_REQUEST_TEMPLATE.md`.
-4. **Branch protection checks** (`readonly`) — verify required status contexts are configured: `jclee-bot / pr-metadata` and
-   `jclee-bot / secret-scan` (App-reported Checks API contexts).
-5. **Recent activity checks** (`readonly`) — inspect recent PRs, workflow conclusions, and bot comments without modifying production
+4. **Branch protection checks** (`readonly`) — verify required status contexts are configured: `jclee-bot / pr-metadata`,
+   `jclee-bot / secret-scan`, and `jclee-bot / actionlint` (App-reported Checks API contexts).
+5. **Recent activity checks** (`readonly`) — inspect recent PRs and bot comments/reviews without modifying production
    repositories.
-6. **Canary mutation checks** (`canary`) — exercise branch, file, PR, and workflow behavior only in the allowlisted public canary
-   repository.
+6. **Canary mutation checks** (`private_canary`) — exercise branch, file, and PR behavior only in the allowlisted private
+   canary repository.
 7. **Go CLI dry-run checks** (`readonly`) — verify `branch-protection` and `repo-review` Go scripts run in dry-run mode without
    errors.
-8. **Bot review smoke tests** (`bot_review`) — verify jclee-bot responds to `/review` triggers, skips drafts, and reports
-   fatal errors.
-
-### v2 — Oracle Hardening (12 tests)
-
-9. **Security review workflow guards** (`security_review`) — live label-trigger test + static YAML analysis of
-   `pull_request_target` fork/head-repo guards.
-10. **Mergeability API checks** (`mergeability`) — assert valid PRs are `mergeable=True` and invalid PRs are `blocked`.
-11. _(removed: live deployment-path validation — the deploy-to-repos deploy path no longer exists; the jclee-bot App is the only per-repo CI check source.)_
-12. **Private canary coverage** (`private_canary`) — mutation test against `automation-e2e-private`, skips on missing `repo`
-    scope.
-13. **GitHub App health checks** (`app_health`) — bot recent activity, webhook reachability, app installation, CLIProxy
-    endpoint probes.
-14. **Bot review quality assertions** (`bot_review`) — Korean output, final review marker, absence of fatal strings,
-    markdown structure.
-15. **CLIProxy health** (`cliproxy_health`) — query `/v1/models`, verify `gpt-5.5` availability.
+8. **Security review workflow guards** (`security_review`) — static YAML analysis of `pull_request_target` fork/head-repo guards.
+9. **GitHub App health checks** (`app_health`) — bot recent activity, webhook reachability, app installation, CLIProxy endpoint probes.
+10. **CLIProxy health** (`cliproxy_health`) — query `/v1/models`, verify `gpt-5.5` availability.
 
 ### Running by marker
 
@@ -90,8 +76,8 @@ The live suite is designed around these categories (30 tests total):
 # Read-only fleet health (no mutations)
 pytest tests/e2e_live -m readonly -v
 
-# All canary mutations (public + private + bot review + mergeability + deploy + security)
-pytest tests/e2e_live -m "canary or private_canary or bot_review or mergeability or deploy_path or security_review" -v
+# Canary and privileged-workflow guard checks
+pytest tests/e2e_live -m "private_canary or security_review" -v
 
 # Infrastructure health only
 pytest tests/e2e_live -m "app_health or cliproxy_health" -v
@@ -100,6 +86,4 @@ pytest tests/e2e_live -m "app_health or cliproxy_health" -v
 pytest tests/e2e_live -v
 ```
 
-Keep production checks read-only. If a new helper mutates GitHub state, it must call `guard_mutation()` before making the
-API request.
 Keep production checks read-only. If a new helper mutates GitHub state, it must call `guard_mutation()` before making the API request.

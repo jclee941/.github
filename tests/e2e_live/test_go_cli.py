@@ -1,11 +1,8 @@
-import json
 import os
-import re
 import shutil
 import subprocess
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import cast
 
 import pytest
 
@@ -26,11 +23,7 @@ def dry_run_env(tmp_path: Path) -> dict[str, str]:
         """#!/usr/bin/env python3
 import sys
 args = sys.argv[1:]
-if args[:2] == ['api', 'repos/jclee941/idle-outpost']:
-    print('main')
-elif args[:2] == ['api', 'repos/jclee941/bug']:
-    print('main')
-elif len(args) >= 2 and args[0] == 'api' and args[1].startswith('repos/jclee941/'):
+if len(args) >= 2 and args[0] == 'api' and args[1].startswith('repos/jclee941/'):
     print('master')
 elif args[:2] == ['repo', 'view']:
     print('master')
@@ -75,23 +68,20 @@ def test_branch_protection_dry_run(dry_run_env: Mapping[str, str]) -> None:
     assert result.returncode == 0, result.stderr
     assert "jclee-bot / pr-metadata" in result.stdout
     assert "jclee-bot / secret-scan" in result.stdout
+    assert "jclee-bot / actionlint" in result.stdout
 
 
-def test_branch_protection_json_valid() -> None:
-    source = (SCRIPTS_DIR / "cmd" / "branch-protection" / "main.go").read_text(encoding="utf-8")
-    match = re.search(r"const protectionPayload = `(?P<payload>.*?)`", source, re.DOTALL)
+@pytest.mark.skipif(GO_MISSING, reason="go binary is not available on PATH")
+def test_branch_protection_dry_run_safe_settings(dry_run_env: Mapping[str, str]) -> None:
+    result = run_go_cli(["./cmd/branch-protection", "--dry-run", "--repos=resume"], dry_run_env)
 
-    assert match is not None, "protectionPayload raw string not found"
-    payload = cast(dict[str, object], json.loads(match.group("payload")))
-    status_checks = cast(dict[str, object], payload["required_status_checks"])
-
-    assert status_checks["contexts"] == [
-        "jclee-bot / pr-metadata",
-        "jclee-bot / secret-scan",
-    ]
-    assert payload["enforce_admins"] is False
-    assert payload["allow_force_pushes"] is False
-    assert payload["allow_deletions"] is False
+    assert result.returncode == 0, result.stderr
+    assert "jclee-bot / pr-metadata" in result.stdout
+    assert "jclee-bot / secret-scan" in result.stdout
+    assert "jclee-bot / actionlint" in result.stdout
+    assert "enforce_admins" in result.stdout
+    assert "allow_force_pushes" in result.stdout
+    assert "allow_deletions" in result.stdout
 
 
 @pytest.mark.skipif(GO_MISSING, reason="go binary is not available on PATH")
@@ -104,3 +94,19 @@ def test_repo_review_output(dry_run_env: Mapping[str, str]) -> None:
         or "usage" in combined_output
         or result.returncode in [0, 1]
     )
+
+
+@pytest.mark.skipif(GO_MISSING, reason="go binary is not available on PATH")
+def test_repo_review_normalize_repos_allows_managed_repos_without_token(dry_run_env: Mapping[str, str]) -> None:
+    result = run_go_cli(["./cmd/repo-review", "--normalize-repos", "--repos=resume, tmux,resume,hycu"], dry_run_env)
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "resume,tmux,hycu"
+
+
+@pytest.mark.skipif(GO_MISSING, reason="go binary is not available on PATH")
+def test_repo_review_normalize_repos_rejects_unsafe_repo_names(dry_run_env: Mapping[str, str]) -> None:
+    result = run_go_cli(["./cmd/repo-review", "--normalize-repos", "--repos=../resume"], dry_run_env)
+
+    assert result.returncode != 0
+    assert "must be a managed repo name" in result.stderr

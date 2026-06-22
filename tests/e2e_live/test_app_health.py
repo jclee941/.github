@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 import requests
 
-from .conftest import GITHUB_API_URL, GITHUB_OWNER
+from .repo_config import GITHUB_API_URL, GITHUB_OWNER
 
 pytestmark = pytest.mark.app_health
 
@@ -98,7 +98,7 @@ def test_app_installation_exists(github_client: requests.Session) -> None:
             assert isinstance(payload, dict), f"Malformed installation response for {repo}"
 
             app = payload.get("app")
-            assert isinstance(app, dict), f"Malformed app object for {repo}"
+            assert isinstance(app, dict), f"Malformed app payload for {repo}"
             assert app.get("slug") == APP_SLUG, (
                 f"Expected app slug {APP_SLUG}, got {app.get('slug')!r}"
             )

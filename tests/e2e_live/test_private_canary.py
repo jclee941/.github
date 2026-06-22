@@ -8,14 +8,14 @@ from uuid import uuid4
 import pytest
 import requests
 
-from .conftest import (
-    GITHUB_API_URL,
+from .github_mutation import (
+    close_mutation_pr,
     create_mutation_branch,
     create_mutation_pr,
     delete_mutation_branch,
-    github_mutation_patch,
     upsert_mutation_file,
 )
+from .repo_config import GITHUB_API_URL, JsonObject
 
 pytestmark = pytest.mark.private_canary
 
@@ -24,7 +24,7 @@ def _run_id() -> str:
     return f"{int(time.time())}-{uuid4().hex[:8]}"
 
 
-def _repo_or_skip(repo: str, github_client: requests.Session) -> dict[str, object]:
+def _repo_or_skip(repo: str, github_client: requests.Session) -> JsonObject:
     response = github_client.get(f"{GITHUB_API_URL}/repos/{repo}")
     if response.status_code == 404:
         pytest.skip(f"Private canary repo is unavailable (404): {repo}")
@@ -45,9 +45,9 @@ def _default_branch_and_sha(repo: str, github_client: requests.Session) -> tuple
     ref_response.raise_for_status()
     ref_payload = ref_response.json()
     assert isinstance(ref_payload, dict), f"{repo}: malformed ref payload"
-    obj = ref_payload.get("object")
-    assert isinstance(obj, dict), f"{repo}: malformed ref object"
-    sha = obj.get("sha")
+    ref_target = ref_payload.get("object")
+    assert isinstance(ref_target, dict), f"{repo}: malformed ref target"
+    sha = ref_target.get("sha")
     assert isinstance(sha, str), f"{repo}: missing default branch SHA"
     return default_branch, sha
 
@@ -55,29 +55,17 @@ def _default_branch_and_sha(repo: str, github_client: requests.Session) -> tuple
 def test_private_canary_repo_is_reachable_and_mutable(
     github_client: requests.Session, canary_private_repo: str
 ) -> None:
-    """Verify the private canary repo is accessible and mutable with the current token.
-
-    This test:
-    1. Verifies the private canary repo exists and is accessible
-    2. Creates a unique branch
-    3. Creates a trivial file in that branch
-    4. Creates a PR from that branch to the default branch
-    5. Asserts the PR was created successfully
-    6. Closes the PR
-    7. Deletes the branch
-    """
     run_id = _run_id()
     branch = f"feat/e2e-private-canary-{run_id}"
     pr_number: int | None = None
+    branch_created = False
 
     try:
-        # Step 1: Verify repo is accessible (may skip if token lacks repo scope)
         default_branch, sha = _default_branch_and_sha(canary_private_repo, github_client)
 
-        # Step 2: Create a branch
         create_mutation_branch(canary_private_repo, branch, sha, github_client)
+        branch_created = True
 
-        # Step 3: Create a trivial file in the branch
         upsert_mutation_file(
             canary_private_repo,
             f"e2e/private-canary-{run_id}.txt",
@@ -87,7 +75,6 @@ def test_private_canary_repo_is_reachable_and_mutable(
             github_client,
         )
 
-        # Step 4: Create a PR from the branch to the default branch
         pr = create_mutation_pr(
             canary_private_repo,
             f"test: e2e private canary PR {run_id}",
@@ -97,12 +84,10 @@ def test_private_canary_repo_is_reachable_and_mutable(
             github_client,
         )
 
-        # Step 5: Assert PR was created successfully
         number = pr.get("number")
         assert isinstance(number, int), f"Malformed PR payload without number: {pr!r}"
         pr_number = number
 
-        # Verify PR is open
         pr_response = github_client.get(f"{GITHUB_API_URL}/repos/{canary_private_repo}/pulls/{pr_number}")
         pr_response.raise_for_status()
         pr_payload = pr_response.json()
@@ -110,14 +95,15 @@ def test_private_canary_repo_is_reachable_and_mutable(
         assert pr_payload.get("state") == "open", f"Expected PR to be open, got: {pr_payload.get('state')}"
 
     finally:
-        # Step 6: Close the PR
+        close_error: requests.HTTPError | None = None
         if pr_number is not None:
-            github_mutation_patch(
-                github_client,
-                canary_private_repo,
-                f"{GITHUB_API_URL}/repos/{canary_private_repo}/pulls/{pr_number}",
-                json={"state": "closed"},
-            )
+            try:
+                close_mutation_pr(canary_private_repo, pr_number, github_client)
+            except requests.HTTPError as error:
+                close_error = error
 
-        # Step 7: Delete the branch
-        delete_mutation_branch(canary_private_repo, branch, github_client)
+        if branch_created:
+            delete_mutation_branch(canary_private_repo, branch, github_client)
+
+        if close_error is not None:
+            raise close_error
