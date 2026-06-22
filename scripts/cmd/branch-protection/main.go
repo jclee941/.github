@@ -10,10 +10,10 @@
 // Behavior per repo:
 //  1. PATCH /repos/{r}  allow_auto_merge=true, delete_branch_on_merge=true
 //  2. PUT   /repos/{r}/branches/master/protection  with safe defaults:
-//     - required_status_checks: 2 contexts (see protectionPayload below):
-//     "jclee-bot / pr-metadata", "jclee-bot / secret-scan" (reported by the
-//     jclee-bot App Checks runner). Sanity is fork-only and excluded;
-//     actionlint is reported but not required.
+//     - required_status_checks: 3 contexts (see protectionPayload below):
+//     "jclee-bot / pr-metadata", "jclee-bot / secret-scan", and
+//     "jclee-bot / actionlint" (reported by the jclee-bot App Checks runner).
+//     Sanity is fork-only and excluded.
 //     - enforce_admins: false
 //     - required_pull_request_reviews: null
 //     - restrictions: null
@@ -38,21 +38,20 @@ import (
 )
 
 // protectionPayload is the JSON body for the branch protection PUT call.
-// Free-tier-safe. Required status checks (2 contexts), reported by the jclee-bot
+// Free-tier-safe. Required status checks (3 contexts), reported by the jclee-bot
 // GitHub App's Checks-API runner (jclee_bot package) — installing the App
 // provides these with zero per-repo workflow files:
 //  1. "jclee-bot / pr-metadata" - conventional title + PR size + sensitive files
 //  2. "jclee-bot / secret-scan" - gitleaks secret-pattern detection on the PR
+//  3. "jclee-bot / actionlint" - workflow YAML validation when workflows change
 //
 // Sanity ("Sanity / import-check") is fork-specific to .github (imports
 // pr_agent) and is NOT a required check on downstream repos.
 //
-// "jclee-bot / actionlint" is reported but NOT required: it is neutral unless
-// the PR changes .github/workflows/**.
-//
 // Dependabot PRs satisfy the required contexts automatically:
 //   - Conventional Commits titles (chore(deps): bump X)
 //   - secret-scan passes since dependabot doesn't introduce secrets
+//   - actionlint returns neutral when no workflow files changed
 //
 // CodeQL is intentionally NOT required: it only runs on .py changes and
 // would block non-Python PRs. Results surface via Security tab + PR comments.
@@ -61,7 +60,8 @@ const protectionPayload = `{
     "strict": false,
     "contexts": [
       "jclee-bot / pr-metadata",
-      "jclee-bot / secret-scan"
+      "jclee-bot / secret-scan",
+      "jclee-bot / actionlint"
     ]
   },
   "enforce_admins": false,
@@ -188,24 +188,6 @@ func patchRepoSettings(fullRepo string, dryRun bool) error {
 		return nil
 	}
 	return runGH(args...)
-}
-
-func defaultBranch(fullRepo string) (string, error) {
-	cmd := exec.Command("gh", "api", "repos/"+fullRepo, "--jq", ".default_branch")
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return "", fmt.Errorf("%s: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		return "", err
-	}
-	branch := strings.TrimSpace(stdout.String())
-	if branch == "" {
-		return "", errors.New("empty default branch")
-	}
-	return branch, nil
 }
 
 func putBranchProtection(fullRepo, branch string, dryRun bool) error {

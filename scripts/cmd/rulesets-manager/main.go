@@ -11,7 +11,7 @@
 // Behavior per repo:
 //  1. GET existing rulesets
 //  2. PUT a ruleset named "Default Branch Protection" with:
-//     - required_status_checks: 2 App contexts (jclee-bot / pr-metadata, jclee-bot / secret-scan)
+//     - required_status_checks: 3 App contexts (jclee-bot / pr-metadata, jclee-bot / secret-scan, jclee-bot / actionlint)
 //     - deletion: prevent branch deletion
 //     - non_fast_forward: prevent force push
 //     - bypass_actors: RepositoryRole actor_id 5 bypasses as repository admin
@@ -22,61 +22,14 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
-	"sort"
 	"strings"
 
 	"github.com/jclee941/.github/scripts/internal/repos"
 )
-
-// rulesetPayload defines the ruleset to apply.
-// Enforcement: "active" | "disabled" | "evaluate"
-// Target: "branch" | "tag"
-const rulesetPayload = `{
-"name": "Default Branch Protection",
-"target": "branch",
-"enforcement": "active",
-"bypass_actors": [
-    {
-      "actor_id": 5,
-      "actor_type": "RepositoryRole",
-      "bypass_mode": "always"
-    }
-  ],
-"conditions": {
-"ref_name": {
-"include": ["refs/heads/master"],
-"exclude": []
-}
-},
-"rules": [
-    {
-      "type": "required_status_checks",
-      "parameters": {
-        "required_status_checks": [
-          {
-            "context": "jclee-bot / pr-metadata"
-          },
-          {
-            "context": "jclee-bot / secret-scan"
-          }
-        ],
-        "strict_required_status_checks_policy": false
-      }
-    },
-    {
-"type": "deletion"
-},
-{
-"type": "non_fast_forward"
-}
-]
-}`
 
 type result struct {
 	repo   string
@@ -108,36 +61,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: unknown mode %q (allowed: apply, list, delete)\n", *mode)
 		os.Exit(1)
 	}
-}
-
-func normalizeRepos(raw string, allowedRepoNames []string) ([]string, error) {
-	allowed := make(map[string]struct{}, len(allowedRepoNames))
-	for _, repo := range allowedRepoNames {
-		allowed[repo] = struct{}{}
-	}
-	parts := strings.Split(raw, ",")
-	seen := make(map[string]struct{}, len(parts))
-	repoList := make([]string, 0, len(parts))
-	for _, part := range parts {
-		repo := strings.TrimSpace(part)
-		if repo == "" {
-			continue
-		}
-		if _, ok := allowed[repo]; !ok {
-			valid := append([]string(nil), allowedRepoNames...)
-			sort.Strings(valid)
-			return nil, fmt.Errorf("unsupported repo %q (allowed: %s)", repo, strings.Join(valid, ", "))
-		}
-		if _, ok := seen[repo]; ok {
-			continue
-		}
-		seen[repo] = struct{}{}
-		repoList = append(repoList, repo)
-	}
-	if len(repoList) == 0 {
-		return nil, errors.New("no repos selected")
-	}
-	return repoList, nil
 }
 
 func listRulesets(repoList []string) {
@@ -255,7 +178,7 @@ func upsertRuleset(repo string, dryRun bool) error {
 		// Update existing
 		updateEndpoint := fmt.Sprintf("repos/%s/rulesets/%s", full, existingID)
 		if dryRun {
-			fmt.Printf("[dry-run] gh api -X PUT %s --input - <<<ruleset_payload\n", updateEndpoint)
+			fmt.Println(rulesetDryRunCommand("PUT", updateEndpoint))
 			return nil
 		}
 		return putRuleset(updateEndpoint)
@@ -263,117 +186,12 @@ func upsertRuleset(repo string, dryRun bool) error {
 
 	// Create new
 	if dryRun {
-		fmt.Printf("[dry-run] gh api -X POST %s --input - <<<ruleset_payload\n", endpoint)
+		fmt.Println(rulesetDryRunCommand("POST", endpoint))
 		return nil
 	}
 	return postRuleset(endpoint)
 }
 
-func findRulesetID(fullRepo, name string) (string, error) {
-	endpoint := fmt.Sprintf("repos/%s/rulesets", fullRepo)
-	cmd := exec.Command("gh", "api", endpoint, "--jq", fmt.Sprintf(".[] | select(.name == %q) | .id", name))
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			msg := strings.TrimSpace(stderr.String())
-			// Not found is OK
-			if strings.Contains(msg, "Not Found") || strings.Contains(msg, "not found") {
-				return "", nil
-			}
-			return "", fmt.Errorf("%s: %s", err, msg)
-		}
-		return "", err
-	}
-	id := strings.TrimSpace(stdout.String())
-	return id, nil
-}
-
-func postRuleset(endpoint string) error {
-	cmd := exec.Command("gh", "api", "-X", "POST", endpoint, "--input", "-", "--silent")
-	cmd.Stdin = strings.NewReader(rulesetPayload)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return fmt.Errorf("%s: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		return err
-	}
-	return nil
-}
-
-func putRuleset(endpoint string) error {
-	cmd := exec.Command("gh", "api", "-X", "PUT", endpoint, "--input", "-", "--silent")
-	cmd.Stdin = strings.NewReader(rulesetPayload)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return fmt.Errorf("%s: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		return err
-	}
-	return nil
-}
-
-func deleteRulesetByName(repo, name string, dryRun bool) error {
-	full := "jclee941/" + repo
-	id, err := findRulesetID(full, name)
-	if err != nil {
-		return fmt.Errorf("find ruleset: %w", err)
-	}
-	if id == "" {
-		fmt.Printf("[skip] jclee941/%s: no ruleset named %q\n", repo, name)
-		return nil
-	}
-
-	endpoint := fmt.Sprintf("repos/%s/rulesets/%s", full, id)
-	if dryRun {
-		fmt.Printf("[dry-run] gh api -X DELETE %s\n", endpoint)
-		return nil
-	}
-
-	cmd := exec.Command("gh", "api", "-X", "DELETE", endpoint, "--silent")
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return fmt.Errorf("%s: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		return err
-	}
-	return nil
-}
-
-// rulesetPayloadStruct is used for JSON marshaling of the payload.
-type rulesetPayloadStruct struct {
-	Name         string            `json:"name"`
-	Target       string            `json:"target"`
-	Enforcement  string            `json:"enforcement"`
-	BypassActors []any             `json:"bypass_actors"`
-	Conditions   rulesetConditions `json:"conditions"`
-	Rules        []rulesetRule     `json:"rules"`
-}
-
-type rulesetConditions struct {
-	RefName struct {
-		Include []string `json:"include"`
-		Exclude []string `json:"exclude"`
-	} `json:"ref_name"`
-}
-
-type rulesetRule struct {
-	Type       string         `json:"type"`
-	Parameters map[string]any `json:"parameters,omitempty"`
-}
-
-func init() {
-	// Validate the payload is valid JSON at init time
-	var payload rulesetPayloadStruct
-	if err := json.Unmarshal([]byte(rulesetPayload), &payload); err != nil {
-		fmt.Fprintf(os.Stderr, "FATAL: invalid ruleset payload JSON: %v\n", err)
-		os.Exit(1)
-	}
+func rulesetDryRunCommand(method, endpoint string) string {
+	return fmt.Sprintf("[dry-run] gh api -X %s %s --input - <<<%q", method, endpoint, rulesetPayload)
 }

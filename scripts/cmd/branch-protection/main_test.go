@@ -1,6 +1,6 @@
 // main_test.go — table-driven tests for the pure-logic helpers in
 // cmd/branch-protection/main.go. Network-bound helpers (protectRepo,
-// defaultBranch, putBranchProtection, runGH) are intentionally out of
+// putBranchProtection, runGH) are intentionally out of
 // scope: gh CLI is not guaranteed to be present + authenticated in CI.
 
 package main
@@ -131,34 +131,27 @@ func TestProtectedReposInvariants(t *testing.T) {
 }
 
 func TestProtectionPayloadIsValidJSON(t *testing.T) {
-	var parsed map[string]any
+	type requiredStatusChecks struct {
+		Contexts []string `json:"contexts"`
+	}
+	type protectionConfig struct {
+		RequiredStatusChecks requiredStatusChecks `json:"required_status_checks"`
+		EnforceAdmins        bool                 `json:"enforce_admins"`
+		AllowForcePushes     bool                 `json:"allow_force_pushes"`
+		AllowDeletions       bool                 `json:"allow_deletions"`
+	}
+
+	var parsed protectionConfig
 	if err := json.Unmarshal([]byte(protectionPayload), &parsed); err != nil {
 		t.Fatalf("protectionPayload is not valid JSON: %v\npayload:\n%s", err, protectionPayload)
-	}
-
-	rsc, ok := parsed["required_status_checks"].(map[string]any)
-	if !ok {
-		t.Fatalf("required_status_checks missing or wrong type: %T", parsed["required_status_checks"])
-	}
-
-	contextsAny, ok := rsc["contexts"].([]any)
-	if !ok {
-		t.Fatalf("required_status_checks.contexts missing or wrong type: %T", rsc["contexts"])
-	}
-
-	contexts := make([]string, 0, len(contextsAny))
-	for _, c := range contextsAny {
-		s, ok := c.(string)
-		if !ok {
-			t.Fatalf("contexts entry is not a string: %T (%v)", c, c)
-		}
-		contexts = append(contexts, s)
 	}
 
 	want := []string{
 		"jclee-bot / pr-metadata",
 		"jclee-bot / secret-scan",
+		"jclee-bot / actionlint",
 	}
+	contexts := parsed.RequiredStatusChecks.Contexts
 	if len(contexts) != len(want) {
 		t.Fatalf("contexts count: want %d, got %d (%v)", len(want), len(contexts), contexts)
 	}
@@ -168,25 +161,29 @@ func TestProtectionPayloadIsValidJSON(t *testing.T) {
 		}
 	}
 
-	if v, ok := parsed["enforce_admins"].(bool); !ok || v {
-		t.Errorf("enforce_admins must be present and false; got %v", parsed["enforce_admins"])
+	if parsed.EnforceAdmins {
+		t.Errorf("enforce_admins must be false")
 	}
 
-	for _, key := range []string{"allow_force_pushes", "allow_deletions"} {
-		v, ok := parsed[key].(bool)
-		if !ok {
-			t.Errorf("%s must be present as bool; got %T", key, parsed[key])
-		}
-		if v {
-			t.Errorf("%s must be false; got true", key)
-		}
+	if parsed.AllowForcePushes {
+		t.Errorf("allow_force_pushes must be false")
+	}
+	if parsed.AllowDeletions {
+		t.Errorf("allow_deletions must be false")
 	}
 }
 
-func TestProtectedReposCount(t *testing.T) {
-	const expected = 15
-	if got := len(protectedRepoNames); got != expected {
-		t.Fatalf("protected repo list has %d entries; expected %d from config/repos.yaml.\nCurrent entries: %v",
-			got, expected, protectedRepoNames)
+func TestProtectedReposExcludePrAgentAndIncludePrivateRepos(t *testing.T) {
+	seen := make(map[string]bool, len(protectedRepoNames))
+	for _, repo := range protectedRepoNames {
+		seen[repo] = true
+	}
+	if seen["pr-agent"] {
+		t.Fatal("protected repo list must exclude pr-agent")
+	}
+	for _, repo := range []string{"hycu", "youtube", "propose"} {
+		if !seen[repo] {
+			t.Fatalf("protected repo list missing private managed repo %q: %v", repo, protectedRepoNames)
+		}
 	}
 }

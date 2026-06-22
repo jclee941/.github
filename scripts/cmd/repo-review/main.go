@@ -8,20 +8,38 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	repoinventory "github.com/jclee941/.github/scripts/internal/repos"
 )
 
 var (
-	repos         = flag.String("repos", ".github,resume,safetywallet,tmux,hycu_fsds,splunk,blacklist,opencode,terraform,account,idle-outpost,bug", "Comma-separated repo names (no owner)")
-	dryRun        = flag.Bool("dry-run", false, "If true, no issues are created/commented")
-	sinceCommits  = flag.Int("since-commits", 50, "Commits back from HEAD to use as review base")
-	diffSizeLimit = flag.Int("diff-size-limit", 150000, "Max diff char count before skipping a repo")
-	model         = flag.String("model", "gpt-5.5", "Primary LLM model")
-	workDir       = flag.String("work-dir", "/tmp/repo-review", "Working directory for clones")
-	owner         = flag.String("owner", "jclee941", "GitHub owner/org")
+	defaultReviewRepos = strings.Join(repoinventory.Names(repoinventory.ProtectedRepos()), ",")
+	repos              = flag.String("repos", defaultReviewRepos, "Comma-separated repo names (no owner)")
+	dryRun             = flag.Bool("dry-run", false, "If true, no issues are created/commented")
+	sinceCommits       = flag.Int("since-commits", 50, "Commits back from HEAD to use as review base")
+	diffSizeLimit      = flag.Int("diff-size-limit", 150000, "Max diff char count before skipping a repo")
+	model              = flag.String("model", "gpt-5.5", "Primary LLM model")
+	workDir            = flag.String("work-dir", "/tmp/repo-review", "Working directory for clones")
+	owner              = flag.String("owner", "jclee941", "GitHub owner/org")
+	printDefaultRepos  = flag.Bool("print-default-repos", false, "print default repo list and exit")
+	normalizeReposOnly = flag.Bool("normalize-repos", false, "validate --repos against protected inventory, print normalized repo list, and exit")
 )
 
 func main() {
 	flag.Parse()
+	if *printDefaultRepos {
+		fmt.Println(defaultReviewRepos)
+		return
+	}
+	repoList, err := normalizeReviewRepos(*repos)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "::error::invalid repos: %v\n", err)
+		os.Exit(64)
+	}
+	if *normalizeReposOnly {
+		fmt.Println(strings.Join(repoList, ","))
+		return
+	}
 
 	timestamp := time.Now().UTC().Format(time.RFC3339)
 	date := time.Now().UTC().Format("2006-01-02")
@@ -76,12 +94,7 @@ func main() {
 	fmt.Println()
 
 	failed := 0
-	repoList := strings.Split(*repos, ",")
 	for _, repo := range repoList {
-		repo = strings.TrimSpace(repo)
-		if repo == "" {
-			continue
-		}
 		if err := reviewOneRepo(repo, timestamp, date, prAgentPython); err != nil {
 			fmt.Fprintf(os.Stderr, "  ::warning::review failed for %s: %v\n", repo, err)
 			failed++
@@ -107,9 +120,7 @@ func reviewOneRepo(repo, timestamp, date, prAgentPython string) error {
 
 	// Step 2: clone fresh (always wipe old to keep idempotent)
 	_ = os.RemoveAll(repoDir)
-	cloneURL := fmt.Sprintf("https://x-access-token:%s@github.com/%s/%s.git",
-		os.Getenv("GH_TOKEN"), *owner, repo)
-	if _, err := runCmd("git", "clone", "--quiet", "--depth", "200", cloneURL, repoDir); err != nil {
+	if err := cloneReviewRepo(repo, repoDir); err != nil {
 		fmt.Fprintf(os.Stderr, "  ::warning::clone failed for %s; skipping\n", repo)
 		return err
 	}
@@ -223,6 +234,15 @@ func reviewOneRepo(repo, timestamp, date, prAgentPython string) error {
 		return fmt.Errorf("review failed")
 	}
 	return nil
+}
+
+func cloneReviewRepo(repo, repoDir string) error {
+	_, err := runCmd("gh", cloneReviewRepoArgs(*owner, repo, repoDir)...)
+	return err
+}
+
+func cloneReviewRepoArgs(ownerName, repo, repoDir string) []string {
+	return []string{"repo", "clone", fmt.Sprintf("%s/%s", ownerName, repo), repoDir, "--", "--depth", "200"}
 }
 
 func ensureLabels(repo string) {

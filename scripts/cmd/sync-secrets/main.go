@@ -1,19 +1,3 @@
-// sync-secrets.go pushes shared organization-style secrets to all 12 public
-// jclee941 repos so the standard automation workflows (pr-review.yml, etc.)
-// can run on each downstream repo.
-//
-// Usage:
-//
-//	CLIPROXY_API_KEY=xxx go run ./scripts/cmd/sync-secrets --dry-run
-//	CLIPROXY_API_KEY=xxx go run ./scripts/cmd/sync-secrets
-//	CLIPROXY_API_KEY=xxx go run ./scripts/cmd/sync-secrets --repos=resume
-//
-// Behavior per repo:
-//
-//	gh secret set CLIPROXY_API_KEY --repo jclee941/{r} --body "$CLIPROXY_API_KEY"
-//
-// The script reads CLIPROXY_API_KEY from the local environment so the
-// secret never lands in shell history or in the repo.
 package main
 
 import (
@@ -25,28 +9,9 @@ import (
 	"os/exec"
 	"sort"
 	"strings"
-)
 
-// publicRepos covers all jclee941/* repos that receive the
-// shared automation stack and therefore need the cli_proxy API key.
-// Kept in sync with branch-protection.go.
-var publicRepos = []string{
-	".github",
-	"account",
-	"blacklist",
-	"bug",
-	"hycu_fsds",
-	"idle-outpost",
-	"opencode",
-	"resume",
-	"safetywallet",
-	"splunk",
-	"terraform",
-	"tmux",
-	"hycu",
-	"youtube",
-	"propose",
-}
+	repoinventory "github.com/jclee941/.github/scripts/internal/repos"
+)
 
 // secretsToSync names the env vars to sync. Each must be present in the
 // caller's environment; missing values fail loud rather than silently
@@ -61,6 +26,8 @@ var secretsToSync = []string{
 	"GH_PAT",
 }
 
+var runSecretSet = runGHSecretSet
+
 type result struct {
 	repo   string
 	secret string
@@ -69,11 +36,12 @@ type result struct {
 }
 
 func main() {
+	defaultRepos := repoinventory.Names(repoinventory.ProtectedRepos())
 	dryRun := flag.Bool("dry-run", false, "preview gh secret set calls without invoking them")
-	reposFlag := flag.String("repos", strings.Join(publicRepos, ","), "comma-separated repo names")
+	reposFlag := flag.String("repos", strings.Join(defaultRepos, ","), "comma-separated repo names")
 	flag.Parse()
 
-	repos, err := normalizeRepos(*reposFlag)
+	repos, err := normalizeRepos(*reposFlag, defaultRepos)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
@@ -127,9 +95,9 @@ func main() {
 	}
 }
 
-func normalizeRepos(raw string) ([]string, error) {
-	allowed := make(map[string]struct{}, len(publicRepos))
-	for _, repo := range publicRepos {
+func normalizeRepos(raw string, allowedRepoNames []string) ([]string, error) {
+	allowed := make(map[string]struct{}, len(allowedRepoNames))
+	for _, repo := range allowedRepoNames {
 		allowed[repo] = struct{}{}
 	}
 	parts := strings.Split(raw, ",")
@@ -140,8 +108,11 @@ func normalizeRepos(raw string) ([]string, error) {
 		if repo == "" {
 			continue
 		}
+		if strings.Contains(repo, "/") || strings.Contains(repo, "\\") || strings.Contains(repo, "..") {
+			return nil, fmt.Errorf("repo %q must be a managed repo name, not a path or owner-qualified name", repo)
+		}
 		if _, ok := allowed[repo]; !ok {
-			valid := append([]string(nil), publicRepos...)
+			valid := append([]string(nil), allowedRepoNames...)
 			sort.Strings(valid)
 			return nil, fmt.Errorf("unsupported repo %q (allowed: %s)", repo, strings.Join(valid, ", "))
 		}
@@ -163,10 +134,19 @@ func setSecret(repo, name, value string, dryRun bool) error {
 		return fmt.Errorf("refusing to set empty value for secret %q (would overwrite downstream secret)", name)
 	}
 	if dryRun {
-		fmt.Printf("[dry-run] gh secret set %s --repo %s --body <%d bytes>\n", name, full, len(value))
+		fmt.Printf("[dry-run] printf '<%d bytes>' | gh secret set %s --repo %s\n", len(value), name, full)
 		return nil
 	}
-	cmd := exec.Command("gh", "secret", "set", name, "--repo", full, "--body", value)
+	return runSecretSet(full, name, value)
+}
+
+func secretSetArgs(name, fullRepo string) []string {
+	return []string{"secret", "set", name, "--repo", fullRepo}
+}
+
+func runGHSecretSet(fullRepo, name, value string) error {
+	cmd := exec.Command("gh", secretSetArgs(name, fullRepo)...)
+	cmd.Stdin = strings.NewReader(value)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {

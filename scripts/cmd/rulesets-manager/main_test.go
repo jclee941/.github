@@ -3,11 +3,14 @@ package main
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
+
+	repoinventory "github.com/jclee941/.github/scripts/internal/repos"
 )
 
 func TestNormalizeRepos(t *testing.T) {
-	allowed := []string{"resume", "bug", "terraform", "account", "blacklist", "opencode", "safetywallet", "splunk", "tmux", "hycu_fsds", "idle-outpost", "hycu", "propose", "youtube", ".github"}
+	allowed := repoinventory.Names(repoinventory.ProtectedRepos())
 
 	tests := []struct {
 		name    string
@@ -124,13 +127,8 @@ func TestRulesetPayloadJSON(t *testing.T) {
 				t.Error("required_status_checks rule missing parameters")
 				continue
 			}
-			checks, ok := rule.Parameters["required_status_checks"].([]any)
-			if !ok {
-				t.Error("required_status_checks.parameters.required_status_checks not found or wrong type")
-				continue
-			}
-			if len(checks) != 2 {
-				t.Errorf("expected 2 status checks, got %d", len(checks))
+			if len(rule.Parameters.RequiredStatusChecks) != 3 {
+				t.Errorf("expected 3 status checks, got %d", len(rule.Parameters.RequiredStatusChecks))
 			}
 		}
 	}
@@ -147,29 +145,37 @@ func TestRulesetPayloadRequiredStatusCheckContexts(t *testing.T) {
 		if rule.Type != "required_status_checks" {
 			continue
 		}
-		checks, ok := rule.Parameters["required_status_checks"].([]any)
-		if !ok {
-			t.Fatal("required_status_checks.parameters.required_status_checks not found or wrong type")
+		if rule.Parameters == nil {
+			t.Fatal("required_status_checks rule missing parameters")
 		}
-		for _, check := range checks {
-			checkMap, ok := check.(map[string]any)
-			if !ok {
-				t.Fatalf("required status check has type %T, want object", check)
-			}
-			context, ok := checkMap["context"].(string)
-			if !ok {
-				t.Fatalf("required status check context has type %T, want string", checkMap["context"])
-			}
-			got = append(got, context)
+		for _, check := range rule.Parameters.RequiredStatusChecks {
+			got = append(got, check.Context)
 		}
 	}
 
 	want := []string{
 		"jclee-bot / pr-metadata",
 		"jclee-bot / secret-scan",
+		"jclee-bot / actionlint",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("required status check contexts = %v, want %v", got, want)
+	}
+}
+
+func TestRulesetDryRunCommandIncludesPayloadContexts(t *testing.T) {
+	got := rulesetDryRunCommand("PUT", "repos/jclee941/resume/rulesets/123")
+	for _, context := range []string{
+		"jclee-bot / pr-metadata",
+		"jclee-bot / secret-scan",
+		"jclee-bot / actionlint",
+	} {
+		if !strings.Contains(got, context) {
+			t.Fatalf("dry-run command missing context %q: %s", context, got)
+		}
+	}
+	if strings.Contains(got, "ruleset_payload") {
+		t.Fatalf("dry-run command must include the actual payload, got placeholder: %s", got)
 	}
 }
 
