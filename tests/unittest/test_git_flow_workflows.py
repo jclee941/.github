@@ -39,6 +39,15 @@ def read_workflow(name: str) -> str:
     return path.read_text()
 
 
+def read_workflow_issue_automation_source() -> str:
+    paths = [
+        REPO_ROOT / "jclee_bot" / "workflow_issue_automation.py",
+        REPO_ROOT / "jclee_bot" / "workflow_legacy_sweep.py",
+        REPO_ROOT / "jclee_bot" / "workflow_current_sweep.py",
+    ]
+    return "\n".join(path.read_text(encoding="utf-8") for path in paths)
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -232,7 +241,7 @@ class TestStaleFailureIssueAutoRecovery:
         assert not offenders, f"ci-failure-issues.yml must delegate issue mutations to jclee-bot: {offenders}"
 
     def test_app_maps_health_workflow_titles_for_recovery(self):
-        text = (REPO_ROOT / "jclee_bot" / "workflow_issue_automation.py").read_text(encoding="utf-8")
+        text = read_workflow_issue_automation_source()
         for sub in [
             "ELK Health Check Failed",
             "ELK Setup Failed",
@@ -256,7 +265,7 @@ class TestStaleFailureIssueAutoRecovery:
         )
         assert m, "could not find workflow_run.workflows block"
         watched = set(re.findall(r'- "([^"]+)"', m.group(1)))
-        app_text = (REPO_ROOT / "jclee_bot" / "workflow_issue_automation.py").read_text(encoding="utf-8")
+        app_text = read_workflow_issue_automation_source()
         cases = set(re.findall(r'\("([^"]+)", \(', app_text))
         missing = cases - watched
         assert not missing, (
@@ -278,7 +287,7 @@ class TestStaleFailureIssueAutoRecovery:
         )
 
     def test_sweep_queries_workflow_run_conclusion(self):
-        text = (REPO_ROOT / "jclee_bot" / "workflow_issue_automation.py").read_text(encoding="utf-8")
+        text = read_workflow_issue_automation_source()
         # The sweep must determine recovery by querying the originating
         # workflow's latest run conclusion (success) via the Actions API,
         # not by guessing.

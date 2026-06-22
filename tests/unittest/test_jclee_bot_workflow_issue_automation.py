@@ -118,7 +118,7 @@ def test_success_closes_current_ci_failure_title(monkeypatch: MonkeyPatch) -> No
 
     monkeypatch.setattr(
         workflow_issue_automation,
-        "_issue_numbers_with_title",
+        "_closeable_issue_numbers_with_title",
         fake_issue_numbers,
     )
 
@@ -169,7 +169,7 @@ def test_success_does_not_close_same_issue_twice_when_titles_overlap(monkeypatch
 
     monkeypatch.setattr(
         workflow_issue_automation,
-        "_issue_numbers_with_title",
+        "_closeable_issue_numbers_with_title",
         fake_issue_numbers,
     )
     monkeypatch.setattr(

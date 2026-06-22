@@ -5,7 +5,7 @@ from typing import Any
 
 import requests
 
-from jclee_bot import github_checks, issue_maintenance
+from jclee_bot import github_checks, issue_maintenance, workflow_legacy_sweep
 
 GITHUB_API = "https://api.github.com"
 
@@ -29,22 +29,6 @@ RECOVERY_TITLE_MAP = (
     ("Downstream Health Check", ("Downstream workflow failures detected", "Downstream Health Check failed")),
     ("Bot Health Monitor", ("bot-health", "Bot Health Monitor failed")),
 )
-LEGACY_SWEEP_MAP = (
-    ("ELK Health Check Failed", "26_elk-health-check.yml"),
-    ("ELK Setup Failed", "27_elk-setup.yml"),
-    ("Bot webhook endpoint unreachable", "30_runtime-health-check.yml"),
-    ("CLIProxyAPI unreachable", "30_runtime-health-check.yml"),
-    ("jclee-bot not responding", "30_runtime-health-check.yml"),
-    ("Runtime Health Check failed", "30_runtime-health-check.yml"),
-    ("Downstream workflow failures detected", "29_downstream-health-check.yml"),
-    ("Downstream Health Check failed", "29_downstream-health-check.yml"),
-    ("bot-health", "28_bot-health-monitor.yml"),
-    ("Bot Health Monitor failed", "28_bot-health-monitor.yml"),
-    ("Repository Health Check", "31_repo-health.yml"),
-)
-ACTIVE_RUN_STATUSES = {"queued", "in_progress", "waiting", "pending", "requested"}
-
-
 @dataclass(frozen=True, slots=True)
 class WorkflowRun:
     name: str
@@ -107,9 +91,18 @@ def _find_issue_by_title(*, token: str, repo_full_name: str, title: str, label: 
     return None
 
 
-def _issue_numbers_with_title(*, token: str, repo_full_name: str, title_substring: str) -> list[int]:
+def _issue_is_pull_request_failure(issue: dict[str, Any]) -> bool:
+    if isinstance(issue.get("pull_request"), dict):
+        return True
+    body = str(issue.get("body") or "")
+    return any(line.startswith("- **PR:**") for line in body.splitlines())
+
+
+def _closeable_issue_numbers_with_title(*, token: str, repo_full_name: str, title_substring: str) -> list[int]:
     numbers: list[int] = []
     for issue in _open_issues(token=token, repo_full_name=repo_full_name):
+        if _issue_is_pull_request_failure(issue):
+            continue
         if title_substring not in str(issue.get("title") or ""):
             continue
         number = int(issue.get("number", 0) or 0)
@@ -213,7 +206,7 @@ def close_recovered_workflow_issues(
 ) -> list[str]:
     actions: list[str] = []
     closed_numbers: set[int] = set()
-    for number in _issue_numbers_with_title(
+    for number in _closeable_issue_numbers_with_title(
         token=token,
         repo_full_name=repo_full_name,
         title_substring=_recovered_ci_failure_title(workflow_name=workflow_name, head_sha=head_sha),
@@ -236,7 +229,7 @@ def close_recovered_workflow_issues(
         if name != workflow_name:
             continue
         for title_substring in title_substrings:
-            for number in _issue_numbers_with_title(
+            for number in _closeable_issue_numbers_with_title(
                 token=token,
                 repo_full_name=repo_full_name,
                 title_substring=title_substring,
@@ -258,77 +251,19 @@ def close_recovered_workflow_issues(
     return actions
 
 
-def _workflow_run_status(
-    *,
-    token: str,
-    repo_full_name: str,
-    workflow_file: str,
-    default_branch: str,
-    completed_only: bool,
-) -> tuple[str, str]:
-    status_query = "&status=completed" if completed_only else ""
-    resp = requests.get(
-        f"{GITHUB_API}/repos/{repo_full_name}/actions/workflows/{workflow_file}/runs?branch={default_branch}{status_query}&per_page=1",
-        headers=_headers(token),
-        timeout=30,
-    )
-    resp.raise_for_status()
-    data = resp.json()
-    runs = data.get("workflow_runs", []) if isinstance(data, dict) else []
-    first = runs[0] if runs else {}
-    if not isinstance(first, dict):
-        return ("none", "none")
-    return (str(first.get("status") or "none"), str(first.get("conclusion") or "none"))
-
-
-def _newest_run_in_flight(*, token: str, repo_full_name: str, workflow_file: str, default_branch: str) -> bool:
-    status, _ = _workflow_run_status(
+def sweep_legacy_failure_issues(*, token: str, repo_full_name: str, default_branch: str, dry_run: bool) -> list[str]:
+    return workflow_legacy_sweep.sweep_failure_issues(
         token=token,
         repo_full_name=repo_full_name,
-        workflow_file=workflow_file,
         default_branch=default_branch,
-        completed_only=False,
+        dry_run=dry_run,
+        close_issue=lambda issue_number, body: _close(
+            token=token,
+            repo_full_name=repo_full_name,
+            issue_number=issue_number,
+            body=body,
+        ),
     )
-    return status in ACTIVE_RUN_STATUSES
-
-
-def sweep_legacy_failure_issues(*, token: str, repo_full_name: str, default_branch: str, dry_run: bool) -> list[str]:
-    actions: list[str] = []
-    for title_substring, workflow_file in LEGACY_SWEEP_MAP:
-        numbers = _issue_numbers_with_title(token=token, repo_full_name=repo_full_name, title_substring=title_substring)
-        if not numbers:
-            continue
-        if _newest_run_in_flight(
-            token=token,
-            repo_full_name=repo_full_name,
-            workflow_file=workflow_file,
-            default_branch=default_branch,
-        ):
-            actions.append(f"defer-sweep:{workflow_file}:run-in-flight")
-            continue
-        _, conclusion = _workflow_run_status(
-            token=token,
-            repo_full_name=repo_full_name,
-            workflow_file=workflow_file,
-            default_branch=default_branch,
-            completed_only=True,
-        )
-        if conclusion != "success":
-            actions.append(f"keep-sweep:{workflow_file}:{conclusion}")
-            continue
-        for number in numbers:
-            actions.append(f"close-legacy:{number}:{workflow_file}")
-            if not dry_run:
-                _close(
-                    token=token,
-                    repo_full_name=repo_full_name,
-                    issue_number=number,
-                    body=(
-                        f"{workflow_file} latest run on {default_branch} "
-                        "concluded success.\n\n_jclee-bot에의해자동화됨._"
-                    ),
-                )
-    return actions
 
 
 def installation_token_for_repo(*, app_id: str, private_key: str, repo_full_name: str) -> str | None:
