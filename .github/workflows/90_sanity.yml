@@ -178,6 +178,23 @@ jobs:
                   continue
           assert not stale_docs, f'doc surfaces advertise retired model ordering (gpt-5.5 primary): {stale_docs}'
           print('All doc surfaces match canonical model ordering')
+
+          # The pr_agent top-level package was removed by the de-fork into
+          # jclee_bot.review_engine. Workflows/scripts must not import it.
+          # Allowlist the in-tree submodule jclee_bot.review_engine.agent.pr_agent.
+          stale_import_re = re.compile(r'(from\s+pr_agent[\s.]|import\s+pr_agent[\s.]|-m\s+pr_agent[\s.])')
+          stale_imports = []
+          for f in sorted(glob.glob('.github/workflows/*.yml') + glob.glob('scripts/*.py')):
+              for i, line in enumerate(open(f), 1):
+                  s = line.strip()
+                  if s.startswith('#'):
+                      continue
+                  if 'jclee_bot.review_engine' in line:
+                      continue
+                  if stale_import_re.search(line):
+                      stale_imports.append(f'{f}:{i}')
+          assert not stale_imports, f'retired pr_agent package imported (use jclee_bot.review_engine): {stale_imports}'
+          print('No retired pr_agent top-level imports in workflows/scripts')
           "
 
       - name: Fast unittest smoke (AGENTS.md minimum gate)
