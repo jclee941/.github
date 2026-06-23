@@ -1,4 +1,4 @@
-from pr_agent.tools.ticket_pr_compliance_check import extract_ticket_links_from_branch_name
+from jclee_bot.review_engine.tools.ticket_pr_compliance_check import extract_ticket_links_from_branch_name
 
 
 class TestExtractTicketsLinkFromBranchName:
@@ -57,7 +57,7 @@ class TestExtractTicketsLinkFromBranchName:
                 "" if key in ("branch_issue_regex", "config.branch_issue_regex") else default
             )
         )
-        import pr_agent.tools.ticket_pr_compliance_check as m
+        import jclee_bot.review_engine.tools.ticket_pr_compliance_check as m
         monkeypatch.setattr(m, "get_settings", lambda: fake_settings)
         result = extract_ticket_links_from_branch_name(
             "feature/1-test", "org/repo", "https://github.com"
@@ -72,7 +72,7 @@ class TestExtractTicketsLinkFromBranchName:
                 "[" if key in ("branch_issue_regex", "config.branch_issue_regex") else default
             )
         )
-        import pr_agent.tools.ticket_pr_compliance_check as m
+        import jclee_bot.review_engine.tools.ticket_pr_compliance_check as m
         monkeypatch.setattr(m, "get_settings", lambda: fake_settings)
         result = extract_ticket_links_from_branch_name(
             "feature/1-test", "org/repo", "https://github.com"
@@ -87,7 +87,7 @@ class TestExtractTicketsLinkFromBranchName:
                 r"\d+" if key in ("branch_issue_regex", "config.branch_issue_regex") else default
             )
         )
-        import pr_agent.tools.ticket_pr_compliance_check as m
+        import jclee_bot.review_engine.tools.ticket_pr_compliance_check as m
         monkeypatch.setattr(m, "get_settings", lambda: fake_settings)
         result = extract_ticket_links_from_branch_name(
             "feature/1-test", "org/repo", "https://github.com"

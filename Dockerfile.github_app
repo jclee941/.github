@@ -23,8 +23,7 @@ COPY pyproject.toml requirements.txt ./
 RUN pip install --no-cache-dir . \
     && pip install --no-cache-dir gunicorn uvicorn[standard]
 
-# Copy app source
-COPY pr_agent pr_agent
+# Copy app source (the review engine now lives under jclee_bot/)
 COPY jclee_bot jclee_bot
 COPY scripts/*.py scripts/
 COPY config config
@@ -32,7 +31,7 @@ COPY .pr_agent.toml ./
 
 ARG APP_VERSION=local
 ARG VCS_REF=unknown
-RUN printf '%s\n' "${APP_VERSION}" > pr_agent/build_number.txt
+RUN printf '%s\n' "${APP_VERSION}" > jclee_bot/review_engine/build_number.txt
 
 ENV PYTHONPATH=/app \
     PORT=3000 \
@@ -49,6 +48,6 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 # Gunicorn + uvicorn workers (production WSGI/ASGI bridge)
 CMD ["python", "-m", "gunicorn", \
      "-k", "uvicorn.workers.UvicornWorker", \
-     "-c", "pr_agent/servers/gunicorn_config.py", \
+     "-c", "jclee_bot/review_engine/servers/gunicorn_config.py", \
      "--forwarded-allow-ips", "*", \
      "jclee_bot.app:app"]

@@ -37,9 +37,9 @@ def mock_git_provider():
     mock_provider.get_pr_title.return_value = ""
 
     with (
-        patch("pr_agent.git_providers.get_git_provider_with_context", return_value=mock_provider),
-        patch("pr_agent.git_providers.utils.get_git_provider_with_context", return_value=mock_provider),
-        patch("pr_agent.servers.github_app.get_git_provider_with_context", return_value=mock_provider),
+        patch("jclee_bot.review_engine.git_providers.get_git_provider_with_context", return_value=mock_provider),
+        patch("jclee_bot.review_engine.git_providers.utils.get_git_provider_with_context", return_value=mock_provider),
+        patch("jclee_bot.review_engine.servers.github_app.get_git_provider_with_context", return_value=mock_provider),
     ):
         yield mock_provider
 

@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import openai
 import pytest
 
-from pr_agent.algo.ai_handlers.litellm_ai_handler import LiteLLMAIHandler
+from jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler import LiteLLMAIHandler
 
 
 def _handler():
@@ -20,7 +20,7 @@ async def test_no_fallback_configured_propagates_after_single_attempt():
     once = AsyncMock(side_effect=openai.APIConnectionError(request=MagicMock()))
     with (
         patch.object(h, "_get_completion_once", new=once),
-        patch("pr_agent.algo.ai_handlers.litellm_ai_handler.get_settings") as gs,
+        patch("jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.get_settings") as gs,
     ):
         gs.return_value.get.return_value = []
         with pytest.raises(openai.APIConnectionError):
@@ -40,7 +40,7 @@ async def test_configured_fallback_base_is_ignored_for_cliproxy_only_routing():
 
     with (
         patch.object(h, "_get_completion_once", new=fake_once),
-        patch("pr_agent.algo.ai_handlers.litellm_ai_handler.get_settings") as gs,
+        patch("jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.get_settings") as gs,
     ):
         gs.return_value.get.return_value = ["https://backup.example/v1"]
         with pytest.raises(openai.APITimeoutError):
@@ -58,7 +58,7 @@ async def test_rate_limit_does_not_switch_base():
     )
     with (
         patch.object(h, "_get_completion_once", new=once),
-        patch("pr_agent.algo.ai_handlers.litellm_ai_handler.get_settings") as gs,
+        patch("jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.get_settings") as gs,
     ):
         gs.return_value.get.return_value = ["https://backup.example/v1"]
         with pytest.raises(openai.RateLimitError):
@@ -73,7 +73,7 @@ async def test_multiple_configured_fallback_bases_are_ignored():
     once = AsyncMock(side_effect=openai.APIConnectionError(request=MagicMock()))
     with (
         patch.object(h, "_get_completion_once", new=once),
-        patch("pr_agent.algo.ai_handlers.litellm_ai_handler.get_settings") as gs,
+        patch("jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.get_settings") as gs,
     ):
         gs.return_value.get.return_value = ["https://b1/v1", "https://b2/v1"]
         with pytest.raises(openai.APIConnectionError):
@@ -96,8 +96,8 @@ async def test_minimax_m3_routes_as_openai_compatible():
         return {"choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}]}
 
     with (
-        patch("pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion", new=fake_acompletion),
-        patch("pr_agent.algo.ai_handlers.litellm_ai_handler.get_settings") as gs,
+        patch("jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion", new=fake_acompletion),
+        patch("jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.get_settings") as gs,
     ):
         gs.return_value.get.return_value = 128000
         await h._get_completion_once(model="MiniMax-M3", messages=[{"role": "user", "content": "hi"}])

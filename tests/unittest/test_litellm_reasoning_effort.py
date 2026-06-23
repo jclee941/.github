@@ -2,8 +2,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import pr_agent.algo.ai_handlers.litellm_ai_handler as litellm_handler
-from pr_agent.algo.ai_handlers.litellm_ai_handler import LiteLLMAIHandler
+import jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler as litellm_handler
+from jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler import LiteLLMAIHandler
 
 
 def create_mock_settings(reasoning_effort_value):
@@ -37,7 +37,7 @@ def create_mock_acompletion_response():
 @pytest.fixture
 def mock_logger():
     """Mock logger to capture info and warning calls."""
-    with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.get_logger') as mock_log:
+    with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.get_logger') as mock_log:
         mock_log_instance = MagicMock()
         mock_log.return_value = mock_log_instance
         yield mock_log_instance
@@ -66,7 +66,7 @@ class TestLiteLLMReasoningEffort:
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
         # Mock acompletion to capture kwargs
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -91,7 +91,7 @@ class TestLiteLLMReasoningEffort:
         fake_settings = create_mock_settings("low")
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -112,7 +112,7 @@ class TestLiteLLMReasoningEffort:
         fake_settings = create_mock_settings("medium")
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -133,7 +133,7 @@ class TestLiteLLMReasoningEffort:
         fake_settings = create_mock_settings("high")
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -154,7 +154,7 @@ class TestLiteLLMReasoningEffort:
         fake_settings = create_mock_settings("xhigh")
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -175,7 +175,7 @@ class TestLiteLLMReasoningEffort:
         fake_settings = create_mock_settings("minimal")
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -198,7 +198,7 @@ class TestLiteLLMReasoningEffort:
         fake_settings = create_mock_settings("extreme")
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -227,7 +227,7 @@ class TestLiteLLMReasoningEffort:
         fake_settings = create_mock_settings("invalid_value")
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -253,7 +253,7 @@ class TestLiteLLMReasoningEffort:
         fake_settings = create_mock_settings(None)
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -279,7 +279,7 @@ class TestLiteLLMReasoningEffort:
         fake_settings = create_mock_settings(None)
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -322,7 +322,7 @@ class TestLiteLLMReasoningEffort:
         ]
 
         for model in gpt5_models:
-            with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+            with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
                 mock_completion.return_value = create_mock_acompletion_response()
 
                 handler = LiteLLMAIHandler()
@@ -346,7 +346,7 @@ class TestLiteLLMReasoningEffort:
         non_gpt5_models = ["gpt-4o", "gpt-4-turbo", "claude-3-5-sonnet"]
 
         for model in non_gpt5_models:
-            with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+            with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
                 mock_completion.return_value = create_mock_acompletion_response()
 
                 handler = LiteLLMAIHandler()
@@ -366,7 +366,7 @@ class TestLiteLLMReasoningEffort:
         fake_settings = create_mock_settings("low")
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -388,7 +388,7 @@ class TestLiteLLMReasoningEffort:
         fake_settings = create_mock_settings(None)
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -408,7 +408,7 @@ class TestLiteLLMReasoningEffort:
         fake_settings = create_mock_settings(None)
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -428,7 +428,7 @@ class TestLiteLLMReasoningEffort:
         fake_settings = create_mock_settings("high")
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -451,7 +451,7 @@ class TestLiteLLMReasoningEffort:
         fake_settings = create_mock_settings("low")
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -470,7 +470,7 @@ class TestLiteLLMReasoningEffort:
         fake_settings = create_mock_settings(None)
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -490,7 +490,7 @@ class TestLiteLLMReasoningEffort:
         fake_settings = create_mock_settings(None)
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -510,7 +510,7 @@ class TestLiteLLMReasoningEffort:
         fake_settings = create_mock_settings("ultra")
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -531,7 +531,7 @@ class TestLiteLLMReasoningEffort:
         fake_settings = create_mock_settings("medium")
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -556,7 +556,7 @@ class TestLiteLLMReasoningEffort:
         fake_settings = create_mock_settings("high")
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -580,7 +580,7 @@ class TestLiteLLMReasoningEffort:
         fake_settings = create_mock_settings("")
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -601,7 +601,7 @@ class TestLiteLLMReasoningEffort:
         fake_settings = create_mock_settings("LOW")
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -622,7 +622,7 @@ class TestLiteLLMReasoningEffort:
         fake_settings = create_mock_settings(" low ")
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -649,7 +649,7 @@ class TestLiteLLMReasoningEffort:
         monkeypatch.setattr(litellm_handler, "get_settings", lambda: fake_settings)
 
         # Test gpt-50 (will match due to startswith logic)
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()
@@ -667,7 +667,7 @@ class TestLiteLLMReasoningEffort:
         mock_logger.reset_mock()
 
         # Test gpt-5 (should match)
-        with patch('pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
+        with patch('jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion', new_callable=AsyncMock) as mock_completion:
             mock_completion.return_value = create_mock_acompletion_response()
 
             handler = LiteLLMAIHandler()

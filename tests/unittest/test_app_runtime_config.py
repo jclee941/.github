@@ -9,7 +9,7 @@ def test_app_image_writes_health_build_number() -> None:
     text = (REPO_ROOT / "Dockerfile.github_app").read_text(encoding="utf-8")
 
     assert "ARG APP_VERSION=" in text
-    assert "printf '%s\\n' \"${APP_VERSION}\" > pr_agent/build_number.txt" in text
+    assert "printf '%s\\n' \"${APP_VERSION}\" > jclee_bot/review_engine/build_number.txt" in text
     assert 'APP_VERSION="${APP_VERSION}"' in text
     assert 'GIT_SHA="${VCS_REF}"' in text
 

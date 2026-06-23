@@ -126,7 +126,7 @@ jobs:
             PR 설명은 한국어로, 보안 관점에서 작성하십시오.
             이 변경이 공격 표면에 미치는 영향을 명시하십시오.
         run: |
-          .venv/bin/python -m pr_agent.servers.github_action_runner
+          .venv/bin/python -m jclee_bot.review_engine.servers.github_action_runner
       - name: Notify on failure
         if: failure()
         uses: ./.github/actions/notify-on-failure

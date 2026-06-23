@@ -47,7 +47,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from pr_agent.algo.secret_masking import mask_text  # noqa: E402
+from jclee_bot.review_engine.algo.secret_masking import mask_text  # noqa: E402
 
 GITHUB_API = "https://api.github.com"
 

@@ -36,8 +36,8 @@ from jclee_bot.git_auth import git_askpass_env, git_env_with_auth
 from jclee_bot.payload_parsing import default_branch_from_payload, json_payload_or_error, repo_full_name_from_payload
 from jclee_bot.readme_automation import router as readme_automation_router
 
-# Reuse the upstream app object so its middleware + all routes are preserved.
-from pr_agent.servers.github_app import app
+# Reuse the review-engine app object so its middleware + all routes are preserved.
+from jclee_bot.review_engine.servers.github_app import app
 
 app.include_router(readme_automation_router)
 

@@ -6,8 +6,8 @@ import pytest
 from prometheus_client import REGISTRY
 from tenacity import RetryError
 
-import pr_agent.algo.ai_handlers.litellm_ai_handler as litellm_ai_handler
-from pr_agent.algo.ai_handlers.litellm_ai_handler import MODEL_RETRIES, LiteLLMAIHandler
+import jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler as litellm_ai_handler
+from jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler import MODEL_RETRIES, LiteLLMAIHandler
 
 
 def _make_settings():

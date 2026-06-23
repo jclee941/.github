@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import pr_agent.servers.github_app as github_app
-from pr_agent.identity_providers.identity_provider import Eligibility
+import jclee_bot.review_engine.servers.github_app as github_app
+from jclee_bot.review_engine.identity_providers.identity_provider import Eligibility
 
 
 def make_push_body(before="old-sha", after="new-sha", draft=False, state="open", created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:01:00Z"):
@@ -119,7 +119,7 @@ class TestHandlePushTrigger:
             args = mock_subprocess.call_args[0]
             assert args[0] == sys.executable
             assert args[1] == "-m"
-            assert args[2] == "pr_agent.cli"
+            assert args[2] == "jclee_bot.review_engine.cli"
             assert args[3] == "--pr_url"
             assert args[4] == "https://api.github.com/repos/jclee941/test/pulls/1"
             assert args[5] == "review"

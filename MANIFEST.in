@@ -1,2 +1,2 @@
-recursive-include pr_agent *.toml
-recursive-exclude pr_agent *.secrets.toml
+recursive-include jclee_bot/review_engine *.toml
+recursive-exclude jclee_bot/review_engine *.secrets.toml

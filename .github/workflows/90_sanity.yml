@@ -58,12 +58,12 @@ jobs:
       - name: Verify core package imports
         run: |
           set -eu
-          python -c "import pr_agent; print('pr_agent:', pr_agent.__file__)"
-          python -c "from pr_agent.tools.pr_reviewer import PRReviewer; print('PRReviewer OK')"
-          python -c "from pr_agent.tools.pr_description import PRDescription; print('PRDescription OK')"
-          python -c "from pr_agent.tools.pr_code_suggestions import PRCodeSuggestions; print('PRCodeSuggestions OK')"
-          python -c "from pr_agent.agent.pr_agent import PRAgent; print('PRAgent OK')"
-          python -c "from pr_agent.servers.github_action_runner import run_action; print('github_action_runner OK')"
+          python -c "import jclee_bot.review_engine as re; print('review_engine:', re.__file__)"
+          python -c "from jclee_bot.review_engine.tools.pr_reviewer import PRReviewer; print('PRReviewer OK')"
+          python -c "from jclee_bot.review_engine.tools.pr_description import PRDescription; print('PRDescription OK')"
+          python -c "from jclee_bot.review_engine.tools.pr_code_suggestions import PRCodeSuggestions; print('PRCodeSuggestions OK')"
+          python -c "from jclee_bot.review_engine.agent.pr_agent import PRAgent; print('PRAgent OK')"
+          python -c "from jclee_bot.review_engine.servers.github_action_runner import run_action; print('github_action_runner OK')"
 
       - name: Verify fork config files parse
         run: |
@@ -80,9 +80,9 @@ jobs:
           "
           python3 -c "
           import tomllib
-          c = tomllib.loads(open('pr_agent/settings/configuration.toml').read())
-          assert 'model' in c['config'], 'upstream configuration.toml model field missing'
-          print('pr_agent/settings/configuration.toml OK')
+          c = tomllib.loads(open('jclee_bot/review_engine/settings/configuration.toml').read())
+          assert 'model' in c['config'], 'review-engine configuration.toml model field missing'
+          print('jclee_bot/review_engine/settings/configuration.toml OK')
           "
 
       - name: Verify workflow YAML files parse
@@ -127,8 +127,8 @@ jobs:
           assert canonical_fb == ['minimax-m3'], f'canonical fallback drifted: {canonical_fb}'
           print(f'canonical: primary={primary} fallback={canonical_fb}')
 
-          # upstream configuration.toml must share the same fallback chain.
-          u = tomllib.loads(open('pr_agent/settings/configuration.toml').read())
+          # review-engine configuration.toml must share the same fallback chain.
+          u = tomllib.loads(open('jclee_bot/review_engine/settings/configuration.toml').read())
           assert u['config']['fallback_models'] == canonical_fb, \
               f'configuration.toml fallback drift: {u[\"config\"][\"fallback_models\"]}'
 

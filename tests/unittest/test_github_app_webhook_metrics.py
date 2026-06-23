@@ -2,8 +2,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import pr_agent.servers.github_app as github_app
-from pr_agent.servers.monitoring import WEBHOOK_FAILURES_TOTAL
+import jclee_bot.review_engine.servers.github_app as github_app
+from jclee_bot.review_engine.servers.monitoring import WEBHOOK_FAILURES_TOTAL
 
 
 @pytest.mark.asyncio
@@ -112,7 +112,7 @@ async def test_deferred_webhook_task_failures_are_not_swallowed():
 
 def test_record_webhook_failure_defaults_to_lowercase_unknown():
     """All metric label defaults must be lowercase 'unknown' for PromQL consistency."""
-    from pr_agent.servers.monitoring import record_webhook_failure
+    from jclee_bot.review_engine.servers.monitoring import record_webhook_failure
 
     record_webhook_failure(None, None, None)
     # The labeled counter must exist with all-lowercase 'unknown' values

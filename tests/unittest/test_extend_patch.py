@@ -1,10 +1,10 @@
 import pytest
 
-from pr_agent.algo.git_patch_processing import extend_patch
-from pr_agent.algo.pr_processing import pr_generate_extended_diff
-from pr_agent.algo.token_handler import TokenHandler
-from pr_agent.algo.utils import load_large_diff
-from pr_agent.config_loader import get_settings
+from jclee_bot.review_engine.algo.git_patch_processing import extend_patch
+from jclee_bot.review_engine.algo.pr_processing import pr_generate_extended_diff
+from jclee_bot.review_engine.algo.token_handler import TokenHandler
+from jclee_bot.review_engine.algo.utils import load_large_diff
+from jclee_bot.review_engine.config_loader import get_settings
 
 get_settings(use_context=False).set("CONFIG.CLI_MODE", True)
 get_settings(use_context=False).config.allow_dynamic_context = False

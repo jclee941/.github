@@ -4,7 +4,7 @@ These tests exercise the offline regex scanner only — no GitHub API, no LLM.
 We bypass __init__ via object.__new__ because _regex_scan has no instance deps.
 """
 
-from pr_agent.tools.pr_hardcode_detector import PRHardcodeDetector
+from jclee_bot.review_engine.tools.pr_hardcode_detector import PRHardcodeDetector
 
 
 def scan(diff: str):

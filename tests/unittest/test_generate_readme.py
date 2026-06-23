@@ -123,7 +123,7 @@ def test_source_repo_prompt_keeps_automation_contract(monkeypatch, tmp_path):
     captured: dict[str, str] = {}
 
     (tmp_path / "jclee_bot").mkdir()
-    (tmp_path / "pr_agent").mkdir()
+    (tmp_path / "jclee_bot" / "review_engine").mkdir(parents=True)
     (tmp_path / "config").mkdir()
     (tmp_path / "config" / "repos.yaml").write_text("repositories: []\n", encoding="utf-8")
     (tmp_path / ".github" / "workflows").mkdir(parents=True)

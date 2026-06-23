@@ -3,7 +3,7 @@ requires = ["setuptools>=82.0.1", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pr-agent"
+name = "github-bot"
 version = "0.3.1"
 
 authors = [{ name = "QodoAI", email = "ofir.f@qodo.ai" }]
@@ -12,7 +12,7 @@ maintainers = [
   { name = "jclee941" },
 ]
 
-description = "Private pr-agent fork for jclee941 repositories, backed by a homelab CLIProxyAPI deployment."
+description = "GitHub App automation platform for jclee941 repositories, backed by a homelab CLIProxyAPI deployment."
 readme = "README.md"
 requires-python = ">=3.12"
 keywords = ["AI", "Agents", "Pull Request", "Automation", "Code Review"]
@@ -31,7 +31,6 @@ dependencies = { file = ["requirements.txt"] }
 [project.urls]
 Homepage = "https://github.com/jclee941/github-bot"
 Documentation = "https://github.com/jclee941/github-bot#readme"
-Upstream = "https://github.com/qodo-ai/pr-agent"
 
 [tool.setuptools]
 include-package-data = true
@@ -39,24 +38,22 @@ include-package-data = true
 [tool.setuptools.packages.find]
 where = ["."]
 include = [
-  "pr_agent*",
   "jclee_bot*",
-] # include upstream pr_agent + fork-owned jclee_bot package.
+] # fork-owned jclee_bot package (includes the absorbed review engine).
 
 [project.scripts]
-pr-agent = "pr_agent.cli:run"
+github-bot = "jclee_bot.review_engine.cli:run"
 
 [tool.ruff]
 line-length = 120
 
-# Inherited upstream fork code (pr_agent/ and its upstream unittest suite) is
-# now linted for CORRECTNESS-class rules (the full E/F/B/I ruleset), but the
-# purely cosmetic findings (E501 line-wrapping, F541 f-strings without
-# placeholders) are suppressed per-file below rather than mass-rewritten:
-# restyling hundreds of upstream lines only creates merge conflicts with the
-# `upstream` remote without improving runtime safety. Fork-owned code
-# (scripts/, tests/e2e/, tests/e2e_live/) is held to the full ruleset with no
-# such suppression. See [tool.ruff.lint.per-file-ignores] below.
+# The absorbed review engine (jclee_bot/review_engine/, formerly the upstream
+# pr_agent fork) is linted for CORRECTNESS-class rules (the full E/F/B/I
+# ruleset), but purely cosmetic findings (E501 line-wrapping, F541 f-strings
+# without placeholders) are suppressed per-file below rather than mass-rewritten:
+# restyling hundreds of inherited lines only adds churn without improving runtime
+# safety. Fork-owned code (scripts/, tests/e2e/, tests/e2e_live/) is held to the
+# full ruleset with no such suppression. See [tool.ruff.lint.per-file-ignores].
 
 lint.select = [
   "E",    # Pyflakes
@@ -84,9 +81,9 @@ lint.ignore = ["B008"]
   "E402",
 ] # Ignore `E402` (import violations) in all `__init__.py` files.
 
-# Upstream fork trees: lint for correctness, but do not enforce cosmetic
+# Absorbed review-engine tree: lint for correctness, but do not enforce cosmetic
 # line-length (E501) or f-string-without-placeholder (F541) rewrites.
-"pr_agent/**/*.py" = ["E501", "F541"]
+"jclee_bot/review_engine/**/*.py" = ["E501", "F541"]
 "tests/unittest/**/*.py" = [
   "E501",
   "F541",

@@ -1,12 +1,12 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from pr_agent.config_loader import get_settings
-from pr_agent.git_providers import AzureDevopsProvider
+from jclee_bot.review_engine.config_loader import get_settings
+from jclee_bot.review_engine.git_providers import AzureDevopsProvider
 
 
 class TestAzureDevopsProviderPublishComment(unittest.TestCase):
-    @patch("pr_agent.git_providers.azuredevops_provider.get_settings")
+    @patch("jclee_bot.review_engine.git_providers.azuredevops_provider.get_settings")
     def test_publish_comment_default_closed(self, mock_get_settings):
         # Simulate config with no default_comment_status
         mock_settings = MagicMock()
@@ -21,7 +21,7 @@ class TestAzureDevopsProviderPublishComment(unittest.TestCase):
             provider.pr_num = 1
 
             # Patch CommentThread and create_thread
-            with patch("pr_agent.git_providers.azuredevops_provider.CommentThread") as MockThread:
+            with patch("jclee_bot.review_engine.git_providers.azuredevops_provider.CommentThread") as MockThread:
                 provider.azure_devops_client.create_thread.return_value.comments = [MagicMock()]
                 provider.azure_devops_client.create_thread.return_value.comments[0].thread_id = 123
                 provider.azure_devops_client.create_thread.return_value.id = 123
@@ -30,7 +30,7 @@ class TestAzureDevopsProviderPublishComment(unittest.TestCase):
                 args, kwargs = MockThread.call_args
                 assert kwargs.get("status") == "closed"
 
-    @patch("pr_agent.git_providers.azuredevops_provider.get_settings")
+    @patch("jclee_bot.review_engine.git_providers.azuredevops_provider.get_settings")
     def test_publish_comment_active(self, mock_get_settings):
         # Simulate config with default_comment_status = "active"
         mock_settings = MagicMock()
@@ -45,7 +45,7 @@ class TestAzureDevopsProviderPublishComment(unittest.TestCase):
             provider.pr_num = 1
 
             # Patch CommentThread and create_thread
-            with patch("pr_agent.git_providers.azuredevops_provider.CommentThread") as MockThread:
+            with patch("jclee_bot.review_engine.git_providers.azuredevops_provider.CommentThread") as MockThread:
                 provider.azure_devops_client.create_thread.return_value.comments = [MagicMock()]
                 provider.azure_devops_client.create_thread.return_value.comments[0].thread_id = 123
                 provider.azure_devops_client.create_thread.return_value.id = 123

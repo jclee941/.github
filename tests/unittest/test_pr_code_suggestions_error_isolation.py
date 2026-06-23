@@ -30,7 +30,7 @@ async def _unused_acompletion(*args, **kwargs):
 litellm.acompletion = _unused_acompletion
 sys.modules.setdefault("litellm", litellm)
 
-litellm_ai_handler = ModuleType("pr_agent.algo.ai_handlers.litellm_ai_handler")
+litellm_ai_handler = ModuleType("jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler")
 
 
 class LiteLLMAIHandler:
@@ -38,13 +38,13 @@ class LiteLLMAIHandler:
 
 
 litellm_ai_handler.LiteLLMAIHandler = LiteLLMAIHandler
-sys.modules.setdefault("pr_agent.algo.ai_handlers.litellm_ai_handler", litellm_ai_handler)
+sys.modules.setdefault("jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler", litellm_ai_handler)
 
-config_loader = ModuleType("pr_agent.config_loader")
+config_loader = ModuleType("jclee_bot.review_engine.config_loader")
 config_loader.get_settings = lambda: None
-sys.modules.setdefault("pr_agent.config_loader", config_loader)
+sys.modules.setdefault("jclee_bot.review_engine.config_loader", config_loader)
 
-log_module = ModuleType("pr_agent.log")
+log_module = ModuleType("jclee_bot.review_engine.log")
 
 
 class _NoopLogger:
@@ -71,20 +71,20 @@ class _NoopLogger:
 
 
 log_module.get_logger = lambda: _NoopLogger()
-sys.modules.setdefault("pr_agent.log", log_module)
+sys.modules.setdefault("jclee_bot.review_engine.log", log_module)
 
-git_patch_processing = ModuleType("pr_agent.algo.git_patch_processing")
+git_patch_processing = ModuleType("jclee_bot.review_engine.algo.git_patch_processing")
 git_patch_processing.decouple_and_convert_to_hunks_with_lines_numbers = lambda patch, file=None: patch
-sys.modules.setdefault("pr_agent.algo.git_patch_processing", git_patch_processing)
+sys.modules.setdefault("jclee_bot.review_engine.algo.git_patch_processing", git_patch_processing)
 
-pr_processing = ModuleType("pr_agent.algo.pr_processing")
+pr_processing = ModuleType("jclee_bot.review_engine.algo.pr_processing")
 pr_processing.add_ai_metadata_to_diff_files = lambda *args, **kwargs: None
 pr_processing.get_pr_diff = lambda *args, **kwargs: ""
 pr_processing.get_pr_multi_diffs = lambda *args, **kwargs: []
 pr_processing.retry_with_fallback_models = lambda func: func
-sys.modules.setdefault("pr_agent.algo.pr_processing", pr_processing)
+sys.modules.setdefault("jclee_bot.review_engine.algo.pr_processing", pr_processing)
 
-token_handler = ModuleType("pr_agent.algo.token_handler")
+token_handler = ModuleType("jclee_bot.review_engine.algo.token_handler")
 
 
 class TokenHandler:
@@ -92,9 +92,9 @@ class TokenHandler:
 
 
 token_handler.TokenHandler = TokenHandler
-sys.modules.setdefault("pr_agent.algo.token_handler", token_handler)
+sys.modules.setdefault("jclee_bot.review_engine.algo.token_handler", token_handler)
 
-utils = ModuleType("pr_agent.algo.utils")
+utils = ModuleType("jclee_bot.review_engine.algo.utils")
 utils.ModelType = SimpleNamespace(REGULAR="regular")
 utils.clip_tokens = lambda text, *args, **kwargs: text
 utils.get_max_tokens = lambda *args, **kwargs: 4096
@@ -102,30 +102,30 @@ utils.get_model = lambda *args, **kwargs: "test-model"
 utils.load_yaml = lambda *args, **kwargs: {}
 utils.replace_code_tags = lambda text: text
 utils.show_relevant_configurations = lambda *args, **kwargs: None
-sys.modules.setdefault("pr_agent.algo.utils", utils)
+sys.modules.setdefault("jclee_bot.review_engine.algo.utils", utils)
 
-git_providers = ModuleType("pr_agent.git_providers")
+git_providers = ModuleType("jclee_bot.review_engine.git_providers")
 git_providers.AzureDevopsProvider = type("AzureDevopsProvider", (), {})
 git_providers.GithubProvider = type("GithubProvider", (), {})
 git_providers.GitLabProvider = type("GitLabProvider", (), {})
 git_providers.get_git_provider = lambda *args, **kwargs: None
 git_providers.get_git_provider_with_context = lambda *args, **kwargs: None
-sys.modules.setdefault("pr_agent.git_providers", git_providers)
+sys.modules.setdefault("jclee_bot.review_engine.git_providers", git_providers)
 
-git_provider_module = ModuleType("pr_agent.git_providers.git_provider")
+git_provider_module = ModuleType("jclee_bot.review_engine.git_providers.git_provider")
 git_provider_module.GitProvider = type("GitProvider", (), {})
 git_provider_module.get_main_pr_language = lambda *args, **kwargs: "python"
-sys.modules.setdefault("pr_agent.git_providers.git_provider", git_provider_module)
+sys.modules.setdefault("jclee_bot.review_engine.git_providers.git_provider", git_provider_module)
 
-pr_description = ModuleType("pr_agent.tools.pr_description")
+pr_description = ModuleType("jclee_bot.review_engine.tools.pr_description")
 pr_description.insert_br_after_x_chars = lambda text, *args, **kwargs: text
-sys.modules.setdefault("pr_agent.tools.pr_description", pr_description)
+sys.modules.setdefault("jclee_bot.review_engine.tools.pr_description", pr_description)
 
-help_module = ModuleType("pr_agent.servers.help")
+help_module = ModuleType("jclee_bot.review_engine.servers.help")
 help_module.HelpMessage = type("HelpMessage", (), {})
-sys.modules.setdefault("pr_agent.servers.help", help_module)
+sys.modules.setdefault("jclee_bot.review_engine.servers.help", help_module)
 
-pr_code_suggestions_module = import_module("pr_agent.tools.pr_code_suggestions")
+pr_code_suggestions_module = import_module("jclee_bot.review_engine.tools.pr_code_suggestions")
 PRCodeSuggestions = pr_code_suggestions_module.PRCodeSuggestions
 
 

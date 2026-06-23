@@ -1,4 +1,4 @@
-from pr_agent.algo.utils import fix_json_escape_char
+from jclee_bot.review_engine.algo.utils import fix_json_escape_char
 
 
 class TestFixJsonEscapeChar:

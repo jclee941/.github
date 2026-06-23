@@ -3,15 +3,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pr_agent.secret_providers.aws_secrets_manager_provider import AWSSecretsManagerProvider
+from jclee_bot.review_engine.secret_providers.aws_secrets_manager_provider import AWSSecretsManagerProvider
 
 
 class TestAWSSecretsManagerProvider:
 
     def _provider(self):
         """Create provider following existing pattern"""
-        with patch('pr_agent.secret_providers.aws_secrets_manager_provider.get_settings') as mock_get_settings, \
-             patch('pr_agent.secret_providers.aws_secrets_manager_provider.boto3.client') as mock_boto3_client:
+        with patch('jclee_bot.review_engine.secret_providers.aws_secrets_manager_provider.get_settings') as mock_get_settings, \
+             patch('jclee_bot.review_engine.secret_providers.aws_secrets_manager_provider.boto3.client') as mock_boto3_client:
 
             settings = MagicMock()
             settings.get.side_effect = lambda k, d=None: {
@@ -73,7 +73,7 @@ class TestAWSSecretsManagerProvider:
         )
 
     def test_init_failure_invalid_config(self):
-        with patch('pr_agent.secret_providers.aws_secrets_manager_provider.get_settings') as mock_get_settings:
+        with patch('jclee_bot.review_engine.secret_providers.aws_secrets_manager_provider.get_settings') as mock_get_settings:
             settings = MagicMock()
             settings.aws_secrets_manager.secret_arn = None  # Configuration error
             mock_get_settings.return_value = settings

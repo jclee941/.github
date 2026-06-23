@@ -28,7 +28,7 @@ def _fresh_logger():
     from loguru import logger
 
     logger.remove()
-    import pr_agent.log as log_mod
+    import jclee_bot.review_engine.log as log_mod
 
     importlib.reload(log_mod)
     return log_mod, logger

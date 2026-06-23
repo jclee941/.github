@@ -1,14 +1,14 @@
 from unittest.mock import MagicMock, patch
 
-from pr_agent.config_loader import apply_secrets_manager_config, apply_secrets_to_config
+from jclee_bot.review_engine.config_loader import apply_secrets_manager_config, apply_secrets_to_config
 
 
 class TestConfigLoaderSecrets:
 
     def test_apply_secrets_manager_config_success(self):
-        with patch('pr_agent.secret_providers.get_secret_provider') as mock_get_provider, \
-             patch('pr_agent.config_loader.apply_secrets_to_config') as mock_apply_secrets, \
-             patch('pr_agent.config_loader.get_settings') as mock_get_settings:
+        with patch('jclee_bot.review_engine.secret_providers.get_secret_provider') as mock_get_provider, \
+             patch('jclee_bot.review_engine.config_loader.apply_secrets_to_config') as mock_apply_secrets, \
+             patch('jclee_bot.review_engine.config_loader.get_settings') as mock_get_settings:
 
             # Mock secret provider
             mock_provider = MagicMock()
@@ -25,15 +25,15 @@ class TestConfigLoaderSecrets:
             mock_apply_secrets.assert_called_once_with({'openai.key': 'sk-test'})
 
     def test_apply_secrets_manager_config_no_provider(self):
-        with patch('pr_agent.secret_providers.get_secret_provider') as mock_get_provider:
+        with patch('jclee_bot.review_engine.secret_providers.get_secret_provider') as mock_get_provider:
             mock_get_provider.return_value = None
 
             # Confirm no exception is raised
             apply_secrets_manager_config()
 
     def test_apply_secrets_manager_config_not_aws(self):
-        with patch('pr_agent.secret_providers.get_secret_provider') as mock_get_provider, \
-             patch('pr_agent.config_loader.get_settings') as mock_get_settings:
+        with patch('jclee_bot.review_engine.secret_providers.get_secret_provider') as mock_get_provider, \
+             patch('jclee_bot.review_engine.config_loader.get_settings') as mock_get_settings:
 
             # Mock Google Cloud Storage provider
             mock_provider = MagicMock()
@@ -52,7 +52,7 @@ class TestConfigLoaderSecrets:
                    not mock_provider.get_all_secrets.called
 
     def test_apply_secrets_to_config_nested_keys(self):
-        with patch('pr_agent.config_loader.get_settings') as mock_get_settings:
+        with patch('jclee_bot.review_engine.config_loader.get_settings') as mock_get_settings:
             settings = MagicMock()
             settings.get.return_value = None  # No existing value
             settings.set = MagicMock()
@@ -70,7 +70,7 @@ class TestConfigLoaderSecrets:
             settings.set.assert_any_call('GITHUB.WEBHOOK_SECRET', 'webhook-secret')
 
     def test_apply_secrets_to_config_existing_value_preserved(self):
-        with patch('pr_agent.config_loader.get_settings') as mock_get_settings:
+        with patch('jclee_bot.review_engine.config_loader.get_settings') as mock_get_settings:
             settings = MagicMock()
             settings.get.return_value = "existing-value"  # Existing value present
             settings.set = MagicMock()
@@ -84,7 +84,7 @@ class TestConfigLoaderSecrets:
             settings.set.assert_not_called()
 
     def test_apply_secrets_to_config_single_key(self):
-        with patch('pr_agent.config_loader.get_settings') as mock_get_settings:
+        with patch('jclee_bot.review_engine.config_loader.get_settings') as mock_get_settings:
             settings = MagicMock()
             settings.get.return_value = None
             settings.set = MagicMock()
@@ -98,7 +98,7 @@ class TestConfigLoaderSecrets:
             settings.set.assert_not_called()
 
     def test_apply_secrets_to_config_multiple_dots(self):
-        with patch('pr_agent.config_loader.get_settings') as mock_get_settings:
+        with patch('jclee_bot.review_engine.config_loader.get_settings') as mock_get_settings:
             settings = MagicMock()
             settings.get.return_value = None
             settings.set = MagicMock()
@@ -112,7 +112,7 @@ class TestConfigLoaderSecrets:
             settings.set.assert_not_called()
 
     def test_apply_secrets_manager_config_exception_handling(self):
-        with patch('pr_agent.secret_providers.get_secret_provider') as mock_get_provider:
+        with patch('jclee_bot.review_engine.secret_providers.get_secret_provider') as mock_get_provider:
             mock_get_provider.side_effect = Exception("Provider error")
 
             # Confirm processing continues even when exception occurs

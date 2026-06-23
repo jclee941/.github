@@ -2,9 +2,9 @@ from unittest.mock import MagicMock
 
 from atlassian.bitbucket import Bitbucket
 
-from pr_agent.algo.types import EDIT_TYPE, FilePatchInfo
-from pr_agent.git_providers import BitbucketServerProvider
-from pr_agent.git_providers.bitbucket_provider import BitbucketProvider
+from jclee_bot.review_engine.algo.types import EDIT_TYPE, FilePatchInfo
+from jclee_bot.review_engine.git_providers import BitbucketServerProvider
+from jclee_bot.review_engine.git_providers.bitbucket_provider import BitbucketProvider
 
 
 class TestBitbucketProvider:

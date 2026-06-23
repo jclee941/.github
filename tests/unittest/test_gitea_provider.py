@@ -3,8 +3,8 @@ from unittest.mock import MagicMock, patch
 
 
 class TestGiteaProvider:
-    @patch('pr_agent.git_providers.gitea_provider.get_settings')
-    @patch('pr_agent.git_providers.gitea_provider.giteapy.ApiClient')
+    @patch('jclee_bot.review_engine.git_providers.gitea_provider.get_settings')
+    @patch('jclee_bot.review_engine.git_providers.gitea_provider.giteapy.ApiClient')
     def test_gitea_provider_auth_header(self, mock_api_client_cls, mock_get_settings):
         # Setup settings
         settings = MagicMock()
@@ -38,7 +38,7 @@ class TestGiteaProvider:
 
         mock_api_client.call_api.side_effect = call_api_side_effect
 
-        from pr_agent.git_providers.gitea_provider import RepoApi
+        from jclee_bot.review_engine.git_providers.gitea_provider import RepoApi
 
         client = mock_api_client
         repo_api = RepoApi(client)

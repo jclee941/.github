@@ -57,7 +57,7 @@ _RETRY_BACKOFF_SECONDS = [2, 5, 10]
 def _is_automation_source_repo(repo_root: Path) -> bool:
     return (
         (repo_root / "jclee_bot").is_dir()
-        and (repo_root / "pr_agent").is_dir()
+        and (repo_root / "jclee_bot" / "review_engine").is_dir()
         and (repo_root / "config" / "repos.yaml").exists()
     )
 

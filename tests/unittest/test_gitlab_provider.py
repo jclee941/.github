@@ -4,7 +4,7 @@ import pytest
 from gitlab.exceptions import GitlabGetError
 from gitlab.v4.objects import ProjectFile
 
-from pr_agent.git_providers.gitlab_provider import GitLabProvider
+from jclee_bot.review_engine.git_providers.gitlab_provider import GitLabProvider
 
 
 class TestGitLabProvider:
@@ -22,8 +22,8 @@ class TestGitLabProvider:
 
     @pytest.fixture
     def gitlab_provider(self, mock_gitlab_client, mock_project):
-        with patch('pr_agent.git_providers.gitlab_provider.gitlab.Gitlab', return_value=mock_gitlab_client), \
-             patch('pr_agent.git_providers.gitlab_provider.get_settings') as mock_settings:
+        with patch('jclee_bot.review_engine.git_providers.gitlab_provider.gitlab.Gitlab', return_value=mock_gitlab_client), \
+             patch('jclee_bot.review_engine.git_providers.gitlab_provider.get_settings') as mock_settings:
 
             mock_settings.return_value.get.side_effect = lambda key, default=None: {
                 "GITLAB.URL": "https://gitlab.com",

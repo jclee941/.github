@@ -4,7 +4,7 @@
 .env
 .venv/
 venv/
-pr_agent/settings/.secrets.toml
+jclee_bot/review_engine/settings/.secrets.toml
 __pycache__/
 .pytest_cache/
 .coverage

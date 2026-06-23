@@ -19,10 +19,11 @@ class TestForkPrAgentConfig:
 
     @staticmethod
     def get_configuration_toml_path() -> pathlib.Path:
-        """Return path to pr_agent/settings/configuration.toml."""
+        """Return path to jclee_bot/review_engine/settings/configuration.toml."""
         return (
             pathlib.Path(__file__).parent.parent.parent
-            / "pr_agent"
+            / "jclee_bot"
+            / "review_engine"
             / "settings"
             / "configuration.toml"
         )
@@ -114,10 +115,10 @@ class TestForkPrAgentConfig:
         )
 
     def test_configuration_toml_was_edited_for_fork(self):
-        """Test that pr_agent/settings/configuration.toml was edited for the fork."""
+        """Test that review_engine settings/configuration.toml was edited for the fork."""
         path = self.get_configuration_toml_path()
         assert path.exists(), (
-            f"pr_agent/settings/configuration.toml not found at {path}"
+            f"review_engine settings/configuration.toml not found at {path}"
         )
 
         with open(path, "r", encoding="utf-8") as f:
@@ -147,7 +148,7 @@ class TestForkPrAgentConfig:
         """
         import shlex
 
-        from pr_agent.agent.pr_agent import command2class
+        from jclee_bot.review_engine.agent.pr_agent import command2class
 
         path = self.get_toml_path()
         with open(path, "rb") as f:

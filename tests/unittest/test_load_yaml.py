@@ -5,7 +5,7 @@ import pytest
 import yaml
 from yaml.scanner import ScannerError
 
-from pr_agent.algo.utils import load_yaml
+from jclee_bot.review_engine.algo.utils import load_yaml
 
 
 class TestLoadYaml:

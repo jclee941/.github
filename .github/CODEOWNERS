@@ -12,9 +12,9 @@
 /scripts/                           @jclee941
 /.github/ISSUE_TEMPLATE/              @jclee941
 
-# pr-agent fork-local config
+# review-engine config
 /.pr_agent.toml                     @jclee941
-/pr_agent/settings/configuration.toml @jclee941
+/jclee_bot/review_engine/settings/configuration.toml @jclee941
 
 # Security-sensitive App checks
 /.github/workflows/security/        @jclee941

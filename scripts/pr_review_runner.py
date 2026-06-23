@@ -187,7 +187,7 @@ def run_commands(pr_url: str, commands: list[str], log_path: Path) -> int:
             log_file.write(header)
 
         proc = subprocess.run(
-            [sys.executable, "-m", "pr_agent.cli", "--pr_url", pr_url, cmd],
+            [sys.executable, "-m", "jclee_bot.review_engine.cli", "--pr_url", pr_url, cmd],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,

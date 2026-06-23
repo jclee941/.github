@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 from fastapi import HTTPException
 
-from pr_agent.servers.utils import DefaultDictWithTimeout, RateLimitExceeded, verify_signature
+from jclee_bot.review_engine.servers.utils import DefaultDictWithTimeout, RateLimitExceeded, verify_signature
 
 # =============================================================================
 # Tests for verify_signature()
@@ -262,7 +262,7 @@ class TestDefaultDictWithTimeout:
     def test_evicts_expired_keys_on_refresh_interval(self):
         """Keys older than TTL must be removed when refresh interval elapses."""
         base = 1000.0
-        with patch("pr_agent.servers.utils.time.monotonic") as mt:
+        with patch("jclee_bot.review_engine.servers.utils.time.monotonic") as mt:
             mt.return_value = base
             # Create dict INSIDE mock so __init__ captures mocked time.
             # __init__ sets __last_refresh = base - refresh_interval, so the first
@@ -307,7 +307,7 @@ class TestDefaultDictWithTimeout:
     def test_no_ttl_never_evicts(self):
         """When ttl is None, no cleanup ever happens."""
         base = 1000.0
-        with patch("pr_agent.servers.utils.time.monotonic") as mt:
+        with patch("jclee_bot.review_engine.servers.utils.time.monotonic") as mt:
             mt.return_value = base
             d = DefaultDictWithTimeout(default_factory=int, ttl=None, refresh_interval=1)
             d["a"] = 1
@@ -318,7 +318,7 @@ class TestDefaultDictWithTimeout:
     def test_get_updates_access_time_when_enabled(self):
         """When update_key_time_on_get=True, getting a key refreshes its TTL."""
         base = 1000.0
-        with patch("pr_agent.servers.utils.time.monotonic") as mt:
+        with patch("jclee_bot.review_engine.servers.utils.time.monotonic") as mt:
             mt.return_value = base
             d = DefaultDictWithTimeout(default_factory=int, ttl=10, refresh_interval=5,
                                        update_key_time_on_get=True)

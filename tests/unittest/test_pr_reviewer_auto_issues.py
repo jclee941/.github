@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pr_agent.tools.pr_reviewer import PRReviewer
+from jclee_bot.review_engine.tools.pr_reviewer import PRReviewer
 
 
 class FakeConfig:
@@ -135,7 +135,7 @@ class TestCreateSingleIssue:
 
     @pytest.fixture(autouse=True)
     def patch_settings(self):
-        with patch("pr_agent.tools.pr_reviewer.get_settings", return_value=FakeSettings()):
+        with patch("jclee_bot.review_engine.tools.pr_reviewer.get_settings", return_value=FakeSettings()):
             yield
 
     def test_create_issue_creates_fingerprint_marker_and_issue(self):
@@ -248,7 +248,7 @@ class TestCreateSingleIssue:
         assert "critical" in labels
 
     def test_create_issue_records_minimax_model_in_body(self):
-        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_get:
+        with patch("jclee_bot.review_engine.tools.pr_reviewer.get_settings") as mock_get:
             fake = FakeSettings()
             fake.config.model = "minimax-m2.7"
             mock_get.return_value = fake
@@ -410,12 +410,12 @@ class TestCreateIssuesForReviewFindings:
 
     @pytest.fixture(autouse=True)
     def patch_settings(self):
-        with patch("pr_agent.tools.pr_reviewer.get_settings", return_value=FakeSettings()):
+        with patch("jclee_bot.review_engine.tools.pr_reviewer.get_settings", return_value=FakeSettings()):
             yield
 
     def test_disabled_noops(self):
         reviewer = make_reviewer({})
-        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_get:
+        with patch("jclee_bot.review_engine.tools.pr_reviewer.get_settings") as mock_get:
             fake = FakeSettings()
             fake.pr_reviewer = FakePRReviewerSettings(auto_create=False)
             mock_get.return_value = fake
@@ -534,7 +534,7 @@ class TestCanRunIncrementalReview:
         reviewer.incremental.commits_range = []
         reviewer.incremental.last_seen_commit = None
 
-        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+        with patch("jclee_bot.review_engine.tools.pr_reviewer.get_settings") as mock_settings:
             mock_settings.return_value = _make_incremental_settings()
             result = reviewer._can_run_incremental_review()
         assert result is False
@@ -548,7 +548,7 @@ class TestCanRunIncrementalReview:
 
         del reviewer.git_provider.get_incremental_commits  # method not present
 
-        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+        with patch("jclee_bot.review_engine.tools.pr_reviewer.get_settings") as mock_settings:
             mock_settings.return_value = _make_incremental_settings()
             result = reviewer._can_run_incremental_review()
         assert result is False
@@ -562,7 +562,7 @@ class TestCanRunIncrementalReview:
 
         reviewer.git_provider.get_incremental_commits = MagicMock()
 
-        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+        with patch("jclee_bot.review_engine.tools.pr_reviewer.get_settings") as mock_settings:
             mock_settings.return_value = _make_incremental_settings(minimal_commits=2, require_all=True)
             result = reviewer._can_run_incremental_review()
         assert result is False
@@ -578,7 +578,7 @@ class TestCanRunIncrementalReview:
 
         reviewer.git_provider.get_incremental_commits = MagicMock()
 
-        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+        with patch("jclee_bot.review_engine.tools.pr_reviewer.get_settings") as mock_settings:
             mock_settings.return_value = _make_incremental_settings()
             result = reviewer._can_run_incremental_review()
         assert result is True
@@ -597,7 +597,7 @@ class TestSetReviewLabels:
 
     def test_disabled_publish_output_noops(self):
         reviewer = self.make_reviewer()
-        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+        with patch("jclee_bot.review_engine.tools.pr_reviewer.get_settings") as mock_settings:
             mock_settings.return_value.config.publish_output = False
             reviewer.set_review_labels({})
 
@@ -607,7 +607,7 @@ class TestSetReviewLabels:
 
         data = {"review": {"estimated_effort_to_review_[1-5]": "3, 4, or 5"}}
 
-        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+        with patch("jclee_bot.review_engine.tools.pr_reviewer.get_settings") as mock_settings:
             mock_settings.return_value.config.publish_output = True
             mock_settings.return_value.pr_reviewer.require_estimate_effort_to_review = True
             mock_settings.return_value.pr_reviewer.enable_review_labels_effort = True
@@ -628,7 +628,7 @@ class TestSetReviewLabels:
 
         data = {"review": {"estimated_effort_to_review_[1-5]": 2}}
 
-        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+        with patch("jclee_bot.review_engine.tools.pr_reviewer.get_settings") as mock_settings:
             mock_settings.return_value.config.publish_output = True
             mock_settings.return_value.pr_reviewer.require_estimate_effort_to_review = True
             mock_settings.return_value.pr_reviewer.enable_review_labels_effort = True
@@ -647,7 +647,7 @@ class TestSetReviewLabels:
 
         data = {"review": {"estimated_effort_to_review_[1-5]": "1", "security_concerns": "yes there are security concerns"}}
 
-        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+        with patch("jclee_bot.review_engine.tools.pr_reviewer.get_settings") as mock_settings:
             mock_settings.return_value.config.publish_output = True
             mock_settings.return_value.pr_reviewer.require_estimate_effort_to_review = True
             mock_settings.return_value.pr_reviewer.enable_review_labels_effort = True
@@ -666,7 +666,7 @@ class TestSetReviewLabels:
 
         data = {"review": {"estimated_effort_to_review_[1-5]": "not-a-number"}}
 
-        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+        with patch("jclee_bot.review_engine.tools.pr_reviewer.get_settings") as mock_settings:
             mock_settings.return_value.config.publish_output = True
             mock_settings.return_value.pr_reviewer.require_estimate_effort_to_review = True
             mock_settings.return_value.pr_reviewer.enable_review_labels_effort = True
@@ -683,7 +683,7 @@ class TestSetReviewLabels:
 
         data = {"review": {"estimated_effort_to_review_[1-5]": 99}}
 
-        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+        with patch("jclee_bot.review_engine.tools.pr_reviewer.get_settings") as mock_settings:
             mock_settings.return_value.config.publish_output = True
             mock_settings.return_value.pr_reviewer.require_estimate_effort_to_review = True
             mock_settings.return_value.pr_reviewer.enable_review_labels_effort = True
@@ -700,7 +700,7 @@ class TestSetReviewLabels:
 
         data = {"review": {"estimated_effort_to_review_[1-5]": "3"}}
 
-        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+        with patch("jclee_bot.review_engine.tools.pr_reviewer.get_settings") as mock_settings:
             mock_settings.return_value.config.publish_output = True
             mock_settings.return_value.pr_reviewer.require_estimate_effort_to_review = True
             mock_settings.return_value.pr_reviewer.enable_review_labels_effort = True
@@ -731,7 +731,7 @@ class TestAutoApproveLogic:
         reviewer = self.make_reviewer()
         reviewer.git_provider.auto_approve.return_value = True
 
-        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+        with patch("jclee_bot.review_engine.tools.pr_reviewer.get_settings") as mock_settings:
             mock_settings.return_value.config.enable_auto_approval = True
 
             reviewer.auto_approve_logic()
@@ -742,7 +742,7 @@ class TestAutoApproveLogic:
     def test_disabled_posts_disabled_message(self):
         reviewer = self.make_reviewer()
 
-        with patch("pr_agent.tools.pr_reviewer.get_settings") as mock_settings:
+        with patch("jclee_bot.review_engine.tools.pr_reviewer.get_settings") as mock_settings:
             mock_settings.return_value.config.enable_auto_approval = False
 
             reviewer.auto_approve_logic()
@@ -783,11 +783,11 @@ class TestSchemaMismatchGuards:
         findings = PRReviewer._extract_auto_issue_findings(stub)
         assert findings == []
 
-    @patch("pr_agent.tools.pr_reviewer.get_settings")
+    @patch("jclee_bot.review_engine.tools.pr_reviewer.get_settings")
     def test_schema_mismatch_records_metric(self, mock_settings):
         """_record_schema_mismatch increments LLM_FAILURES_TOTAL with reason='schema_mismatch'."""
         mock_settings.return_value.get.return_value = "kimi-k2.6"
-        from pr_agent.servers.monitoring import LLM_FAILURES_TOTAL
+        from jclee_bot.review_engine.servers.monitoring import LLM_FAILURES_TOTAL
         before = sum(1 for k in LLM_FAILURES_TOTAL._metrics if k[0] == "schema_mismatch")
         stub = MagicMock()
         PRReviewer._record_schema_mismatch(stub, "review", "some string value")
@@ -800,18 +800,18 @@ class TestLoadYamlSchemaGuard:
     """load_yaml must coerce non-dict scalars to {} so callers don't crash."""
 
     def test_plain_string_returns_empty_dict(self):
-        from pr_agent.algo.utils import load_yaml
+        from jclee_bot.review_engine.algo.utils import load_yaml
         result = load_yaml("just plain text no structure")
         assert isinstance(result, dict)
         assert result == {}
 
     def test_integer_scalar_returns_empty_dict(self):
-        from pr_agent.algo.utils import load_yaml
+        from jclee_bot.review_engine.algo.utils import load_yaml
         result = load_yaml("42")
         assert isinstance(result, dict)
         assert result == {}
 
     def test_valid_dict_passes_through(self):
-        from pr_agent.algo.utils import load_yaml
+        from jclee_bot.review_engine.algo.utils import load_yaml
         result = load_yaml("foo: bar\nbaz: 42")
         assert result == {"foo": "bar", "baz": 42}

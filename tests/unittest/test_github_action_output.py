@@ -1,7 +1,7 @@
 import json
 import os
 
-from pr_agent.algo.utils import get_settings, github_action_output
+from jclee_bot.review_engine.algo.utils import get_settings, github_action_output
 
 
 class TestGitHubOutput:

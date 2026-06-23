@@ -83,7 +83,7 @@ def diff_size_bytes(repo_path: str, base_branch: str) -> int:
 
 def configure_pr_agent(model: str, response_language: str, review_path: str) -> None:
     """Apply runtime overrides for pr-agent."""
-    from pr_agent.config_loader import get_settings
+    from jclee_bot.review_engine.config_loader import get_settings
 
     s = get_settings()
     s.set("CONFIG.git_provider", "local")
@@ -117,7 +117,7 @@ def configure_pr_agent(model: str, response_language: str, review_path: str) -> 
 
 async def run_review(target_branch: str) -> None:
     """Invoke pr-agent's review tool against the local repo."""
-    from pr_agent.tools.pr_reviewer import PRReviewer
+    from jclee_bot.review_engine.tools.pr_reviewer import PRReviewer
 
     # The LocalGitProvider derives the repo from cwd / git_provider config.
     # PRReviewer interprets pr_url as the local target branch when provider is 'local'.
@@ -183,10 +183,10 @@ def main() -> int:
     # Step 3: chdir + configure + run
     os.chdir(repo_path)
     # pr-agent's config_loader caches the repo root; re-import after chdir.
-    if "pr_agent.config_loader" in sys.modules:
+    if "jclee_bot.review_engine.config_loader" in sys.modules:
         # Force re-resolution of repository root.
         for mod_name in list(sys.modules):
-            if mod_name.startswith("pr_agent"):
+            if mod_name.startswith("jclee_bot.review_engine"):
                 del sys.modules[mod_name]
 
     configure_pr_agent(args.model, args.response_language, str(review_path))

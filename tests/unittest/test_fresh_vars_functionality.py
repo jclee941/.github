@@ -20,7 +20,7 @@ from dynaconf import Dynaconf
 # Import get_settings at module level to complete the import chain and avoid circular import issues.
 # This ensures pr_agent.config_loader is fully loaded before custom_merge_loader is used in tests.
 # Re-exported via __all__ so the side-effect import is genuinely "used" (no F401 suppression).
-from pr_agent.config_loader import get_settings
+from jclee_bot.review_engine.config_loader import get_settings
 
 __all__ = ["get_settings"]
 
@@ -47,7 +47,7 @@ def create_dynaconf_with_custom_loader(temp_dir, secrets_file):
     """
     return Dynaconf(
         core_loaders=[],
-        loaders=["pr_agent.custom_merge_loader", "dynaconf.loaders.env_loader"],
+        loaders=["jclee_bot.review_engine.custom_merge_loader", "dynaconf.loaders.env_loader"],
         root_path=temp_dir,
         merge_enabled=True,
         envvar_prefix=False,

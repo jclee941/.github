@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from pr_agent.git_providers.github_provider import GithubProvider
+from jclee_bot.review_engine.git_providers.github_provider import GithubProvider
 
 
 class TestGithubProviderEmptyComment:

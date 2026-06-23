@@ -11,8 +11,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import litellm
 import pytest
 
-import pr_agent.algo.ai_handlers.litellm_ai_handler as litellm_handler
-from pr_agent.algo.ai_handlers.litellm_ai_handler import DUMMY_LITELLM_API_KEY, LiteLLMAIHandler
+import jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler as litellm_handler
+from jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler import DUMMY_LITELLM_API_KEY, LiteLLMAIHandler
 
 
 def _make_settings():
@@ -142,7 +142,7 @@ class TestApiKeyGuard:
         """api_key must NOT appear in kwargs when litellm.api_key is the placeholder."""
         monkeypatch.setattr(litellm, "api_key", DUMMY_LITELLM_API_KEY)
 
-        with patch("pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion",
+        with patch("jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion",
                    new_callable=AsyncMock) as mock_call:
             mock_call.return_value = _mock_response()
             handler = LiteLLMAIHandler()
@@ -160,7 +160,7 @@ class TestApiKeyGuard:
         monkeypatch.setattr(litellm_handler, "get_settings", _make_openai_settings)
         monkeypatch.setattr(litellm, "api_key", None)
 
-        with patch("pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion",
+        with patch("jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion",
                    new_callable=AsyncMock) as mock_call:
             mock_call.return_value = _mock_response()
             handler = LiteLLMAIHandler()
@@ -177,7 +177,7 @@ class TestApiKeyGuard:
         """
         real_key = "test-provider-key-67890"
 
-        with patch("pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion",
+        with patch("jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion",
                    new_callable=AsyncMock) as mock_call:
             mock_call.return_value = _mock_response()
             handler = LiteLLMAIHandler()
@@ -208,7 +208,7 @@ class TestApiKeyGuard:
         # Reset litellm.api_key to avoid cross-test state pollution
         monkeypatch.setattr(litellm, "api_key", None)
 
-        with patch("pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion",
+        with patch("jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion",
                    new_callable=AsyncMock) as mock_call:
             mock_call.return_value = _mock_response()
             handler = LiteLLMAIHandler()
@@ -235,7 +235,7 @@ class TestApiKeyGuard:
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         monkeypatch.setattr(litellm, "api_key", None)
 
-        with patch("pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion",
+        with patch("jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion",
                    new_callable=AsyncMock) as mock_call:
             mock_call.return_value = _mock_response()
             handler = LiteLLMAIHandler()
@@ -284,7 +284,7 @@ class TestApiKeyGuard:
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         monkeypatch.setattr(litellm, "api_key", None)
 
-        with patch("pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion",
+        with patch("jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion",
                    new_callable=AsyncMock) as mock_call:
             mock_call.return_value = _mock_response()
             handler = LiteLLMAIHandler()
@@ -338,7 +338,7 @@ class TestApiKeyGuard:
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         monkeypatch.setattr(litellm, "api_key", None)
 
-        with patch("pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion",
+        with patch("jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion",
                    new_callable=AsyncMock) as mock_call:
             mock_call.return_value = _mock_response()
             handler = LiteLLMAIHandler()
@@ -390,7 +390,7 @@ class TestApiKeyGuard:
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         monkeypatch.setattr(litellm, "api_key", None)
 
-        with patch("pr_agent.algo.ai_handlers.litellm_ai_handler.acompletion",
+        with patch("jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler.acompletion",
                    new_callable=AsyncMock) as mock_call:
             mock_call.return_value = _mock_response()
             handler = LiteLLMAIHandler()

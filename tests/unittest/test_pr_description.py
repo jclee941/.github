@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import yaml
 
-from pr_agent.tools.pr_description import PRDescription, sanitize_diagram
+from jclee_bot.review_engine.tools.pr_description import PRDescription, sanitize_diagram
 
 KEYS_FIX = ["filename:", "language:", "changes_summary:", "changes_title:", "description:", "title:"]
 
@@ -34,35 +34,35 @@ def _prediction_with_diagram(diagram_value: str) -> str:
 
 class TestPRDescriptionDiagram:
 
-    @patch('pr_agent.tools.pr_description.get_settings')
+    @patch('jclee_bot.review_engine.tools.pr_description.get_settings')
     def test_diagram_not_starting_with_fence_is_removed(self, mock_get_settings):
         mock_get_settings.return_value = _mock_settings()
         obj = _make_instance(_prediction_with_diagram('graph LR\nA --> B'))
         obj._prepare_data()
         assert 'changes_diagram' not in obj.data
 
-    @patch('pr_agent.tools.pr_description.get_settings')
+    @patch('jclee_bot.review_engine.tools.pr_description.get_settings')
     def test_diagram_missing_closing_fence_is_appended(self, mock_get_settings):
         mock_get_settings.return_value = _mock_settings()
         obj = _make_instance(_prediction_with_diagram('```mermaid\ngraph LR\nA --> B'))
         obj._prepare_data()
         assert obj.data['changes_diagram'] == '\n```mermaid\ngraph LR\nA --> B\n```'
 
-    @patch('pr_agent.tools.pr_description.get_settings')
+    @patch('jclee_bot.review_engine.tools.pr_description.get_settings')
     def test_backticks_inside_label_are_removed(self, mock_get_settings):
         mock_get_settings.return_value = _mock_settings()
         obj = _make_instance(_prediction_with_diagram('```mermaid\ngraph LR\nA["`file`"] --> B\n```'))
         obj._prepare_data()
         assert obj.data['changes_diagram'] == '\n```mermaid\ngraph LR\nA["file"] --> B\n```'
 
-    @patch('pr_agent.tools.pr_description.get_settings')
+    @patch('jclee_bot.review_engine.tools.pr_description.get_settings')
     def test_backticks_outside_label_are_kept(self, mock_get_settings):
         mock_get_settings.return_value = _mock_settings()
         obj = _make_instance(_prediction_with_diagram('```mermaid\ngraph LR\nA["`file`"] -->|`edge`| B\n```'))
         obj._prepare_data()
         assert obj.data['changes_diagram'] == '\n```mermaid\ngraph LR\nA["file"] -->|`edge`| B\n```'
 
-    @patch('pr_agent.tools.pr_description.get_settings')
+    @patch('jclee_bot.review_engine.tools.pr_description.get_settings')
     def test_normal_diagram_only_adds_newline(self, mock_get_settings):
         mock_get_settings.return_value = _mock_settings()
         obj = _make_instance(_prediction_with_diagram('```mermaid\ngraph LR\nA["file.py"] --> B["output"]\n```'))

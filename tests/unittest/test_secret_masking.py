@@ -12,8 +12,8 @@ import pytest
 
 os.environ.setdefault("PR_AGENT_MASK_SECRETS_SKIP_CONFIG", "1")
 
-from pr_agent.algo import secret_masking  # noqa: E402
-from pr_agent.algo.secret_masking import REDACTION, mask_obj, mask_text  # noqa: E402
+from jclee_bot.review_engine.algo import secret_masking  # noqa: E402
+from jclee_bot.review_engine.algo.secret_masking import REDACTION, mask_obj, mask_text  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Synthetic-secret helpers.
@@ -282,7 +282,7 @@ def test_collect_config_secrets_pulls_live_values(monkeypatch):
         type("M", (), {"environ": {}})(),
     )
     monkeypatch.setattr(
-        "pr_agent.config_loader.get_settings", lambda: FakeSettings()
+        "jclee_bot.review_engine.config_loader.get_settings", lambda: FakeSettings()
     )
     secrets = secret_masking.collect_config_secrets()
     assert fake_openai in secrets
@@ -306,7 +306,7 @@ def test_collect_config_secrets_caches(monkeypatch):
         secret_masking, "_os", type("M", (), {"environ": {}})()
     )
     monkeypatch.setattr(
-        "pr_agent.config_loader.get_settings", lambda: FakeSettings()
+        "jclee_bot.review_engine.config_loader.get_settings", lambda: FakeSettings()
     )
     secret_masking.collect_config_secrets()
     n_after_first = calls["n"]

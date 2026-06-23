@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from pr_agent.tools.pr_update_changelog import PRUpdateChangelog
+from jclee_bot.review_engine.tools.pr_update_changelog import PRUpdateChangelog
 
 
 class TestPRUpdateChangelog:
@@ -31,9 +31,9 @@ class TestPRUpdateChangelog:
     @pytest.fixture
     def changelog_tool(self, mock_git_provider, mock_ai_handler):
         """Create a PRUpdateChangelog instance with mocked dependencies."""
-        with patch('pr_agent.tools.pr_update_changelog.get_git_provider', return_value=lambda url: mock_git_provider), \
-             patch('pr_agent.tools.pr_update_changelog.get_main_pr_language', return_value="Python"), \
-             patch('pr_agent.tools.pr_update_changelog.get_settings') as mock_settings:
+        with patch('jclee_bot.review_engine.tools.pr_update_changelog.get_git_provider', return_value=lambda url: mock_git_provider), \
+             patch('jclee_bot.review_engine.tools.pr_update_changelog.get_main_pr_language', return_value="Python"), \
+             patch('jclee_bot.review_engine.tools.pr_update_changelog.get_settings') as mock_settings:
             
             # Configure mock settings
             mock_settings.return_value.pr_update_changelog.push_changelog_changes = False
@@ -145,7 +145,7 @@ class TestPRUpdateChangelog:
         delattr(mock_git_provider, 'create_or_update_pr_file')  # Remove the method
         changelog_tool.commit_changelog = True
         
-        with patch('pr_agent.tools.pr_update_changelog.get_settings') as mock_settings:
+        with patch('jclee_bot.review_engine.tools.pr_update_changelog.get_settings') as mock_settings:
             mock_settings.return_value.pr_update_changelog.push_changelog_changes = True
             mock_settings.return_value.config.publish_output = True
             
@@ -164,9 +164,9 @@ class TestPRUpdateChangelog:
         changelog_tool.commit_changelog = True
         changelog_tool.prediction = "## v1.1.0\n- New feature"
         
-        with patch('pr_agent.tools.pr_update_changelog.get_settings') as mock_settings, \
-             patch('pr_agent.tools.pr_update_changelog.retry_with_fallback_models') as mock_retry, \
-             patch('pr_agent.tools.pr_update_changelog.sleep'):
+        with patch('jclee_bot.review_engine.tools.pr_update_changelog.get_settings') as mock_settings, \
+             patch('jclee_bot.review_engine.tools.pr_update_changelog.retry_with_fallback_models') as mock_retry, \
+             patch('jclee_bot.review_engine.tools.pr_update_changelog.sleep'):
             
             mock_settings.return_value.pr_update_changelog.push_changelog_changes = True
             mock_settings.return_value.pr_update_changelog.get.return_value = True
@@ -191,8 +191,8 @@ class TestPRUpdateChangelog:
         new_content = "# Updated changelog content"
         answer = "Changes made"
         
-        with patch('pr_agent.tools.pr_update_changelog.get_settings') as mock_settings, \
-             patch('pr_agent.tools.pr_update_changelog.sleep'):
+        with patch('jclee_bot.review_engine.tools.pr_update_changelog.get_settings') as mock_settings, \
+             patch('jclee_bot.review_engine.tools.pr_update_changelog.sleep'):
             
             mock_settings.return_value.pr_update_changelog.get.return_value = True
             

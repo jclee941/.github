@@ -1,4 +1,4 @@
-from pr_agent.git_providers import AzureDevopsProvider
+from jclee_bot.review_engine.git_providers import AzureDevopsProvider
 
 
 class TestAzureDevOpsParsing:

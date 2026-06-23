@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from pr_agent.git_providers.codecommit_client import CodeCommitClient
+from jclee_bot.review_engine.git_providers.codecommit_client import CodeCommitClient
 
 
 class TestCodeCommitProvider:

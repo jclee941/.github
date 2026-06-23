@@ -132,11 +132,11 @@ class TestSanityWorkflow:
         text = read_workflow("sanity.yml")
 
         required_imports = [
-            "from pr_agent.tools.pr_reviewer import PRReviewer",
-            "from pr_agent.tools.pr_description import PRDescription",
-            "from pr_agent.tools.pr_code_suggestions import PRCodeSuggestions",
-            "from pr_agent.agent.pr_agent import PRAgent",
-            "from pr_agent.servers.github_action_runner import run_action",
+            "from jclee_bot.review_engine.tools.pr_reviewer import PRReviewer",
+            "from jclee_bot.review_engine.tools.pr_description import PRDescription",
+            "from jclee_bot.review_engine.tools.pr_code_suggestions import PRCodeSuggestions",
+            "from jclee_bot.review_engine.agent.pr_agent import PRAgent",
+            "from jclee_bot.review_engine.servers.github_action_runner import run_action",
         ]
         missing = [
             imp for imp in required_imports
@@ -152,7 +152,7 @@ class TestSanityWorkflow:
 
         checks = [
             ".pr_agent.toml",
-            "pr_agent/settings/configuration.toml",
+            "jclee_bot/review_engine/settings/configuration.toml",
             "tomllib",
         ]
         missing = [c for c in checks if c not in text]

@@ -1,7 +1,7 @@
 import pytest
 
-import pr_agent.algo.utils as utils
-from pr_agent.algo.utils import MAX_TOKENS, get_max_tokens
+import jclee_bot.review_engine.algo.utils as utils
+from jclee_bot.review_engine.algo.utils import MAX_TOKENS, get_max_tokens
 
 
 class TestGetMaxTokens:
