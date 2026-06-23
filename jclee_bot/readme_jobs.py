@@ -7,11 +7,12 @@ import tempfile
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
-ACTIVE_STATUSES = frozenset({"queued", "running"})
+ACTIVE_STATUSES: Final = frozenset({"queued", "running"})
+ACTIVE_JOB_STALE_AFTER: Final = timedelta(hours=6)
 
 
 class InvalidReadmeJobId(ValueError):
@@ -71,6 +72,7 @@ def create_job(*, owner: str, repos: list[str] | None, dry_run: bool) -> dict[st
 
 def create_or_reuse_active_job(*, owner: str, repos: list[str] | None, dry_run: bool) -> tuple[dict[str, Any], bool]:
     with _active_job_lock():
+        now = datetime.now(UTC)
         for path in sorted(_job_dir().glob("*.json")):
             job = json.loads(path.read_text(encoding="utf-8"))
             if (
@@ -79,6 +81,23 @@ def create_or_reuse_active_job(*, owner: str, repos: list[str] | None, dry_run: 
                 and job.get("repos") == repos
                 and job.get("dry_run") is dry_run
             ):
+                updated_at_raw = job.get("updated_at")
+                job_is_stale = True
+                if isinstance(updated_at_raw, str):
+                    try:
+                        updated_at = datetime.fromisoformat(updated_at_raw)
+                    except ValueError:
+                        job_is_stale = True
+                    else:
+                        if updated_at.tzinfo is None:
+                            updated_at = updated_at.replace(tzinfo=UTC)
+                        job_is_stale = now - updated_at > ACTIVE_JOB_STALE_AFTER
+                if job_is_stale:
+                    job["status"] = "failed"
+                    job["error"] = "stale README automation job expired before completion"
+                    job["updated_at"] = _now()
+                    _write_job(job)
+                    continue
                 return job, True
         return create_job(owner=owner, repos=repos, dry_run=dry_run), False
 
