@@ -17,6 +17,14 @@ var staleRequiredCheckDocRes = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)2 required|2 contexts|two App-reported contexts`),
 }
 
+var staleAutomationStatusDocRes = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)sync-secrets.*(still|continues?|계속|아직).*hardcod`),
+	regexp.MustCompile(`(?i)sync-secrets.*(missing|no|없음|미작성).*(?:_test\.go|test coverage|테스트)`),
+	regexp.MustCompile(`(?i)repo-review.*(missing|no|없음|미작성).*(?:_test\.go|test coverage|테스트)`),
+	regexp.MustCompile(`(?i)(removed workflow|제거된 워크플로우|still|obsolete|stale).*20_readme-gen\.yml|20_readme-gen\.yml.*(still|obsolete|stale|removed workflow|제거된 워크플로우)`),
+	regexp.MustCompile(`(?i)(removed workflow|제거된 워크플로우|still|obsolete|stale).*22_template-sync\.yml|22_template-sync\.yml.*(still|obsolete|stale|removed workflow|제거된 워크플로우)`),
+}
+
 func (v *validator) docsUseCurrentAppRequiredChecks() error {
 	files, err := v.documentationFiles()
 	if err != nil {
@@ -35,6 +43,13 @@ func (v *validator) docsUseCurrentAppRequiredChecks() error {
 				rel = file
 			}
 			offenders = append(offenders, fmt.Sprintf("%s:%d contains %q", rel, hit.line, hit.text))
+		}
+		for _, hit := range staleAutomationStatusDocHits(string(b)) {
+			rel, relErr := filepath.Rel(v.rootDir, file)
+			if relErr != nil {
+				rel = file
+			}
+			offenders = append(offenders, fmt.Sprintf("%s:%d contains stale automation status %q", rel, hit.line, hit.text))
 		}
 		for _, hit := range hardcodedManagedRepoDocHits(string(b), managedRepoNameSet()) {
 			rel, relErr := filepath.Rel(v.rootDir, file)
@@ -90,6 +105,18 @@ func staleRequiredCheckDocHits(content string) []staleRequiredCheckDocHit {
 	var hits []staleRequiredCheckDocHit
 	for i, line := range strings.Split(content, "\n") {
 		for _, re := range staleRequiredCheckDocRes {
+			if match := re.FindString(line); match != "" {
+				hits = append(hits, staleRequiredCheckDocHit{line: i + 1, text: match})
+			}
+		}
+	}
+	return hits
+}
+
+func staleAutomationStatusDocHits(content string) []staleRequiredCheckDocHit {
+	var hits []staleRequiredCheckDocHit
+	for i, line := range strings.Split(content, "\n") {
+		for _, re := range staleAutomationStatusDocRes {
 			if match := re.FindString(line); match != "" {
 				hits = append(hits, staleRequiredCheckDocHit{line: i + 1, text: match})
 			}

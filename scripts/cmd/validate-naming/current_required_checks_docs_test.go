@@ -114,6 +114,99 @@ func TestDocsUseCurrentAppRequiredChecksDetectsHardcodedManagedRepoList(t *testi
 	}
 }
 
+func TestDocsUseCurrentAppRequiredChecksDetectsStaleAutomationStatusClaims(t *testing.T) {
+	// Given
+	tmpDir := t.TempDir()
+	docsDir := filepath.Join(tmpDir, "docs")
+	if err := os.MkdirAll(docsDir, 0o755); err != nil {
+		t.Fatalf("mkdir docs: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "README.md"), []byte("# ok\n"), 0o644); err != nil {
+		t.Fatalf("write readme: %v", err)
+	}
+	staleClaims := strings.Join([]string{
+		"# Automation enhancement brainstorm",
+		"",
+		"- sync-secrets still owns a hardcoded repo inventory and is missing a matching _test.go file.",
+		"- The automation-standardization status still depends on removed workflow files 20_readme-gen.yml and 22_template-sync.yml.",
+	}, "\n")
+	docPath := filepath.Join(docsDir, "automation-enhancement-brainstorm.md")
+	if err := os.WriteFile(docPath, []byte(staleClaims), 0o644); err != nil {
+		t.Fatalf("write stale automation doc: %v", err)
+	}
+
+	// When
+	v := &validator{rootDir: tmpDir}
+	err := v.docsUseCurrentAppRequiredChecks()
+
+	// Then
+	if err == nil {
+		t.Fatal("expected stale automation-standardization status claims to be flagged")
+	}
+	if !strings.Contains(err.Error(), "docs/automation-enhancement-brainstorm.md") {
+		t.Fatalf("error should identify offending doc, got: %v", err)
+	}
+}
+
+func TestStaleAutomationStatusDocHitsDetectsEachStaleClaim(t *testing.T) {
+	tests := []struct {
+		name string
+		line string
+		want string
+	}{
+		{
+			name: "sync-secrets hardcoded inventory",
+			line: "`sync-secrets` still uses a hardcoded managed repo inventory.",
+			want: "sync-secrets` still uses a hardcod",
+		},
+		{
+			name: "sync-secrets missing test",
+			line: "`sync-secrets` has no _test.go coverage.",
+			want: "sync-secrets` has no _test.go",
+		},
+		{
+			name: "repo-review missing test",
+			line: "`repo-review` is missing _test.go coverage.",
+			want: "repo-review` is missing _test.go",
+		},
+		{
+			name: "removed readme workflow",
+			line: "removed workflow `20_readme-gen.yml` still appears in the status table.",
+			want: "20_readme-gen.yml",
+		},
+		{
+			name: "removed template workflow",
+			line: "removed workflow `22_template-sync.yml` still appears in the status table.",
+			want: "22_template-sync.yml",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			hits := staleAutomationStatusDocHits(tc.line)
+			if len(hits) != 1 {
+				t.Fatalf("staleAutomationStatusDocHits(%q) returned %d hits, want 1: %#v", tc.line, len(hits), hits)
+			}
+			if !strings.Contains(hits[0].text, tc.want) {
+				t.Fatalf("hit text = %q, want substring %q", hits[0].text, tc.want)
+			}
+		})
+	}
+}
+
+func TestStaleAutomationStatusDocHitsAllowsCurrentStatusClaims(t *testing.T) {
+	lines := []string{
+		"`sync-secrets` no longer hardcodes inventory and now derives repos from config/repos.yaml.",
+		"`sync-secrets` has `_test.go` coverage.",
+		"`repo-review` has `_test.go` coverage.",
+		"`20_readme-gen.yml` and `22_template-sync.yml` are absent from the current workflow set.",
+	}
+	for _, line := range lines {
+		if hits := staleAutomationStatusDocHits(line); len(hits) != 0 {
+			t.Fatalf("staleAutomationStatusDocHits(%q) returned false-positive hits: %#v", line, hits)
+		}
+	}
+}
+
 func TestDocsUseCurrentAppRequiredChecksDetectsMultilineManagedRepoList(t *testing.T) {
 	tmpDir := t.TempDir()
 	docsDir := filepath.Join(tmpDir, "docs")
