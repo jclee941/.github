@@ -9,7 +9,7 @@ Production Git flow automation follows the GitHub App-centered operating model:
 - `jclee-bot` posts Checks API runs for PR metadata, secret scanning, and workflow linting.
 - Branch protection and rulesets require the App-owned contexts.
 - Protected managed repositories target `master`.
-- The upstream `pr-agent` fork is excluded from protected fleet rollout and keeps its own default branch.
+- The `github-bot` source repository itself is excluded from protected fleet rollout and keeps its own default branch.
 - `config/repos.yaml` is the canonical inventory for scripts and workflow loops.
 
 ## Current Required Contexts

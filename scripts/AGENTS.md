@@ -4,7 +4,7 @@
 
 Go automation tools for the canonical `config/repos.yaml` inventory: branch protection, rulesets,
 secret sync, repo review, naming validation. The inventory currently has 16 entries, with `.github`
-as the source repo and `pr-agent` excluded from rollout-style automation.
+as the source repo itself excluded from rollout-style automation.
 
 ## STRUCTURE
 

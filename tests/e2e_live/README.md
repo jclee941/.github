@@ -34,7 +34,7 @@ branches, or opening pull requests. The guard raises immediately unless the targ
 `MUTATION_ALLOWED_REPOS`.
 
 Production repositories must remain read-only in this suite. Do not add tests that mutate any managed production repo
-selected by `config/repos.yaml` with `automation.branch_protection: true`. The `pr-agent` fork is intentionally excluded
+selected by `config/repos.yaml` with `automation.branch_protection: true`. The `github-bot` source repository is intentionally excluded
 from the managed automation rollout checks.
 
 ## Required environment variables

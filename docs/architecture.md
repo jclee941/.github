@@ -47,7 +47,7 @@ flowchart TB
 |-----------|------|------|
 | **GitHub** | PR 이벤트 발생, 리뷰 코멘트 표시 | Public Cloud |
 | **Cloudflare Tunnel** | 홈랩 남부 네트워크에 퍼블릭 HTTPS 엔드포인트 제공 | Cloudflare Edge |
-| **github-bot-app** | Webhook 수신, pr-agent 실행, GitHub API 호출 | <homelab-host> (:3001) |
+| **github-bot-app** | Webhook 수신, 리뷰 엔진 실행, GitHub API 호출 | <homelab-host> (:3001) |
 | **CLIProxyAPI** | Claude/Codex/Gemini CLI를 OpenAI API로 래핑 | <homelab-host> (:8317) |
 | **AI CLI** | 실제 LLM 추론 수행 (Claude Code / Codex CLI / Gemini CLI) | <homelab-host> (로컬 실행) |
 | **Filebeat** | Docker 컨테이너 로그 수집 및 전송 | <homelab-host> (로컬) |
@@ -237,7 +237,7 @@ flowchart TD
 ### App 관리 리포지토리
 
 `config/repos.yaml`이 단일 인벤토리입니다. `.github`는 소스 리포로 자체 운영되고,
-`pr-agent`는 업스트림 포크라 App 자동화 롤아웃에서 제외됩니다. 나머지 공개/비공개
+리뷰 엔진은 인트리에 흡수된 first-party 패키지라 App 자동화 롤아웃에서 제외됩니다. 나머지 공개/비공개
 대상 리포는 per-repo workflow 배포가 아니라 `jclee-bot` App 토큰과 Checks API 경로로
 운영됩니다.
 
@@ -386,37 +386,36 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    subgraph Upstream["🔄 Upstream (qodo-ai/pr-agent)"]
-        U1["pr_agent/settings/<br/>configuration.toml"]
+    subgraph Origin["📚 Original Source (qodo-ai/pr-agent)"]
+        U1["jclee_bot/review_engine/settings/<br/>configuration.toml"]
     end
-    
-    subgraph Fork_Config["⚙️ Fork 설정"]
+
+    subgraph Project_Config["⚙️ Project Configuration"]
         F1[".pr_agent.toml<br/>(최우선)"]
-        F2["pr_agent/settings/<br/>configuration.toml<br/>(model만 오버라이드)"]
+        F2["jclee_bot/review_engine/settings/<br/>configuration.toml<br/>(model/fallback 오버라이드)"]
     end
-    
+
     subgraph Runtime["🏃 런타임"]
         R1["환경 변수<br/>OPENAI.KEY<br/>CONFIG.MODEL"]
         R2["GitHub Secrets"]
     end
-    
+
     U1 -->|"기본값 제공"| F2
     F2 -->|"병합"| F1
     F1 -->|"최종 설정"| RUN["pr-agent 실행"]
     R1 -->|"오버라이드"| RUN
     R2 -->|"주입"| R1
-    
+
     style F1 fill:#6ba06a,stroke:#333,color:#fff
     style U1 fill:#95a5a6,stroke:#333,color:#fff
     style RUN fill:#4a90d9,stroke:#333,color:#fff
-```
 
 ### 우선순위 (높음 → 낮음)
 
 1. **환경 변수** (`CONFIG.MODEL`, `OPENAI.KEY`) — 런타임 오버라이드
-2. **`.pr_agent.toml`** — Fork-level 설정 (cli_proxy, 한국어 응답, 리뷰 템플릿)
-3. **`pr_agent/settings/configuration.toml`** — Upstream 기본값 (model만 변경)
-4. **pr-agent 내부 DEFAULTS** — 하드코딩된 폴백
+2. **`.pr_agent.toml`** — Per-repo 설정 (cli_proxy, 한국어 응답, 리뷰 템플릿)
+3. **`jclee_bot/review_engine/settings/configuration.toml`** — 엔진 기본값 (model/fallback 변경)
+4. **리뷰 엔진 내부 DEFAULTS** — 하드코딩된 폴백
 
 ---
 

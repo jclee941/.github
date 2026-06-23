@@ -47,5 +47,5 @@ ignore:
   - .venv
   - .pytest_cache
   - __pycache__
-  - pr_agent  # upstream code, exempt from naming rules
+  - jclee_bot/review_engine  # absorbed review engine, exempt from naming rules
   - tests     # upstream test fixtures may have varying names

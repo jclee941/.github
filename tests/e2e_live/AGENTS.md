@@ -25,7 +25,7 @@ tests/e2e_live/
 
 | Test file | Marker | What it checks |
 |-----------|--------|----------------|
-| test_fleet_health.py | readonly | Automation state across protected repos from `config/repos.yaml`, plus upstream fork exclusion checks |
+| test_fleet_health.py | readonly | Automation state across protected repos from `config/repos.yaml`, plus source-repo exclusion checks |
 | test_app_health.py | app_health | GitHub App webhook delivery logs |
 | test_security_review.py | security_review | Static fork-guard checks for privileged review workflow |
 | test_cliproxy_health.py | cliproxy_health | Optional CLIProxyAPI models list |

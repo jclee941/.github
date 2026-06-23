@@ -10,10 +10,10 @@ This repo accepts changes to:
 - `.github/dependabot.yml` — Dependabot config synced downstream
 - `.github/CODEOWNERS`, `.github/PULL_REQUEST_TEMPLATE.md`, `.github/ISSUE_TEMPLATE/**` — community files synced downstream via `extraFiles`
 - `scripts/*.go` — deploy / branch-protection / secret-sync tooling
-- `pr_agent/**` — fork-specific overrides on top of upstream `qodo-ai/pr-agent` (see `AGENTS.md` for what is/isn't safe to touch)
+- `jclee_bot/review_engine/**` — absorbed review engine (originally derived from `qodo-ai/pr-agent`; see `AGENTS.md` and `NOTICE` for attribution and edit policy)
 - `docs/**` — design notes, gap analyses, review templates
 
-It does **not** accept contributions that re-implement private business logic, leak secrets, or override upstream `pr-agent` files outside the documented exception list (`pr_agent/settings/configuration.toml` cli_proxy block only).
+It does **not** accept contributions that re-implement private business logic, leak secrets, or scatter overrides across the review engine that should live in `.pr_agent.toml` or `jclee_bot/review_engine/settings/`.
 
 ## Pull request workflow
 
@@ -22,7 +22,7 @@ It does **not** accept contributions that re-implement private business logic, l
    - `fix/<scope>` — bug fix
    - `docs/<scope>` — docs only
    - `refactor/<scope>`, `chore/<scope>`, `test/<scope>` — as appropriate
-   - Allowed alternates enforced by `jclee-bot / pr-metadata`: `feat/`, `fix/`, `docs/`, `refactor/`, `chore/`, `test/` (plus the alternates `dependabot/`, `fork/`, `release/`)
+   - Allowed alternates enforced by `jclee-bot / pr-metadata`: `feat/`, `fix/`, `docs/`, `refactor/`, `chore/`, `test/` (plus the alternates `dependabot/`, `release/`)
 2. **PR title**: must follow Conventional Commits — `<type>(<scope>): <subject>`. Examples:
    - `fix(pr-review): unblock LLM review for downstream repos`
    - `docs(rollout): clarify Phase 3 ordering`
@@ -59,13 +59,11 @@ for f in scripts/*.go; do go build -o /tmp/check-$(basename "$f" .go) "$f"; done
 ## Commit conventions
 
 - **Conventional Commits required**: `type(scope): subject`. Body explains why; footer references issues / PRs.
-- **Fork-specific commits**: tag with `fork:` scope when the change is a fork override (e.g. `feat(fork): pin model to gpt-5.5`).
-- **Upstream sync commits**: use `chore(upstream): merge qodo-ai/pr-agent@<sha>`.
 - Keep commits atomic. One logical change per commit.
 
 ## Secrets & sensitive data
 
-- Never commit `.env`, `.secrets.toml`, `pr_agent/settings/.secrets.toml`, or anything under `.cache/`. They are gitignored.
+- Never commit `.env`, `.secrets.toml`, `jclee_bot/review_engine/settings/.secrets.toml`, or anything under `.cache/`. They are gitignored.
 - Never paste API keys, tokens, or PII into PR descriptions, issue bodies, or commit messages.
 - The `jclee-bot / secret-scan` check (gitleaks run inside the App image) blocks merges that introduce real-looking secrets. False positives can be allowlisted in `.gitleaksignore` (commit-pinned fingerprint format).
 - For active vulnerabilities, open a **private** security advisory:
@@ -79,7 +77,7 @@ When you change behavior, also update:
 - `AGENTS.md` — internal knowledge base; mandatory for changes that affect:
   - workflow behavior
   - downstream repo automation guarantees
-  - pr-agent fork delta
+  - review engine changes (when behavior at `jclee_bot/review_engine/` is affected)
   - cli_proxy integration
 - `docs/git-workflow-gap-analysis.md` — extend/update only if you are closing or reopening a gap (do not silently mutate the as-was/as-is delta).
 
@@ -100,4 +98,4 @@ Be technically honest. Cite evidence. Do not flatter or hand-wave. Disagreement 
 
 ## License
 
-By contributing you agree that your contribution is licensed under the project's [AGPL-3.0](LICENSE), inherited from the upstream `qodo-ai/pr-agent` fork.
+By contributing you agree that your contribution is licensed under the project's [AGPL-3.0](LICENSE), which covers the project and its absorbed review engine (originally derived from `qodo-ai/pr-agent`; see `NOTICE`).

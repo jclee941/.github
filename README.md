@@ -1,4 +1,4 @@
-# pr-agent Fork for jclee941 | jclee941용 pr-agent 포크
+# github-bot | jclee941
 
 > AI-powered PR reviewer and GitHub automation platform for `jclee941/*` repositories, backed by a homelab CLIProxyAPI deployment.
 > homelab CLIProxyAPI 배포를 기반으로 `jclee941/*` 저장소를 자동화하는 AI PR 리뷰어 및 GitHub 자동화 플랫폼입니다.
@@ -6,7 +6,7 @@
 [![Version](https://img.shields.io/badge/version-0.3.1-blue.svg)](pyproject.toml)
 [![Python](https://img.shields.io/badge/python-3.12%2B-green.svg)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange.svg)](LICENSE)
-[![Upstream](https://img.shields.io/badge/upstream-qodo--ai%2Fpr--agent-red.svg)](https://github.com/qodo-ai/pr-agent)
+
 [![CLIProxy](https://img.shields.io/badge/LLM%20Gateway-CLIProxyAPI-purple.svg)](https://cliproxy.jclee.me/v1)
 [![jclee-bot](https://img.shields.io/badge/automation-jclee.bot-yellowgreen.svg)](#jclee-bot-automation--jclee-bot-자동화)
 [![Go Tools](https://img.shields.io/badge/go--tools-5-blue.svg)](#go-automation-tools-5-total--go-자동화-도구-5개)
@@ -34,9 +34,9 @@
 
 ## Overview | 개요
 
-This repository is a private hard fork of [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent), customized for the `jclee941/*` repository ecosystem. It preserves the upstream PR-Agent capabilities (AI review, description generation, code suggestions, Q&A, changelog updates, documentation help) while layering on:
+This repository is the `jclee941/*` automation stack: a homelab-hosted GitHub App plus the review engine that powers Korean-first AI PR review. The review engine is originally derived from [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent) and has been absorbed in-tree as a first-party package (see `NOTICE` for attribution). The platform delivers AI review, description generation, code suggestions, Q&A, changelog updates, and documentation help, while layering on:
 
-- a fork-owned `jclee_bot` GitHub App checks runner that posts `pr-metadata`, `secret-scan`, and `actionlint` via the Checks API,
+- a first-party `jclee_bot` GitHub App checks runner that posts `pr-metadata`, `secret-scan`, and `actionlint` via the Checks API,
 - a homelab CLIProxyAPI deployment (`https://cliproxy.jclee.me/v1`) that serves as the LLM gateway,
 - `jclee_bot` App-owned automation and **5 Go automation CLIs** that manage 16 downstream repositories end-to-end,
 - an ELK observability stack (Elasticsearch + Kibana) with Filebeat log shipping,
@@ -44,9 +44,9 @@ This repository is a private hard fork of [qodo-ai/pr-agent](https://github.com/
 
 Production automation follows a **GitHub App-centered operating model**: the homelab GitHub App posts Checks API runs, reviews, issue maintenance, README automation, and CI failure issue cleanup. GitHub Actions are retained only as CI/build surfaces or thin triggers that call `jclee-bot`.
 
-이 저장소는 `jclee941/*` 저장소 생태계 전용으로 커스터마이즈된 [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent)의 비공개 하드 포크입니다. 업스트림 PR-Agent의 핵심 기능(AI 리뷰, PR 설명 생성, 코드 제안, Q&A, 체인지로그, 문서화 도움말)을 그대로 유지하면서 다음을 추가합니다:
+이 저장소는 `jclee941/*` 저장소 생태계의 자동화 스택입니다. 홈랩에서 운영하는 GitHub App과 한국어 우선 AI PR 리뷰 엔진으로 구성되어 있습니다. 리뷰 엔진은 [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent)에서 유래한 코드를 흡수 통합한 1등 시민(first-party) 패키지입니다 (attribution은 `NOTICE` 참조). PR-Agent의 핵심 기능(AI 리뷰, PR 설명 생성, 코드 제안, Q&A, 체인지로그, 문서화 도움말)을 제공하며 다음을 더합니다:
 
-- Checks API를 통해 `pr-metadata`, `secret-scan`, `actionlint`를 게시하는 포크 전용 `jclee_bot` GitHub App 검사 러너,
+- Checks API를 통해 `pr-metadata`, `secret-scan`, `actionlint`를 게시하는 1등 시민 `jclee_bot` GitHub App 검사 러너,
 - LLM 게이트웨이 역할을 하는 homelab CLIProxyAPI 배포(`https://cliproxy.jclee.me/v1`),
 - 16개의 다운스트림 저장소를 종단(end-to-end)으로 관리하는 `jclee_bot` App 소유 자동화와 **5개의 Go 자동화 CLI**,
 - Filebeat 로그 수집을 포함한 ELK 관측 가능성 스택(Elasticsearch + Kibana),
@@ -60,7 +60,7 @@ Production automation follows a **GitHub App-centered operating model**: the hom
 
 ### AI Review & PR Authoring | AI 리뷰 및 PR 작성
 
-- AI-powered PR review (Korean-first), PR description generation, code suggestions, inline questions, and changelog updates via the `pr_agent` CLI.
+- AI-powered PR review (Korean-first), PR description generation, code suggestions, inline questions, and changelog updates via the `jclee_bot.review_engine` CLI (installed as the `pr-agent` console script).
 - Routes all LLM traffic through the homelab **CLIProxyAPI** gateway (`https://cliproxy.jclee.me/v1`), with primary/fallback model chains configured per repo.
 - Local `pr-agent` console script entry point: `pr-agent --help`.
 
@@ -70,7 +70,7 @@ Production automation follows a **GitHub App-centered operating model**: the hom
   - **`pr-metadata`** — title/body linting and template conformance.
   - **`secret-scan`** — credential and token pattern detection on the diff.
   - **`actionlint`** — workflow YAML static analysis for the touched `.github/workflows/**` files.
-- Tees the upstream review webhook into App checks so review and Checks API state stay aligned.
+- Tees the review-engine webhook into App checks so review and Checks API state stay aligned.
 
 ### Repository Automation | 저장소 자동화
 
@@ -89,7 +89,7 @@ Production automation follows a **GitHub App-centered operating model**: the hom
 ### Repo Governance | 저장소 거버넌스
 
 - Five Go CLIs (`branch-protection`, `rulesets-manager`, `repo-review`, `sync-secrets`, `validate-naming`) roll out branch protection, GitHub Rulesets, secret sync, periodic repo review, and naming/inventory enforcement across the 16 managed repos.
-- `config/repos.yaml` is the canonical managed-repo inventory; `pr-agent` itself is excluded from auto-deploy.
+- `config/repos.yaml` is the canonical managed-repo inventory; the `github-bot` source repo itself is excluded from auto-deploy.
 
 ---
 
@@ -105,7 +105,7 @@ flowchart TB
     subgraph APP["Homelab App Stack"]
         WH["Webhook Receiver<br/>FastAPI on &lt;homelab-host&gt;:8000"]
         BOT["jclee_bot<br/>Checks API runner<br/>pr-metadata / secret-scan / actionlint"]
-        PR["pr_agent fork<br/>upstream qodo-ai/pr-agent"]
+        PR["review engine<br/>jclee_bot.review_engine<br/>originally qodo-ai/pr-agent"]
     end
 
     subgraph LLM["LLM Gateway"]
@@ -152,7 +152,7 @@ GitHub Actions do not own PR/issue mutation logic. They either run CI/build work
 | Surface | Owner | Purpose | 목적 |
 |---------|-------|---------|------|
 | PR checks | `jclee-bot` App | Checks API runs for metadata, secrets, actionlint, docs policy | PR 메타데이터, 시크릿, actionlint, 문서 정책 검사 |
-| PR review | `jclee-bot` App + `pr_agent` | Korean-first AI review and suggestions through CLIProxyAPI | CLIProxyAPI 기반 한국어 우선 AI 리뷰 |
+| PR review | `jclee-bot` App + `review_engine` | Korean-first AI review and suggestions through CLIProxyAPI | CLIProxyAPI 기반 한국어 우선 AI 리뷰 |
 | GitOps | `jclee-bot` App | Branch-to-PR, bot PR merge policy, protected master flow | 브랜치→PR, 봇 PR 병합 정책, master 보호 흐름 |
 | Issue maintenance | `jclee-bot` App | stale marking/closing, duplicate review cleanup, issue summaries | stale/중복 리뷰 이슈 정리와 요약 |
 | README automation | `jclee-bot` App | README creation/update PRs across managed repos | 관리 저장소 README 생성/갱신 PR |
@@ -195,27 +195,30 @@ github-bot/
 ├── requirements.txt                     # runtime deps (litellm, openai, anthropic, …)
 ├── setup.py                             # legacy shim for editable installs
 ├── .github/                             # workflows, local actions, templates, CODEOWNERS
-├── jclee_bot/                           # fork-owned GitHub App checks runner
+├── jclee_bot/                           # GitHub App checks runner + review engine
+│   ├── app.py, dispatch.py, github_checks.py  # FastAPI app + Checks API client
+│   ├── checks/                                 # pr-metadata, secret-scan, actionlint, docs-policy
+│   ├── issue_management.py, issue_maintenance.py  # App-owned issue automation
+│   └── review_engine/                          # AI review engine (originally derived from qodo-ai/pr-agent; see NOTICE)
+│       ├── cli.py                              # `pr-agent` console-script entry (backed by jclee_bot.review_engine)
+│       ├── cli_pip.py
+│       ├── config_loader.py
+│       ├── custom_merge_loader.py
+│       ├── algo/                               # PR processing, file filter, language handler
+│       │   └── ai_handlers/                    # litellm / openai / langchain handlers
+│       ├── git_providers/                      # github / gitlab / bitbucket / azuredevops / gerrit / gitea
+│       ├── secret_providers/                   # aws_secrets_manager, gcs, base interface
+│       ├── servers/                            # github_app / github_action_runner / lambdas / polling
+│       └── settings/                           # *.toml prompts and configuration
 ├── scripts/                             # Go CLIs + Python helpers
 ├── tests/                               # unit / e2e (mocked) / e2e_live (real GitHub)
 ├── docs/                                # architecture, review templates, ops notes
 ├── templates/                           # downstream community-file sources
-├── config/
-│   └── repos.yaml                       # canonical managed-repo inventory (16 repos)
-└── pr_agent/                            # upstream qodo-ai/pr-agent fork
-    ├── cli.py                           # `pr-agent` console-script entry
-    ├── cli_pip.py
-    ├── config_loader.py
-    ├── custom_merge_loader.py
-    ├── algo/                            # PR processing, file filter, language handler
-    │   └── ai_handlers/                 # litellm / openai / langchain handlers
-    ├── git_providers/                   # github / gitlab / bitbucket / azuredevops / gerrit / gitea
-    ├── secret_providers/                # aws_secrets_manager, gcs, base interface
-    ├── servers/                         # github_app / github_action_runner / lambdas / polling
-    └── settings/                        # *.toml prompts and configuration
+└── config/
+    └── repos.yaml                       # canonical managed-repo inventory (16 repos)
 ```
 
-> **Edit policy | 편집 규칙** — Edit `pr_agent/` config and prompts freely for fork behaviour, but avoid restructuring upstream modules; prefer the `jclee_bot/` package for fork-owned logic so upstream syncs stay clean.
+> **Edit policy | 편집 규칙** — The review engine at `jclee_bot/review_engine/` is first-party code; modify it directly when needed, but prefer narrow changes and update relevant prompt packs rather than rewriting large modules. Put new App-level behavior in `jclee_bot/` and keep the review engine a stable contract surface.
 
 ---
 
@@ -238,7 +241,7 @@ make install         # creates .venv, installs -e .
 
 ### Configure secrets | 시크릿 설정
 
-Create a `.env` (or export in your shell) with the GitHub credentials and the CLIProxyAPI base. The fork uses literal-dot Dynaconf spelling inside workflows (e.g. `OPENAI.KEY`, `OPENAI.API_BASE`, `CONFIG.MODEL`); `GITHUB__USER_TOKEN` is the documented GitHub-token exception.
+Create a `.env` (or export in your shell) with the GitHub credentials and the CLIProxyAPI base. The project uses literal-dot Dynaconf spelling inside workflows (e.g. `OPENAI.KEY`, `OPENAI.API_BASE`, `CONFIG.MODEL`); `GITHUB__USER_TOKEN` is the documented GitHub-token exception.
 
 ```bash
 export GITHUB__USER_TOKEN=ghp_...
@@ -251,7 +254,7 @@ export CONFIG__FALLBACK_MODELS='["minimax-m3"]'
 ### First run | 첫 실행
 
 ```bash
-pr-agent --help
+pr-agent --help                              # jclee_bot.review_engine CLI (console script)
 pr-agent review --pr_url=https://github.com/jclee941/<repo>/pull/<n>
 ```
 
@@ -283,7 +286,7 @@ make test        # all three
 
 ### Linting | 린팅
 
-Ruff is configured in `pyproject.toml` and treats upstream `pr_agent/` code more leniently than fork-owned code (cosmetic rules suppressed per-file; correctness rules enforced). Fork-owned code under `scripts/`, `tests/e2e/`, and `tests/e2e_live/` is held to the full ruleset.
+Ruff is configured in `pyproject.toml` and treats the review engine's legacy `algo/` and `tools/` code more leniently than the rest of the project (cosmetic rules suppressed per-file; correctness rules enforced). First-party code under `scripts/`, `tests/e2e/`, and `tests/e2e_live/` is held to the full ruleset.
 
 ```bash
 make lint
@@ -337,7 +340,7 @@ go run ./scripts/cmd/validate-naming --help
 
 ### `pr-agent` CLI | pr-agent CLI
 
-Installed as a console script (`pr-agent = "pr_agent.cli:run"`).
+Installed as a console script (`pr-agent = "jclee_bot.review_engine.cli:run"`).
 
 ```text
 pr-agent review          --pr_url=<url>
@@ -368,7 +371,7 @@ pr-agent config          --pr_url=<url>
 ## Configuration | 설정
 
 - **Managed repo inventory | 관리 저장소 목록** — `config/repos.yaml` is the single source of truth. Do not duplicate repo counts or default branches by hand; tooling reads this file.
-- **PR-Agent defaults | PR-Agent 기본값** — `pr_agent/settings/configuration.toml` and the per-tool `pr_*.toml` prompt packs. Keep fork overrides in this directory rather than scattering them in upstream code.
+- **Review engine defaults | 리뷰 엔진 기본값** — `jclee_bot/review_engine/settings/configuration.toml` and the per-tool `pr_*.toml` prompt packs. Keep project overrides in this directory rather than scattering them across workflows or App code.
 - **Dynaconf env vars | Dynaconf 환경 변수** — Inside Actions, use the literal-dot spelling: `OPENAI.KEY`, `OPENAI.API_BASE`, `CONFIG.MODEL`, `CONFIG.FALLBACK_MODELS`. The one exception is `GITHUB__USER_TOKEN`, which keeps the double-underscore form.
 - **Templates | 템플릿** — `templates/` holds the downstream community-file sources (CODE_OF_CONDUCT, CONTRIBUTING, SECURITY, issue/PR templates, Korean localisation).
 - **App config | App 설정** — `docker-compose.github_app.yml` for the standard layout; `docker-compose.github_app.yml.lxc` adds the LXC-tuned overrides (network mode, mounts).
@@ -389,9 +392,9 @@ This README is generated and maintained by the `34_readme-automation.yml` workfl
 
 1. **Fork or branch | 포크 또는 브랜치** — Branch off `master`; one logical change per PR.
 2. **Workflow edits | 워크플로우 편집** — Keep workflows as CI/build surfaces or thin `jclee-bot` API triggers. PR/issue mutation logic belongs in `jclee_bot/`.
-3. **Python style | Python 스타일** — Ruff-enforced (line length 120, full E/F/B/I ruleset for fork-owned code; cosmetic suppressions allowed per-file for upstream `pr_agent/` to avoid merge friction with `upstream`).
+3. **Python style | Python 스타일** — Ruff-enforced (line length 120, full E/F/B/I ruleset across the project; cosmetic suppressions allowed per-file only inside the review engine's `algo/` and `tools/` packages, which carry legacy patterns from the original qodo code).
 4. **Tests | 테스트** — Add or update unit tests; for behaviour that touches GitHub, prefer the mocked e2e layer (`tests/e2e/`). Live tests (`tests/e2e_live/`) require the mutation-guard checklist.
-5. **No invented URLs | URL 금지** — Only `qodo-ai/pr-agent`, `cliproxy.jclee.me`, and `bot.jclee.me` are acceptable external links. PRs that introduce other GitHub URLs will be rejected.
+5. **No invented URLs | URL 금지** — Only `qodo-ai/pr-agent` (for historical/attribution context only), `cliproxy.jclee.me`, and `bot.jclee.me` are acceptable external links. PRs that introduce other GitHub URLs will be rejected.
 6. **No private addresses | 사설 주소 금지** — Never hardcode RFC1918 IPs or LXC container numbers; use the `<homelab-host>` / `<homelab-elk>` placeholders.
 7. **Security | 보안** — See `SECURITY.md` for vulnerability reporting. Do not file public issues for suspected secrets; use the channels listed there.
 8. **Code of conduct | 행동 강령** — By participating, you agree to `CODE_OF_CONDUCT.md`.
@@ -402,6 +405,6 @@ This README is generated and maintained by the `34_readme-automation.yml` workfl
 
 This project is licensed under the **GNU Affero General Public License v3.0** (AGPL-3.0) — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE) for upstream attributions.
 
-본 프로젝트는 **GNU Affero General Public License v3.0 (AGPL-3.0)** 하에 배포됩니다. 업스트림 attribution은 `NOTICE`를 참조하세요.
+본 프로젝트는 **GNU Affero General Public License v3.0 (AGPL-3.0)** 하에 배포됩니다. 원본 attribution은 `NOTICE`를 참조하세요.
 
-Upstream: [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent) · LLM Gateway: [https://cliproxy.jclee.me/v1](https://cliproxy.jclee.me/v1) · App endpoint: [https://bot.jclee.me](https://bot.jclee.me)
+Originally based on: [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent) · LLM Gateway: [https://cliproxy.jclee.me/v1](https://cliproxy.jclee.me/v1) · App endpoint: [https://bot.jclee.me](https://bot.jclee.me)

@@ -1,25 +1,35 @@
-# pr_agent — PROJECT KNOWLEDGE BASE
+# jclee_bot.review_engine - PROJECT KNOWLEDGE BASE
 
 ## OVERVIEW
 
-Upstream qodo-ai/pr-agent code. AI-powered PR review engine. Hard fork; no local modifications except `settings/configuration.toml` model line.
+AI-powered PR review engine, originally derived from `qodo-ai/pr-agent` and
+absorbed into the first-party `jclee_bot/review_engine/` package. It is now a
+project-owned codebase: edits are allowed and expected, but changes to the
+deep modules (`algo/`, `tools/`, `git_providers/`) should be deliberate because
+the package still ships the original code shape.
+
+Attribution to the original project is preserved in `NOTICE` and
+`docs/defork-provenance.md`.
 
 ## STRUCTURE
 
 ```text
-pr_agent/
-├── agent/              # command orchestration (/review, /improve, /describe)
-├── algo/               # AI handlers (litellm, openai)
-├── tools/              # individual capabilities (PRReviewer, PRDescription, ...)
-├── git_providers/      # github.py, gitlab.py, bitbucket.py
+jclee_bot/review_engine/
+├── agent/             # command orchestration (/review, /improve, /describe)
+├── algo/              # AI handlers (litellm, openai) - legacy code shape
+├── tools/             # individual capabilities (PRReviewer, PRDescription, ...) - legacy code shape
+├── git_providers/     # github.py, gitlab.py, bitbucket.py, ...
 ├── servers/
 │   ├── github_app.py           # GitHub App entry point
 │   └── github_action_runner.py # GitHub Actions entry point
+├── identity_providers/         # OIDC / SSO helpers (added in-tree)
+├── secret_providers/           # aws_secrets_manager, gcs, base interface
+├── log/                        # structured-log helpers
 ├── settings/
-│   ├── configuration.toml      # FORK: model line only
+│   ├── configuration.toml      # engine-wide defaults (model, fallback)
 │   ├── pr_reviewer_prompts.toml
 │   └── ...                     # other prompt templates
-└── cli.py              # local CLI entry point
+└── cli.py             # local CLI entry point (installed as the `pr-agent` console script)
 ```
 
 ## WHERE TO LOOK
@@ -36,12 +46,18 @@ pr_agent/
 
 ## CONVENTIONS
 
-- Python >= 3.12
-- This is upstream code — do not modify. Fork changes go in `.pr_agent.toml` or `.github/workflows/`.
+- Python >= 3.12.
+- This is first-party project code; modify it directly when behavior needs to
+  change. Prefer narrow, well-tested edits over large rewrites of the legacy
+  `algo/` and `tools/` modules.
+- Per-repo overrides go in `.pr_agent.toml`; engine-wide defaults and prompt
+  packs go in `settings/`.
 
 ## ANTI-PATTERNS
 
-- Never edit `configuration.toml` beyond the model line — conflicts with upstream merges
-- Never delete or rename prompt TOML files
-- Never commit `.secrets.toml` or API keys inside this directory
-- Never rewrite `algo/` or `tools/` — use `.pr_agent.toml` for config overrides
+- Do not delete or rename prompt TOML files without a deliberate migration plan
+  (downstream `.pr_agent.toml` files may reference them).
+- Do not commit `.secrets.toml` or API keys inside this directory.
+- Do not re-introduce an external "upstream" remote or re-create the `pr_agent/`
+  package layout; the project is now standalone and the review engine is
+  in-tree.

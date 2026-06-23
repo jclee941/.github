@@ -1,6 +1,6 @@
 # Evolution Package Changelog | `scripts/evolution` 변경 이력
 
-> History of improvements to the fork-owned recursive regression & evolution
+> History of improvements to the first-party recursive regression & evolution
 > package (`scripts/evolution`). Managed by jclee-bot.
 > Format based on [Keep a Changelog](https://keepachangelog.com/). All entries
 > are grounded in real commits (short SHAs in parentheses).
@@ -69,11 +69,11 @@ The package provides three deterministic, unit-testable services:
 - Domain exceptions (`d54260c3`): `EvolutionError`, `ValidationError`,
   `FingerprintCollisionError`, `DuplicateOutcomeError`.
 - Pure data models — frozen dataclasses, `StrEnum`, callable aliases (`7ac7b4b3`).
-- Deterministic finding fingerprints (upstream pr-agent marker compatible) +
+- Deterministic finding fingerprints (pr-agent marker compatible) +
   per-repo regression detection (`66c49dea`).
 - Evolutionary suggestion scoring — bounded `[0.5, 1.5]` weights evolved from
   accept/reject outcomes (`71d53ede`).
-- `EvolutionEngine` orchestration facade, upstream `pr_agent` output adapters,
+- `EvolutionEngine` orchestration facade, `jclee_bot.review_engine` output adapters,
   and a file-based CLI (`242c2a25`).
 - Hypothesis added as a dev dependency for property-based invariant tests
   (`11468284`).

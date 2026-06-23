@@ -1,7 +1,7 @@
 # 자동화 고도화 — 브레인스토밍 / Automation Enhancement Brainstorm
 
 > Status: **CURRENT as of 2026-06-23**. 의사결정용 옵션 정리 문서입니다. 실제 적용은 별도 PR로 진행합니다.
-> Scope: `jclee941/.github` GitOps 자동화 (PR-Agent fork + jclee-bot GitHub App + Go CLI + 26개 워크플로우 + 16개 repo 관리)
+> Scope: `jclee941/.github` GitOps 자동화 (PR-Agent review engine + jclee-bot GitHub App + Go CLI + 26개 워크플로우 + 16개 repo 관리)
 > Method: 코드 직접 검증. 각 항목에 현재 파일 근거를 표기합니다.
 
 ---
@@ -71,7 +71,7 @@
 - `branch-protection` 기대 payload vs GitHub branch protection API
 - `rulesets-manager` expected payload vs GitHub rulesets API
 - `config/repos.yaml`의 `branch_protection: true` repo 전체 커버리지
-- `pr-agent` 제외 상태 보존
+- `github-bot` 소스 리포지토리 자체 제외 상태 보존
 
 ---
 
@@ -86,5 +86,5 @@
 ## 5. 비고 / Notes
 
 - 본 문서의 모든 갭은 `2026-06-23` 기준 코드(`HEAD`)에서 재검증됨. 적용 시 재확인 권장.
-- 업스트림(qodo-ai/pr-agent) 동기화는 본 문서 범위 밖 (별도 머지 작업).
+- 원본(qodo-ai/pr-agent) 동기화는 더 이상 본 문서 범위 밖 (별도 머지 작업 없음, de-forked).
 - 프로필/계정 표준화는 [`github-profile-enhancement-brainstorm.md`](github-profile-enhancement-brainstorm.md) 참조.

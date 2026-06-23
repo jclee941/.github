@@ -2,7 +2,7 @@
 
 ## OVERVIEW
 
-Fork-owned FastAPI extension that reuses the upstream `pr_agent` app and adds App-owned Checks API
+First-party FastAPI extension that reuses the `jclee_bot.review_engine` app and adds App-owned Checks API
 runs for PR metadata, secret scanning, workflow linting, docs policy, and issue lifecycle events.
 
 ## STRUCTURE
@@ -42,14 +42,14 @@ jclee_bot/
   with no workflow changes.
 - Issue opened auto-labeling, stale-label removal, stale issue sweep, and issue stats are App-owned;
   do not restore the deleted downstream issue-management workflow caller or reusable workflow.
-- `app.py` must not break upstream `/api/v1/github_webhooks`, `/health`, `/ready`, or `/metrics` routes.
+- `app.py` must not break the `/api/v1/github_webhooks`, `/health`, `/ready`, or `/metrics` routes exposed by the review engine.
 - External tools (`gitleaks`, `actionlint`) may map to a skipped advisory result in pure mappers, but required
   App check publishing must convert unavailable-tool skips to failure.
 - Webhook handling must acknowledge promptly; blocking check work stays off the request path.
 
 ## ANTI-PATTERNS
 
-- Do not import this package from upstream `pr_agent/`; ownership points one way only.
+- Do not import `jclee_bot.app` from the review engine (`jclee_bot.review_engine`); the review engine is a stable contract surface and the App is the integration layer. Ownership points one way only.
 - Do not let a failed check-report call abort other checks.
 - Do not report success for a scan that did not inspect real PR content.
 - Do not log installation tokens, webhook secrets, PR checkout URLs with credentials, or raw secret findings.
