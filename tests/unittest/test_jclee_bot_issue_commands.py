@@ -35,6 +35,22 @@ def test_issue_command_upsert_dry_run_does_not_mutate(monkeypatch) -> None:
     assert mutations == []
 
 
+def test_issue_command_uses_repository_object_full_name() -> None:
+    result = issue_commands.run_issue_commands(
+        token="tok",
+        payload={
+            "repository": {"full_name": "jclee941/.github"},
+            "dry_run": True,
+            "commands": [{"type": "create_issue", "title": "x", "body": "y"}],
+        },
+    )
+
+    assert result == {
+        "dry_run": True,
+        "actions": ["create:jclee941/.github:x"],
+    }
+
+
 def test_issue_command_label_skips_malformed_number() -> None:
     for malformed_number in ["not-a-number", True, 1.2, float("inf")]:
         payload = {

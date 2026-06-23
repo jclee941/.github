@@ -33,6 +33,7 @@ from jclee_bot import (
 )
 from jclee_bot.context_guards import neutralize_on_missing_context
 from jclee_bot.git_auth import git_askpass_env, git_env_with_auth
+from jclee_bot.payload_parsing import default_branch_from_payload, json_payload_or_error, repo_full_name_from_payload
 from jclee_bot.readme_automation import router as readme_automation_router
 
 # Reuse the upstream app object so its middleware + all routes are preserved.
@@ -231,7 +232,8 @@ def _workflow_run_from_payload(payload: dict[str, Any]) -> workflow_issue_automa
 
 
 def _run_app_ci_failure_issues(*, app_id: str, private_key: str, payload: dict[str, Any]) -> dict[str, Any]:
-    repo_full_name = str(payload.get("repository") or "")
+    repo_full_name = repo_full_name_from_payload(payload)
+    default_branch = default_branch_from_payload(payload)
     dry_run = bool(payload.get("dry_run", False))
     if not repo_full_name:
         return {"dry_run": dry_run, "actions": [], "error": "repository is required"}
@@ -248,7 +250,7 @@ def _run_app_ci_failure_issues(*, app_id: str, private_key: str, payload: dict[s
         actions = workflow_issue_automation.sweep_legacy_failure_issues(
             token=token,
             repo_full_name=repo_full_name,
-            default_branch=str(payload.get("default_branch") or "master"),
+            default_branch=default_branch,
             dry_run=dry_run,
         )
     else:
@@ -256,13 +258,14 @@ def _run_app_ci_failure_issues(*, app_id: str, private_key: str, payload: dict[s
             token=token,
             repo_full_name=repo_full_name,
             run=run,
+            default_branch=default_branch,
             dry_run=dry_run,
         )
     return {"dry_run": dry_run, "repository": repo_full_name, "actions": actions}
 
 
 def _run_app_issue_commands(*, app_id: str, private_key: str, payload: dict[str, Any]) -> dict[str, Any]:
-    repo_full_name = str(payload.get("repository") or "")
+    repo_full_name = repo_full_name_from_payload(payload)
     dry_run = bool(payload.get("dry_run", False))
     if not repo_full_name:
         return {"dry_run": dry_run, "actions": [], "error": "repository is required"}
@@ -351,7 +354,9 @@ async def issue_maintenance_webhook(request: Request, response: Response) -> dic
         response.status_code = 503
         return {"error": "github app credentials unavailable"}
 
-    payload = json.loads(await request.body() or b"{}")
+    payload = json_payload_or_error(await request.body(), response)
+    if payload is None:
+        return {"error": "invalid json"}
     dry_run = bool(payload.get("dry_run", False))
     owner = str(payload.get("owner") or "jclee941")
     if payload.get("background", True):
@@ -378,7 +383,9 @@ async def ci_failure_issues_webhook(request: Request, response: Response) -> dic
         response.status_code = 503
         return {"error": "github app credentials unavailable"}
 
-    payload = json.loads(await request.body() or b"{}")
+    payload = json_payload_or_error(await request.body(), response)
+    if payload is None:
+        return {"error": "invalid json"}
     return _run_app_ci_failure_issues(app_id=app_id, private_key=private_key, payload=payload)
 
 
@@ -395,7 +402,9 @@ async def issue_commands_webhook(request: Request, response: Response) -> dict[s
         response.status_code = 503
         return {"error": "github app credentials unavailable"}
 
-    payload = json.loads(await request.body() or b"{}")
+    payload = json_payload_or_error(await request.body(), response)
+    if payload is None:
+        return {"error": "invalid json"}
     return _run_app_issue_commands(app_id=app_id, private_key=private_key, payload=payload)
 
 
@@ -408,7 +417,9 @@ async def checks_webhook(request: Request, response: Response) -> dict[str, Any]
     if not _verify_signature(secret, raw, sig):
         response.status_code = 401
         return {"error": "invalid signature"}
-    payload = json.loads(raw or b"{}")
+    payload = json_payload_or_error(raw, response)
+    if payload is None:
+        return {"error": "invalid json"}
     return _run_checks_for_payload(payload)
 
 

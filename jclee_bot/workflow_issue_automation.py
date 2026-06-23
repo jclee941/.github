@@ -156,7 +156,14 @@ def normalize_conclusion(conclusion: str) -> str:
             return "neutral"
 
 
-def record_workflow_run(*, token: str, repo_full_name: str, run: WorkflowRun, dry_run: bool) -> list[str]:
+def record_workflow_run(
+    *,
+    token: str,
+    repo_full_name: str,
+    run: WorkflowRun,
+    dry_run: bool,
+    default_branch: str = "master",
+) -> list[str]:
     conclusion = normalize_conclusion(run.conclusion)
     if conclusion == "neutral":
         return [f"ignore-neutral:{run.name}"]
@@ -172,7 +179,7 @@ def record_workflow_run(*, token: str, repo_full_name: str, run: WorkflowRun, dr
             sweep_legacy_failure_issues(
                 token=token,
                 repo_full_name=repo_full_name,
-                default_branch="master",
+                default_branch=default_branch,
                 dry_run=dry_run,
             )
         )

@@ -5,6 +5,7 @@ from typing import Any
 import requests
 
 from jclee_bot import issue_maintenance
+from jclee_bot.payload_parsing import repo_full_name_from_payload
 
 GITHUB_API = "https://api.github.com"
 AUTOMATION_MARKER = "jclee-bot에의해자동화됨"
@@ -131,7 +132,10 @@ def _add_labels(*, token: str, repo_full_name: str, issue_number: int, labels: l
 
 
 def _command_repo(payload: dict[str, Any], command: dict[str, Any]) -> str:
-    return str(command.get("repo") or payload.get("repository") or "")
+    repo = command.get("repo")
+    if isinstance(repo, str):
+        return repo
+    return repo_full_name_from_payload(payload)
 
 
 def _run_upsert_issue(*, token: str, payload: dict[str, Any], command: dict[str, Any], dry_run: bool) -> str:

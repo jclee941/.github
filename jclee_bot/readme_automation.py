@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hmac
-import json
 import os
 import re
 import subprocess
@@ -11,6 +10,7 @@ from typing import Any
 from fastapi import APIRouter, Request, Response
 
 from jclee_bot import readme_jobs
+from jclee_bot.payload_parsing import json_payload_or_error
 from jclee_bot.readme_runner import run_app_readme_automation
 
 router = APIRouter()
@@ -86,7 +86,9 @@ async def readme_automation_webhook(request: Request, response: Response) -> dic
         response.status_code = 503
         return {"error": "github app credentials unavailable"}
 
-    payload = json.loads(await request.body() or b"{}")
+    payload = json_payload_or_error(await request.body(), response)
+    if payload is None:
+        return {"error": "invalid json"}
     try:
         dry_run = bool(payload.get("dry_run", False))
         owner = _parse_owner(payload.get("owner"))
