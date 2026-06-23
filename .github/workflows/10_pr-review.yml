@@ -130,7 +130,7 @@ jobs:
           CONFIG.AI_TIMEOUT: "180"
           CONFIG.CUSTOM_MODEL_MAX_TOKENS: "128000"
           # Quality knobs — produce richer review output even on small diffs.
-          # See pr_agent/tools/pr_reviewer.py:85-94 for toggle->prompt mapping.
+          # See jclee_bot/review_engine/tools/pr_reviewer.py:85-94 for toggle->prompt mapping.
           PR_REVIEWER.REQUIRE_SCORE_REVIEW: "true"
           PR_REVIEWER.REQUIRE_TESTS_REVIEW: "true"
           PR_REVIEWER.REQUIRE_ESTIMATE_EFFORT_TO_REVIEW: "true"
@@ -165,7 +165,7 @@ jobs:
 
           # Preflight: confirm dynaconf actually loaded the GitHub token and OpenAI config
           .venv/bin/python - <<'PY'
-          from pr_agent.config_loader import get_settings
+          from jclee_bot.review_engine.config_loader import get_settings
           tok = get_settings().get("github.user_token")
           if not tok:
               raise SystemExit("ERROR: settings.github.user_token is empty. "
@@ -192,8 +192,8 @@ jobs:
           import sys
           import traceback
           sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-          from pr_agent.config_loader import get_settings
-          from pr_agent.algo.ai_handlers.litellm_ai_handler import LiteLLMAIHandler
+          from jclee_bot.review_engine.config_loader import get_settings
+          from jclee_bot.review_engine.algo.ai_handlers.litellm_ai_handler import LiteLLMAIHandler
 
           async def debug():
               print('=== Debug: LiteLLMAIHandler initialization ===')
