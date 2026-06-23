@@ -267,7 +267,7 @@ async def handle_push_trigger_for_new_commits(
             await _perform_auto_commands_github("push_commands", agent, body, api_url, log_context)
 
             # SECOND-REVIEW: re-review on push (fork 2-review policy: primary on open, second on push)
-            second_review_model = get_settings().get("github_app.push_trigger_second_review_model", "MiniMax-M3")
+            second_review_model = get_settings().get("github_app.push_trigger_second_review_model", "gpt-5.5")
             get_logger().info(f"Performing second review with {second_review_model} for {api_url=}")
             env = os.environ.copy()
             env["CONFIG.MODEL"] = second_review_model

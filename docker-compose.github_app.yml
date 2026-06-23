@@ -40,8 +40,8 @@ services:
       README_AUTOMATION_JOB_DIR: /var/lib/jclee-bot/readme-jobs
       OPENAI.KEY: "${CLIPROXY_API_KEY}"
       OPENAI.API_BASE: http://cliproxyapi:8317/v1
-      CONFIG.MODEL: gpt-5.5
-      CONFIG.FALLBACK_MODELS: '["minimax-m3"]'
+      CONFIG.MODEL: minimax-m3
+      CONFIG.FALLBACK_MODELS: '["gpt-5.5"]'
       CONFIG.CUSTOM_MODEL_MAX_TOKENS: "128000"
       CONFIG.AI_TIMEOUT: "180"
       PR_REVIEWER.AUTO_CREATE_ISSUES: "true"
