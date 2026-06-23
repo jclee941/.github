@@ -76,7 +76,9 @@ def _unwrap_json_content(s: str) -> str:
 
 def sanitize_links(text: str) -> str:
     canonical = "https://github.com/jclee941/.github"
-    url_re = re.compile(r"https?://(?:www\.)?github\.com/jclee941/([A-Za-z0-9._-]+)")
+    url_re = re.compile(
+        r"https?://(?:www\.)?github\.com/jclee941/([A-Za-z0-9._-]+)(?:/[^\s)\]>\"']*)?"
+    )
     known_repos = _known_jclee_repos()
 
     def _replace(m: re.Match[str]) -> str:
@@ -104,6 +106,8 @@ def _known_jclee_repos() -> set[str]:
         if not isinstance(repo, dict):
             continue
         name = repo.get("name")
+        if repo.get("visibility") != "public":
+            continue
         if isinstance(name, str):
             repos.add(name)
     return repos

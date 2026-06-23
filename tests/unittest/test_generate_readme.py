@@ -107,6 +107,17 @@ def test_downstream_boilerplate_detector_flags_jclee_bot_context():
     assert mod._looks_like_downstream_automation_boilerplate(readme)
 
 
+def test_downstream_boilerplate_detector_flags_control_plane_context():
+    mod = _load_module()
+    readme = (
+        "# Tool\n\n"
+        "README Generation via gpt-5.5 and minimax-m3. "
+        "Workflow files are automation surfaces.\n"
+    )
+
+    assert mod._looks_like_downstream_automation_boilerplate(readme)
+
+
 def test_source_repo_prompt_keeps_automation_contract(monkeypatch, tmp_path):
     mod = _load_module()
     captured: dict[str, str] = {}

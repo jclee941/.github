@@ -77,7 +77,14 @@ def _looks_like_downstream_automation_boilerplate(text: str) -> bool:
         "bot-owned pr metadata",
         "downstream health checks",
     )
-    return any(marker in lower for marker in bot_owned_markers + stale_policy_markers)
+    generator_control_plane_pairs = (
+        ("readme generation", "automation surfaces"),
+        ("readme 생성", "자동화 표면"),
+        ("gpt-5.5", "minimax-m3"),
+    )
+    return any(marker in lower for marker in bot_owned_markers + stale_policy_markers) or any(
+        first in lower and second in lower for first, second in generator_control_plane_pairs
+    )
 
 
 def read_key_files(repo_root: Path) -> dict[str, str]:

@@ -137,6 +137,36 @@ def test_sanitize_links_handles_http_and_www():
     assert "jclee941/.github" in out, out
 
 
+def test_sanitize_links_canonicalizes_unknown_repo_paths_to_repo_root():
+    mod = _load_cleaning_module()
+    md = (
+        "bad https://github.com/jclee941/no-such-repo/settings/secrets/actions "
+        "doc https://github.com/jclee941/no-such-repo/blob/main/README.md"
+    )
+    out = mod.sanitize_links(md)
+    assert "settings/secrets/actions" not in out, out
+    assert "blob/main/README.md" not in out, out
+    assert out.count("https://github.com/jclee941/.github") == 2
+
+
+def test_known_repos_excludes_private_inventory_entries(tmp_path, monkeypatch):
+    mod = _load_cleaning_module()
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "repos.yaml").write_text(
+        "\n"
+        "repositories:\n"
+        "  - visibility: public\n"
+        "    name: account\n"
+        "  - visibility: private\n"
+        "    name: hycu\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(mod, "_REPO_ROOT", tmp_path)
+    assert mod._known_jclee_repos() == {".github", "account"}
+
+
 def test_known_repos_uses_yaml_parser_for_inventory_variation(tmp_path, monkeypatch):
     mod = _load_cleaning_module()
     config_dir = tmp_path / "config"
@@ -146,10 +176,12 @@ def test_known_repos_uses_yaml_parser_for_inventory_variation(tmp_path, monkeypa
         "repositories:\n"
         "  - visibility: public\n"
         "    name: account\n"
-        '  - name: ".github"\n'
+        "  - visibility: public\n"
+        '    name: ".github"\n'
         "    automation:\n"
         "      branch_protection: true\n"
-        "  - name: propose\n",
+        "  - visibility: public\n"
+        "    name: propose\n",
         encoding="utf-8",
     )
 
