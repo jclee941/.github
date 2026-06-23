@@ -108,6 +108,30 @@ class TestPrMetadata:
         assert r.conclusion == "failure"
         assert "sensitive" in r.summary.lower()
 
+    def test_env_example_is_not_sensitive(self):
+        r = pr_metadata.run(
+            title="docs: update example env",
+            head_ref="docs/env",
+            base_ref="master",
+            changed_files=[".env.example", "src/main.py"],
+            additions=2,
+            deletions=2,
+        )
+        assert r.conclusion == "success"
+        assert "sensitive files present" not in r.summary.lower()
+
+    def test_real_env_files_still_sensitive(self):
+        r = pr_metadata.run(
+            title="chore: tweak env",
+            head_ref="chore/env",
+            base_ref="master",
+            changed_files=[".env", ".env.local", ".env.production"],
+            additions=1,
+            deletions=0,
+        )
+        assert r.conclusion == "failure"
+        assert "sensitive files present" in r.summary.lower()
+
 
 class TestSecretScan:
     def test_no_findings_passes(self):

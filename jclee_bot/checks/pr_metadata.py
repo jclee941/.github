@@ -24,7 +24,7 @@ _MAX_CHANGED_FILES = 50
 
 # Files that should never appear in a normal PR diff.
 _SENSITIVE_PATTERNS = (
-    re.compile(r"(^|/)\.env(\.|$)"),
+    re.compile(r"(^|/)\.env(\.(?!example$|sample$|template$)|$)"),
     re.compile(r"(^|/)\.secrets\.toml$"),
     re.compile(r"(^|/)id_rsa$"),
     re.compile(r"\.pem$"),
