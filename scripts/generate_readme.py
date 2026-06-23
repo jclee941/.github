@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 _cliproxy_client = import_module("cliproxy_client")
 _cliproxy_routing = import_module("cliproxy_routing")
 _readme_cleaning = import_module("generate_readme_cleaning")
+_readme_prompts = import_module("generate_readme_prompts")
 _readme_retry = import_module("generate_readme_retry")
 _readme_scan = import_module("generate_readme_scan")
 
@@ -32,7 +33,9 @@ CliproxyCredentialError = _cliproxy_client.CliproxyCredentialError
 CliproxyMessage = _cliproxy_client.CliproxyMessage
 TransientLLMError = _readme_retry.TransientLLMError
 cliproxy_chat_completion = _cliproxy_client.cliproxy_chat_completion
+automation_source_system_prompt = _readme_prompts.automation_source_system_prompt
 normalize_llm_readme_response = _readme_cleaning.normalize_llm_readme_response
+product_readme_system_prompt = _readme_prompts.product_readme_system_prompt
 redact_private_ips = _readme_cleaning.redact_private_ips
 resolve_cliproxy_api_key = _cliproxy_client.resolve_cliproxy_api_key
 route_models_by_quota = _cliproxy_routing.route_models_by_quota
@@ -61,20 +64,20 @@ def _is_automation_source_repo(repo_root: Path) -> bool:
 
 def _looks_like_downstream_automation_boilerplate(text: str) -> bool:
     lower = text.lower()
-    markers = (
+    bot_owned_markers = (
         "jclee-bot",
         "bot.jclee.me",
         "qodo-ai/pr-agent",
-        "readme generation",
-        "readme 생성",
-        "automation surfaces",
-        "자동화 표면",
-        "workflow files",
-        "워크플로 파일",
-        "gpt-5.5",
-        "minimax-m3",
+        "cliproxy.jclee.me",
+        "jclee-bot에의해자동화됨",
     )
-    return any(marker in lower for marker in markers)
+    stale_policy_markers = (
+        "workflow/event-adapter policy",
+        "automation-policy boilerplate",
+        "bot-owned pr metadata",
+        "downstream health checks",
+    )
+    return any(marker in lower for marker in bot_owned_markers + stale_policy_markers)
 
 
 def read_key_files(repo_root: Path) -> dict[str, str]:
@@ -156,78 +159,6 @@ def call_llm(system: str, user: str) -> str:
     raise SystemExit(f"ERROR: All models failed. Last error: {last_error}")
 
 
-def _automation_source_system_prompt() -> str:
-    return (
-        "You are a technical writer bot specialized in GitHub automation documentation. "
-        "Generate a comprehensive, professional README.md in Korean and English (bilingual). "
-        "Use Markdown. Structure: title, badges, overview, features, architecture, "
-        "jclee-bot automation surfaces, Go tools, quick start, local development, "
-        "commands reference, and contribution guide. "
-        "Be specific about App-owned automation surfaces and Go tool names. "
-        "Do NOT render a GitHub workflow inventory table and do NOT list linked workflow files as rows; "
-        "workflow files are implementation triggers, not the automation source of truth. "
-        "Describe mutating automation as owned by jclee-bot, and include the exact marker "
-        "'jclee-bot에의해자동화됨' for issue automation behavior. "
-        "For the architecture section, draw the diagram as a GitHub-native Mermaid "
-        "flowchart inside a ```mermaid fenced block. Do NOT hand-draw ASCII/box-drawing "
-        "diagrams (┌ │ └ etc.) - they render misaligned. "
-        "CRITICAL Mermaid rule: any node label containing angle brackets (e.g. the "
-        "<homelab-host> / <homelab-elk> placeholders or a URL) MUST be a quoted "
-        "string with the brackets HTML-escaped, e.g. CLIProxy[\"&lt;homelab-host&gt;:8317<br/>...\"]; "
-        "a bare '<' in a label makes GitHub render the whole block as raw code. "
-        "Inside quoted labels only <br/> line breaks are allowed unescaped. "
-        "For the repository structure tree, reflect the ACTUAL top-level layout provided "
-        "below; never invent directories such as _bot-scripts/ (that name only ever appears "
-        "as a transient CI checkout path, not a real directory). "
-        "NEVER include hardcoded private/internal IP addresses (RFC1918: 192.168.x.x, "
-        "10.x.x.x, 172.16-31.x.x) or LXC container numbers; use placeholders like "
-        "<homelab-host> / <homelab-elk> and the public endpoint https://cliproxy.jclee.me/v1 instead. "
-        "Do NOT use bold/emphasis text as a substitute for a heading (markdownlint MD036); "
-        "use real '#' headings. "
-        "Current README-gen primary model: gpt-5.5 (fallback: minimax-m3 via CLIProxyAPI). "
-        "Do NOT invent GitHub repository URLs: never link to non-existent repos such as "
-        "github.com/jclee941/CLIProxyAPI or github.com/jclee941/github-bot. For external "
-        "links use only qodo-ai/pr-agent, cliproxy.jclee.me, and bot.jclee.me. "
-    )
-
-
-def _product_readme_system_prompt() -> str:
-    return (
-        "You are a technical writer for application, CLI, library, and tool repositories. "
-        "Generate a comprehensive, professional README.md in Korean and English (bilingual). "
-        "Document the repository's actual product: what the app/tool/library does, who uses it, "
-        "its entry points, architecture, configuration, commands, testing, and local development. "
-        "Use Markdown. Prefer this structure when applicable: title, overview, features, "
-        "architecture, quick start, configuration, commands reference, local development, testing, "
-        "contribution guide, and license. "
-        "Do NOT add jclee-bot automation surfaces, issue automation, PR automation, release "
-        "automation, downstream health checks, workflow/event-adapter policy, README generation "
-        "metadata, model names, bot control-plane URLs, or the marker 'jclee-bot에의해자동화됨'. "
-        "Do NOT add sections named 'jclee-bot Automation', 'Automation Surfaces', "
-        "'README Generation', 'Go Automation Tools', or similar repository-maintenance boilerplate "
-        "unless this repository's own source code implements that as the product. "
-        "If the existing README contains jclee-bot, qodo-ai/pr-agent, cliproxy, bot.jclee.me, "
-        "workflow adapter, README generation, or automation policy text, treat that content as "
-        "stale boilerplate from a previous generator run and remove it unless the product source "
-        "files independently prove it belongs. "
-        "Workflow files, AGENTS.md instructions, badges, and bot-owned PR metadata are context for "
-        "safe generation only; do not present them as user-facing product features. "
-        "For the architecture section, draw a GitHub-native Mermaid flowchart inside a ```mermaid "
-        "fenced block only when it clarifies the actual product architecture. Do NOT hand-draw "
-        "ASCII/box-drawing diagrams. "
-        "Any Mermaid node label containing angle brackets MUST quote and HTML-escape them, e.g. "
-        "CLIProxy[\"&lt;placeholder&gt;<br/>...\"]; a bare '<' breaks GitHub rendering. "
-        "For the repository structure tree, reflect the ACTUAL top-level layout provided below; "
-        "never invent directories. "
-        "NEVER include hardcoded private/internal IP addresses (RFC1918: 192.168.x.x, 10.x.x.x, "
-        "172.16-31.x.x) or LXC container numbers; use placeholders only when the actual product "
-        "needs them. "
-        "Do NOT use bold/emphasis text as a substitute for a heading (markdownlint MD036); use "
-        "real '#' headings. "
-        "Do NOT invent GitHub repository URLs. "
-    )
-
-
 def _workflow_files(repo_root: Path) -> list[str]:
     workflows_dir = repo_root / ".github" / "workflows"
     workflows: list[str] = []
@@ -260,9 +191,9 @@ def generate_readme(repo_root: Path) -> str:
     ):
         del files["README.md"]
     system = (
-        _automation_source_system_prompt()
+        automation_source_system_prompt()
         if is_automation_source
-        else _product_readme_system_prompt()
+        else product_readme_system_prompt()
     )
 
     user_parts = [

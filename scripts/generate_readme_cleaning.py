@@ -28,7 +28,13 @@ def normalize_llm_readme_response(text: str) -> str:
 
 def _strip_generator_meta_notes(text: str) -> str:
     lines: list[str] = []
+    skipping_note = False
     for line in text.splitlines():
+        if skipping_note:
+            if not line.strip():
+                skipping_note = False
+            continue
+
         normalized = line.lstrip("> ").lower()
         is_note = normalized.startswith(("note:", "참고:", "주의:"))
         mentions_generator_context = any(
@@ -43,8 +49,10 @@ def _strip_generator_meta_notes(text: str) -> str:
             )
         )
         if is_note and mentions_generator_context:
+            skipping_note = True
             continue
         if "i noticed" in normalized and ("readme" in normalized or "jclee-bot" in normalized):
+            skipping_note = True
             continue
         lines.append(line)
     return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
