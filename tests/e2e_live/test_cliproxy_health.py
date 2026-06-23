@@ -5,7 +5,7 @@ import pytest
 import requests
 
 CLIPROXY_BASE_URL = "https://cliproxy.jclee.me/v1"
-DEFAULT_MODEL = "gpt-5.5"
+DEFAULT_MODEL = "minimax-m3"
 
 pytestmark = pytest.mark.cliproxy_health
 
