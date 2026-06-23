@@ -22,7 +22,32 @@ def normalize_llm_readme_response(text: str) -> str:
     fence = re.match(r"^```[a-zA-Z0-9]*\s*\n(.*)\n```\s*$", s, flags=re.DOTALL)
     if fence:
         s = fence.group(1).strip()
-    return re.sub(r"\[(!\[[^\]]*\]\([^)]*\))\]\(#\)", r"\1", s)
+    s = re.sub(r"\[(!\[[^\]]*\]\([^)]*\))\]\(#\)", r"\1", s)
+    return _strip_generator_meta_notes(s)
+
+
+def _strip_generator_meta_notes(text: str) -> str:
+    lines: list[str] = []
+    for line in text.splitlines():
+        normalized = line.lstrip("> ").lower()
+        is_note = normalized.startswith(("note:", "참고:", "주의:"))
+        mentions_generator_context = any(
+            marker in normalized
+            for marker in (
+                "i noticed",
+                "existing readme",
+                "stale jclee-bot",
+                "automation-policy boilerplate",
+                "previous generator",
+                "regenerated",
+            )
+        )
+        if is_note and mentions_generator_context:
+            continue
+        if "i noticed" in normalized and ("readme" in normalized or "jclee-bot" in normalized):
+            continue
+        lines.append(line)
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
 
 
 def _unwrap_json_content(s: str) -> str:

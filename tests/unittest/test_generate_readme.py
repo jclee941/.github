@@ -252,6 +252,23 @@ def test_normalize_fixes_empty_badge_links():
     assert "img.shields.io/badge/v.svg" in out, out
 
 
+def test_normalize_strips_generator_meta_note():
+    mod = _load_module()
+    raw = (
+        "# Hycu\n\n"
+        "Actual product overview.\n\n"
+        "Note: I noticed the existing README was truncated mid-sentence. "
+        "I removed any stale jclee-bot / automation-policy boilerplate.\n\n"
+        "## Usage\n\nRun the tool.\n"
+    )
+    out = mod.normalize_llm_readme_response(raw)
+    assert "Actual product overview" in out
+    assert "## Usage" in out
+    assert "I noticed" not in out
+    assert "jclee-bot" not in out
+    assert "automation-policy boilerplate" not in out
+
+
 def test_sanitize_links_handles_http_and_www():
     """sanitize_links must catch http:// and www. variants of hallucinated repos."""
     mod = _load_module()
