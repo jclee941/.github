@@ -45,7 +45,7 @@ _is_transient = _readme_retry.is_transient
 
 API_BASE = os.environ.get("OPENAI_BASE_URL", "https://cliproxy.jclee.me/v1")
 API_KEY = os.environ.get("CLIPROXY_API_KEY", "")
-MODELS = ["gpt-5.5", "minimax-m3"]
+MODELS = ["minimax-m3", "gpt-5.5"]
 MAX_TOKENS = 16000  # README is long; 4000 truncated the JSON mid-string
 
 # Backoff (seconds) between retry attempts for a single model on transient

@@ -26,9 +26,9 @@ def _load_module():
 
 
 def test_canonical_model_chain():
-    """MODELS must try the requested gpt-5.5 primary before fallback models."""
+    """MODELS must try the requested minimax-m3 primary before fallback models."""
     mod = _load_module()
-    assert mod.MODELS == ["gpt-5.5", "minimax-m3"], (
+    assert mod.MODELS == ["minimax-m3", "gpt-5.5"], (
         f"generate_readme MODELS drifted from canonical model: {mod.MODELS}"
     )
 
