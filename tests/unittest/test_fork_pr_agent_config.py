@@ -69,16 +69,16 @@ class TestForkPrAgentConfig:
             f"Expected [config].response_language = 'ko', got {response_lang}"
         )
 
-    def test_model_is_gpt55(self):
-        """Test that [config].model == 'gpt-5.5' via CLIProxyAPI."""
+    def test_model_is_minimax_m3(self):
+        """Test that [config].model == 'minimax-m3' via CLIProxyAPI."""
         path = self.get_toml_path()
         with open(path, "rb") as f:
             data = tomllib.load(f)
 
         assert "config" in data, "Missing [config] section in .pr_agent.toml"
         model = data["config"].get("model")
-        assert model == "gpt-5.5", (
-            f"Expected [config].model = 'gpt-5.5', got {model}"
+        assert model == "minimax-m3", (
+            f"Expected [config].model = 'minimax-m3', got {model}"
         )
 
     def test_api_base_is_cliproxy(self):
@@ -110,8 +110,8 @@ class TestForkPrAgentConfig:
         assert "config" in data, "Missing [config] section in .pr_agent.toml"
         fallback_models = data["config"].get("fallback_models", [])
 
-        assert fallback_models == ["minimax-m3"], (
-            f"Expected fallback_models == ['minimax-m3'], got {fallback_models}"
+        assert fallback_models == ["gpt-5.5"], (
+            f"Expected fallback_models == ['gpt-5.5'], got {fallback_models}"
         )
 
     def test_configuration_toml_was_edited_for_fork(self):
@@ -124,8 +124,8 @@ class TestForkPrAgentConfig:
         with open(path, "r", encoding="utf-8") as f:
             content = f.read()
 
-        assert "model=\"gpt-5.5\"" in content or "model = \"gpt-5.5\"" in content, (
-            "configuration.toml should contain model=\"gpt-5.5\" for fork-specific default"
+        assert "model=\"minimax-m3\"" in content or "model = \"minimax-m3\"" in content, (
+            "configuration.toml should contain model=\"minimax-m3\" for fork-specific default"
         )
 
     def test_push_trigger_second_review_model_is_fork_configured(self):

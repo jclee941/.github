@@ -125,7 +125,7 @@ class TestHandlePushTrigger:
             assert args[5] == "review"
 
             env = mock_subprocess.call_args[1]["env"]
-            assert env["CONFIG.MODEL"] == "MiniMax-M3"
+            assert env["CONFIG.MODEL"] == "gpt-5.5"
             assert env["CONFIG.FALLBACK_MODELS"] == "[]"
             assert env["CONFIG.CUSTOM_MODEL_MAX_TOKENS"] == "128000"
 

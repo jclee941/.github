@@ -10,10 +10,10 @@
 # FORK: route all LLM calls through homelab CLIProxyAPI.
 # Public endpoint: https://cliproxy.jclee.me/v1
 # Default below is used by the GitHub App. The PR review workflow
-# (.github/workflows/10_pr-review.yml) runs gpt-5.5; pr-agent falls back to
-# minimax-m3 through CLIProxy if the primary fails.
-model = "gpt-5.5"
-fallback_models = ["minimax-m3"]
+# (.github/workflows/10_pr-review.yml) runs minimax-m3; pr-agent falls back to
+# gpt-5.5 through CLIProxy if the primary fails.
+model = "minimax-m3"
+fallback_models = ["gpt-5.5"]
 custom_model_max_tokens = 128000
 max_model_tokens = 128000
 ignore_pr_authors = ["dependabot\\[bot\\]"]  # FORK: skip Dependabot PRs (no linked issues, causes ticket compliance 404s)

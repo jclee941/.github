@@ -68,7 +68,7 @@ The live suite is designed around these categories (17 tests total):
    errors.
 8. **Security review workflow guards** (`security_review`) — static YAML analysis of `pull_request_target` fork/head-repo guards.
 9. **GitHub App health checks** (`app_health`) — bot recent activity, webhook reachability, app installation, CLIProxy endpoint probes.
-10. **CLIProxy health** (`cliproxy_health`) — query `/v1/models`, verify `gpt-5.5` availability.
+10. **CLIProxy health** (`cliproxy_health`) — query `/v1/models`, verify `minimax-m3` availability.
 
 ### Running by marker
 

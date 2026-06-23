@@ -139,32 +139,32 @@ def test_kill_switch_disables_llm(monkeypatch):
     assert res["source"] == "fallback"
 
 
-def test_default_model_chain_uses_gpt55_then_m3(monkeypatch):
+def test_default_model_chain_uses_m3_then_gpt55(monkeypatch):
     monkeypatch.delenv("LLM_DECISION_MODEL", raising=False)
     monkeypatch.delenv("LLM_DECISION_FALLBACK_MODELS", raising=False)
     reloaded = importlib.reload(m)
 
-    assert [reloaded.MODEL, *reloaded.FALLBACK_MODELS] == ["gpt-5.5", "minimax-m3"]
+    assert [reloaded.MODEL, *reloaded.FALLBACK_MODELS] == ["minimax-m3", "gpt-5.5"]
 
 
-def test_call_llm_falls_back_to_m3_after_primary_failure(monkeypatch):
+def test_call_llm_falls_back_to_gpt55_after_primary_failure(monkeypatch):
     monkeypatch.setattr(m, "API_KEY", "test-key")
-    monkeypatch.setattr(m, "MODEL", "gpt-5.5")
-    monkeypatch.setattr(m, "FALLBACK_MODELS", ["minimax-m3"])
+    monkeypatch.setattr(m, "MODEL", "minimax-m3")
+    monkeypatch.setattr(m, "FALLBACK_MODELS", ["gpt-5.5"])
     monkeypatch.setattr(m, "_RETRY_BACKOFF_SECONDS", [])
 
     requested_models = []
 
     def fake_chat_completion(**kwargs):
         requested_models.append(kwargs["model"])
-        if kwargs["model"] == "gpt-5.5":
+        if kwargs["model"] == "minimax-m3":
             raise ConnectionError("primary down")
         return "ok"
 
     monkeypatch.setattr(m, "cliproxy_chat_completion", fake_chat_completion)
 
     assert m._call_llm("system", "user") == "ok"
-    assert requested_models == ["gpt-5.5", "minimax-m3"]
+    assert requested_models == ["minimax-m3", "gpt-5.5"]
 
 
 # ---- happy path with mocked LLM -------------------------------------------

@@ -29,7 +29,7 @@ def automation_source_system_prompt() -> str:
         "<homelab-host> / <homelab-elk> and the public endpoint https://cliproxy.jclee.me/v1 instead. "
         "Do NOT use bold/emphasis text as a substitute for a heading (markdownlint MD036); "
         "use real '#' headings. "
-        "Current README-gen primary model: gpt-5.5 (fallback: minimax-m3 via CLIProxyAPI). "
+        "Current README-gen primary model: minimax-m3 (fallback: gpt-5.5 via CLIProxyAPI). "
         "Do NOT invent GitHub repository URLs: never link to non-existent repos such as "
         "github.com/jclee941/CLIProxyAPI or github.com/jclee941/github-bot. For external "
         "links use only qodo-ai/pr-agent, cliproxy.jclee.me, and bot.jclee.me. "

@@ -29,8 +29,8 @@ Environment:
     CLIPROXY_API_KEY       required for live calls
     CLIPROXY_API_KEY_OP_REF optional 1Password secret ref used when key is unset
     OPENAI_BASE_URL        default https://cliproxy.jclee.me/v1
-    LLM_DECISION_MODEL     default gpt-5.5
-    LLM_DECISION_FALLBACK_MODELS default ["minimax-m3"]
+    LLM_DECISION_MODEL     default minimax-m3
+    LLM_DECISION_FALLBACK_MODELS default ["gpt-5.5"]
     LLM_DECISIONS_ENABLED  global kill switch (default true)
     LLM_DECIDE_<TYPE>      per-decision kill switch, e.g. LLM_DECIDE_ISSUE_LABEL
 """
@@ -64,8 +64,8 @@ def _parse_models(raw: str) -> list[str]:
 
 API_BASE = os.environ.get("OPENAI_BASE_URL", "https://cliproxy.jclee.me/v1")
 API_KEY = os.environ.get("CLIPROXY_API_KEY", "")
-MODEL = os.environ.get("LLM_DECISION_MODEL", "gpt-5.5")
-FALLBACK_MODELS = _parse_models(os.environ.get("LLM_DECISION_FALLBACK_MODELS", '["minimax-m3"]'))
+MODEL = os.environ.get("LLM_DECISION_MODEL", "minimax-m3")
+FALLBACK_MODELS = _parse_models(os.environ.get("LLM_DECISION_FALLBACK_MODELS", '["gpt-5.5"]'))
 _RETRY_BACKOFF_SECONDS = [2, 5]
 _TIMEOUT_SECONDS = 45
 

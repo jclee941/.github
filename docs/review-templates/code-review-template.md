@@ -1,7 +1,7 @@
 # 코드 리뷰 마스터 템플릿
 
 > PR-Agent `jclee-bot`용 코드 리뷰 기준 및 응답 형식
-> 적용 모델: GitHub App 기본 `gpt-5.5`, fallback: `minimax-m3` via CLIProxyAPI
+> 적용 모델: GitHub App 기본 `minimax-m3`, fallback: `gpt-5.5` via CLIProxyAPI
 > 응답 언어: **한국어 (ko)**
 
 ---
