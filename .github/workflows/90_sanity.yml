@@ -163,6 +163,21 @@ jobs:
                   bad_nested.append(f)
           assert not bad_nested, f'workflows use non-canonical double-underscore pr-agent env names: {bad_nested}'
           print('All workflow CONFIG.FALLBACK_MODELS match canonical chain')
+
+          # Doc/metadata surfaces must not advertise the retired ordering
+          # (gpt-5.5 primary with minimax-m3 fallback). These files are not
+          # covered by the FALLBACK_MODELS scan above but are PR/user-facing.
+          stale_re = re.compile(r'gpt-5\.5[^\n]{0,40}minimax-m3[^\n]{0,20}fallback', re.IGNORECASE)
+          doc_surfaces = ['.github/PULL_REQUEST_TEMPLATE.md', 'README.md', 'NOTICE', 'docs/architecture.md', 'docs/review-templates/code-review-template.md']
+          stale_docs = []
+          for f in doc_surfaces:
+              try:
+                  if stale_re.search(open(f).read()):
+                      stale_docs.append(f)
+              except FileNotFoundError:
+                  continue
+          assert not stale_docs, f'doc surfaces advertise retired model ordering (gpt-5.5 primary): {stale_docs}'
+          print('All doc surfaces match canonical model ordering')
           "
 
       - name: Fast unittest smoke (AGENTS.md minimum gate)
