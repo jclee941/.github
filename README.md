@@ -110,7 +110,7 @@ flowchart TB
 
     subgraph LLM["LLM Gateway"]
         CLI["CLIProxyAPI<br/>&lt;homelab-host&gt;:8317<br/>https://cliproxy.jclee.me/v1"]
-        MOD["Models<br/>gpt-5.5 primary<br/>minimax-m3 fallback"]
+        MOD["Models<br/>minimax-m3 primary<br/>gpt-5.5 fallback"]
     end
 
     subgraph OBS["Observability"]
@@ -247,8 +247,8 @@ Create a `.env` (or export in your shell) with the GitHub credentials and the CL
 export GITHUB__USER_TOKEN=ghp_...
 export OPENAI__KEY=sk-...
 export OPENAI__API_BASE=https://cliproxy.jclee.me/v1
-export CONFIG__MODEL=gpt-5.5
-export CONFIG__FALLBACK_MODELS='["minimax-m3"]'
+export CONFIG__MODEL=minimax-m3
+export CONFIG__FALLBACK_MODELS='["gpt-5.5"]'
 ```
 
 ### First run | 첫 실행
@@ -382,8 +382,8 @@ pr-agent config          --pr_url=<url>
 
 This README is generated and maintained by the `34_readme-automation.yml` workflow, with the inventory cross-checked by `90_sanity.yml`.
 
-- **Primary model | 기본 모델** — `gpt-5.5` via the homelab CLIProxyAPI gateway.
-- **Fallback model | 폴백 모델** — `minimax-m3` via the same gateway.
+- **Primary model | 기본 모델** — `minimax-m3` via the homelab CLIProxyAPI gateway.
+- **Fallback model | 폴백 모델** — `gpt-5.5` via the same gateway.
 - **Redaction | 비공개 정보 마스킹** — Generated READMEs redact private RFC1918 IPs and LXC container numbers, replacing them with `<homelab-host>` / `<homelab-elk>` placeholders. Invented repository URLs are rejected at validation time.
 
 ---
