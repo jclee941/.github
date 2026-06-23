@@ -51,6 +51,32 @@ MAX_TOKENS = 16000  # README is long; 4000 truncated the JSON mid-string
 _RETRY_BACKOFF_SECONDS = [2, 5, 10]
 
 
+def _is_automation_source_repo(repo_root: Path) -> bool:
+    return (
+        (repo_root / "jclee_bot").is_dir()
+        and (repo_root / "pr_agent").is_dir()
+        and (repo_root / "config" / "repos.yaml").exists()
+    )
+
+
+def _looks_like_downstream_automation_boilerplate(text: str) -> bool:
+    lower = text.lower()
+    markers = (
+        "jclee-bot",
+        "bot.jclee.me",
+        "qodo-ai/pr-agent",
+        "readme generation",
+        "readme 생성",
+        "automation surfaces",
+        "자동화 표면",
+        "workflow files",
+        "워크플로 파일",
+        "gpt-5.5",
+        "minimax-m3",
+    )
+    return any(marker in lower for marker in markers)
+
+
 def read_key_files(repo_root: Path) -> dict[str, str]:
     """Read important config / entry-point files for context."""
     candidates = [
@@ -130,34 +156,8 @@ def call_llm(system: str, user: str) -> str:
     raise SystemExit(f"ERROR: All models failed. Last error: {last_error}")
 
 
-def generate_readme(repo_root: Path) -> str:
-    tree = run_tree(repo_root)
-    files = read_key_files(repo_root)
-
-    # Scan workflow files
-    workflows_dir = repo_root / ".github" / "workflows"
-    workflows = []
-    if workflows_dir.exists():
-        for wf in sorted(workflows_dir.glob("*.yml")):
-            workflows.append(wf.name)
-        for wf in sorted((workflows_dir / "security").glob("*.yml")):
-            workflows.append(f"security/{wf.name}")
-
-    # Scan Go automation tools
-    scripts_dir = repo_root / "scripts" / "cmd"
-    go_tools = []
-    if scripts_dir.exists():
-        for d in sorted(scripts_dir.iterdir()):
-            if d.is_dir() and (d / "main.go").exists():
-                go_tools.append(d.name)
-
-    # Read AGENTS.md for automation inventory
-    agents_md = ""
-    agents_path = repo_root / "AGENTS.md"
-    if agents_path.exists():
-        agents_md = agents_path.read_text(encoding="utf-8", errors="ignore")[:4000]
-
-    system = (
+def _automation_source_system_prompt() -> str:
+    return (
         "You are a technical writer bot specialized in GitHub automation documentation. "
         "Generate a comprehensive, professional README.md in Korean and English (bilingual). "
         "Use Markdown. Structure: title, badges, overview, features, architecture, "
@@ -190,26 +190,115 @@ def generate_readme(repo_root: Path) -> str:
         "links use only qodo-ai/pr-agent, cliproxy.jclee.me, and bot.jclee.me. "
     )
 
+
+def _product_readme_system_prompt() -> str:
+    return (
+        "You are a technical writer for application, CLI, library, and tool repositories. "
+        "Generate a comprehensive, professional README.md in Korean and English (bilingual). "
+        "Document the repository's actual product: what the app/tool/library does, who uses it, "
+        "its entry points, architecture, configuration, commands, testing, and local development. "
+        "Use Markdown. Prefer this structure when applicable: title, overview, features, "
+        "architecture, quick start, configuration, commands reference, local development, testing, "
+        "contribution guide, and license. "
+        "Do NOT add jclee-bot automation surfaces, issue automation, PR automation, release "
+        "automation, downstream health checks, workflow/event-adapter policy, README generation "
+        "metadata, model names, bot control-plane URLs, or the marker 'jclee-bot에의해자동화됨'. "
+        "Do NOT add sections named 'jclee-bot Automation', 'Automation Surfaces', "
+        "'README Generation', 'Go Automation Tools', or similar repository-maintenance boilerplate "
+        "unless this repository's own source code implements that as the product. "
+        "If the existing README contains jclee-bot, qodo-ai/pr-agent, cliproxy, bot.jclee.me, "
+        "workflow adapter, README generation, or automation policy text, treat that content as "
+        "stale boilerplate from a previous generator run and remove it unless the product source "
+        "files independently prove it belongs. "
+        "Workflow files, AGENTS.md instructions, badges, and bot-owned PR metadata are context for "
+        "safe generation only; do not present them as user-facing product features. "
+        "For the architecture section, draw a GitHub-native Mermaid flowchart inside a ```mermaid "
+        "fenced block only when it clarifies the actual product architecture. Do NOT hand-draw "
+        "ASCII/box-drawing diagrams. "
+        "Any Mermaid node label containing angle brackets MUST quote and HTML-escape them, e.g. "
+        "CLIProxy[\"&lt;placeholder&gt;<br/>...\"]; a bare '<' breaks GitHub rendering. "
+        "For the repository structure tree, reflect the ACTUAL top-level layout provided below; "
+        "never invent directories. "
+        "NEVER include hardcoded private/internal IP addresses (RFC1918: 192.168.x.x, 10.x.x.x, "
+        "172.16-31.x.x) or LXC container numbers; use placeholders only when the actual product "
+        "needs them. "
+        "Do NOT use bold/emphasis text as a substitute for a heading (markdownlint MD036); use "
+        "real '#' headings. "
+        "Do NOT invent GitHub repository URLs. "
+    )
+
+
+def _workflow_files(repo_root: Path) -> list[str]:
+    workflows_dir = repo_root / ".github" / "workflows"
+    workflows: list[str] = []
+    if workflows_dir.exists():
+        for wf in sorted(workflows_dir.glob("*.yml")):
+            workflows.append(wf.name)
+        for wf in sorted((workflows_dir / "security").glob("*.yml")):
+            workflows.append(f"security/{wf.name}")
+    return workflows
+
+
+def _go_automation_tools(repo_root: Path) -> list[str]:
+    scripts_dir = repo_root / "scripts" / "cmd"
+    go_tools: list[str] = []
+    if scripts_dir.exists():
+        for d in sorted(scripts_dir.iterdir()):
+            if d.is_dir() and (d / "main.go").exists():
+                go_tools.append(d.name)
+    return go_tools
+
+
+def generate_readme(repo_root: Path) -> str:
+    tree = run_tree(repo_root)
+    files = read_key_files(repo_root)
+    is_automation_source = _is_automation_source_repo(repo_root)
+    if (
+        not is_automation_source
+        and "README.md" in files
+        and _looks_like_downstream_automation_boilerplate(files["README.md"])
+    ):
+        del files["README.md"]
+    system = (
+        _automation_source_system_prompt()
+        if is_automation_source
+        else _product_readme_system_prompt()
+    )
+
     user_parts = [
         "Generate a comprehensive README.md for the following repository.",
         "",
         "=== PROJECT STRUCTURE ===",
         tree,
         "",
-        "=== WORKFLOW FILES (", str(len(workflows)), " total) ===",
-        "\n".join(workflows),
-        "",
-        "=== GO AUTOMATION TOOLS (", str(len(go_tools)), " total) ===",
-        "\n".join(go_tools),
-        "",
     ]
+
+    if is_automation_source:
+        workflows = _workflow_files(repo_root)
+        go_tools = _go_automation_tools(repo_root)
+        user_parts.extend(
+            [
+                "=== WORKFLOW FILES (",
+                str(len(workflows)),
+                " total) ===",
+                "\n".join(workflows),
+                "",
+                "=== GO AUTOMATION TOOLS (",
+                str(len(go_tools)),
+                " total) ===",
+                "\n".join(go_tools),
+                "",
+            ]
+        )
 
     for name, content in files.items():
         user_parts.append(f"=== {name} ===")
         user_parts.append(content)
         user_parts.append("")
 
-    if agents_md:
+    agents_path = repo_root / "AGENTS.md"
+    if is_automation_source and agents_path.exists():
+        agents_md = agents_path.read_text(encoding="utf-8", errors="ignore")[:4000]
         user_parts.append("=== AUTOMATION INVENTORY (AGENTS.md) ===")
         user_parts.append(agents_md)
         user_parts.append("")

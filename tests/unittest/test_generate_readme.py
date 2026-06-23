@@ -58,6 +58,73 @@ def test_prompt_keeps_jclee_bot_as_automation_surface():
     assert "list all real workflow files grouped by trigger type" not in text
 
 
+def test_downstream_repo_prompt_excludes_jclee_bot_boilerplate(monkeypatch, tmp_path):
+    mod = _load_module()
+    captured: dict[str, str] = {}
+
+    (tmp_path / ".github" / "workflows").mkdir(parents=True)
+    (tmp_path / ".github" / "workflows" / "ci.yml").write_text("name: CI\n", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text(
+        "This repo is managed by jclee-bot and jclee-bot에의해자동화됨.\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "package.json").write_text('{"name":"demo-tool"}\n', encoding="utf-8")
+    (tmp_path / "README.md").write_text(
+        "# demo\n\n## jclee-bot Automation\n\nREADME Generation via gpt-5.5.\n",
+        encoding="utf-8",
+    )
+
+    def fake_call_llm(system: str, user: str) -> str:
+        captured["system"] = system
+        captured["user"] = user
+        return "# demo-tool\n"
+
+    monkeypatch.setattr(mod, "run_tree", lambda _repo_root: ".\n├── package.json\n└── README.md")
+    monkeypatch.setattr(mod, "call_llm", fake_call_llm)
+
+    assert mod.generate_readme(tmp_path) == "# demo-tool\n"
+
+    assert "Document the repository's actual product" in captured["system"]
+    assert "Do NOT add jclee-bot automation surfaces" in captured["system"]
+    assert "stale boilerplate from a previous generator run" in captured["system"]
+    assert "AUTOMATION INVENTORY" not in captured["user"]
+    assert "WORKFLOW FILES" not in captured["user"]
+    assert "jclee-bot Automation" not in captured["user"]
+    assert "jclee-bot에의해자동화됨" not in captured["user"]
+
+
+def test_source_repo_prompt_keeps_automation_contract(monkeypatch, tmp_path):
+    mod = _load_module()
+    captured: dict[str, str] = {}
+
+    (tmp_path / "jclee_bot").mkdir()
+    (tmp_path / "pr_agent").mkdir()
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "repos.yaml").write_text("repositories: []\n", encoding="utf-8")
+    (tmp_path / ".github" / "workflows").mkdir(parents=True)
+    (tmp_path / ".github" / "workflows" / "10_pr-review.yml").write_text(
+        "name: PR Review\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text("Automation inventory\n", encoding="utf-8")
+
+    def fake_call_llm(system: str, user: str) -> str:
+        captured["system"] = system
+        captured["user"] = user
+        return "# github-bot\n"
+
+    monkeypatch.setattr(mod, "run_tree", lambda _repo_root: ".\n├── jclee_bot\n└── pr_agent")
+    monkeypatch.setattr(mod, "call_llm", fake_call_llm)
+
+    assert mod.generate_readme(tmp_path) == "# github-bot\n"
+
+    assert "jclee-bot automation surfaces" in captured["system"]
+    assert "jclee-bot에의해자동화됨" in captured["system"]
+    assert "WORKFLOW FILES" in captured["user"]
+    assert "10_pr-review.yml" in captured["user"]
+    assert "AUTOMATION INVENTORY" in captured["user"]
+
+
 def test_no_unreachable_duplicate_function_bodies():
     """read_key_files and generate_readme must each have exactly one body.
 
