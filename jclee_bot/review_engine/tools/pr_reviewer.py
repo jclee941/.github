@@ -691,5 +691,5 @@ class PRReviewer:
             get_logger().info("Auto-approval option is disabled")
             self.git_provider.publish_comment(
                 "Auto-approval option for PR-Agent is disabled. "
-                "You can enable it via a [configuration file](https://github.com/Codium-ai/pr-agent/blob/main/docs/REVIEW.md#auto-approval-1)"
+                "You can enable it via a [configuration file](https://github.com/qodo-ai/pr-agent/blob/main/docs/docs/tools/review.md)"
             )

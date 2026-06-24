@@ -200,7 +200,7 @@ class PRHelpMessage:
                 pr_comment = "## PR Agent Walkthrough 🤖\n\n"
                 pr_comment += "Welcome to the PR Agent, an AI-powered tool for automated pull request analysis, feedback, suggestions and more."""
                 pr_comment += "\n\nHere is a list of tools you can use to interact with the PR Agent:\n"
-                base_path = "https://pr-agent-docs.codium.ai/tools"
+                base_path = "https://github.com/qodo-ai/pr-agent/blob/main/docs/docs/tools"
 
                 tool_names = []
                 tool_names.append(f"[DESCRIBE]({base_path}/describe/)")
@@ -250,7 +250,7 @@ class PRHelpMessage:
                     for i in range(len(tool_names)):
                         pr_comment += f"\n<tr><td align='left'>\n\n<strong>{tool_names[i]}</strong></td>\n<td>{descriptions[i]}</td>\n<td>\n\n{checkbox_list[i]}\n</td></tr>"
                     pr_comment += "</table>\n\n"
-                    pr_comment += f"""\n\n(1) Note that each tool can be [triggered automatically](https://pr-agent-docs.codium.ai/usage-guide/automations_and_usage/#github-app-automatic-tools-when-a-new-pr-is-opened) when a new PR is opened, or called manually by [commenting on a PR](https://pr-agent-docs.codium.ai/usage-guide/automations_and_usage/#online-usage)."""
+                    pr_comment += f"""\n\n(1) Note that each tool can be [triggered automatically](https://github.com/qodo-ai/pr-agent/blob/main/docs/docs/usage-guide/automations_and_usage.md) when a new PR is opened, or called manually by [commenting on a PR](https://github.com/qodo-ai/pr-agent/blob/main/docs/docs/usage-guide/automations_and_usage.md)."""
                     pr_comment += f"""\n\n(2) Tools marked with [*] require additional parameters to be passed. For example, to invoke the `/ask` tool, you need to comment on a PR: `/ask "<question content>"`. See the relevant documentation for each tool for more details."""
                 elif isinstance(self.git_provider, BitbucketServerProvider):
                     # only support basic commands in BBDC
@@ -260,7 +260,7 @@ class PRHelpMessage:
                     for i in range(len(tool_names)):
                         pr_comment += f"\n<tr><td align='left'>\n\n<strong>{tool_names[i]}</strong></td><td>{commands[i]}</td><td>{descriptions[i]}</td></tr>"
                     pr_comment += "</table>\n\n"
-                    pr_comment += f"""\n\nNote that each tool can be [invoked automatically](https://pr-agent-docs.codium.ai/usage-guide/automations_and_usage/) when a new PR is opened, or called manually by [commenting on a PR](https://pr-agent-docs.codium.ai/usage-guide/automations_and_usage/#online-usage)."""
+                    pr_comment += f"""\n\nNote that each tool can be [invoked automatically](https://github.com/qodo-ai/pr-agent/blob/main/docs/docs/usage-guide/automations_and_usage.md) when a new PR is opened, or called manually by [commenting on a PR](https://github.com/qodo-ai/pr-agent/blob/main/docs/docs/usage-guide/automations_and_usage.md)."""
 
                 if get_settings().config.publish_output:
                     self.git_provider.publish_comment(pr_comment)
