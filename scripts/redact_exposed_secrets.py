@@ -14,7 +14,7 @@ What it does:
    - PR issue comments
    - PR review comments (inline)
    - PR review summaries
-4. Applies ``pr_agent.algo.secret_masking.mask_text`` to detect secrets.
+4. Applies ``jclee_bot.review_engine.algo.secret_masking.mask_text`` to detect secrets.
 5. If anything would change AND ``--apply`` was passed, calls the GitHub API to
    PATCH the comment/issue/PR body with the redacted version.
 6. Otherwise runs in dry-run mode (default) and writes a report.
