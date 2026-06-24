@@ -1287,7 +1287,7 @@ def show_relevant_configurations(relevant_section: str) -> str:
 
     markdown_text = ""
     markdown_text += "\n<hr>\n<details> <summary><strong>🛠️ 관련 구성:</strong></summary> \n\n"
-    markdown_text +="<br>이 도구의 [구성](https://github.com/Codium-ai/pr-agent/blob/main/pr_agent/settings/configuration.toml)에 대한 설명:\n\n"
+    markdown_text +="<br>이 도구의 [구성](https://github.com/qodo-ai/pr-agent/blob/main/pr_agent/settings/configuration.toml)에 대한 설명:\n\n"
     markdown_text += f"**[config**]\n```yaml\n\n"
     for key, value in get_settings().config.items():
         if key in skip_keys:
