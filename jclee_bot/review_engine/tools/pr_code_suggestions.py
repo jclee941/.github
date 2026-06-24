@@ -98,7 +98,7 @@ class PRCodeSuggestions:
                                           self.pr_code_suggestions_prompt_user)
 
         self.progress = f"## Generating PR code suggestions\n\n"
-        self.progress += f"""\nWork in progress ...<br>\n<img src="https://codium.ai/images/pr_agent/dual_ball_loading-crop.gif" width=48>"""
+        self.progress += """\nWork in progress ...\n"""
         self.progress_response = None
 
     async def run(self):

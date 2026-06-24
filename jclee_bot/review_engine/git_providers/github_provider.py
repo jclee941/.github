@@ -894,7 +894,7 @@ class GithubProvider(GitProvider):
             except AttributeError as e:
                 raise ValueError(
                     "GitHub token is required when using user deployment. See: "
-                    "https://github.com/Codium-ai/pr-agent#method-2-run-from-source"
+                    "https://github.com/qodo-ai/pr-agent#run-from-source"
                 ) from e
             self.auth = Auth.Token(token)
         if self.auth:
