@@ -175,3 +175,20 @@ class TestForkPrAgentConfig:
             f"fail at runtime): {unresolved}. "
             f"Registered commands: {sorted(command2class.keys())}"
         )
+
+    def test_console_scripts_expose_both_entry_points(self):
+        """pyproject.toml must expose both github-bot and the pr-agent alias."""
+        pyproject = (
+            pathlib.Path(__file__).parent.parent.parent / "pyproject.toml"
+        )
+        with open(pyproject, "rb") as f:
+            data = tomllib.load(f)
+        scripts = data.get("project", {}).get("scripts", {})
+        target = "jclee_bot.review_engine.cli:run"
+        assert scripts.get("github-bot") == target, (
+            f"Expected console script github-bot={target!r}, got {scripts.get('github-bot')!r}"
+        )
+        assert scripts.get("pr-agent") == target, (
+            "README documents a `pr-agent` console script; pyproject.toml must "
+            f"define pr-agent={target!r}, got {scripts.get('pr-agent')!r}"
+        )
