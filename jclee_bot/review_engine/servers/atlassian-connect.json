@@ -1,10 +1,10 @@
 {
-  "name": "CodiumAI PR-Agent",
-  "description": "CodiumAI PR-Agent",
+  "name": "jclee-bot PR-Agent",
+  "description": "jclee-bot PR-Agent",
   "key": "app_key",
   "vendor": {
-    "name": "CodiumAI",
-    "url": "https://codium.ai"
+    "name": "jclee-bot",
+    "url": "https://bot.jclee.me"
   },
   "authentication": {
     "type": "jwt"
@@ -32,7 +32,7 @@
     ]
   },
   "links": {
-    "privacy": "https://qodo.ai/privacy-policy",
-    "terms": "https://qodo.ai/terms"
+    "privacy": "https://bot.jclee.me",
+    "terms": "https://bot.jclee.me"
   }
 }
