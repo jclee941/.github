@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: downstream-health-check
+  group: downstream-health-check-${{ github.event.workflow_run.id || github.run_id }}
   cancel-in-progress: false
 
 jobs:

@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: app-issue-maintenance
+  group: app-issue-maintenance-${{ github.event.workflow_run.id || github.run_id }}
   cancel-in-progress: false
 
 jobs:

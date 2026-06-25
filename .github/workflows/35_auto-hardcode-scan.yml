@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: auto-hardcode-scan
+  group: auto-hardcode-scan-${{ github.event.workflow_run.id || github.ref }}
   cancel-in-progress: false
 
 jobs:

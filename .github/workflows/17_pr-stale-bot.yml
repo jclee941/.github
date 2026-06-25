@@ -15,7 +15,7 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: pr-stale-bot
+  group: pr-stale-bot-${{ github.event.workflow_run.id || github.ref }}
   cancel-in-progress: false
 
 jobs:

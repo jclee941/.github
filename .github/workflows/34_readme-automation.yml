@@ -28,7 +28,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: app-readme-automation
+  group: app-readme-automation-${{ github.event.workflow_run.id || github.run_id }}
   cancel-in-progress: false
 
 jobs:

@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: nas-cache-prune
+  group: nas-cache-prune-${{ github.event.workflow_run.id || github.run_id }}
   cancel-in-progress: false
 
 jobs:

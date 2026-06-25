@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: stale-repo-identifier
+  group: stale-repo-identifier-${{ github.event.workflow_run.id || github.ref }}
   cancel-in-progress: false
 
 jobs:

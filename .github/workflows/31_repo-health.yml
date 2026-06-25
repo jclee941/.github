@@ -19,7 +19,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: repo-health-${{ github.ref }}
+  group: repo-health-${{ github.event.workflow_run.id || github.ref }}
   cancel-in-progress: false
 
 jobs:

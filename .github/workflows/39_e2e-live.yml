@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: e2e-live
+  group: e2e-live-${{ github.event.workflow_run.id || github.run_id }}
   cancel-in-progress: false
 
 jobs:

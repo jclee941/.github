@@ -14,7 +14,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: elk-health-check
+  group: elk-health-check-${{ github.event.workflow_run.id || github.run_id }}
   cancel-in-progress: false
 
 jobs:
