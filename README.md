@@ -4,7 +4,7 @@
 > homelab CLIProxyAPI 배포를 기반으로 `jclee941/*` 저장소를 자동화하는 AI PR 리뷰어 및 GitHub 자동화 플랫폼입니다.
 
 [![Version](https://img.shields.io/badge/version-0.3.1-blue.svg)](pyproject.toml)
-[![Python](https://img.shields.io/badge/python-3.12%2B-green.svg)](pyproject.toml)
+[![Python](https://img.shields.io/badge/python-3.12--3.13-green.svg)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange.svg)](LICENSE)
 
 [![CLIProxy](https://img.shields.io/badge/LLM%20Gateway-CLIProxyAPI-purple.svg)](https://cliproxy.jclee.me/v1)
@@ -226,7 +226,7 @@ github-bot/
 
 ### Prerequisites | 사전 요구사항
 
-- Python **3.12+**
+- Python **3.12 or 3.13**
 - `git`, `make`, `curl`
 - A GitHub personal access token or GitHub App credentials with `repo` and `checks:write` scope
 - Network reachability to the homelab CLIProxyAPI endpoint (`https://cliproxy.jclee.me/v1`) and the homelab LXC host

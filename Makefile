@@ -1,7 +1,9 @@
 .PHONY: test test-unit test-e2e test-live lint install clean
 
+PYTHON ?= $(shell command -v python3.13 2>/dev/null || command -v python3.12 2>/dev/null || command -v python3)
+
 install:
-	python3.12 -m venv .venv
+	$(PYTHON) -m venv .venv
 	.venv/bin/pip install --upgrade pip
 	.venv/bin/pip install -e .
 
