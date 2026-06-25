@@ -1,7 +1,6 @@
 name: ELK Health Check
 
 on:
-  deployment_status:
   workflow_run:
     workflows: ["Build and Push App Image", "ELK Setup"]
     types: [completed]

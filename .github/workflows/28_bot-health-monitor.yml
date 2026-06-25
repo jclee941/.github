@@ -1,7 +1,6 @@
 name: Bot Health Monitor
 
 on:
-  deployment_status:
   workflow_run:
     workflows: ["Build and Push App Image", "PR Review (CLIProxyAPI)", "Security Audit"]
     types: [completed]
