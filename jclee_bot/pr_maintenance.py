@@ -7,12 +7,16 @@ from urllib.parse import quote
 
 import requests
 
-from jclee_bot.gitops_automation import GitHubGraphQLError, add_auto_merge_label, enable_auto_merge
+from jclee_bot.pr_auto_merge import (
+    AUTO_MERGE_ERRORS,
+    DOCS_SYNC_TITLE,
+    apply_pr_auto_merge,
+    is_automation_pr,
+    nested_str,
+    plan_pr_auto_merge,
+)
 
 GITHUB_API = "https://api.github.com"
-DOCS_SYNC_TITLE = "docs: sync standard templates from jclee941/.github"
-AUTOMATION_TITLE_PREFIXES = ("chore(deps", "build(deps", DOCS_SYNC_TITLE)
-AUTOMATION_HEAD_PREFIXES = ("dependabot/", "renovate/", "bot/", "jclee-bot/", "docs-sync/")
 FAILED_CHECK_CONCLUSIONS = frozenset({"failure", "timed_out", "startup_failure", "action_required"})
 FAILED_STATUS_STATES = frozenset({"failure", "error"})
 PENDING_CHECK_STATUSES = frozenset({"queued", "requested", "in_progress", "waiting", "pending"})
@@ -39,12 +43,6 @@ class PrCleanupPlan:
     reason: str
     head_ref: str
     can_delete_branch: bool
-
-
-@dataclass(frozen=True, slots=True)
-class PrAutoMergePlan:
-    number: int
-    pull_request_id: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,26 +73,15 @@ def _age_hours(item: dict[str, Any], now: datetime) -> float:
 
 
 def _paginate(token: str, path: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
-    items: list[dict[str, Any]] = []
-    page = 1
-    while True:
-        resp = requests.get(
-            f"{GITHUB_API}{path}",
-            headers=_headers(token),
-            params={**(params or {}), "per_page": 100, "page": page},
-            timeout=30,
-        )
-        resp.raise_for_status()
-        batch = resp.json()
-        if not isinstance(batch, list) or not batch:
-            return items
-        items.extend(batch)
-        if len(batch) < 100:
-            return items
-        page += 1
+    return _paginate_key(token, path, None, params)
 
 
-def _paginate_key(token: str, path: str, key: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+def _paginate_key(
+    token: str,
+    path: str,
+    key: str | None,
+    params: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     page = 1
     while True:
@@ -106,7 +93,7 @@ def _paginate_key(token: str, path: str, key: str, params: dict[str, Any] | None
         )
         resp.raise_for_status()
         data = resp.json()
-        batch = data.get(key, []) if isinstance(data, dict) else []
+        batch = data.get(key, []) if key is not None and isinstance(data, dict) else data
         if not isinstance(batch, list) or not batch:
             return items
         items.extend(batch)
@@ -115,24 +102,9 @@ def _paginate_key(token: str, path: str, key: str, params: dict[str, Any] | None
         page += 1
 
 
-def _nested_str(item: dict[str, Any], *keys: str) -> str:
-    current: Any = item
-    for key in keys:
-        if not isinstance(current, dict):
-            return ""
-        current = current.get(key)
-    return str(current or "")
-
-
-def _is_automation_pr(pr: dict[str, Any]) -> bool:
-    title = str(pr.get("title") or "")
-    head_ref = _nested_str(pr, "head", "ref")
-    return title.startswith(AUTOMATION_TITLE_PREFIXES) or head_ref.startswith(AUTOMATION_HEAD_PREFIXES)
-
-
 def _can_delete_head_branch(pr: dict[str, Any], repo_full_name: str) -> bool:
-    head_ref = _nested_str(pr, "head", "ref")
-    head_repo = _nested_str(pr, "head", "repo", "full_name")
+    head_ref = nested_str(pr, "head", "ref")
+    head_repo = nested_str(pr, "head", "repo", "full_name")
     return bool(head_ref) and head_ref not in PROTECTED_BRANCHES and head_repo == repo_full_name
 
 
@@ -144,7 +116,7 @@ def plan_pr_cleanup(
     now: datetime,
 ) -> PrCleanupPlan | None:
     number = int(pr.get("number", 0) or 0)
-    head_ref = _nested_str(pr, "head", "ref")
+    head_ref = nested_str(pr, "head", "ref")
     if number <= 0:
         return None
 
@@ -152,7 +124,7 @@ def plan_pr_cleanup(
     if title.startswith(DOCS_SYNC_TITLE):
         return PrCleanupPlan(number, "docs-sync", head_ref, _can_delete_head_branch(pr, repo_full_name))
 
-    if not _is_automation_pr(pr):
+    if not is_automation_pr(pr):
         return None
 
     age_hours = _age_hours(pr, now)
@@ -161,18 +133,6 @@ def plan_pr_cleanup(
     if checks.pending and age_hours >= PENDING_PR_STALE_HOURS:
         return PrCleanupPlan(number, "pending-checks", head_ref, _can_delete_head_branch(pr, repo_full_name))
     return None
-
-
-def plan_pr_auto_merge(pr: dict[str, Any], *, checks: CheckSummary) -> PrAutoMergePlan | None:
-    number = int(pr.get("number", 0) or 0)
-    pull_request_id = str(pr.get("node_id") or "")
-    if number <= 0 or not pull_request_id:
-        return None
-    if pr.get("draft") or pr.get("auto_merge") is not None:
-        return None
-    if checks.failed or not _is_automation_pr(pr):
-        return None
-    return PrAutoMergePlan(number=number, pull_request_id=pull_request_id)
 
 
 def plan_run_cleanup(run: dict[str, Any], *, now: datetime) -> RunCleanupPlan | None:
@@ -279,10 +239,6 @@ def cancel_workflow_run(*, token: str, repo_full_name: str, run_id: int, force: 
         resp.raise_for_status()
 
 
-def _head_sha(pr: dict[str, Any]) -> str:
-    return _nested_str(pr, "head", "sha")
-
-
 def maintain_pull_requests(*, token: str, repo_full_name: str, dry_run: bool, now: datetime | None = None) -> list[str]:
     current_time = now or datetime.now(UTC)
     actions: list[str] = []
@@ -294,7 +250,7 @@ def maintain_pull_requests(*, token: str, repo_full_name: str, dry_run: bool, no
         pull_requests = []
 
     for pr in pull_requests:
-        sha = _head_sha(pr)
+        sha = nested_str(pr, "head", "sha")
         checks = CheckSummary((), ())
         plan = plan_pr_cleanup(pr, checks=checks, repo_full_name=repo_full_name, now=current_time)
         if plan is None and sha:
@@ -313,9 +269,8 @@ def maintain_pull_requests(*, token: str, repo_full_name: str, dry_run: bool, no
                 actions.append(f"enable-auto-merge:{auto_merge_plan.number}")
                 continue
             try:
-                add_auto_merge_label(token, repo_full_name, auto_merge_plan.number)
-                enable_auto_merge(token, auto_merge_plan.pull_request_id)
-            except (GitHubGraphQLError, requests.RequestException) as exc:
+                apply_pr_auto_merge(token=token, repo_full_name=repo_full_name, plan=auto_merge_plan)
+            except AUTO_MERGE_ERRORS as exc:
                 actions.append(f"auto-merge-error:{auto_merge_plan.number}:{type(exc).__name__}")
                 continue
             actions.append(f"enable-auto-merge:{auto_merge_plan.number}")

@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 import requests
 
-from jclee_bot import pr_maintenance
+from jclee_bot import pr_auto_merge, pr_maintenance
 
 NOW = datetime(2026, 6, 19, 12, tzinfo=UTC)
 
@@ -148,6 +148,17 @@ class TestPullRequestMaintenanceDecisions:
         assert plan.number == 37
         assert plan.pull_request_id == "PR_kwDOExample"
 
+    def test_skips_auto_merge_for_pending_checks(self) -> None:
+        # Given
+        pr = _pr(number=38, updated_hours_ago=1)
+        checks = pr_maintenance.CheckSummary(failed=(), pending=("build",))
+
+        # When
+        plan = pr_maintenance.plan_pr_auto_merge(pr, checks=checks)
+
+        # Then
+        assert plan is None
+
     def test_skips_auto_merge_for_failed_draft_human_or_already_enabled_prs(self) -> None:
         # Given
         checks = pr_maintenance.CheckSummary(failed=(), pending=())
@@ -225,8 +236,8 @@ class TestMaintainPullRequests:
             lambda **kwargs: pr_maintenance.CheckSummary(failed=(), pending=()),
         )
         monkeypatch.setattr(pr_maintenance, "list_active_workflow_runs", lambda **kwargs: [])
-        monkeypatch.setattr(pr_maintenance, "add_auto_merge_label", lambda *args: mutations.append("label"))
-        monkeypatch.setattr(pr_maintenance, "enable_auto_merge", lambda *args: mutations.append("enable"))
+        monkeypatch.setattr(pr_auto_merge, "add_auto_merge_label", lambda *args: mutations.append("label"))
+        monkeypatch.setattr(pr_auto_merge, "enable_auto_merge", lambda *args: mutations.append("enable"))
 
         # When
         actions = pr_maintenance.maintain_pull_requests(
@@ -252,8 +263,8 @@ class TestMaintainPullRequests:
             lambda **kwargs: pr_maintenance.CheckSummary(failed=(), pending=()),
         )
         monkeypatch.setattr(pr_maintenance, "list_active_workflow_runs", lambda **kwargs: [])
-        monkeypatch.setattr(pr_maintenance, "add_auto_merge_label", lambda *args: mutations.append("label"))
-        monkeypatch.setattr(pr_maintenance, "enable_auto_merge", lambda *args: mutations.append("enable"))
+        monkeypatch.setattr(pr_auto_merge, "add_auto_merge_label", lambda *args: mutations.append("label"))
+        monkeypatch.setattr(pr_auto_merge, "enable_auto_merge", lambda *args: mutations.append("enable"))
 
         # When
         actions = pr_maintenance.maintain_pull_requests(
@@ -279,7 +290,7 @@ class TestMaintainPullRequests:
         )
         monkeypatch.setattr(pr_maintenance, "list_active_workflow_runs", lambda **kwargs: [])
         monkeypatch.setattr(
-            pr_maintenance,
+            pr_auto_merge,
             "add_auto_merge_label",
             lambda *args: (_ for _ in ()).throw(requests.Timeout("network slow")),
         )
