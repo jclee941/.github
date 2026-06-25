@@ -38,7 +38,7 @@ This repository is the `jclee941/*` automation stack: a homelab-hosted GitHub Ap
 
 - a first-party `jclee_bot` GitHub App checks runner that posts `pr-metadata`, `secret-scan`, and `actionlint` via the Checks API,
 - a homelab CLIProxyAPI deployment (`https://cliproxy.jclee.me/v1`) that serves as the LLM gateway,
-- `jclee_bot` App-owned automation and **5 Go automation CLIs** that manage 16 downstream repositories end-to-end,
+- `jclee_bot` App-owned automation and **6 Go automation CLIs** that manage 16 downstream repositories end-to-end,
 - an ELK observability stack (Elasticsearch + Kibana) with Filebeat log shipping,
 - issue/PR templates and review prompt packs localized for Korean-first review output.
 
@@ -48,7 +48,7 @@ Production automation follows a **GitHub App-centered operating model**: the hom
 
 - Checks API를 통해 `pr-metadata`, `secret-scan`, `actionlint`를 게시하는 1등 시민 `jclee_bot` GitHub App 검사 러너,
 - LLM 게이트웨이 역할을 하는 homelab CLIProxyAPI 배포(`https://cliproxy.jclee.me/v1`),
-- 16개의 다운스트림 저장소를 종단(end-to-end)으로 관리하는 `jclee_bot` App 소유 자동화와 **5개의 Go 자동화 CLI**,
+- 16개의 다운스트림 저장소를 종단(end-to-end)으로 관리하는 `jclee_bot` App 소유 자동화와 **6개의 Go 자동화 CLI**,
 - Filebeat 로그 수집을 포함한 ELK 관측 가능성 스택(Elasticsearch + Kibana),
 - 한국어 우선 리뷰 출력에 맞춘 이슈/PR 템플릿과 리뷰 프롬프트 팩.
 
@@ -88,7 +88,7 @@ Production automation follows a **GitHub App-centered operating model**: the hom
 
 ### Repo Governance | 저장소 거버넌스
 
-- Five Go CLIs (`branch-protection`, `rulesets-manager`, `repo-review`, `sync-secrets`, `validate-naming`) roll out branch protection, GitHub Rulesets, secret sync, periodic repo review, and naming/inventory enforcement across the 16 managed repos.
+- Six Go CLIs (`branch-cleanup`, `branch-protection`, `rulesets-manager`, `repo-review`, `sync-secrets`, `validate-naming`) roll out stale merged-branch cleanup, branch protection, GitHub Rulesets, secret sync, periodic repo review, and naming/inventory enforcement across the 16 managed repos.
 - `config/repos.yaml` is the canonical managed-repo inventory; the `github-bot` source repo itself is excluded from auto-deploy.
 
 ---
@@ -119,7 +119,7 @@ flowchart TB
     end
 
     subgraph OPS["Repo Operations"]
-        GO["Go CLIs<br/>branch-protection<br/>repo-review<br/>rulesets-manager<br/>sync-secrets<br/>validate-naming"]
+        GO["Go CLIs<br/>branch-cleanup<br/>branch-protection<br/>repo-review<br/>rulesets-manager<br/>sync-secrets<br/>validate-naming"]
     end
 
     REPO --> WH
@@ -158,17 +158,18 @@ GitHub Actions do not own PR/issue mutation logic. They either run CI/build work
 | README automation | `jclee-bot` App | README creation/update PRs across managed repos | 관리 저장소 README 생성/갱신 PR |
 | CI failure issues | `jclee-bot` App | failure issue creation, recovery close, legacy issue sweep; `jclee-bot에의해자동화됨` | 실패 이슈 등록, 복구 시 닫기, 레거시 이슈 정리 |
 
-### Go Automation Tools 5 total | Go 자동화 도구 5개
+### Go Automation Tools 6 total | Go 자동화 도구 6개
 
 All Go CLIs live under `scripts/cmd/<tool>/main.go` and are intended to be run from the repo root via the convention shown in *Commands Reference*. They are statically linked single-binary tools with no runtime dependencies beyond `git` and the `GITHUB_TOKEN` / `GH_TOKEN` env var.
 
 | # | Tool | Purpose | 목적 |
 |---|------|---------|------|
-| 1 | `branch-protection` | Roll out branch protection rules across the 16 managed repos | 분기 보호 규칙 롤아웃 |
-| 2 | `repo-review` | Periodic repo review pass (readme, workflows, CODEOWNERS) | 저장소 주기 리뷰 |
-| 3 | `rulesets-manager` | GitHub Rulesets rollout and drift correction | GitHub Rulesets 롤아웃 |
-| 4 | `sync-secrets` | Sync repo/org secrets from a canonical source | 시크릿 동기화 |
-| 5 | `validate-naming` | Enforce workflow prefixes, template inventory, README links | 명명/인벤토리 검증 |
+| 1 | `branch-cleanup` | Delete remote branches already merged into each managed repo's default branch | 기본 브랜치에 병합된 원격 브랜치 정리 |
+| 2 | `branch-protection` | Roll out branch protection rules across the 16 managed repos | 분기 보호 규칙 롤아웃 |
+| 3 | `repo-review` | Periodic repo review pass (readme, workflows, CODEOWNERS) | 저장소 주기 리뷰 |
+| 4 | `rulesets-manager` | GitHub Rulesets rollout and drift correction | GitHub Rulesets 롤아웃 |
+| 5 | `sync-secrets` | Sync repo/org secrets from a canonical source | 시크릿 동기화 |
+| 6 | `validate-naming` | Enforce workflow prefixes, template inventory, README links | 명명/인벤토리 검증 |
 
 ---
 
@@ -316,6 +317,7 @@ go run ./scripts/cmd/validate-naming
 
 ```bash
 go run ./scripts/cmd/branch-protection --help
+go run ./scripts/cmd/branch-cleanup --help
 go run ./scripts/cmd/repo-review --help
 go run ./scripts/cmd/rulesets-manager --help
 go run ./scripts/cmd/sync-secrets --help
@@ -360,6 +362,7 @@ pr-agent config          --pr_url=<url>
 
 | Command | Description | 설명 |
 |---------|-------------|------|
+| `go run ./scripts/cmd/branch-cleanup` | Delete remote branches already merged into managed repo default branches | 병합 완료 원격 브랜치 정리 |
 | `go run ./scripts/cmd/branch-protection` | Roll out branch protection to managed repos | 분기 보호 롤아웃 |
 | `go run ./scripts/cmd/repo-review` | Periodic repo review pass | 저장소 주기 리뷰 |
 | `go run ./scripts/cmd/rulesets-manager` | GitHub Rulesets rollout | Rulesets 롤아웃 |

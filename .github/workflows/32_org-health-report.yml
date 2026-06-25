@@ -9,7 +9,7 @@ on:
   pull_request:
     types: [opened, edited, synchronize, reopened, ready_for_review, closed]
   workflow_run:
-    workflows: ["App Issue Maintenance", "Repository Health Check"]
+    workflows: ["Managed Repository Cleanup", "Repository Health Check"]
     types: [completed]
   workflow_dispatch:
 

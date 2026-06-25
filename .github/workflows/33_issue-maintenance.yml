@@ -1,4 +1,4 @@
-name: App Issue Maintenance
+name: Managed Repository Cleanup
 
 on:
   workflow_run:
@@ -7,16 +7,21 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: Report planned issue actions without mutating repositories
+        description: Report planned cleanup actions without mutating repositories
         required: false
         type: boolean
         default: true
+      repos:
+        description: Optional comma-separated managed repo names for branch cleanup
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
 
 concurrency:
-  group: app-issue-maintenance-${{ github.event.workflow_run.id || github.run_id }}
+  group: managed-repository-cleanup-${{ github.event.workflow_run.id || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -48,3 +53,43 @@ jobs:
             -d "{\"dry_run\": ${DRY_RUN}, \"background\": ${BACKGROUND}, \"owner\": \"jclee941\"}" \
             | tee issue-maintenance-result.json
           jq -e '.repositories | type == "array"' issue-maintenance-result.json >/dev/null
+
+  branch-cleanup:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+      GH_PAT_AVAILABLE: ${{ secrets.GH_PAT != '' }}
+      INPUT_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+      INPUT_REPOS: ${{ github.event_name == 'workflow_dispatch' && inputs.repos || '' }}
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Install Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.21'
+
+      - name: Run merged branch cleanup
+        run: |
+          set -euo pipefail
+          args=()
+          if [ "${INPUT_DRY_RUN}" = "true" ]; then
+            args+=(--dry-run)
+          elif [ "${GH_PAT_AVAILABLE}" != "true" ]; then
+            echo "::error::GH_PAT is required to clean branches across managed repositories."
+            exit 1
+          fi
+          if [ -n "${INPUT_REPOS}" ]; then
+            args+=(--repos="${INPUT_REPOS}")
+          fi
+          cd scripts && go run ./cmd/branch-cleanup "${args[@]}"

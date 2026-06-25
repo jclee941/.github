@@ -2,9 +2,9 @@
 
 ## OVERVIEW
 
-Go automation tools for the canonical `config/repos.yaml` inventory: branch protection, rulesets,
-secret sync, repo review, naming validation. The inventory currently has 16 entries, with `.github`
-as the source repo itself excluded from rollout-style automation.
+Go automation tools for the canonical `config/repos.yaml` inventory: merged branch cleanup,
+branch protection, rulesets, secret sync, repo review, naming validation. The inventory currently
+has 16 entries, with `.github` as the source repo itself excluded from rollout-style automation.
 
 ## STRUCTURE
 
@@ -13,6 +13,7 @@ scripts/
 ├── go.mod                               # module github.com/jclee941/.github/scripts
 ├── cmd/
 │   ├── branch-protection/main.go        # auto-merge + branch protection rules
+│   ├── branch-cleanup/main.go           # delete branches merged into managed default branches
 │   ├── repo-review/main.go              # batch repo review
 │   ├── rulesets-manager/main.go         # GitHub Rulesets list/apply/delete
 │   ├── sync-secrets/main.go             # sync CLIPROXY_API_KEY across repos
@@ -31,6 +32,7 @@ scripts/
 
 | Task | File |
 |------|------|
+| Delete merged stale branches | `cmd/branch-cleanup/main.go` |
 | Apply branch protection + auto-merge | `cmd/branch-protection/main.go` |
 | Manage GitHub Rulesets (list/apply/delete) | `cmd/rulesets-manager/main.go` |
 | Sync shared secrets across repos | `cmd/sync-secrets/main.go` |
@@ -45,6 +47,10 @@ cd scripts
 # Branch protection
 go run ./cmd/branch-protection --dry-run
 go run ./cmd/branch-protection           # apply to eligible repos from config/repos.yaml
+
+# Merged branch cleanup
+go run ./cmd/branch-cleanup --dry-run
+go run ./cmd/branch-cleanup              # delete branches already merged into default branches
 
 # GitHub Rulesets
 go run ./cmd/rulesets-manager --dry-run
