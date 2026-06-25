@@ -27,7 +27,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-failure-issues-${{ github.event.workflow_run.head_sha || github.run_id }}
+  group: ci-failure-issues-${{ github.event.workflow_run.id || github.run_id }}
   cancel-in-progress: false
 
 jobs:
