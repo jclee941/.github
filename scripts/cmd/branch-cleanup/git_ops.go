@@ -21,9 +21,6 @@ func cleanupRepo(repo, defaultBranch string, dryRun bool) ([]cleanupResult, erro
 	if err := runGit("", "gh", "repo", "clone", fullRepo, repoDir, "--", "--filter=blob:none", "--no-checkout", "--quiet"); err != nil {
 		return nil, fmt.Errorf("clone repo: %w", err)
 	}
-	if err := runGit(repoDir, "git", "fetch", "--prune", "origin", "--quiet"); err != nil {
-		return nil, fmt.Errorf("fetch repo: %w", err)
-	}
 
 	openPRHeads, err := listOpenPRHeads(fullRepo)
 	if err != nil {
