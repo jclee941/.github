@@ -3,6 +3,26 @@ from __future__ import annotations
 from jclee_bot import workflow_issue_automation
 
 
+def test_cancelled_workflow_run_is_not_recorded_as_failure() -> None:
+    run = workflow_issue_automation.WorkflowRun(
+        name="Runtime Health Check",
+        head_sha="abcdef1234567890abcdef1234567890abcdef12",
+        run_id=123,
+        conclusion="cancelled",
+        pr_number=0,
+        run_url="https://github.com/jclee941/.github/actions/runs/123",
+    )
+
+    actions = workflow_issue_automation.record_workflow_run(
+        token="tok",
+        repo_full_name="jclee941/.github",
+        run=run,
+        dry_run=True,
+    )
+
+    assert actions == ["ignore-neutral:Runtime Health Check"]
+
+
 def test_success_sweeps_legacy_on_payload_default_branch(monkeypatch) -> None:
     run = workflow_issue_automation.WorkflowRun(
         name="Runtime Health Check",

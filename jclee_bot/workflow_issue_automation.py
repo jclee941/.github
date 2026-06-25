@@ -148,9 +148,7 @@ def normalize_conclusion(conclusion: str) -> str:
     match conclusion:
         case "success" | "failure":
             return conclusion
-        case "cancelled":
-            return "failure"
-        case "skipped":
+        case "cancelled" | "skipped":
             return "neutral"
         case _:
             return "neutral"
