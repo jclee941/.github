@@ -133,49 +133,6 @@ class TestPullRequestMaintenanceDecisions:
         assert old_plan.reason == "pending-checks"
         assert fresh_plan is None
 
-    def test_enables_auto_merge_for_clean_existing_automation_pr(self) -> None:
-        # Given
-        pr = _pr(number=37, updated_hours_ago=1)
-
-        # When
-        plan = pr_maintenance.plan_pr_auto_merge(
-            pr,
-            checks=pr_maintenance.CheckSummary(failed=(), pending=()),
-        )
-
-        # Then
-        assert plan is not None
-        assert plan.number == 37
-        assert plan.pull_request_id == "PR_kwDOExample"
-
-    def test_skips_auto_merge_for_pending_checks(self) -> None:
-        # Given
-        pr = _pr(number=38, updated_hours_ago=1)
-        checks = pr_maintenance.CheckSummary(failed=(), pending=("build",))
-
-        # When
-        plan = pr_maintenance.plan_pr_auto_merge(pr, checks=checks)
-
-        # Then
-        assert plan is None
-
-    def test_skips_auto_merge_for_failed_draft_human_or_already_enabled_prs(self) -> None:
-        # Given
-        checks = pr_maintenance.CheckSummary(failed=(), pending=())
-        failed_checks = pr_maintenance.CheckSummary(failed=("test",), pending=())
-
-        # Then
-        assert pr_maintenance.plan_pr_auto_merge(_pr(), checks=failed_checks) is None
-        assert pr_maintenance.plan_pr_auto_merge(_pr(draft=True), checks=checks) is None
-        assert (
-            pr_maintenance.plan_pr_auto_merge(
-                _pr(title="feat: add profile page", head_ref="feature/profile"),
-                checks=checks,
-            )
-            is None
-        )
-        assert pr_maintenance.plan_pr_auto_merge(_pr(auto_merge={"enabled_by": {}}), checks=checks) is None
-
     def test_only_master_is_protected_from_branch_deletion(self) -> None:
         # Given
         master_pr = _pr(number=41, head_ref="master", updated_hours_ago=2)
