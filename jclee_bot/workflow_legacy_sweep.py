@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Mapping
 from typing import Final
 
@@ -11,6 +12,8 @@ from jclee_bot import workflow_current_sweep
 GITHUB_API = "https://api.github.com"
 
 LEGACY_SWEEP_MAP = (
+    ("[ci-fail] Release Drafter @", "23_release-drafter.yml"),
+    ("[ci] Sanity failed at", "90_sanity.yml"),
     ("ELK Health Check Failed", "26_elk-health-check.yml"),
     ("ELK Setup Failed", "27_elk-setup.yml"),
     ("Bot webhook endpoint unreachable", "30_runtime-health-check.yml"),
@@ -24,6 +27,9 @@ LEGACY_SWEEP_MAP = (
     ("Repository Health Check", "31_repo-health.yml"),
 )
 ACTIVE_RUN_STATUSES = {"queued", "in_progress", "waiting", "pending", "requested"}
+PR_REVIEW_FAILURE_TITLE_RE: Final[re.Pattern[str]] = re.compile(
+    r"^(?:Security )?PR Review failed for PR #(?P<number>[1-9][0-9]*)$"
+)
 type JsonScalar = str | int | float | bool | None
 type JsonValue = JsonScalar | list["JsonValue"] | dict[str, "JsonValue"]
 type CloseIssue = Callable[[int, str], None]
@@ -89,6 +95,55 @@ def _issue_numbers_with_title(*, token: str, repo_full_name: str, title_substrin
         if isinstance(raw_number, int) and raw_number > 0:
             numbers.append(raw_number)
     return numbers
+
+
+def _pull_request_state(*, token: str, repo_full_name: str, pr_number: int) -> str:
+    resp = requests.get(
+        f"{GITHUB_API}/repos/{repo_full_name}/pulls/{pr_number}",
+        headers=_headers(token),
+        timeout=30,
+    )
+    if resp.status_code == 404:
+        return "missing"
+    resp.raise_for_status()
+    raw_data = _response_json(resp)
+    if not isinstance(raw_data, dict):
+        return "unknown"
+    state = raw_data.get("state")
+    return state if isinstance(state, str) else "unknown"
+
+
+def _close_legacy_pr_review_failures(
+    *,
+    token: str,
+    repo_full_name: str,
+    dry_run: bool,
+    close_issue: CloseIssue,
+) -> list[str]:
+    actions: list[str] = []
+    for issue in _open_issues(token=token, repo_full_name=repo_full_name, labels="ci-failure"):
+        if isinstance(issue.get("pull_request"), dict):
+            continue
+        raw_title = issue.get("title")
+        title = raw_title if isinstance(raw_title, str) else ""
+        match = PR_REVIEW_FAILURE_TITLE_RE.fullmatch(title)
+        if match is None:
+            continue
+        raw_number = issue.get("number")
+        if not isinstance(raw_number, int) or raw_number <= 0:
+            continue
+        pr_number = int(match.group("number"))
+        state = _pull_request_state(token=token, repo_full_name=repo_full_name, pr_number=pr_number)
+        if state != "closed":
+            actions.append(f"keep-pr-review:{raw_number}:{pr_number}:{state}")
+            continue
+        actions.append(f"close-pr-review:{raw_number}:{pr_number}")
+        if not dry_run:
+            close_issue(
+                raw_number,
+                f"PR #{pr_number} is closed; closing legacy PR review failure issue.\n\n_jclee-bot에의해자동화됨._",
+            )
+    return actions
 
 
 def _workflow_run_status(
@@ -171,6 +226,14 @@ def sweep_failure_issues(
                     number,
                     f"{workflow_file} latest run on {default_branch} concluded success.\n\n_jclee-bot에의해자동화됨._",
                 )
+    actions.extend(
+        _close_legacy_pr_review_failures(
+            token=token,
+            repo_full_name=repo_full_name,
+            dry_run=dry_run,
+            close_issue=close_issue,
+        )
+    )
     actions.extend(
         workflow_current_sweep.sweep_current_failure_issues(
             token=token,

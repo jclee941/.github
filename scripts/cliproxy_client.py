@@ -4,8 +4,15 @@ import os
 import subprocess
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import cast
 
 from openai import OpenAI
+from openai.types.chat import (
+    ChatCompletionAssistantMessageParam,
+    ChatCompletionMessageParam,
+    ChatCompletionSystemMessageParam,
+    ChatCompletionUserMessageParam,
+)
 
 DEFAULT_CLIPROXY_BASE_URL = "https://cliproxy.jclee.me/v1"
 
@@ -38,7 +45,9 @@ def _read_1password_secret(secret_ref: str, *, secret_name: str) -> str:
     except subprocess.TimeoutExpired as exc:
         raise CliproxyCredentialError(f"1Password CLI timed out while reading {secret_name}") from exc
     except subprocess.CalledProcessError as exc:
-        detail = (exc.stderr or exc.stdout or "").strip()
+        stderr = cast(str | None, exc.stderr)
+        stdout = cast(str | None, exc.stdout)
+        detail = (stderr or stdout or "").strip()
         message = f"1Password CLI failed to read {secret_name}"
         if detail:
             message = f"{message}: {detail}"
@@ -48,6 +57,10 @@ def _read_1password_secret(secret_ref: str, *, secret_name: str) -> str:
     if not value:
         raise CliproxyCredentialError(f"1Password returned an empty {secret_name}")
     return value
+
+
+def read_1password_secret(secret_ref: str, *, secret_name: str) -> str:
+    return _read_1password_secret(secret_ref, secret_name=secret_name)
 
 
 def resolve_cliproxy_api_key(env: Mapping[str, str] | None = None) -> str:
@@ -61,6 +74,17 @@ def resolve_cliproxy_api_key(env: Mapping[str, str] | None = None) -> str:
         return _read_1password_secret(secret_ref, secret_name="CLIPROXY_API_KEY")
 
     raise CliproxyCredentialError("CLIPROXY_API_KEY or CLIPROXY_API_KEY_OP_REF is required")
+
+
+def _chat_message_param(message: CliproxyMessage) -> ChatCompletionMessageParam:
+    if message.role == "system":
+        system_message: ChatCompletionSystemMessageParam = {"role": "system", "content": message.content}
+        return system_message
+    if message.role == "assistant":
+        assistant_message: ChatCompletionAssistantMessageParam = {"role": "assistant", "content": message.content}
+        return assistant_message
+    user_message: ChatCompletionUserMessageParam = {"role": "user", "content": message.content}
+    return user_message
 
 
 def cliproxy_chat_completion(
@@ -79,9 +103,10 @@ def cliproxy_chat_completion(
         timeout=timeout_seconds,
         max_retries=0,
     )
+    request_messages = [_chat_message_param(message) for message in messages]
     response = client.chat.completions.create(
         model=model,
-        messages=[{"role": message.role, "content": message.content} for message in messages],
+        messages=request_messages,
         max_tokens=max_tokens,
         temperature=temperature,
     )

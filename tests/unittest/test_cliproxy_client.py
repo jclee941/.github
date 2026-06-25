@@ -131,6 +131,35 @@ def test_route_models_by_quota_deprioritizes_failed_primary(monkeypatch):
     assert routed == ["minimax-m3", "gpt-5.5"]
 
 
+def test_route_models_by_quota_rotates_tied_candidates_by_run_seed(monkeypatch):
+    monkeypatch.setattr(
+        cliproxy_routing,
+        "resolve_cliproxy_management_config",
+        lambda _env: cliproxy_routing.CliproxyManagementConfig(
+            base_url="https://cliproxy.jclee.me/v0/management",
+            key="management-key",
+        ),
+    )
+    monkeypatch.setattr(
+        cliproxy_routing,
+        "_provider_quotas",
+        lambda _config: {
+            "codex": cliproxy_routing.ProviderQuota(provider="codex"),
+            "minimax": cliproxy_routing.ProviderQuota(provider="minimax"),
+            "claude": cliproxy_routing.ProviderQuota(provider="claude"),
+        },
+    )
+
+    models = ["gpt-5.5", "minimax-m3", "claude-sonnet-4"]
+
+    first = cliproxy_routing.route_models_by_quota(models, {"GITHUB_RUN_ID": "100"})
+    second = cliproxy_routing.route_models_by_quota(models, {"GITHUB_RUN_ID": "101"})
+
+    assert sorted(first) == sorted(models)
+    assert sorted(second) == sorted(models)
+    assert first != second
+
+
 def test_route_models_by_quota_preserves_order_without_management_config():
     assert cliproxy_routing.route_models_by_quota(["gpt-5.5", "minimax-m3"], {}) == [
         "gpt-5.5",

@@ -3,18 +3,29 @@ from __future__ import annotations
 import json
 import os
 import ssl
+import time
 import urllib.error
 import urllib.request
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from http.client import HTTPResponse
 from ipaddress import ip_address
-from typing import TypeAlias
+from typing import Protocol, TypeAlias, cast
 from urllib.parse import urlsplit, urlunsplit
 
+
+class ReadSecret(Protocol):
+    def __call__(self, secret_ref: str, *, secret_name: str) -> str: ...
+
+
 try:
-    from cliproxy_client import CliproxyCredentialError, _read_1password_secret
+    from scripts.cliproxy_client import CliproxyCredentialError, read_1password_secret
 except ModuleNotFoundError:
-    from scripts.cliproxy_client import CliproxyCredentialError, _read_1password_secret
+    import importlib
+
+    _cliproxy_client = importlib.import_module("cliproxy_client")
+    CliproxyCredentialError = cast(type[Exception], _cliproxy_client.CliproxyCredentialError)
+    read_1password_secret = cast(ReadSecret, _cliproxy_client.read_1password_secret)
 
 DEFAULT_CLIPROXY_MANAGEMENT_BASE_PATH = "/v0/management"
 JsonValue: TypeAlias = str | int | float | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
@@ -50,7 +61,7 @@ def _resolve_optional_secret(
     secret_ref = env.get(ref_key, "").strip()
     if not secret_ref:
         return ""
-    return _read_1password_secret(secret_ref, secret_name=secret_name)
+    return read_1password_secret(secret_ref, secret_name=secret_name)
 
 
 def _management_base_url(raw_url: str) -> str:
@@ -106,9 +117,12 @@ def _management_get_json(config: CliproxyManagementConfig, path: str) -> JsonVal
         headers={"Authorization": f"Bearer {config.key}"},
         method="GET",
     )
-    context = None if config.tls_verify else ssl._create_unverified_context()  # noqa: S323
-    with urllib.request.urlopen(req, timeout=10, context=context) as response:
-        return json.loads(response.read().decode("utf-8"))
+    context = ssl.create_default_context()
+    if not config.tls_verify:
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE  # noqa: S323
+    with cast(HTTPResponse, urllib.request.urlopen(req, timeout=10, context=context)) as response:
+        return cast(JsonValue, json.loads(response.read().decode("utf-8")))
 
 
 def _as_int(value: JsonValue) -> int:
@@ -232,6 +246,26 @@ def _env_float(env: Mapping[str, str], name: str, default: float) -> float:
         return default
 
 
+def _rotation_offset(env: Mapping[str, str], size: int) -> int:
+    if size <= 1:
+        return 0
+    seed = env.get("CLIPROXY_ROUTE_ROTATION_SEED", "").strip()
+    if not seed:
+        parts = [
+            env.get("GITHUB_RUN_ID", "").strip(),
+            env.get("GITHUB_RUN_ATTEMPT", "").strip(),
+            env.get("GITHUB_JOB", "").strip(),
+        ]
+        seed = ":".join(part for part in parts if part)
+    if not seed:
+        interval = _env_int(env, "CLIPROXY_ROUTE_ROTATION_SECONDS", 300)
+        seed = str(int(time.time()) // max(interval, 1))
+    value = 0
+    for char in seed:
+        value = (value * 131 + ord(char)) & 0xFFFFFFFF
+    return value % size
+
+
 def route_models_by_quota(models: Sequence[str], env: Mapping[str, str] | None = None) -> list[str]:
     source = env if env is not None else os.environ
     if source.get("CLIPROXY_DYNAMIC_ROUTING", "true").lower() == "false":
@@ -247,12 +281,13 @@ def route_models_by_quota(models: Sequence[str], env: Mapping[str, str] | None =
     failure_threshold = _env_int(source, "CLIPROXY_ROUTE_FAILURE_THRESHOLD", 1)
     failure_ratio = _env_float(source, "CLIPROXY_ROUTE_FAILURE_RATIO", 0.5)
     recent_success_limit = _env_int(source, "CLIPROXY_ROUTE_RECENT_SUCCESS_LIMIT", 0)
+    rotation_offset = _rotation_offset(source, len(models))
 
     def sort_key(index_and_model: tuple[int, str]) -> tuple[int, int, int]:
         index, model = index_and_model
         quota = quotas.get(_provider_from_model(model))
         if quota is None:
-            return 0, 0, index
+            return 0, 0, (index - rotation_offset) % len(models)
         recent_total = quota.recent_success + quota.recent_failed
         ratio = quota.recent_failed / recent_total if recent_total else 0.0
         degraded = (
@@ -262,6 +297,6 @@ def route_models_by_quota(models: Sequence[str], env: Mapping[str, str] | None =
         )
         overloaded = recent_success_limit > 0 and quota.recent_success >= recent_success_limit
         penalty = 2 if degraded else 1 if overloaded else 0
-        return penalty, quota.recent_success, index
+        return penalty, quota.recent_success, (index - rotation_offset) % len(models)
 
     return [model for _, model in sorted(enumerate(models), key=sort_key)]
