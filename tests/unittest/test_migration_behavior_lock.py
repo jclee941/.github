@@ -11,27 +11,36 @@ from __future__ import annotations
 import importlib
 
 import pytest
+from starlette.routing import Match
 
 # Routes the running GitHub App MUST expose. The first four come from the reused
 # upstream FastAPI app object; the rest are fork-owned (jclee_bot) routes.
 REQUIRED_ROUTES = {
-    "/api/v1/github_webhooks",
-    "/health",
-    "/ready",
-    "/metrics",
-    "/api/v1/checks_webhook",
-    "/api/v1/issue_maintenance",
-    "/api/v1/ci_failure_issues",
-    "/api/v1/issue_commands",
-    "/api/v1/readme_automation",
+    ("POST", "/api/v1/github_webhooks"),
+    ("GET", "/health"),
+    ("GET", "/ready"),
+    ("GET", "/metrics"),
+    ("POST", "/api/v1/checks_webhook"),
+    ("POST", "/api/v1/issue_maintenance"),
+    ("POST", "/api/v1/ci_failure_issues"),
+    ("POST", "/api/v1/issue_commands"),
+    ("POST", "/api/v1/readme_automation"),
 }
+
+
+def _app_matches_path(app, path: str, method: str) -> bool:
+    scope = {"type": "http", "path": path, "method": method, "root_path": "", "headers": []}
+    return any(route.matches(scope)[0] is Match.FULL for route in app.router.routes)
 
 
 def test_app_loads_and_exposes_required_routes() -> None:
     from jclee_bot.app import app
 
-    paths = {getattr(r, "path", None) for r in app.routes}
-    missing = REQUIRED_ROUTES - paths
+    missing = {
+        f"{method} {path}"
+        for method, path in REQUIRED_ROUTES
+        if not _app_matches_path(app, path, method)
+    }
     assert not missing, f"app is missing required production routes: {sorted(missing)}"
 
 
