@@ -96,29 +96,34 @@ Production automation follows a **GitHub App-centered operating model**: the hom
 ## Architecture | 아키텍처
 
 ```mermaid
-flowchart TB
+flowchart TD
     subgraph GH["GitHub.com"]
+        direction TB
         REPO["jclee941/* repositories<br/>16 managed in config/repos.yaml"]
         ACT["GitHub Actions runners"]
     end
 
     subgraph APP["Homelab App Stack"]
+        direction TB
         WH["Webhook Receiver<br/>FastAPI on &lt;homelab-host&gt;:8000"]
         BOT["jclee_bot<br/>Checks API runner<br/>pr-metadata / secret-scan / actionlint"]
         PR["review engine<br/>jclee_bot.review_engine<br/>originally qodo-ai/pr-agent"]
     end
 
     subgraph LLM["LLM Gateway"]
+        direction TB
         CLI["CLIProxyAPI<br/>&lt;homelab-host&gt;:8317<br/>https://cliproxy.jclee.me/v1"]
         MOD["Models<br/>minimax-m3 primary<br/>gpt-5.5 fallback"]
     end
 
     subgraph OBS["Observability"]
+        direction TB
         FB["Filebeat<br/>log shipper"]
         ELK["ELK Stack<br/>&lt;homelab-elk&gt;:9200<br/>Elasticsearch + Kibana"]
     end
 
     subgraph OPS["Repo Operations"]
+        direction TB
         GO["Go CLIs<br/>branch-cleanup<br/>branch-protection<br/>repo-review<br/>rulesets-manager<br/>sync-secrets<br/>validate-naming"]
     end
 

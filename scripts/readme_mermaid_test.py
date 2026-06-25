@@ -63,6 +63,19 @@ def bare_angle_labels(block: str) -> list[str]:
     return offenders
 
 
+def subgraphs_without_vertical_direction(block: str) -> list[str]:
+    offenders = []
+    lines = block.splitlines()
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped.startswith("subgraph "):
+            continue
+        next_line = lines[index + 1].strip() if index + 1 < len(lines) else ""
+        if next_line != "direction TB":
+            offenders.append(stripped)
+    return offenders
+
+
 def test_readme_has_mermaid_architecture_block():
     blocks = extract_mermaid_blocks(README.read_text(encoding="utf-8"))
     assert blocks, "README.md must contain a ```mermaid architecture diagram"
@@ -78,3 +91,11 @@ def test_no_bare_angle_brackets_in_mermaid_labels():
         "rendering (shown as raw code). Quote the label and HTML-escape the "
         f"brackets (&lt; &gt;): {all_offenders}"
     )
+
+
+def test_mermaid_subgraphs_render_as_vertical_stacks():
+    blocks = extract_mermaid_blocks(README.read_text(encoding="utf-8"))
+    all_offenders = []
+    for block in blocks:
+        all_offenders.extend(subgraphs_without_vertical_direction(block))
+    assert not all_offenders, f"Mermaid subgraphs must use direction TB to avoid row layout: {all_offenders}"
