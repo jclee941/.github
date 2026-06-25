@@ -75,7 +75,7 @@ Production automation follows a **GitHub App-centered operating model**: the hom
 ### Repository Automation | 저장소 자동화
 
 - **Dependabot auto-merge** for trusted patch/minor updates.
-- **Bot auto-merge** for routine bot PRs after checks pass.
+- **Bot auto-merge** for new and existing routine bot PRs after checks pass.
 - **Merged-PR cleanup**, **stale PR/issue handling**, and **issue backfill** workflows.
 - **Release pipeline** (drafter → notes → publish) and **Pages deploy**.
 - **CI failure issue** creation and recovery sweeps to keep failures visible.
@@ -153,7 +153,7 @@ GitHub Actions do not own PR/issue mutation logic. They either run CI/build work
 |---------|-------|---------|------|
 | PR checks | `jclee-bot` App | Checks API runs for metadata, secrets, actionlint, docs policy | PR 메타데이터, 시크릿, actionlint, 문서 정책 검사 |
 | PR review | `jclee-bot` App + `review_engine` | Korean-first AI review and suggestions through CLIProxyAPI | CLIProxyAPI 기반 한국어 우선 AI 리뷰 |
-| GitOps | `jclee-bot` App | Branch-to-PR, bot PR merge policy, protected master flow | 브랜치→PR, 봇 PR 병합 정책, master 보호 흐름 |
+| GitOps | `jclee-bot` App | Branch-to-PR, existing bot PR auto-merge sweep, protected master flow | 브랜치→PR, 기존 봇 PR 자동 병합 sweep, master 보호 흐름 |
 | Issue maintenance | `jclee-bot` App | stale marking/closing, duplicate review cleanup, issue summaries | stale/중복 리뷰 이슈 정리와 요약 |
 | README automation | `jclee-bot` App | README creation/update PRs across managed repos | 관리 저장소 README 생성/갱신 PR |
 | CI failure issues | `jclee-bot` App | failure issue creation, recovery close, legacy issue sweep; `jclee-bot에의해자동화됨` | 실패 이슈 등록, 복구 시 닫기, 레거시 이슈 정리 |

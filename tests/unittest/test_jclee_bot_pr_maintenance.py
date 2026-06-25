@@ -21,13 +21,19 @@ def _pr(
     head_ref: str = "dependabot/pip/urllib3",
     repo_full_name: str = "jclee941/propose",
     head_sha: str = "abc123",
+    node_id: str = "PR_kwDOExample",
+    auto_merge: dict[str, object] | None = None,
+    draft: bool = False,
 ) -> dict[str, object]:
     updated_at = NOW - timedelta(hours=updated_hours_ago)
     return {
         "number": number,
+        "node_id": node_id,
         "title": title,
         "updated_at": _github_time(updated_at),
         "created_at": _github_time(updated_at),
+        "auto_merge": auto_merge,
+        "draft": draft,
         "head": {
             "ref": head_ref,
             "sha": head_sha,
@@ -127,6 +133,38 @@ class TestPullRequestMaintenanceDecisions:
         assert old_plan.reason == "pending-checks"
         assert fresh_plan is None
 
+    def test_enables_auto_merge_for_clean_existing_automation_pr(self) -> None:
+        # Given
+        pr = _pr(number=37, updated_hours_ago=1)
+
+        # When
+        plan = pr_maintenance.plan_pr_auto_merge(
+            pr,
+            checks=pr_maintenance.CheckSummary(failed=(), pending=()),
+        )
+
+        # Then
+        assert plan is not None
+        assert plan.number == 37
+        assert plan.pull_request_id == "PR_kwDOExample"
+
+    def test_skips_auto_merge_for_failed_draft_human_or_already_enabled_prs(self) -> None:
+        # Given
+        checks = pr_maintenance.CheckSummary(failed=(), pending=())
+        failed_checks = pr_maintenance.CheckSummary(failed=("test",), pending=())
+
+        # Then
+        assert pr_maintenance.plan_pr_auto_merge(_pr(), checks=failed_checks) is None
+        assert pr_maintenance.plan_pr_auto_merge(_pr(draft=True), checks=checks) is None
+        assert (
+            pr_maintenance.plan_pr_auto_merge(
+                _pr(title="feat: add profile page", head_ref="feature/profile"),
+                checks=checks,
+            )
+            is None
+        )
+        assert pr_maintenance.plan_pr_auto_merge(_pr(auto_merge={"enabled_by": {}}), checks=checks) is None
+
     def test_only_master_is_protected_from_branch_deletion(self) -> None:
         # Given
         master_pr = _pr(number=41, head_ref="master", updated_hours_ago=2)
@@ -174,6 +212,88 @@ class TestMaintainPullRequests:
         # Then
         assert actions == ["close-pr:9:failed-checks", "delete-pr-branch:9", "cancel-run:77:queued"]
         assert mutations == []
+
+    def test_dry_run_reports_auto_merge_for_clean_existing_automation_pr(self, monkeypatch) -> None:
+        # Given
+        pr = _pr(number=12, updated_hours_ago=1)
+        mutations: list[str] = []
+
+        monkeypatch.setattr(pr_maintenance, "list_open_pull_requests", lambda **kwargs: [pr])
+        monkeypatch.setattr(
+            pr_maintenance,
+            "commit_check_summary",
+            lambda **kwargs: pr_maintenance.CheckSummary(failed=(), pending=()),
+        )
+        monkeypatch.setattr(pr_maintenance, "list_active_workflow_runs", lambda **kwargs: [])
+        monkeypatch.setattr(pr_maintenance, "add_auto_merge_label", lambda *args: mutations.append("label"))
+        monkeypatch.setattr(pr_maintenance, "enable_auto_merge", lambda *args: mutations.append("enable"))
+
+        # When
+        actions = pr_maintenance.maintain_pull_requests(
+            token="tok",
+            repo_full_name="jclee941/propose",
+            dry_run=True,
+            now=NOW,
+        )
+
+        # Then
+        assert actions == ["enable-auto-merge:12"]
+        assert mutations == []
+
+    def test_mutating_run_labels_and_enables_auto_merge_for_clean_automation_pr(self, monkeypatch) -> None:
+        # Given
+        pr = _pr(number=12, updated_hours_ago=1)
+        mutations: list[str] = []
+
+        monkeypatch.setattr(pr_maintenance, "list_open_pull_requests", lambda **kwargs: [pr])
+        monkeypatch.setattr(
+            pr_maintenance,
+            "commit_check_summary",
+            lambda **kwargs: pr_maintenance.CheckSummary(failed=(), pending=()),
+        )
+        monkeypatch.setattr(pr_maintenance, "list_active_workflow_runs", lambda **kwargs: [])
+        monkeypatch.setattr(pr_maintenance, "add_auto_merge_label", lambda *args: mutations.append("label"))
+        monkeypatch.setattr(pr_maintenance, "enable_auto_merge", lambda *args: mutations.append("enable"))
+
+        # When
+        actions = pr_maintenance.maintain_pull_requests(
+            token="tok",
+            repo_full_name="jclee941/propose",
+            dry_run=False,
+            now=NOW,
+        )
+
+        # Then
+        assert actions == ["enable-auto-merge:12"]
+        assert mutations == ["label", "enable"]
+
+    def test_records_auto_merge_api_errors_without_aborting_maintenance(self, monkeypatch) -> None:
+        # Given
+        pr = _pr(number=12, updated_hours_ago=1)
+
+        monkeypatch.setattr(pr_maintenance, "list_open_pull_requests", lambda **kwargs: [pr])
+        monkeypatch.setattr(
+            pr_maintenance,
+            "commit_check_summary",
+            lambda **kwargs: pr_maintenance.CheckSummary(failed=(), pending=()),
+        )
+        monkeypatch.setattr(pr_maintenance, "list_active_workflow_runs", lambda **kwargs: [])
+        monkeypatch.setattr(
+            pr_maintenance,
+            "add_auto_merge_label",
+            lambda *args: (_ for _ in ()).throw(requests.Timeout("network slow")),
+        )
+
+        # When
+        actions = pr_maintenance.maintain_pull_requests(
+            token="tok",
+            repo_full_name="jclee941/propose",
+            dry_run=False,
+            now=NOW,
+        )
+
+        # Then
+        assert actions == ["auto-merge-error:12:Timeout"]
 
     def test_mutating_run_comments_closes_deletes_branch_and_cancels_runs(self, monkeypatch) -> None:
         # Given

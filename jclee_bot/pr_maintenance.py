@@ -7,6 +7,8 @@ from urllib.parse import quote
 
 import requests
 
+from jclee_bot.gitops_automation import GitHubGraphQLError, add_auto_merge_label, enable_auto_merge
+
 GITHUB_API = "https://api.github.com"
 DOCS_SYNC_TITLE = "docs: sync standard templates from jclee941/.github"
 AUTOMATION_TITLE_PREFIXES = ("chore(deps", "build(deps", DOCS_SYNC_TITLE)
@@ -37,6 +39,12 @@ class PrCleanupPlan:
     reason: str
     head_ref: str
     can_delete_branch: bool
+
+
+@dataclass(frozen=True, slots=True)
+class PrAutoMergePlan:
+    number: int
+    pull_request_id: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +161,18 @@ def plan_pr_cleanup(
     if checks.pending and age_hours >= PENDING_PR_STALE_HOURS:
         return PrCleanupPlan(number, "pending-checks", head_ref, _can_delete_head_branch(pr, repo_full_name))
     return None
+
+
+def plan_pr_auto_merge(pr: dict[str, Any], *, checks: CheckSummary) -> PrAutoMergePlan | None:
+    number = int(pr.get("number", 0) or 0)
+    pull_request_id = str(pr.get("node_id") or "")
+    if number <= 0 or not pull_request_id:
+        return None
+    if pr.get("draft") or pr.get("auto_merge") is not None:
+        return None
+    if checks.failed or not _is_automation_pr(pr):
+        return None
+    return PrAutoMergePlan(number=number, pull_request_id=pull_request_id)
 
 
 def plan_run_cleanup(run: dict[str, Any], *, now: datetime) -> RunCleanupPlan | None:
@@ -286,16 +306,28 @@ def maintain_pull_requests(*, token: str, repo_full_name: str, dry_run: bool, no
                 continue
         plan = plan_pr_cleanup(pr, checks=checks, repo_full_name=repo_full_name, now=current_time)
         if plan is None:
+            auto_merge_plan = plan_pr_auto_merge(pr, checks=checks)
+            if auto_merge_plan is None:
+                continue
+            if dry_run:
+                actions.append(f"enable-auto-merge:{auto_merge_plan.number}")
+                continue
+            try:
+                add_auto_merge_label(token, repo_full_name, auto_merge_plan.number)
+                enable_auto_merge(token, auto_merge_plan.pull_request_id)
+            except (GitHubGraphQLError, requests.RequestException) as exc:
+                actions.append(f"auto-merge-error:{auto_merge_plan.number}:{type(exc).__name__}")
+                continue
+            actions.append(f"enable-auto-merge:{auto_merge_plan.number}")
             continue
         actions.append(f"close-pr:{plan.number}:{plan.reason}")
         if plan.can_delete_branch:
             actions.append(f"delete-pr-branch:{plan.number}")
-        if dry_run:
-            continue
-        comment_pr(token=token, repo_full_name=repo_full_name, pr_number=plan.number)
-        close_pr(token=token, repo_full_name=repo_full_name, pr_number=plan.number)
-        if plan.can_delete_branch:
-            delete_head_branch(token=token, repo_full_name=repo_full_name, head_ref=plan.head_ref)
+        if not dry_run:
+            comment_pr(token=token, repo_full_name=repo_full_name, pr_number=plan.number)
+            close_pr(token=token, repo_full_name=repo_full_name, pr_number=plan.number)
+            if plan.can_delete_branch:
+                delete_head_branch(token=token, repo_full_name=repo_full_name, head_ref=plan.head_ref)
 
     try:
         workflow_runs = list_active_workflow_runs(token=token, repo_full_name=repo_full_name)
