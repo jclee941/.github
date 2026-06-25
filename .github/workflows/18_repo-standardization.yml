@@ -1,0 +1,122 @@
+name: Managed Repository Standardization
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'config/repos.yaml'
+      - 'scripts/cmd/branch-protection/**'
+      - 'scripts/cmd/rulesets-manager/**'
+      - 'scripts/internal/repos/**'
+      - '.github/workflows/18_repo-standardization.yml'
+  schedule:
+    - cron: '17 18 * * *'
+  workflow_run:
+    workflows: ["Sanity"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Preview repository standardization without mutating target repos
+        required: false
+        type: boolean
+        default: true
+      repos:
+        description: Optional comma-separated managed repo names
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repo-standardization-${{ github.event.workflow_run.id || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  standardize:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+      GH_PAT_AVAILABLE: ${{ secrets.GH_PAT != '' }}
+      INPUT_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+      INPUT_REPOS: ${{ github.event_name == 'workflow_dispatch' && inputs.repos || '' }}
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Install Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.21'
+
+      - name: Resolve mode
+        id: mode
+        run: |
+          set -euo pipefail
+          args=()
+          mode="apply"
+          if [ "${INPUT_DRY_RUN}" = "true" ]; then
+            args+=(--dry-run)
+            mode="dry-run"
+          elif [ "${GH_PAT_AVAILABLE}" != "true" ]; then
+            echo "::error::GH_PAT is required to standardize managed repositories outside jclee941/.github."
+            exit 1
+          fi
+          if [ -n "${INPUT_REPOS}" ]; then
+            args+=(--repos="${INPUT_REPOS}")
+          fi
+          printf 'args=%s\n' "${args[*]}" >> "$GITHUB_OUTPUT"
+          printf 'mode=%s\n' "${mode}" >> "$GITHUB_OUTPUT"
+
+      - name: Apply branch protection and auto-merge defaults
+        working-directory: scripts
+        run: |
+          set -euo pipefail
+          go run ./cmd/branch-protection ${{ steps.mode.outputs.args }}
+
+      - name: Apply GitHub Rulesets
+        working-directory: scripts
+        run: |
+          set -euo pipefail
+          go run ./cmd/rulesets-manager ${{ steps.mode.outputs.args }}
+
+      - name: List resulting rulesets
+        if: always()
+        working-directory: scripts
+        run: |
+          set -euo pipefail
+          list_args=()
+          if [ -n "${INPUT_REPOS}" ]; then
+            list_args+=(--repos="${INPUT_REPOS}")
+          fi
+          go run ./cmd/rulesets-manager --mode=list "${list_args[@]}"
+
+      - name: Summary
+        if: always()
+        run: |
+          set -euo pipefail
+          {
+            echo "## Managed Repository Standardization"
+            echo ""
+            echo "- Mode: ${{ steps.mode.outputs.mode }}"
+            echo "- Inventory: \`config/repos.yaml\`"
+            echo "- Branch protection: \`jclee-bot / pr-metadata\`, \`jclee-bot / secret-scan\`, \`jclee-bot / actionlint\`"
+            echo "- Ruleset: \`Default Branch Protection\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-on-failure
+        with:
+          jclee-bot-token: ${{ secrets.ISSUE_COMMANDS_TOKEN || secrets.APP_ISSUE_MAINTENANCE_TOKEN }}
