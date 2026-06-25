@@ -6,6 +6,8 @@ and produce CheckResults to report via the Checks API.
 """
 from __future__ import annotations
 
+from starlette.routing import Match
+
 from jclee_bot import dispatch
 
 
@@ -22,6 +24,11 @@ def _pr_payload(*, title="feat: ok", head="feat/x", base="master", files=None,
         },
         "repository": {"full_name": "jclee941/propose"},
     }
+
+
+def _app_matches_path(app, path: str, method: str) -> bool:
+    scope = {"type": "http", "path": path, "method": method, "root_path": "", "headers": []}
+    return any(route.matches(scope)[0] is Match.FULL for route in app.router.routes)
 
 
 class TestDispatch:
@@ -68,26 +75,22 @@ class TestWrapperApp:
     def test_app_preserves_upstream_webhook_route(self):
         from jclee_bot.app import app
 
-        paths = {getattr(r, "path", None) for r in app.routes}
-        assert "/api/v1/github_webhooks" in paths
+        assert _app_matches_path(app, "/api/v1/github_webhooks", "POST")
 
     def test_app_exposes_checks_route(self):
         from jclee_bot.app import app
 
-        paths = {getattr(r, "path", None) for r in app.routes}
-        assert "/api/v1/checks_webhook" in paths
+        assert _app_matches_path(app, "/api/v1/checks_webhook", "POST")
 
     def test_app_exposes_readme_automation_route(self):
         from jclee_bot.app import app
 
-        paths = {getattr(r, "path", None) for r in app.routes}
-        assert "/api/v1/readme_automation" in paths
+        assert _app_matches_path(app, "/api/v1/readme_automation", "POST")
 
     def test_app_preserves_health_route(self):
         from jclee_bot.app import app
 
-        paths = {getattr(r, "path", None) for r in app.routes}
-        assert "/health" in paths, "Docker healthcheck depends on /health"
+        assert _app_matches_path(app, "/health", "GET"), "Docker healthcheck depends on /health"
 
     def test_create_event_on_main_webhook_triggers_gitops_automation(self, monkeypatch):
         import json

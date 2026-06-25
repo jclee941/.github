@@ -4,6 +4,7 @@ import os
 import re
 import sys
 import uuid
+import warnings
 from typing import Any, Dict, Tuple
 
 import uvicorn
@@ -42,6 +43,16 @@ else:
 router = APIRouter()
 
 
+def _copy_global_settings_for_request():
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=r"DataList\.__deepcopy__\(\) is deprecated and will be removed in v4\.0\.",
+            category=DeprecationWarning,
+        )
+        return copy.deepcopy(global_settings)
+
+
 @router.post("/api/v1/github_webhooks")
 async def handle_github_webhooks(background_tasks: BackgroundTasks, request: Request, response: Response):
     """
@@ -55,7 +66,7 @@ async def handle_github_webhooks(background_tasks: BackgroundTasks, request: Req
 
     installation_id = body.get("installation", {}).get("id")
     context["installation_id"] = installation_id
-    context["settings"] = copy.deepcopy(global_settings)
+    context["settings"] = _copy_global_settings_for_request()
     context["git_provider"] = {}
     # GitHub webhooks must be acknowledged quickly. LLM-backed PR-Agent work
     # can take minutes, so it must not run inside the HTTP request (GitHub's
