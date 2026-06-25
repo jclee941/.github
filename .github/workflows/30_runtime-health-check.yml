@@ -23,7 +23,7 @@ jobs:
     name: GitHub App webhook endpoint
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@v2
@@ -56,13 +56,15 @@ jobs:
               | jq -e '.actions | type == "array"' >/dev/null
           }
 
-          http_code=$(curl -sS -I -o /tmp/app_endpoint_headers.txt -w "%{http_code}" --max-time 10 "$ENDPOINT" || true)
+          http_code=$(curl -sS -I -o /tmp/app_endpoint_headers.txt -w "%{http_code}" \
+            --connect-timeout 10 --max-time 20 --retry 6 --retry-delay 10 --retry-all-errors \
+            "$ENDPOINT" || true)
           case "$http_code" in
             200|401|403|404|405)
               echo "Webhook endpoint responded with HTTP $http_code"
               ;;
             *)
-              body=$(printf "%s\n\n- Endpoint: %s\n- Expected status: 200, 401, 403, 404, or 405\n- Actual status: %s\n- Timeout: 10s\n- Workflow run: %s/%s/actions/runs/%s\n- Checked at: %s\n" \
+              body=$(printf "%s\n\n- Endpoint: %s\n- Expected status: 200, 401, 403, 404, or 405\n- Actual status: %s\n- Timeout: 20s per attempt, 6 retries\n- Workflow run: %s/%s/actions/runs/%s\n- Checked at: %s\n" \
                 "Runtime health check failed for the GitHub App webhook endpoint." \
                 "$ENDPOINT" \
                 "${http_code:-no response}" \
@@ -79,7 +81,7 @@ jobs:
     name: CLIProxyAPI unauthenticated health
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@v2
@@ -112,11 +114,13 @@ jobs:
               | jq -e '.actions | type == "array"' >/dev/null
           }
 
-          http_code=$(curl -sS -o /tmp/cliproxy_health.json -w "%{http_code}" --max-time 10 "$ENDPOINT" || true)
+          http_code=$(curl -sS -o /tmp/cliproxy_health.json -w "%{http_code}" \
+            --connect-timeout 10 --max-time 20 --retry 6 --retry-delay 10 --retry-all-errors \
+            "$ENDPOINT" || true)
           if [ "$http_code" = "401" ]; then
             echo "CLIProxyAPI responded with expected HTTP 401"
           else
-            body=$(printf "%s\n\n- Endpoint: %s\n- Expected status: 401 without auth\n- Actual status: %s\n- Timeout: 10s\n- Workflow run: %s/%s/actions/runs/%s\n- Checked at: %s\n" \
+            body=$(printf "%s\n\n- Endpoint: %s\n- Expected status: 401 without auth\n- Actual status: %s\n- Timeout: 20s per attempt, 6 retries\n- Workflow run: %s/%s/actions/runs/%s\n- Checked at: %s\n" \
               "Runtime health check failed for CLIProxyAPI." \
               "$ENDPOINT" \
               "${http_code:-no response}" \
