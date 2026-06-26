@@ -9,7 +9,7 @@ certifi==2026.6.17
 dynaconf==3.3.0
 fastapi==0.138.0
 GitPython==3.1.50
-google-cloud-aiplatform==1.158.0
+google-cloud-aiplatform==2.0.0
 google-generativeai==0.8.6
 google-cloud-storage==3.12.0
 Jinja2==3.1.6
