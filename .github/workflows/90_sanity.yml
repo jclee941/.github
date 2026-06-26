@@ -33,7 +33,7 @@ jobs:
         with:
           egress-policy: audit
       - name: Check out repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python 3.12
         uses: ./.github/actions/setup-python-compatible

@@ -31,7 +31,7 @@ jobs:
         with:
           egress-policy: audit
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Set up build cache (NAS-backed on self-hosted)
         uses: ./.github/actions/setup-build-cache
       - name: Set up Docker Buildx
