@@ -3,9 +3,9 @@
 //
 // Usage:
 //
-//	go run ./scripts/cmd/branch-protection --dry-run
-//	go run ./scripts/cmd/branch-protection --repos=resume,terraform
-//	go run ./scripts/cmd/branch-protection         # apply to all
+//	(cd scripts && go run ./cmd/branch-protection --dry-run)
+//	(cd scripts && go run ./cmd/branch-protection --repos=resume,terraform)
+//	(cd scripts && go run ./cmd/branch-protection)         # apply to all
 //
 // Behavior per repo:
 //  1. PATCH /repos/{r}  allow_auto_merge=true, delete_branch_on_merge=true

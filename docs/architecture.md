@@ -61,12 +61,9 @@ flowchart TB
 flowchart TD
     START(("PR 열림")) --> CHECKS["jclee-bot / pr-metadata<br/>(PR 메타데이터)"]
     
-    CHECKS --> TITLE{제목 OK?}
+    CHECKS --> TITLE{제목/크기/민감 파일 OK?}
     TITLE -->|No| FAIL1["❌ jclee-bot / pr-metadata<br/>Required"]
-    TITLE -->|Yes| BRANCH{브랜치명 OK?}
-    
-    BRANCH -->|No| FAIL2["❌ jclee-bot / pr-metadata<br/>Required"]
-    BRANCH -->|Yes| REVIEW["10_pr-review.yml<br/>(AI 리뷰)"]
+    TITLE -->|Yes| REVIEW["10_pr-review.yml<br/>(AI 리뷰)"]
     
     REVIEW --> GITLEAKS["jclee-bot / secret-scan<br/>(Secret 스캔)"]
     GITLEAKS --> SECRET{Secret 발견?}
@@ -89,7 +86,6 @@ flowchart TD
     MERGED --> RELEASE["23_release-drafter.yml<br/>(릴리즈 노트 초안)"]
     
     FAIL1 --> END1(("종료"))
-    FAIL2 --> END1
     FAIL3 --> END1
     WAIT --> END1
     CLEANUP --> END2(("완료"))
@@ -99,7 +95,6 @@ flowchart TD
     style END1 fill:#d9b430,stroke:#333,color:#000
     style END2 fill:#6ba06a,stroke:#333,color:#fff
     style FAIL1 fill:#e74c3c,stroke:#333,color:#fff
-    style FAIL2 fill:#e74c3c,stroke:#333,color:#fff
     style FAIL3 fill:#e74c3c,stroke:#333,color:#fff
     style MERGED fill:#4a90d9,stroke:#333,color:#fff
 ```

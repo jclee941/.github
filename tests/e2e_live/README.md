@@ -59,7 +59,8 @@ The live suite is designed around these categories (17 tests total):
 3. **Required file checks** (`readonly`) — verify automation support files exist: `.github/dependabot.yml`, `.github/CODEOWNERS`, and
    `.github/PULL_REQUEST_TEMPLATE.md`.
 4. **Branch protection checks** (`readonly`) — verify required status contexts are configured: `jclee-bot / pr-metadata`,
-   `jclee-bot / secret-scan`, and `jclee-bot / actionlint` (App-reported Checks API contexts).
+   `jclee-bot / secret-scan`, and `jclee-bot / actionlint` (required App-reported Checks API contexts; `jclee-bot / docs-policy`
+   is validated as an App Check Run but is not branch-protection-required).
 5. **Recent activity checks** (`readonly`) — inspect recent PRs and bot comments/reviews without modifying production
    repositories.
 6. **Canary mutation checks** (`private_canary`) — exercise branch, file, and PR behavior only in the allowlisted private

@@ -8,23 +8,29 @@ import (
 )
 
 func TestDocsUseCurrentAppRequiredChecksDetectsLegacyRequiredChecks(t *testing.T) {
-	tmpDir := t.TempDir()
-	docsDir := filepath.Join(tmpDir, "docs")
-	if err := os.MkdirAll(docsDir, 0o755); err != nil {
-		t.Fatalf("mkdir docs: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "README.md"), []byte("# ok\n"), 0o644); err != nil {
-		t.Fatalf("write readme: %v", err)
-	}
-	bad := "Required checks: pr-checks / Check PR Title, Gitleaks / scan\n"
-	if err := os.WriteFile(filepath.Join(docsDir, "architecture.md"), []byte(bad), 0o644); err != nil {
-		t.Fatalf("write doc: %v", err)
-	}
+	tmpDir := writeDocumentationFixture(t, map[string]string{
+		"docs/architecture.md": "Required checks: pr-checks / Check PR Title, Gitleaks / scan\n",
+	})
 
 	v := &validator{rootDir: tmpDir}
 	err := v.docsUseCurrentAppRequiredChecks()
 	if err == nil {
 		t.Fatal("expected legacy required check documentation to be flagged")
+	}
+	if !strings.Contains(err.Error(), "docs/architecture.md") {
+		t.Fatalf("error should identify offending doc, got: %v", err)
+	}
+}
+
+func TestDocsUseCurrentAppRequiredChecksDetectsStalePrMetadataBranchClaim(t *testing.T) {
+	tmpDir := writeDocumentationFixture(t, map[string]string{
+		"docs/architecture.md": "TITLE -->|Yes| BRANCH{브랜치명 OK?}\n",
+	})
+
+	v := &validator{rootDir: tmpDir}
+	err := v.docsUseCurrentAppRequiredChecks()
+	if err == nil {
+		t.Fatal("expected stale pr-metadata branch-name documentation to be flagged")
 	}
 	if !strings.Contains(err.Error(), "docs/architecture.md") {
 		t.Fatalf("error should identify offending doc, got: %v", err)
@@ -42,21 +48,12 @@ func TestDocsUseCurrentAppRequiredChecksCoversContributingTemplatesAndPrTemplate
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			for _, dir := range []string{"docs", "templates", ".github"} {
-				if err := os.MkdirAll(filepath.Join(tmpDir, dir), 0o755); err != nil {
-					t.Fatalf("mkdir %s: %v", dir, err)
-				}
-			}
-			for _, file := range []string{"README.md", "CONTRIBUTING.md", "templates/CONTRIBUTING.md", ".github/PULL_REQUEST_TEMPLATE.md"} {
-				if err := os.WriteFile(filepath.Join(tmpDir, file), []byte("# ok\n"), 0o644); err != nil {
-					t.Fatalf("write %s: %v", file, err)
-				}
-			}
-			bad := "Required checks: actionlint remains advisory\n"
-			if err := os.WriteFile(filepath.Join(tmpDir, tc.file), []byte(bad), 0o644); err != nil {
-				t.Fatalf("write %s: %v", tc.file, err)
-			}
+			tmpDir := writeDocumentationFixture(t, map[string]string{
+				"CONTRIBUTING.md":                  "# ok\n",
+				"templates/CONTRIBUTING.md":        "# ok\n",
+				".github/PULL_REQUEST_TEMPLATE.md": "# ok\n",
+				tc.file:                            "Required checks: actionlint remains advisory\n",
+			})
 
 			v := &validator{rootDir: tmpDir}
 			err := v.docsUseCurrentAppRequiredChecks()
@@ -71,18 +68,9 @@ func TestDocsUseCurrentAppRequiredChecksCoversContributingTemplatesAndPrTemplate
 }
 
 func TestDocsUseCurrentAppRequiredChecksAllowsCurrentAppContexts(t *testing.T) {
-	tmpDir := t.TempDir()
-	docsDir := filepath.Join(tmpDir, "docs")
-	if err := os.MkdirAll(docsDir, 0o755); err != nil {
-		t.Fatalf("mkdir docs: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "README.md"), []byte("# ok\n"), 0o644); err != nil {
-		t.Fatalf("write readme: %v", err)
-	}
-	good := "Required: jclee-bot / pr-metadata, jclee-bot / secret-scan, jclee-bot / actionlint\n"
-	if err := os.WriteFile(filepath.Join(docsDir, "architecture.md"), []byte(good), 0o644); err != nil {
-		t.Fatalf("write doc: %v", err)
-	}
+	tmpDir := writeDocumentationFixture(t, map[string]string{
+		"docs/architecture.md": "Required: jclee-bot / pr-metadata, jclee-bot / secret-scan, jclee-bot / actionlint\n",
+	})
 
 	v := &validator{rootDir: tmpDir}
 	if err := v.docsUseCurrentAppRequiredChecks(); err != nil {
@@ -91,18 +79,9 @@ func TestDocsUseCurrentAppRequiredChecksAllowsCurrentAppContexts(t *testing.T) {
 }
 
 func TestDocsUseCurrentAppRequiredChecksDetectsHardcodedManagedRepoList(t *testing.T) {
-	tmpDir := t.TempDir()
-	docsDir := filepath.Join(tmpDir, "docs")
-	if err := os.MkdirAll(docsDir, 0o755); err != nil {
-		t.Fatalf("mkdir docs: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "README.md"), []byte("# ok\n"), 0o644); err != nil {
-		t.Fatalf("write readme: %v", err)
-	}
-	bad := "| account | blacklist | resume | tmux |\n"
-	if err := os.WriteFile(filepath.Join(docsDir, "inventory.md"), []byte(bad), 0o644); err != nil {
-		t.Fatalf("write doc: %v", err)
-	}
+	tmpDir := writeDocumentationFixture(t, map[string]string{
+		"docs/inventory.md": "| account | blacklist | resume | tmux |\n",
+	})
 
 	v := &validator{rootDir: tmpDir}
 	err := v.docsUseCurrentAppRequiredChecks()
@@ -116,24 +95,15 @@ func TestDocsUseCurrentAppRequiredChecksDetectsHardcodedManagedRepoList(t *testi
 
 func TestDocsUseCurrentAppRequiredChecksDetectsStaleAutomationStatusClaims(t *testing.T) {
 	// Given
-	tmpDir := t.TempDir()
-	docsDir := filepath.Join(tmpDir, "docs")
-	if err := os.MkdirAll(docsDir, 0o755); err != nil {
-		t.Fatalf("mkdir docs: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "README.md"), []byte("# ok\n"), 0o644); err != nil {
-		t.Fatalf("write readme: %v", err)
-	}
 	staleClaims := strings.Join([]string{
 		"# Automation enhancement brainstorm",
 		"",
 		"- sync-secrets still owns a hardcoded repo inventory and is missing a matching _test.go file.",
 		"- The automation-standardization status still depends on removed workflow files 20_readme-gen.yml and 22_template-sync.yml.",
 	}, "\n")
-	docPath := filepath.Join(docsDir, "automation-enhancement-brainstorm.md")
-	if err := os.WriteFile(docPath, []byte(staleClaims), 0o644); err != nil {
-		t.Fatalf("write stale automation doc: %v", err)
-	}
+	tmpDir := writeDocumentationFixture(t, map[string]string{
+		"docs/automation-enhancement-brainstorm.md": staleClaims,
+	})
 
 	// When
 	v := &validator{rootDir: tmpDir}
@@ -208,22 +178,61 @@ func TestStaleAutomationStatusDocHitsAllowsCurrentStatusClaims(t *testing.T) {
 }
 
 func TestDocsUseCurrentAppRequiredChecksDetectsMultilineManagedRepoList(t *testing.T) {
-	tmpDir := t.TempDir()
-	docsDir := filepath.Join(tmpDir, "docs")
-	if err := os.MkdirAll(docsDir, 0o755); err != nil {
-		t.Fatalf("mkdir docs: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "README.md"), []byte("# ok\n"), 0o644); err != nil {
-		t.Fatalf("write readme: %v", err)
-	}
-	bad := "- account\n- blacklist\n- resume\n- tmux\n"
-	if err := os.WriteFile(filepath.Join(docsDir, "inventory.md"), []byte(bad), 0o644); err != nil {
-		t.Fatalf("write doc: %v", err)
-	}
+	tmpDir := writeDocumentationFixture(t, map[string]string{
+		"docs/inventory.md": "- account\n- blacklist\n- resume\n- tmux\n",
+	})
 
 	v := &validator{rootDir: tmpDir}
 	if err := v.docsUseCurrentAppRequiredChecks(); err == nil {
 		t.Fatal("expected multiline managed repo documentation to be flagged")
+	}
+}
+
+func TestDocsUseCurrentAppRequiredChecksDetectsNonCanonicalGoCliInvocation(t *testing.T) {
+	tmpDir := writeDocumentationFixture(t, map[string]string{
+		"docs/tools.md": "Run `go run ./scripts/cmd/branch-protection --dry-run` from the repo root.\n",
+	})
+
+	v := &validator{rootDir: tmpDir}
+	err := v.docsUseCurrentAppRequiredChecks()
+	if err == nil {
+		t.Fatal("expected non-canonical Go CLI invocation to be flagged")
+	}
+	if !strings.Contains(err.Error(), "docs/tools.md") {
+		t.Fatalf("error should identify offending doc, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "go run ./scripts/cmd/branch-protection") {
+		t.Fatalf("error should identify offending command, got: %v", err)
+	}
+}
+
+func TestDocsUseCurrentAppRequiredChecksDetectsNonCanonicalGoCliInvocationInGoCliUsageComments(t *testing.T) {
+	tmpDir := writeDocumentationFixture(t, map[string]string{
+		"docs/tools.md":                         "# ok\n",
+		"scripts/cmd/branch-protection/main.go": "// Usage: go run ./scripts/cmd/branch-protection --dry-run\npackage main\n",
+	})
+
+	v := &validator{rootDir: tmpDir}
+	err := v.docsUseCurrentAppRequiredChecks()
+	if err == nil {
+		t.Fatal("expected non-canonical Go CLI invocation in usage comments to be flagged")
+	}
+	if !strings.Contains(err.Error(), "scripts/cmd/branch-protection/main.go") {
+		t.Fatalf("error should identify offending Go CLI source, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "go run ./scripts/cmd/branch-protection --dry-run") {
+		t.Fatalf("error should identify offending command, got: %v", err)
+	}
+}
+
+func TestDocsUseCurrentAppRequiredChecksAllowsCanonicalGoCliInvocation(t *testing.T) {
+	tmpDir := writeDocumentationFixture(t, map[string]string{
+		"docs/tools.md": "Run `(cd scripts && go run ./cmd/branch-protection --dry-run)` from the repo root.\n",
+	})
+
+	v := &validator{rootDir: tmpDir}
+	if err := v.docsUseCurrentAppRequiredChecks(); err != nil {
+		t.Fatalf("canonical Go CLI invocation should pass, got: %v", err)
 	}
 }
 
@@ -236,4 +245,27 @@ func TestDocsUseCurrentAppRequiredChecksRepoClean(t *testing.T) {
 	if err := v.docsUseCurrentAppRequiredChecks(); err != nil {
 		t.Fatalf("repo docs should not advertise legacy required checks: %v", err)
 	}
+}
+
+func writeDocumentationFixture(t *testing.T, files map[string]string) string {
+	t.Helper()
+	tmpDir := t.TempDir()
+	for _, dir := range []string{"docs", "templates", ".github"} {
+		if err := os.MkdirAll(filepath.Join(tmpDir, dir), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", dir, err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "README.md"), []byte("# ok\n"), 0o644); err != nil {
+		t.Fatalf("write README.md: %v", err)
+	}
+	for file, content := range files {
+		path := filepath.Join(tmpDir, file)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("mkdir parent for %s: %v", file, err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatalf("write %s: %v", file, err)
+		}
+	}
+	return tmpDir
 }

@@ -3,10 +3,10 @@
 //
 // Usage:
 //
-//	go run ./scripts/cmd/rulesets-manager --dry-run
-//	go run ./scripts/cmd/rulesets-manager --repos=resume,terraform
-//	go run ./scripts/cmd/rulesets-manager --mode=list
-//	go run ./scripts/cmd/rulesets-manager         # apply to all
+//	(cd scripts && go run ./cmd/rulesets-manager --dry-run)
+//	(cd scripts && go run ./cmd/rulesets-manager --repos=resume,terraform)
+//	(cd scripts && go run ./cmd/rulesets-manager --mode=list)
+//	(cd scripts && go run ./cmd/rulesets-manager)         # apply to all
 //
 // Behavior per repo:
 //  1. GET existing rulesets

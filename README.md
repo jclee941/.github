@@ -36,7 +36,7 @@
 
 This repository is the `jclee941/*` automation stack: a homelab-hosted GitHub App plus the review engine that powers Korean-first AI PR review. The review engine is originally derived from [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent) and has been absorbed in-tree as a first-party package (see `NOTICE` for attribution). The platform delivers AI review, description generation, code suggestions, Q&A, changelog updates, and documentation help, while layering on:
 
-- a first-party `jclee_bot` GitHub App checks runner that posts `pr-metadata`, `secret-scan`, and `actionlint` via the Checks API,
+- a first-party `jclee_bot` GitHub App checks runner that posts `pr-metadata`, `secret-scan`, `actionlint`, and `docs-policy` via the Checks API,
 - a homelab CLIProxyAPI deployment (`https://cliproxy.jclee.me/v1`) that serves as the LLM gateway,
 - `jclee_bot` App-owned automation and **6 Go automation CLIs** that manage 16 downstream repositories end-to-end,
 - an ELK observability stack (Elasticsearch + Kibana) with Filebeat log shipping,
@@ -46,7 +46,7 @@ Production automation follows a **GitHub App-centered operating model**: the hom
 
 이 저장소는 `jclee941/*` 저장소 생태계의 자동화 스택입니다. 홈랩에서 운영하는 GitHub App과 한국어 우선 AI PR 리뷰 엔진으로 구성되어 있습니다. 리뷰 엔진은 [qodo-ai/pr-agent](https://github.com/qodo-ai/pr-agent)에서 유래한 코드를 흡수 통합한 1등 시민(first-party) 패키지입니다 (attribution은 `NOTICE` 참조). PR-Agent의 핵심 기능(AI 리뷰, PR 설명 생성, 코드 제안, Q&A, 체인지로그, 문서화 도움말)을 제공하며 다음을 더합니다:
 
-- Checks API를 통해 `pr-metadata`, `secret-scan`, `actionlint`를 게시하는 1등 시민 `jclee_bot` GitHub App 검사 러너,
+- Checks API를 통해 `pr-metadata`, `secret-scan`, `actionlint`, `docs-policy`를 게시하는 1등 시민 `jclee_bot` GitHub App 검사 러너,
 - LLM 게이트웨이 역할을 하는 homelab CLIProxyAPI 배포(`https://cliproxy.jclee.me/v1`),
 - 16개의 다운스트림 저장소를 종단(end-to-end)으로 관리하는 `jclee_bot` App 소유 자동화와 **6개의 Go 자동화 CLI**,
 - Filebeat 로그 수집을 포함한 ELK 관측 가능성 스택(Elasticsearch + Kibana),
@@ -66,10 +66,11 @@ Production automation follows a **GitHub App-centered operating model**: the hom
 
 ### GitHub App Checks | GitHub App 검사
 
-- `jclee_bot` posts three Check Runs on every opened/synchronised PR:
+- `jclee_bot` posts four Check Runs on every opened/synchronised PR:
   - **`pr-metadata`** — title/body linting and template conformance.
   - **`secret-scan`** — credential and token pattern detection on the diff.
   - **`actionlint`** — workflow YAML static analysis for the touched `.github/workflows/**` files.
+  - **`docs-policy`** — documentation freshness and private-IP exposure policy checks.
 - Tees the review-engine webhook into App checks so review and Checks API state stay aligned.
 
 ### Repository Automation | 저장소 자동화
@@ -106,7 +107,7 @@ flowchart TD
     subgraph APP["Homelab App Stack"]
         direction TB
         WH["Webhook Receiver<br/>FastAPI on &lt;homelab-host&gt;:8000"]
-        BOT["jclee_bot<br/>Checks API runner<br/>pr-metadata / secret-scan / actionlint"]
+        BOT["jclee_bot<br/>Checks API runner<br/>pr-metadata / secret-scan / actionlint / docs-policy"]
         PR["review engine<br/>jclee_bot.review_engine<br/>originally qodo-ai/pr-agent"]
     end
 
@@ -315,18 +316,18 @@ docker compose -f docker-compose.github_app.yml up -d
 3. Locally, dry-run the naming check with the Go tool:
 
 ```bash
-go run ./scripts/cmd/validate-naming
+(cd scripts && go run ./cmd/validate-naming)
 ```
 
 ### Working on Go tools | Go 도구 개발
 
 ```bash
-go run ./scripts/cmd/branch-protection --help
-go run ./scripts/cmd/branch-cleanup --help
-go run ./scripts/cmd/repo-review --help
-go run ./scripts/cmd/rulesets-manager --help
-go run ./scripts/cmd/sync-secrets --help
-go run ./scripts/cmd/validate-naming --help
+(cd scripts && go run ./cmd/branch-protection --help)
+(cd scripts && go run ./cmd/branch-cleanup --help)
+(cd scripts && go run ./cmd/repo-review --help)
+(cd scripts && go run ./cmd/rulesets-manager --help)
+(cd scripts && go run ./cmd/sync-secrets --help)
+(cd scripts && go run ./cmd/validate-naming --help)
 ```
 
 ---
@@ -367,12 +368,12 @@ pr-agent config          --pr_url=<url>
 
 | Command | Description | 설명 |
 |---------|-------------|------|
-| `go run ./scripts/cmd/branch-cleanup` | Delete remote branches already merged into managed repo default branches | 병합 완료 원격 브랜치 정리 |
-| `go run ./scripts/cmd/branch-protection` | Roll out branch protection to managed repos | 분기 보호 롤아웃 |
-| `go run ./scripts/cmd/repo-review` | Periodic repo review pass | 저장소 주기 리뷰 |
-| `go run ./scripts/cmd/rulesets-manager` | GitHub Rulesets rollout | Rulesets 롤아웃 |
-| `go run ./scripts/cmd/sync-secrets` | Sync secrets across managed repos | 시크릿 동기화 |
-| `go run ./scripts/cmd/validate-naming` | Enforce naming/inventory invariants | 명명 검증 |
+| `(cd scripts && go run ./cmd/branch-cleanup)` | Delete remote branches already merged into managed repo default branches | 병합 완료 원격 브랜치 정리 |
+| `(cd scripts && go run ./cmd/branch-protection)` | Roll out branch protection to managed repos | 분기 보호 롤아웃 |
+| `(cd scripts && go run ./cmd/repo-review)` | Periodic repo review pass | 저장소 주기 리뷰 |
+| `(cd scripts && go run ./cmd/rulesets-manager)` | GitHub Rulesets rollout | Rulesets 롤아웃 |
+| `(cd scripts && go run ./cmd/sync-secrets)` | Sync secrets across managed repos | 시크릿 동기화 |
+| `(cd scripts && go run ./cmd/validate-naming)` | Enforce naming/inventory invariants | 명명 검증 |
 
 ---
 

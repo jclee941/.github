@@ -11,6 +11,7 @@ import (
 var staleRequiredCheckDocRes = []*regexp.Regexp{
 	regexp.MustCompile(`pr-checks / Check PR Title`),
 	regexp.MustCompile(`pr-checks / Check Branch Name`),
+	regexp.MustCompile(`브랜치명 OK\?`),
 	regexp.MustCompile(`Gitleaks / scan`),
 	regexp.MustCompile(`(?i)required.*Gitleaks`),
 	regexp.MustCompile(`(?i)actionlint.*advisory`),
@@ -24,6 +25,8 @@ var staleAutomationStatusDocRes = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)(removed workflow|제거된 워크플로우|still|obsolete|stale).*20_readme-gen\.yml|20_readme-gen\.yml.*(still|obsolete|stale|removed workflow|제거된 워크플로우)`),
 	regexp.MustCompile(`(?i)(removed workflow|제거된 워크플로우|still|obsolete|stale).*22_template-sync\.yml|22_template-sync\.yml.*(still|obsolete|stale|removed workflow|제거된 워크플로우)`),
 }
+
+var nonCanonicalGoCliDocRe = regexp.MustCompile("go run \\./scripts/cmd/[A-Za-z0-9_-]+(?:[^\\n`]*)?")
 
 func (v *validator) docsUseCurrentAppRequiredChecks() error {
 	files, err := v.documentationFiles()
@@ -58,9 +61,16 @@ func (v *validator) docsUseCurrentAppRequiredChecks() error {
 			}
 			offenders = append(offenders, fmt.Sprintf("%s:%d lists managed repos %q", rel, hit.line, strings.Join(hit.repos, ",")))
 		}
+		for _, hit := range nonCanonicalGoCliDocHits(string(b)) {
+			rel, relErr := filepath.Rel(v.rootDir, file)
+			if relErr != nil {
+				rel = file
+			}
+			offenders = append(offenders, fmt.Sprintf("%s:%d uses non-canonical Go CLI command %q", rel, hit.line, hit.text))
+		}
 	}
 	if len(offenders) > 0 {
-		return fmt.Errorf("documentation advertises legacy required checks instead of jclee-bot App contexts: %s", strings.Join(offenders, "; "))
+		return fmt.Errorf("documentation contains stale or non-canonical automation guidance: %s", strings.Join(offenders, "; "))
 	}
 	return nil
 }
@@ -93,6 +103,11 @@ func (v *validator) documentationFiles() ([]string, error) {
 			return nil, fmt.Errorf("walk documentation path %s: %w", path, err)
 		}
 	}
+	goCliUsageFiles, err := filepath.Glob(filepath.Join(v.rootDir, "scripts", "cmd", "*", "main.go"))
+	if err != nil {
+		return nil, fmt.Errorf("glob Go CLI usage files: %w", err)
+	}
+	files = append(files, goCliUsageFiles...)
 	return files, nil
 }
 
@@ -120,6 +135,16 @@ func staleAutomationStatusDocHits(content string) []staleRequiredCheckDocHit {
 			if match := re.FindString(line); match != "" {
 				hits = append(hits, staleRequiredCheckDocHit{line: i + 1, text: match})
 			}
+		}
+	}
+	return hits
+}
+
+func nonCanonicalGoCliDocHits(content string) []staleRequiredCheckDocHit {
+	var hits []staleRequiredCheckDocHit
+	for i, line := range strings.Split(content, "\n") {
+		if match := nonCanonicalGoCliDocRe.FindString(line); match != "" {
+			hits = append(hits, staleRequiredCheckDocHit{line: i + 1, text: match})
 		}
 	}
 	return hits
