@@ -16,18 +16,16 @@ a stable local path.
 
 ## Architecture
 
-```
-Synology NAS (NFS)  <redacted-nas-ip>:/volume1/shared
-        │  (Proxmox storage "shared", vers=3)
-        ▼
-Proxmox host pve3   /mnt/pve/shared/ci-cache
-        │  (LXC bind mount, mp0, root@pam only)
-        ▼
-Runner LXC 101      /mnt/nas-cache
-        │  (composite action exports cache env vars)
-        ▼
-GitHub Actions      GOCACHE / GOMODCACHE / PIP_CACHE_DIR / UV_CACHE_DIR /
-                    npm_config_cache / XDG_CACHE_HOME / DOCKER_BUILDX_CACHE
+```mermaid
+flowchart TD
+    NAS["Synology NAS (NFS)<br/>&lt;redacted-nas-ip&gt;:/volume1/shared"]
+    PVE["Proxmox host pve3<br/>/mnt/pve/shared/ci-cache"]
+    RUNNER["Runner LXC 101<br/>/mnt/nas-cache"]
+    ACTIONS["GitHub Actions<br/>GOCACHE / GOMODCACHE / PIP_CACHE_DIR<br/>UV_CACHE_DIR / npm_config_cache<br/>XDG_CACHE_HOME / DOCKER_BUILDX_CACHE"]
+
+    NAS -->|"Proxmox storage shared, vers=3"| PVE
+    PVE -->|"LXC bind mount, mp0, root@pam only"| RUNNER
+    RUNNER -->|"composite action exports cache env vars"| ACTIONS
 ```
 
 Key decisions:

@@ -22,17 +22,22 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Final
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-README = REPO_ROOT / "README.md"
+REPO_ROOT: Final = Path(__file__).resolve().parent.parent
+README: Final = REPO_ROOT / "README.md"
+ARCHITECTURE_DOCS: Final = [README, *sorted((REPO_ROOT / "docs").glob("**/*.md"))]
 
 # Matches a flowchart node-label payload: NodeId[ ... ] / NodeId( ... ) etc.
 # We only care about the text between the brackets that follows an identifier.
-_LABEL = re.compile(r"[A-Za-z0-9_]+[\[\(\{]+(.*?)[\]\)\}]+", re.DOTALL)
+_LABEL: Final = re.compile(r"[A-Za-z0-9_]+[\[\(\{]+(.*?)[\]\)\}]+", re.DOTALL)
 
 
 def extract_mermaid_blocks(text: str) -> list[str]:
-    blocks, lines, inside, buf = [], text.splitlines(), False, []
+    blocks: list[str] = []
+    lines = text.splitlines()
+    inside = False
+    buf: list[str] = []
     for line in lines:
         if line.strip() == "```mermaid":
             inside, buf = True, []
@@ -46,9 +51,28 @@ def extract_mermaid_blocks(text: str) -> list[str]:
     return blocks
 
 
+def architecture_fence_languages(path: Path) -> list[str]:
+    languages: list[str] = []
+    inside_architecture = False
+    inside_fence = False
+
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not inside_fence and stripped.startswith("#"):
+            normalized = stripped.casefold()
+            inside_architecture = "architecture" in normalized or "아키텍처" in normalized
+            continue
+        if inside_architecture and stripped.startswith("```"):
+            if not inside_fence:
+                languages.append(stripped.removeprefix("```").strip())
+            inside_fence = not inside_fence
+
+    return languages
+
+
 def bare_angle_labels(block: str) -> list[str]:
     """Return node labels that contain an unescaped/bare angle bracket."""
-    offenders = []
+    offenders: list[str] = []
     for line in block.splitlines():
         # subgraph headers use quoted labels and are fine; skip control lines.
         for m in _LABEL.finditer(line):
@@ -64,7 +88,7 @@ def bare_angle_labels(block: str) -> list[str]:
 
 
 def subgraphs_without_vertical_direction(block: str) -> list[str]:
-    offenders = []
+    offenders: list[str] = []
     lines = block.splitlines()
     for index, line in enumerate(lines):
         stripped = line.strip()
@@ -83,7 +107,7 @@ def test_readme_has_mermaid_architecture_block():
 
 def test_no_bare_angle_brackets_in_mermaid_labels():
     blocks = extract_mermaid_blocks(README.read_text(encoding="utf-8"))
-    all_offenders = []
+    all_offenders: list[str] = []
     for block in blocks:
         all_offenders.extend(bare_angle_labels(block))
     assert not all_offenders, (
@@ -95,7 +119,19 @@ def test_no_bare_angle_brackets_in_mermaid_labels():
 
 def test_mermaid_subgraphs_render_as_vertical_stacks():
     blocks = extract_mermaid_blocks(README.read_text(encoding="utf-8"))
-    all_offenders = []
+    all_offenders: list[str] = []
     for block in blocks:
         all_offenders.extend(subgraphs_without_vertical_direction(block))
     assert not all_offenders, f"Mermaid subgraphs must use direction TB to avoid row layout: {all_offenders}"
+
+
+def test_architecture_sections_do_not_use_raw_code_blocks():
+    offenders = [
+        str(path.relative_to(REPO_ROOT))
+        for path in ARCHITECTURE_DOCS
+        if "" in architecture_fence_languages(path)
+    ]
+    assert not offenders, (
+        "Architecture sections must render as GitHub-native diagrams instead "
+        f"of raw fenced code blocks: {offenders}"
+    )
