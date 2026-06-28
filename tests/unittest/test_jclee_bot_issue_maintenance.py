@@ -240,6 +240,68 @@ class TestMaintainRepo:
         assert result["actions"] == ["close-empty-review:4"]
         assert mutations == []
 
+    def test_dry_run_reports_recovered_repo_health_cleanup(self, monkeypatch) -> None:
+        # Given
+        now = datetime(2026, 6, 19, tzinfo=UTC)
+        monkeypatch.setattr(
+            issue_maintenance,
+            "list_open_issues",
+            lambda **kwargs: [
+                _issue(
+                    number=5,
+                    updated_days_ago=1,
+                    labels=[{"name": "documentation"}, {"name": "repo-health"}],
+                )
+                | {"title": "[BOT] 필수 문서 누락: CONTRIBUTING.md, LICENSE"},
+            ],
+        )
+        monkeypatch.setattr(issue_maintenance, "missing_repo_health_files", lambda **kwargs: [])
+        monkeypatch.setattr(issue_maintenance.pr_maintenance, "maintain_pull_requests", lambda **kwargs: [])
+
+        # When
+        result = issue_maintenance.maintain_repo(
+            token="tok",
+            repo_full_name="jclee941/bug",
+            dry_run=True,
+            now=now,
+        )
+
+        # Then
+        assert result["actions"] == ["close-recovered-repo-health:5"]
+
+    def test_dry_run_keeps_unrecovered_repo_health_issue(self, monkeypatch) -> None:
+        # Given
+        now = datetime(2026, 6, 19, tzinfo=UTC)
+        monkeypatch.setattr(
+            issue_maintenance,
+            "list_open_issues",
+            lambda **kwargs: [
+                _issue(
+                    number=6,
+                    updated_days_ago=1,
+                    labels=[{"name": "documentation"}, {"name": "repo-health"}],
+                )
+                | {"title": "[BOT] 필수 문서 누락: CONTRIBUTING.md, LICENSE"},
+            ],
+        )
+        monkeypatch.setattr(
+            issue_maintenance,
+            "missing_repo_health_files",
+            lambda **kwargs: ["CONTRIBUTING.md", "LICENSE"],
+        )
+        monkeypatch.setattr(issue_maintenance.pr_maintenance, "maintain_pull_requests", lambda **kwargs: [])
+
+        # When
+        result = issue_maintenance.maintain_repo(
+            token="tok",
+            repo_full_name="jclee941/bug",
+            dry_run=True,
+            now=now,
+        )
+
+        # Then
+        assert result["actions"] == ["keep-repo-health:6:missing:CONTRIBUTING.md,LICENSE"]
+
     def test_mutating_run_marks_stale_closes_stale_and_updates_summary(self, monkeypatch) -> None:
         # Given
         now = datetime(2026, 6, 19, tzinfo=UTC)
@@ -316,6 +378,46 @@ class TestRunAppMaintenance:
         # Then
         assert maintained == ["jclee941/propose"]
         assert result == {"dry_run": True, "repositories": [{"repo": "jclee941/propose"}]}
+
+    def test_owner_scoped_non_managed_repo_runs_when_bot_owned_issue_exists(self, monkeypatch) -> None:
+        # Given
+        monkeypatch.setattr(issue_maintenance, "managed_repo_names", lambda config_path=None: {"bug"})
+        monkeypatch.setattr(issue_maintenance, "app_installations", lambda **kwargs: [{"id": 42}])
+        monkeypatch.setattr(issue_maintenance.github_checks, "installation_token", lambda *args: "tok")
+        monkeypatch.setattr(
+            issue_maintenance,
+            "installation_repositories",
+            lambda **kwargs: [
+                {"full_name": "jclee941/ai-dacon", "name": "ai-dacon"},
+                {"full_name": "jclee941/untracked", "name": "untracked"},
+            ],
+        )
+
+        def open_issues(*, token: str, repo_full_name: str) -> list[dict[str, object]]:
+            del token
+            if repo_full_name == "jclee941/ai-dacon":
+                return [_issue(labels=[{"name": "repo-health"}])]
+            return []
+
+        maintained: list[str] = []
+        monkeypatch.setattr(issue_maintenance, "list_open_issues", open_issues)
+        monkeypatch.setattr(
+            issue_maintenance,
+            "maintain_repo",
+            lambda **kwargs: maintained.append(kwargs["repo_full_name"]) or {"repo": kwargs["repo_full_name"]},
+        )
+
+        # When
+        result = issue_maintenance.run_app_maintenance(
+            app_id="123",
+            private_key="key",
+            owner="jclee941",
+            dry_run=True,
+        )
+
+        # Then
+        assert maintained == ["jclee941/ai-dacon"]
+        assert result == {"dry_run": True, "repositories": [{"repo": "jclee941/ai-dacon"}]}
 
     def test_managed_repo_names_returns_none_when_config_file_is_missing(self, tmp_path) -> None:
         assert issue_maintenance.managed_repo_names(tmp_path / "missing.yml") is None

@@ -18,6 +18,9 @@ from jclee_bot.issue_maintenance_rules import (
 
 GITHUB_API = "https://api.github.com"
 SUMMARY_LABELS = ["issue-summary", "bot"]
+REPO_HEALTH_LABELS = {"documentation", "repo-health"}
+REPO_HEALTH_FILES = ("README.md", "CONTRIBUTING.md", "LICENSE")
+BOT_OWNED_LABELS = {"jclee-bot", "repo-health"}
 STALE_MESSAGE = (
     "이 이슈는 30일 이상 활동이 없어 `stale` 상태로 전환됩니다. "
     "추가 활동이 없으면 7일 후 자동으로 닫힙니다."
@@ -30,6 +33,10 @@ DUPLICATE_REVIEW_CLOSE_MESSAGE = (
 EMPTY_REVIEW_CLOSE_MESSAGE = (
     "`jclee-bot` review-finding 본문에 실제 조치 항목이 없어 자동 정리합니다. "
     "구체적인 finding이 있는 이슈만 추적합니다."
+)
+REPO_HEALTH_RECOVERED_MESSAGE = (
+    "필수 문서 파일이 모두 확인되어 자동으로 닫습니다.\n\n"
+    "_jclee-bot issue maintenance에 의해 자동화됨._"
 )
 
 
@@ -61,6 +68,36 @@ def _paginate(token: str, path: str, params: dict[str, Any] | None = None) -> li
 
 def list_open_issues(*, token: str, repo_full_name: str) -> list[dict[str, Any]]:
     return _paginate(token, f"/repos/{repo_full_name}/issues", {"state": "open"})
+
+
+def _repo_file_exists(*, token: str, repo_full_name: str, path: str) -> bool:
+    resp = requests.get(
+        f"{GITHUB_API}/repos/{repo_full_name}/contents/{path}",
+        headers=_headers(token),
+        timeout=30,
+    )
+    if resp.status_code == 404:
+        return False
+    resp.raise_for_status()
+    return True
+
+
+def missing_repo_health_files(*, token: str, repo_full_name: str) -> list[str]:
+    return [
+        path
+        for path in REPO_HEALTH_FILES
+        if not _repo_file_exists(token=token, repo_full_name=repo_full_name, path=path)
+    ]
+
+
+def _is_repo_health_issue(issue: dict[str, Any]) -> bool:
+    labels = issue_management.label_names(issue.get("labels", []))
+    title = str(issue.get("title") or "")
+    return REPO_HEALTH_LABELS <= labels and "문서 누락" in title
+
+
+def _has_bot_owned_issue(issues: list[dict[str, Any]]) -> bool:
+    return any(BOT_OWNED_LABELS & issue_management.label_names(issue.get("labels", [])) for issue in issues)
 
 
 def ensure_label(*, token: str, repo_full_name: str, name: str, color: str, description: str) -> None:
@@ -190,6 +227,21 @@ def maintain_repo(*, token: str, repo_full_name: str, dry_run: bool, now: dateti
                 )
                 close_issue(token=token, repo_full_name=repo_full_name, issue_number=number)
             continue
+        if _is_repo_health_issue(issue):
+            missing_files = missing_repo_health_files(token=token, repo_full_name=repo_full_name)
+            if not missing_files:
+                actions.append(f"close-recovered-repo-health:{number}")
+                if not dry_run:
+                    comment_issue(
+                        token=token,
+                        repo_full_name=repo_full_name,
+                        issue_number=number,
+                        body=REPO_HEALTH_RECOVERED_MESSAGE,
+                    )
+                    close_issue(token=token, repo_full_name=repo_full_name, issue_number=number)
+                continue
+            actions.append(f"keep-repo-health:{number}:missing:{','.join(missing_files)}")
+            continue
         if should_close_stale(issue, now=current_time):
             actions.append(f"close-stale:{number}")
             if not dry_run:
@@ -275,6 +327,15 @@ def run_app_maintenance(*, app_id: str, private_key: str, owner: str, dry_run: b
         for repo in installation_repositories(token=token):
             full_name = str(repo.get("full_name", ""))
             name = str(repo.get("name", ""))
-            if full_name.startswith(f"{owner}/") and (allowed is None or name in allowed):
+            if not full_name.startswith(f"{owner}/"):
+                continue
+            if allowed is None or name in allowed:
+                results.append(maintain_repo(token=token, repo_full_name=full_name, dry_run=dry_run))
+                continue
+            try:
+                issues = list_open_issues(token=token, repo_full_name=full_name)
+            except requests.RequestException:
+                continue
+            if _has_bot_owned_issue(issues):
                 results.append(maintain_repo(token=token, repo_full_name=full_name, dry_run=dry_run))
     return {"dry_run": dry_run, "repositories": results}
