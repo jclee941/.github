@@ -187,6 +187,13 @@ def _go_automation_tools(repo_root: Path) -> list[str]:
     return go_tools
 
 
+def _agents_md_context(repo_root: Path) -> str:
+    agents_path = repo_root / "AGENTS.md"
+    if not agents_path.exists():
+        return ""
+    return agents_path.read_text(encoding="utf-8", errors="ignore")[:4000]
+
+
 def generate_readme(repo_root: Path) -> str:
     tree = run_tree(repo_root)
     files = read_key_files(repo_root)
@@ -234,10 +241,14 @@ def generate_readme(repo_root: Path) -> str:
         user_parts.append(content)
         user_parts.append("")
 
-    agents_path = repo_root / "AGENTS.md"
-    if is_automation_source and agents_path.exists():
-        agents_md = agents_path.read_text(encoding="utf-8", errors="ignore")[:4000]
-        user_parts.append("=== AUTOMATION INVENTORY (AGENTS.md) ===")
+    agents_md = _agents_md_context(repo_root)
+    if agents_md:
+        heading = (
+            "=== AUTOMATION INVENTORY (AGENTS.md) ==="
+            if is_automation_source
+            else "=== REPOSITORY INSTRUCTIONS (AGENTS.md) ==="
+        )
+        user_parts.append(heading)
         user_parts.append(agents_md)
         user_parts.append("")
 

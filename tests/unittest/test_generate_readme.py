@@ -50,14 +50,14 @@ def test_prompt_keeps_jclee_bot_as_automation_surface():
     assert "list all real workflow files grouped by trigger type" not in text
 
 
-def test_downstream_repo_prompt_excludes_jclee_bot_boilerplate(monkeypatch, tmp_path):
+def test_downstream_repo_prompt_includes_agents_md_without_readme_boilerplate(monkeypatch, tmp_path):
     mod = _load_module()
     captured: dict[str, str] = {}
 
     (tmp_path / ".github" / "workflows").mkdir(parents=True)
     (tmp_path / ".github" / "workflows" / "ci.yml").write_text("name: CI\n", encoding="utf-8")
     (tmp_path / "AGENTS.md").write_text(
-        "This repo is managed by jclee-bot and jclee-bot에의해자동화됨.\n",
+        "Project instructions: document the CLI entry point and npm test command.\n",
         encoding="utf-8",
     )
     (tmp_path / "package.json").write_text('{"name":"demo-tool"}\n', encoding="utf-8")
@@ -79,10 +79,11 @@ def test_downstream_repo_prompt_excludes_jclee_bot_boilerplate(monkeypatch, tmp_
     assert "Document the repository's actual product" in captured["system"]
     assert "Do NOT add jclee-bot automation surfaces" in captured["system"]
     assert "stale boilerplate from a previous generator run" in captured["system"]
+    assert "REPOSITORY INSTRUCTIONS (AGENTS.md)" in captured["user"]
+    assert "document the CLI entry point and npm test command" in captured["user"]
     assert "AUTOMATION INVENTORY" not in captured["user"]
     assert "WORKFLOW FILES" not in captured["user"]
     assert "jclee-bot Automation" not in captured["user"]
-    assert "jclee-bot에의해자동화됨" not in captured["user"]
 
 
 def test_downstream_boilerplate_detector_keeps_product_readme_context():
