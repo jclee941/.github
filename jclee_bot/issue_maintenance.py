@@ -62,6 +62,13 @@ class BranchCleanupPlan:
     reason: str
 
 
+def maintenance_error_code(prefix: str, exc: Exception) -> str:
+    status = ""
+    if isinstance(exc, requests.HTTPError) and exc.response is not None:
+        status = f":{exc.response.status_code}"
+    return f"{prefix}:{type(exc).__name__}{status}"
+
+
 def _paginate(token: str, path: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     page = 1
@@ -301,13 +308,19 @@ def maintain_repo(
         if mode == "force":
             actions.append(f"close-issue:{number}:force-repo-zero")
             if not dry_run:
-                comment_issue(
-                    token=token,
-                    repo_full_name=repo_full_name,
-                    issue_number=number,
-                    body=FORCE_ISSUE_CLEANUP_MESSAGE,
-                )
-                close_issue(token=token, repo_full_name=repo_full_name, issue_number=number)
+                try:
+                    comment_issue(
+                        token=token,
+                        repo_full_name=repo_full_name,
+                        issue_number=number,
+                        body=FORCE_ISSUE_CLEANUP_MESSAGE,
+                    )
+                except requests.RequestException as exc:
+                    actions.append(maintenance_error_code(f"comment-issue-error:{number}", exc))
+                try:
+                    close_issue(token=token, repo_full_name=repo_full_name, issue_number=number)
+                except requests.RequestException as exc:
+                    actions.append(maintenance_error_code(f"close-issue-error:{number}", exc))
             continue
         if should_close_duplicate_bot_review(issue):
             actions.append(f"close-duplicate-review:{number}")
@@ -404,20 +417,40 @@ def run_app_maintenance(
             "error": "managed repository inventory is required for force mode",
         }
     results: list[dict[str, Any]] = []
-    for installation in app_installations(app_id=app_id, private_key=private_key):
+    errors: list[dict[str, Any]] = []
+    try:
+        installations = app_installations(app_id=app_id, private_key=private_key)
+    except Exception as exc:  # noqa: BLE001 - App boundary must return diagnostic JSON
+        return {
+            "dry_run": dry_run,
+            "mode": mode,
+            "repositories": [],
+            "error": maintenance_error_code("app-installations-error", exc),
+        }
+    for installation in installations:
         installation_id = int(installation.get("id", 0) or 0)
         if installation_id <= 0:
             continue
-        token = github_checks.installation_token(app_id, private_key, installation_id)
-        for repo in installation_repositories(token=token):
+        try:
+            token = github_checks.installation_token(app_id, private_key, installation_id)
+            repos = installation_repositories(token=token)
+        except Exception as exc:  # noqa: BLE001 - keep other installations observable
+            errors.append(
+                {
+                    "installation_id": installation_id,
+                    "error": maintenance_error_code("installation-error", exc),
+                }
+            )
+            continue
+        for repo in repos:
             full_name = str(repo.get("full_name", ""))
             name = str(repo.get("name", ""))
             default_branch = str(repo.get("default_branch") or "master")
             if not full_name.startswith(f"{owner}/"):
                 continue
             if allowed is None or name in allowed:
-                results.append(
-                    maintain_repo(
+                try:
+                    repo_result = maintain_repo(
                         token=token,
                         repo_full_name=full_name,
                         dry_run=dry_run,
@@ -425,7 +458,19 @@ def run_app_maintenance(
                         default_branch=default_branch,
                         branch_cleanup=mode == "force",
                     )
-                )
+                except Exception as exc:  # noqa: BLE001 - one repo must not abort fleet cleanup
+                    error = maintenance_error_code("repo-maintenance-error", exc)
+                    repo_result = {"repo": full_name, "error": error}
+                    errors.append({"repo": full_name, "error": error})
+                else:
+                    action_errors = [
+                        action
+                        for action in repo_result.get("actions", [])
+                        if isinstance(action, str) and "error:" in action
+                    ]
+                    if mode == "force" and action_errors:
+                        errors.append({"repo": full_name, "actions": action_errors})
+                results.append(repo_result)
                 continue
             if mode == "force":
                 continue
@@ -444,4 +489,8 @@ def run_app_maintenance(
                         branch_cleanup=False,
                     )
                 )
-    return {"dry_run": dry_run, "mode": mode, "repositories": results}
+    response: dict[str, Any] = {"dry_run": dry_run, "mode": mode, "repositories": results}
+    if errors:
+        response["errors"] = errors
+        response["error"] = "issue maintenance failed"
+    return response

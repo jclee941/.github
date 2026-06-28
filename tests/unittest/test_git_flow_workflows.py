@@ -197,6 +197,7 @@ class TestIssueMaintenanceWorkflow:
         assert '\\"background\\": ${BACKGROUND}' in text
         assert "BACKGROUND: false" in text
         assert '.repositories | type == "array"' in text
+        assert ".error == null" in text
 
 # ---------------------------------------------------------------------------
 

@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 import os
 import subprocess  # noqa: S404 - fixed-arg git checkout of the PR head
 import tempfile
@@ -43,6 +44,7 @@ app.include_router(readme_automation_router)
 
 GITHUB_API = "https://api.github.com"
 type MaintenanceMode = Literal["safe", "force"]
+logger = logging.getLogger(__name__)
 
 
 def _verify_signature(secret: str, payload: bytes, signature: str | None) -> bool:
@@ -219,8 +221,15 @@ def _run_app_issue_maintenance(
             dry_run=dry_run,
             mode=mode,
         )
-    except Exception:  # noqa: BLE001 - background maintenance must not crash the App worker
-        return {"dry_run": dry_run, "mode": mode, "repositories": [], "error": "issue maintenance failed"}
+    except Exception as exc:  # noqa: BLE001 - background maintenance must not crash the App worker
+        logger.exception("App issue maintenance failed")
+        return {
+            "dry_run": dry_run,
+            "mode": mode,
+            "repositories": [],
+            "error": "issue maintenance failed",
+            "error_type": type(exc).__name__,
+        }
 
 
 def _workflow_run_from_payload(payload: dict[str, Any]) -> workflow_issue_automation.WorkflowRun | None:

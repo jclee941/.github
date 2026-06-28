@@ -63,6 +63,13 @@ def _headers(token: str) -> dict[str, str]:
     return {"Authorization": f"token {token}", "Accept": "application/vnd.github+json"}
 
 
+def maintenance_error_code(prefix: str, exc: requests.RequestException) -> str:
+    status = ""
+    if isinstance(exc, requests.HTTPError) and exc.response is not None:
+        status = f":{exc.response.status_code}"
+    return f"{prefix}:{type(exc).__name__}{status}"
+
+
 def parse_github_time(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
 
@@ -285,15 +292,24 @@ def maintain_pull_requests(
             if can_delete_branch:
                 actions.append(f"delete-pr-branch:{number}")
             if not dry_run:
-                comment_pr(
-                    token=token,
-                    repo_full_name=repo_full_name,
-                    pr_number=number,
-                    body=FORCE_PR_CLEANUP_MESSAGE,
-                )
-                close_pr(token=token, repo_full_name=repo_full_name, pr_number=number)
+                try:
+                    comment_pr(
+                        token=token,
+                        repo_full_name=repo_full_name,
+                        pr_number=number,
+                        body=FORCE_PR_CLEANUP_MESSAGE,
+                    )
+                except requests.RequestException as exc:
+                    actions.append(maintenance_error_code(f"comment-pr-error:{number}", exc))
+                try:
+                    close_pr(token=token, repo_full_name=repo_full_name, pr_number=number)
+                except requests.RequestException as exc:
+                    actions.append(maintenance_error_code(f"close-pr-error:{number}", exc))
                 if can_delete_branch:
-                    delete_head_branch(token=token, repo_full_name=repo_full_name, head_ref=head_ref)
+                    try:
+                        delete_head_branch(token=token, repo_full_name=repo_full_name, head_ref=head_ref)
+                    except requests.RequestException as exc:
+                        actions.append(maintenance_error_code(f"delete-pr-branch-error:{number}", exc))
             continue
 
         sha = nested_str(pr, "head", "sha")

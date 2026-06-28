@@ -53,7 +53,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{\"dry_run\": ${DRY_RUN}, \"background\": ${BACKGROUND}, \"owner\": \"jclee941\", \"mode\": \"${MODE}\"}" \
             | tee issue-maintenance-result.json
-          jq -e '.repositories | type == "array"' issue-maintenance-result.json >/dev/null
+          jq -e '(.repositories | type == "array") and (.error == null)' issue-maintenance-result.json >/dev/null
 
   branch-cleanup:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'

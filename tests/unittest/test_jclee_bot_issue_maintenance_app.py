@@ -142,6 +142,48 @@ class TestRunAppMaintenance:
         assert maintained == [("jclee941/bug", True)]
         assert result == {"dry_run": True, "mode": "force", "repositories": [{"repo": "jclee941/bug"}]}
 
+    def test_force_mode_records_repo_error_and_continues(self, monkeypatch) -> None:
+        # Given
+        monkeypatch.setattr(issue_maintenance, "managed_repo_names", lambda config_path=None: {"account", "bug"})
+        monkeypatch.setattr(issue_maintenance, "app_installations", lambda **kwargs: [{"id": 42}])
+        monkeypatch.setattr(issue_maintenance.github_checks, "installation_token", lambda *args: "tok")
+        monkeypatch.setattr(
+            issue_maintenance,
+            "installation_repositories",
+            lambda **kwargs: [
+                {"full_name": "jclee941/bug", "name": "bug"},
+                {"full_name": "jclee941/account", "name": "account"},
+            ],
+        )
+
+        def maintain_repo(**kwargs):
+            if kwargs["repo_full_name"] == "jclee941/bug":
+                raise RuntimeError("boom")
+            return {"repo": kwargs["repo_full_name"], "actions": []}
+
+        monkeypatch.setattr(issue_maintenance, "maintain_repo", maintain_repo)
+
+        # When
+        result = issue_maintenance.run_app_maintenance(
+            app_id="123",
+            private_key="key",
+            owner="jclee941",
+            dry_run=False,
+            mode="force",
+        )
+
+        # Then
+        assert result == {
+            "dry_run": False,
+            "mode": "force",
+            "repositories": [
+                {"repo": "jclee941/bug", "error": "repo-maintenance-error:RuntimeError"},
+                {"repo": "jclee941/account", "actions": []},
+            ],
+            "errors": [{"repo": "jclee941/bug", "error": "repo-maintenance-error:RuntimeError"}],
+            "error": "issue maintenance failed",
+        }
+
     def test_managed_repo_names_returns_none_when_config_file_is_missing(self, tmp_path: Path) -> None:
         assert issue_maintenance.managed_repo_names(tmp_path / "missing.yml") is None
 
