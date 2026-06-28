@@ -11,6 +11,7 @@ each result to the GitHub Checks API. Deployed via Dockerfile.github_app:
 """
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import hmac
 import json
@@ -18,6 +19,8 @@ import logging
 import os
 import subprocess  # noqa: S404 - fixed-arg git checkout of the PR head
 import tempfile
+import threading
+import time
 from functools import partial
 from typing import Any, Literal
 
@@ -45,6 +48,7 @@ app.include_router(readme_automation_router)
 GITHUB_API = "https://api.github.com"
 type MaintenanceMode = Literal["safe", "force"]
 logger = logging.getLogger(__name__)
+_issue_maintenance_scheduler_thread: threading.Thread | None = None
 
 
 def _verify_signature(secret: str, payload: bytes, signature: str | None) -> bool:
@@ -230,6 +234,90 @@ def _run_app_issue_maintenance(
             "error": "issue maintenance failed",
             "error_type": type(exc).__name__,
         }
+
+
+def _issue_maintenance_scheduler_disabled() -> bool:
+    value = os.environ.get("JCLEE_BOT_DISABLE_ISSUE_MAINTENANCE_SCHEDULER", "")
+    return value.lower() in {"1", "true", "yes"}
+
+
+def _issue_maintenance_scheduler_interval() -> int:
+    value = os.environ.get("JCLEE_BOT_ISSUE_MAINTENANCE_INTERVAL_SECONDS", "3600")
+    try:
+        interval = int(value)
+    except ValueError:
+        return 3600
+    return max(interval, 60)
+
+
+def _issue_maintenance_lock_path() -> str:
+    return os.environ.get("JCLEE_BOT_ISSUE_MAINTENANCE_LOCK_PATH", "/tmp/jclee-bot-issue-maintenance.lock")
+
+
+def _acquire_issue_maintenance_lock() -> int | None:
+    fd = os.open(_issue_maintenance_lock_path(), os.O_CREAT | os.O_RDWR, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        os.close(fd)
+        return None
+    return fd
+
+
+def _release_issue_maintenance_lock(fd: int) -> None:
+    fcntl.flock(fd, fcntl.LOCK_UN)
+    os.close(fd)
+
+
+def _run_scheduled_issue_maintenance_once() -> dict[str, Any]:
+    app_id = os.environ.get("GITHUB_APP_ID", "")
+    private_key = os.environ.get("GITHUB_PRIVATE_KEY", "")
+    if not app_id or not private_key:
+        return {"skipped": "github app credentials unavailable"}
+    fd = _acquire_issue_maintenance_lock()
+    if fd is None:
+        return {"skipped": "issue maintenance already running"}
+    try:
+        result = _run_app_issue_maintenance(
+            app_id=app_id,
+            private_key=private_key,
+            owner=os.environ.get("JCLEE_BOT_ISSUE_MAINTENANCE_OWNER", "jclee941"),
+            dry_run=False,
+            mode="force",
+        )
+        if result.get("error"):
+            logger.error("Scheduled issue maintenance failed: %s", result)
+        else:
+            logger.info("Scheduled issue maintenance completed")
+        return result
+    finally:
+        _release_issue_maintenance_lock(fd)
+
+
+def _issue_maintenance_scheduler_loop(interval_seconds: int) -> None:
+    while True:
+        _run_scheduled_issue_maintenance_once()
+        time.sleep(interval_seconds)
+
+
+def _start_issue_maintenance_scheduler() -> None:
+    global _issue_maintenance_scheduler_thread
+    if _issue_maintenance_scheduler_disabled():
+        return
+    if not os.environ.get("GITHUB_APP_ID") or not os.environ.get("GITHUB_PRIVATE_KEY"):
+        return
+    if _issue_maintenance_scheduler_thread is not None and _issue_maintenance_scheduler_thread.is_alive():
+        return
+    _issue_maintenance_scheduler_thread = threading.Thread(
+        target=_issue_maintenance_scheduler_loop,
+        args=(_issue_maintenance_scheduler_interval(),),
+        name="jclee-bot-issue-maintenance",
+        daemon=True,
+    )
+    _issue_maintenance_scheduler_thread.start()
+
+
+app.router.on_startup.append(_start_issue_maintenance_scheduler)
 
 
 def _workflow_run_from_payload(payload: dict[str, Any]) -> workflow_issue_automation.WorkflowRun | None:

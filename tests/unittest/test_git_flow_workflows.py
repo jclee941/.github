@@ -191,15 +191,8 @@ class TestReadmeAutomationOwnedByApp:
 
 
 class TestIssueMaintenanceWorkflow:
-    def test_waits_for_app_maintenance_results(self):
-        text = read_workflow("issue-maintenance.yml")
-        assert "schedule:" in text
-        assert "17 * * * *" in text
-        assert "BACKGROUND:" in text
-        assert '\\"background\\": ${BACKGROUND}' in text
-        assert "BACKGROUND: false" in text
-        assert '.repositories | type == "array"' in text
-        assert ".error == null" in text
+    def test_cleanup_is_not_owned_by_workflow(self):
+        assert not list(WF_DIR.glob("[0-9][0-9]_issue-maintenance.yml"))
 
 # ---------------------------------------------------------------------------
 

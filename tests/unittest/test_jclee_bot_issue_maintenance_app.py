@@ -319,3 +319,31 @@ class TestIssueMaintenanceEndpoint:
         # Then
         assert response.status_code == 200
         assert response.json() == {"accepted": True, "dry_run": True, "mode": "safe", "owner": "jclee941"}
+
+
+class TestIssueMaintenanceScheduler:
+    def test_app_registers_internal_maintenance_scheduler(self) -> None:
+        from jclee_bot import app as app_module
+
+        assert app_module._start_issue_maintenance_scheduler in app_module.app.router.on_startup
+
+    def test_scheduled_maintenance_runs_force_without_http(self, monkeypatch, tmp_path: Path) -> None:
+        from jclee_bot import app as app_module
+
+        calls: list[dict[str, str | bool]] = []
+
+        def fake_run_app_issue_maintenance(**kwargs: str | bool) -> dict[str, str | list[dict[str, str]]]:
+            calls.append(kwargs)
+            return {"mode": "force", "repositories": []}
+
+        monkeypatch.setenv("GITHUB_APP_ID", "123")
+        monkeypatch.setenv("GITHUB_PRIVATE_KEY", "key")
+        monkeypatch.setenv("JCLEE_BOT_ISSUE_MAINTENANCE_LOCK_PATH", str(tmp_path / "maintenance.lock"))
+        monkeypatch.setattr(app_module, "_run_app_issue_maintenance", fake_run_app_issue_maintenance)
+
+        result = app_module._run_scheduled_issue_maintenance_once()
+
+        assert result == {"mode": "force", "repositories": []}
+        assert calls == [
+            {"app_id": "123", "private_key": "key", "owner": "jclee941", "dry_run": False, "mode": "force"}
+        ]
