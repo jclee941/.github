@@ -14,6 +14,7 @@ GITHUB_API = "https://api.github.com"
 LEGACY_SWEEP_MAP = (
     ("[ci-fail] Release Drafter @", "23_release-drafter.yml"),
     ("[ci] Sanity failed at", "90_sanity.yml"),
+    ("[ci-fail] Sanity @", "90_sanity.yml"),
     ("ELK Health Check Failed", "26_elk-health-check.yml"),
     ("ELK Setup Failed", "27_elk-setup.yml"),
     ("Bot webhook endpoint unreachable", "30_runtime-health-check.yml"),

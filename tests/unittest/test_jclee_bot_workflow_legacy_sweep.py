@@ -138,6 +138,63 @@ def test_legacy_sweep_closes_old_sanity_current_issue_after_latest_master_succes
     ]
 
 
+def test_legacy_sweep_closes_notify_sanity_issue_after_latest_master_success(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    # Given
+    closed: list[tuple[int, str]] = []
+
+    def sanity_issue_numbers(*, token: str, repo_full_name: str, title_substring: str) -> list[int]:
+        del token, repo_full_name
+        if title_substring == "[ci-fail] Sanity @":
+            return [771, 773]
+        return []
+
+    def sanity_success(
+        *, token: str, repo_full_name: str, workflow_file: str, default_branch: str, completed_only: bool
+    ) -> tuple[str, str]:
+        del token, repo_full_name, default_branch
+        if workflow_file == "90_sanity.yml" and completed_only:
+            return ("completed", "success")
+        return ("none", "none")
+
+    def no_in_flight_run(*, token: str, repo_full_name: str, workflow_file: str, default_branch: str) -> bool:
+        del token, repo_full_name, workflow_file, default_branch
+        return False
+
+    def fake_close(*, token: str, repo_full_name: str, issue_number: int, body: str) -> None:
+        del token, repo_full_name
+        closed.append((issue_number, body))
+
+    monkeypatch.setattr(workflow_legacy_sweep, "_issue_numbers_with_title", sanity_issue_numbers)
+    monkeypatch.setattr(workflow_legacy_sweep, "_workflow_run_status", sanity_success)
+    monkeypatch.setattr(workflow_legacy_sweep, "_newest_run_in_flight", no_in_flight_run)
+    monkeypatch.setattr(workflow_issue_automation, "_close", fake_close)
+    _install_no_current_sweep(monkeypatch)
+    _install_no_pr_review_issues(monkeypatch)
+
+    # When
+    actions = workflow_issue_automation.sweep_legacy_failure_issues(
+        token="tok",
+        repo_full_name="jclee941/.github",
+        default_branch="master",
+        dry_run=False,
+    )
+
+    # Then
+    assert actions == ["close-legacy:771:90_sanity.yml", "close-legacy:773:90_sanity.yml"]
+    assert closed == [
+        (
+            771,
+            "90_sanity.yml latest run on master concluded success.\n\n_jclee-bot에의해자동화됨._",
+        ),
+        (
+            773,
+            "90_sanity.yml latest run on master concluded success.\n\n_jclee-bot에의해자동화됨._",
+        ),
+    ]
+
+
 def test_legacy_sweep_closes_pr_review_failure_issue_when_pr_is_closed(
     monkeypatch: MonkeyPatch,
 ) -> None:
