@@ -358,6 +358,7 @@ class TestMaintainRepo:
         # Then
         assert plans == [
             issue_maintenance.BranchCleanupPlan(name="feat/unmerged", reason="force-repo-zero"),
+            issue_maintenance.BranchCleanupPlan(name="fix/open-pr", reason="force-repo-zero"),
             issue_maintenance.BranchCleanupPlan(name="ops/protected", reason="force-repo-zero", protected=True),
         ]
 
@@ -445,3 +446,41 @@ class TestMaintainRepo:
         # Then
         assert actions == ["delete-branch:main:force-repo-zero"]
         assert mutations == ["unprotect:main", "delete:main"]
+
+    def test_force_maintenance_creates_master_and_updates_default_branch(self, monkeypatch) -> None:
+        # Given
+        mutations: list[str] = []
+        refs = {"main": "abc123", "master": None}
+
+        monkeypatch.setattr(issue_maintenance, "list_open_issues", lambda **kwargs: [])
+        monkeypatch.setattr(issue_maintenance.pr_maintenance, "maintain_pull_requests", lambda **kwargs: [])
+        monkeypatch.setattr(issue_maintenance, "maintain_branches", lambda **kwargs: [])
+        monkeypatch.setattr(
+            issue_maintenance,
+            "branch_ref_sha",
+            lambda **kwargs: refs[kwargs["branch"]],
+        )
+        monkeypatch.setattr(
+            issue_maintenance,
+            "create_branch_ref",
+            lambda **kwargs: mutations.append(f"create:{kwargs['branch']}:{kwargs['sha']}"),
+        )
+        monkeypatch.setattr(
+            issue_maintenance,
+            "update_default_branch",
+            lambda **kwargs: mutations.append(f"default:{kwargs['branch']}"),
+        )
+
+        # When
+        result = issue_maintenance.maintain_repo(
+            token="tok",
+            repo_full_name="jclee941/pr-agent",
+            dry_run=False,
+            mode="force",
+            default_branch="main",
+            branch_cleanup=True,
+        )
+
+        # Then
+        assert result["actions"] == ["create-branch:master:from:main", "set-default-branch:master:from:main"]
+        assert mutations == ["create:master:abc123", "default:master"]

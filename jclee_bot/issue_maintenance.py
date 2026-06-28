@@ -155,7 +155,7 @@ def plan_branch_cleanup(
             continue
         if mode != "force" and (branch.protected or pr_maintenance.is_protected_branch(branch.name, default_branch)):
             continue
-        if branch.name in open_heads:
+        if mode != "force" and branch.name in open_heads:
             continue
         if mode == "force":
             plans.append(BranchCleanupPlan(name=branch.name, reason="force-repo-zero", protected=branch.protected))
@@ -210,6 +210,66 @@ def delete_branch_protection(*, token: str, repo_full_name: str, branch: str) ->
     )
     if resp.status_code not in {204, 404}:
         resp.raise_for_status()
+
+
+def branch_ref_sha(*, token: str, repo_full_name: str, branch: str) -> str | None:
+    encoded_branch = quote(branch, safe="")
+    resp = requests.get(
+        f"{GITHUB_API}/repos/{repo_full_name}/git/ref/heads/{encoded_branch}",
+        headers=headers(token),
+        timeout=30,
+    )
+    if resp.status_code == 404:
+        return None
+    resp.raise_for_status()
+    payload = resp.json()
+    ref_object = payload.get("object", {}) if isinstance(payload, dict) else {}
+    sha = ref_object.get("sha") if isinstance(ref_object, dict) else None
+    return str(sha) if sha else None
+
+
+def create_branch_ref(*, token: str, repo_full_name: str, branch: str, sha: str) -> None:
+    resp = requests.post(
+        f"{GITHUB_API}/repos/{repo_full_name}/git/refs",
+        headers=headers(token),
+        json={"ref": f"refs/heads/{branch}", "sha": sha},
+        timeout=30,
+    )
+    if resp.status_code != 422:
+        resp.raise_for_status()
+
+
+def update_default_branch(*, token: str, repo_full_name: str, branch: str) -> None:
+    resp = requests.patch(
+        f"{GITHUB_API}/repos/{repo_full_name}",
+        headers=headers(token),
+        json={"default_branch": branch},
+        timeout=30,
+    )
+    resp.raise_for_status()
+
+
+def ensure_master_default(
+    *,
+    token: str,
+    repo_full_name: str,
+    dry_run: bool,
+    default_branch: str,
+) -> tuple[str, list[str]]:
+    if default_branch == "master":
+        return default_branch, []
+    actions = [f"set-default-branch:master:from:{default_branch}"]
+    master_sha = branch_ref_sha(token=token, repo_full_name=repo_full_name, branch="master")
+    if master_sha is None:
+        source_sha = branch_ref_sha(token=token, repo_full_name=repo_full_name, branch=default_branch)
+        if not source_sha:
+            return default_branch, [f"default-branch-source-missing:{default_branch}"]
+        actions.insert(0, f"create-branch:master:from:{default_branch}")
+        if not dry_run:
+            create_branch_ref(token=token, repo_full_name=repo_full_name, branch="master", sha=source_sha)
+    if not dry_run:
+        update_default_branch(token=token, repo_full_name=repo_full_name, branch="master")
+    return "master", actions
 
 
 def _summary_body(stats: dict[str, int], *, now: datetime) -> str:
@@ -306,6 +366,17 @@ def maintain_repo(
 ) -> dict[str, Any]:
     current_time = now or datetime.now(UTC)
     actions: list[str] = []
+    if mode == "force":
+        try:
+            default_branch, default_actions = ensure_master_default(
+                token=token,
+                repo_full_name=repo_full_name,
+                dry_run=dry_run,
+                default_branch=default_branch,
+            )
+            actions.extend(default_actions)
+        except requests.RequestException as exc:
+            actions.append(maintenance_error_code("default-branch-error", exc))
     try:
         issues = list_open_issues(token=token, repo_full_name=repo_full_name)
     except requests.RequestException as exc:
