@@ -109,18 +109,28 @@ def branch_merged_to_default(*, token: str, repo_full_name: str, branch: str, de
     return int(payload.get("ahead_by", 0) or 0) == 0
 
 
-def list_branch_states(*, token: str, repo_full_name: str, default_branch: str) -> list[BranchState]:
+def list_branch_states(
+    *,
+    token: str,
+    repo_full_name: str,
+    default_branch: str,
+    check_merged: bool = True,
+) -> list[BranchState]:
     branches = _paginate(token, f"/repos/{repo_full_name}/branches")
     states: list[BranchState] = []
     for branch in branches:
         name = str(branch.get("name") or "")
         if not name:
             continue
-        merged = name == default_branch or branch_merged_to_default(
-            token=token,
-            repo_full_name=repo_full_name,
-            branch=name,
-            default_branch=default_branch,
+        merged = (
+            name == default_branch
+            or not check_merged
+            or branch_merged_to_default(
+                token=token,
+                repo_full_name=repo_full_name,
+                branch=name,
+                default_branch=default_branch,
+            )
         )
         states.append(
             BranchState(
@@ -329,7 +339,12 @@ def maintain_branches(
 ) -> list[str]:
     actions: list[str] = []
     try:
-        branches = list_branch_states(token=token, repo_full_name=repo_full_name, default_branch=default_branch)
+        branches = list_branch_states(
+            token=token,
+            repo_full_name=repo_full_name,
+            default_branch=default_branch,
+            check_merged=mode != "force",
+        )
     except requests.RequestException as exc:
         return [f"branch-list-error:{type(exc).__name__}"]
 

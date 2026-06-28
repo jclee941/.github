@@ -249,7 +249,7 @@ def delete_head_branch(*, token: str, repo_full_name: str, head_ref: str) -> Non
         headers=_headers(token),
         timeout=30,
     )
-    if resp.status_code not in {204, 404, 422}:
+    if resp.status_code not in {204, 404}:
         resp.raise_for_status()
 
 

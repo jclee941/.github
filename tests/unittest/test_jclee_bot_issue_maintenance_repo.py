@@ -61,7 +61,7 @@ class TestMaintainRepo:
         monkeypatch.setattr(
             issue_maintenance,
             "list_open_issues",
-            lambda **kwargs: [
+            lambda *args, **kwargs: [
                 _issue(number=1, updated_days_ago=31),
                 _issue(number=2, updated_days_ago=8, labels=[{"name": "stale"}]),
             ],
@@ -89,7 +89,7 @@ class TestMaintainRepo:
         monkeypatch.setattr(
             issue_maintenance,
             "list_open_issues",
-            lambda **kwargs: [
+            lambda *args, **kwargs: [
                 _issue(
                     number=3,
                     updated_days_ago=1,
@@ -379,6 +379,36 @@ class TestMaintainRepo:
 
         # Then
         assert plans == [issue_maintenance.BranchCleanupPlan(name="main", reason="force-repo-zero", protected=True)]
+
+    def test_force_branch_state_listing_does_not_compare_legacy_branches(self, monkeypatch) -> None:
+        # Given
+        monkeypatch.setattr(
+            issue_maintenance,
+            "_paginate",
+            lambda *args, **kwargs: [
+                {"name": "master", "protected": False},
+                {"name": "legacy/history", "protected": False},
+            ],
+        )
+        monkeypatch.setattr(
+            issue_maintenance,
+            "branch_merged_to_default",
+            lambda **kwargs: (_ for _ in ()).throw(requests.HTTPError("unrelated history")),
+        )
+
+        # When
+        states = issue_maintenance.list_branch_states(
+            token="tok",
+            repo_full_name="jclee941/pr-agent",
+            default_branch="master",
+            check_merged=False,
+        )
+
+        # Then
+        assert states == [
+            issue_maintenance.BranchState(name="master", protected=False, merged_to_default=True),
+            issue_maintenance.BranchState(name="legacy/history", protected=False, merged_to_default=True),
+        ]
 
     def test_branch_cleanup_fails_closed_when_open_pr_heads_cannot_be_loaded(self, monkeypatch) -> None:
         # Given
