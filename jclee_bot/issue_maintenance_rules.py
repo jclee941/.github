@@ -9,6 +9,7 @@ STALE_DAYS = 30
 CLOSE_DAYS = 7
 EXEMPT_LABELS = {"pinned", "security", "critical"}
 DUPLICATE_REVIEW_LABELS = {"duplicate", "jclee-bot", "review-finding"}
+INVALID_REVIEW_FINDINGS = {"없음", "아니요", "아니오", "없습니다", "무", "no", "none", "n/a"}
 
 
 def parse_github_time(value: str) -> datetime:
@@ -46,6 +47,24 @@ def should_close_stale(issue: dict[str, Any], *, now: datetime) -> bool:
 
 def should_close_duplicate_bot_review(issue: dict[str, Any]) -> bool:
     return _is_issue(issue) and DUPLICATE_REVIEW_LABELS <= _labels(issue)
+
+
+def _review_finding_text(issue: dict[str, Any]) -> str:
+    body = str(issue.get("body") or "")
+    marker = "## Finding"
+    next_marker = "## Suggested Action"
+    if marker not in body or next_marker not in body:
+        return ""
+    after_marker = body.split(marker, 1)[1]
+    return after_marker.split(next_marker, 1)[0].strip()
+
+
+def should_close_empty_bot_review(issue: dict[str, Any]) -> bool:
+    labels = _labels(issue)
+    if not _is_issue(issue) or not {"jclee-bot", "review-finding"} <= labels:
+        return False
+    normalized = "".join(_review_finding_text(issue).lower().split())
+    return normalized in INVALID_REVIEW_FINDINGS
 
 
 def issue_stats(issues: list[dict[str, Any]], *, now: datetime) -> dict[str, int]:

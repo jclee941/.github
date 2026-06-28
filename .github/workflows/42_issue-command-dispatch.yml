@@ -1,0 +1,70 @@
+name: Issue Command Dispatch
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: Owner-qualified repository, for example jclee941/.github
+        required: true
+        type: string
+      numbers:
+        description: Comma-separated issue numbers to close
+        required: true
+        type: string
+      comment:
+        description: Comment to add before closing
+        required: false
+        type: string
+        default: "_jclee-bot에의해자동화됨._"
+      dry_run:
+        description: Preview without mutating issues
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: issue-command-dispatch-${{ github.event.inputs.repository }}
+  cancel-in-progress: false
+
+jobs:
+  close-issues:
+    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Close issues through jclee-bot
+        env:
+          ISSUE_COMMANDS_TOKEN: ${{ secrets.ISSUE_COMMANDS_TOKEN || secrets.APP_ISSUE_MAINTENANCE_TOKEN }}
+          TARGET_REPOSITORY: ${{ inputs.repository }}
+          ISSUE_NUMBERS: ${{ inputs.numbers }}
+          CLOSE_COMMENT: ${{ inputs.comment }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ISSUE_COMMANDS_TOKEN:-}" ]; then
+            echo "::error::ISSUE_COMMANDS_TOKEN/APP_ISSUE_MAINTENANCE_TOKEN is not configured."
+            exit 1
+          fi
+          numbers="$(printf '%s' "${ISSUE_NUMBERS}" \
+            | tr ',' '\n' \
+            | jq -Rsc 'split("\n") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0) | tonumber)')"
+          payload="$(jq -cn \
+            --arg repo "${TARGET_REPOSITORY}" \
+            --argjson dry_run "${DRY_RUN}" \
+            --argjson numbers "${numbers}" \
+            --arg comment "${CLOSE_COMMENT}" \
+            '{repository: $repo, dry_run: $dry_run, commands: [{type: "close_issues", numbers: $numbers, comment: $comment}]}')"
+          curl -fsS --retry 3 --retry-delay 5 --max-time 120 \
+            -X POST "https://bot.jclee.me/api/v1/issue_commands" \
+            -H "Authorization: Bearer ${ISSUE_COMMANDS_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "${payload}" \
+            | tee issue-command-result.json
+          jq -e '.actions | type == "array"' issue-command-result.json >/dev/null
