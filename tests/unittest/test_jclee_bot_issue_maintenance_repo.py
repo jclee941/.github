@@ -356,7 +356,28 @@ class TestMaintainRepo:
         )
 
         # Then
-        assert plans == [issue_maintenance.BranchCleanupPlan(name="feat/unmerged", reason="force-repo-zero")]
+        assert plans == [
+            issue_maintenance.BranchCleanupPlan(name="feat/unmerged", reason="force-repo-zero"),
+            issue_maintenance.BranchCleanupPlan(name="ops/protected", reason="force-repo-zero", protected=True),
+        ]
+
+    def test_branch_cleanup_force_mode_targets_non_default_protected_branches(self) -> None:
+        # Given
+        branches = [
+            issue_maintenance.BranchState(name="master", protected=True, merged_to_default=True),
+            issue_maintenance.BranchState(name="main", protected=True, merged_to_default=True),
+        ]
+
+        # When
+        plans = issue_maintenance.plan_branch_cleanup(
+            branches,
+            open_heads=set(),
+            default_branch="master",
+            mode="force",
+        )
+
+        # Then
+        assert plans == [issue_maintenance.BranchCleanupPlan(name="main", reason="force-repo-zero", protected=True)]
 
     def test_branch_cleanup_fails_closed_when_open_pr_heads_cannot_be_loaded(self, monkeypatch) -> None:
         # Given
@@ -391,3 +412,36 @@ class TestMaintainRepo:
         # Then
         assert actions == ["branch-open-pr-error:Timeout"]
         assert mutations == []
+
+    def test_maintain_branches_unprotects_protected_force_branch_before_delete(self, monkeypatch) -> None:
+        # Given
+        monkeypatch.setattr(
+            issue_maintenance,
+            "list_branch_states",
+            lambda **kwargs: [issue_maintenance.BranchState(name="main", protected=True, merged_to_default=True)],
+        )
+        monkeypatch.setattr(issue_maintenance, "open_pr_heads", lambda **kwargs: set())
+        mutations: list[str] = []
+        monkeypatch.setattr(
+            issue_maintenance,
+            "delete_branch_protection",
+            lambda **kwargs: mutations.append(f"unprotect:{kwargs['branch']}"),
+        )
+        monkeypatch.setattr(
+            issue_maintenance.pr_maintenance,
+            "delete_head_branch",
+            lambda **kwargs: mutations.append(f"delete:{kwargs['head_ref']}"),
+        )
+
+        # When
+        actions = issue_maintenance.maintain_branches(
+            token="tok",
+            repo_full_name="jclee941/bug",
+            dry_run=False,
+            default_branch="master",
+            mode="force",
+        )
+
+        # Then
+        assert actions == ["delete-branch:main:force-repo-zero"]
+        assert mutations == ["unprotect:main", "delete:main"]

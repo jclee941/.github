@@ -60,6 +60,7 @@ class BranchState:
 class BranchCleanupPlan:
     name: str
     reason: str
+    protected: bool = False
 
 
 def maintenance_error_code(prefix: str, exc: Exception) -> str:
@@ -150,12 +151,14 @@ def plan_branch_cleanup(
 ) -> list[BranchCleanupPlan]:
     plans: list[BranchCleanupPlan] = []
     for branch in branches:
-        if branch.protected or pr_maintenance.is_protected_branch(branch.name, default_branch):
+        if branch.name == default_branch:
+            continue
+        if mode != "force" and (branch.protected or pr_maintenance.is_protected_branch(branch.name, default_branch)):
             continue
         if branch.name in open_heads:
             continue
         if mode == "force":
-            plans.append(BranchCleanupPlan(name=branch.name, reason="force-repo-zero"))
+            plans.append(BranchCleanupPlan(name=branch.name, reason="force-repo-zero", protected=branch.protected))
             continue
         if branch.merged_to_default:
             plans.append(BranchCleanupPlan(name=branch.name, reason="merged"))
@@ -196,6 +199,17 @@ def close_issue(*, token: str, repo_full_name: str, issue_number: int) -> None:
         timeout=30,
     )
     resp.raise_for_status()
+
+
+def delete_branch_protection(*, token: str, repo_full_name: str, branch: str) -> None:
+    encoded_branch = quote(branch, safe="")
+    resp = requests.delete(
+        f"{GITHUB_API}/repos/{repo_full_name}/branches/{encoded_branch}/protection",
+        headers=headers(token),
+        timeout=30,
+    )
+    if resp.status_code not in {204, 404}:
+        resp.raise_for_status()
 
 
 def _summary_body(stats: dict[str, int], *, now: datetime) -> str:
@@ -267,7 +281,16 @@ def maintain_branches(
     for plan in plan_branch_cleanup(branches, open_heads=heads, default_branch=default_branch, mode=mode):
         actions.append(f"delete-branch:{plan.name}:{plan.reason}")
         if not dry_run:
-            pr_maintenance.delete_head_branch(token=token, repo_full_name=repo_full_name, head_ref=plan.name)
+            if plan.protected:
+                try:
+                    delete_branch_protection(token=token, repo_full_name=repo_full_name, branch=plan.name)
+                except requests.RequestException as exc:
+                    actions.append(maintenance_error_code(f"unprotect-branch-error:{plan.name}", exc))
+                    continue
+            try:
+                pr_maintenance.delete_head_branch(token=token, repo_full_name=repo_full_name, head_ref=plan.name)
+            except requests.RequestException as exc:
+                actions.append(maintenance_error_code(f"delete-branch-error:{plan.name}", exc))
     return actions
 
 
