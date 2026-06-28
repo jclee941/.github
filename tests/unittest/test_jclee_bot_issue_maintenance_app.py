@@ -321,13 +321,16 @@ class TestIssueMaintenanceEndpoint:
         assert response.json() == {"accepted": True, "dry_run": True, "mode": "safe", "owner": "jclee941"}
 
 
-class TestIssueMaintenanceScheduler:
-    def test_app_registers_internal_maintenance_scheduler(self) -> None:
+class TestIssueMaintenanceEventTrigger:
+    def test_app_does_not_register_internal_maintenance_scheduler(self) -> None:
         from jclee_bot import app as app_module
 
-        assert app_module._start_issue_maintenance_scheduler in app_module.app.router.on_startup
+        assert not any(
+            getattr(handler, "__name__", "") == "_start_issue_maintenance_scheduler"
+            for handler in app_module.app.router.on_startup
+        )
 
-    def test_scheduled_maintenance_runs_force_without_http(self, monkeypatch, tmp_path: Path) -> None:
+    def test_event_maintenance_runs_force_without_http(self, monkeypatch, tmp_path: Path) -> None:
         from jclee_bot import app as app_module
 
         calls: list[dict[str, str | bool]] = []
@@ -341,9 +344,71 @@ class TestIssueMaintenanceScheduler:
         monkeypatch.setenv("JCLEE_BOT_ISSUE_MAINTENANCE_LOCK_PATH", str(tmp_path / "maintenance.lock"))
         monkeypatch.setattr(app_module, "_run_app_issue_maintenance", fake_run_app_issue_maintenance)
 
-        result = app_module._run_scheduled_issue_maintenance_once()
+        result = app_module._run_event_issue_maintenance_once("issues")
 
         assert result == {"mode": "force", "repositories": []}
         assert calls == [
             {"app_id": "123", "private_key": "key", "owner": "jclee941", "dry_run": False, "mode": "force"}
         ]
+
+    def test_event_maintenance_skips_untracked_events(self, monkeypatch, tmp_path: Path) -> None:
+        from jclee_bot import app as app_module
+
+        calls: list[dict[str, str | bool]] = []
+
+        monkeypatch.setenv("GITHUB_APP_ID", "123")
+        monkeypatch.setenv("GITHUB_PRIVATE_KEY", "key")
+        monkeypatch.setenv("JCLEE_BOT_ISSUE_MAINTENANCE_LOCK_PATH", str(tmp_path / "maintenance.lock"))
+        monkeypatch.setattr(app_module, "_run_app_issue_maintenance", lambda **kwargs: calls.append(kwargs))
+
+        result = app_module._run_event_issue_maintenance_once("issue_comment")
+
+        assert result == {"skipped": "event does not require issue maintenance", "event": "issue_comment"}
+        assert calls == []
+
+    def test_signed_issue_webhook_schedules_event_maintenance(self, monkeypatch) -> None:
+        import asyncio
+        import hashlib
+        import hmac
+        import json
+        from collections.abc import Callable
+        from types import SimpleNamespace
+
+        from jclee_bot import app as app_module
+
+        submitted: list[tuple[str, tuple[object, ...]]] = []
+
+        class ImmediateLoop:
+            def run_in_executor(self, executor: object, func: Callable[..., object], *args: object) -> None:
+                del executor
+                submitted.append((func.__name__, args))
+
+        class FakeRequest:
+            method = "POST"
+            url = SimpleNamespace(path="/api/v1/github_webhooks")
+
+            def __init__(self, raw: bytes, signature: str) -> None:
+                self.headers = {"X-GitHub-Event": "issues", "X-Hub-Signature-256": signature}
+                self._raw = raw
+
+            async def body(self) -> bytes:
+                return self._raw
+
+        async def call_next(request: FakeRequest) -> object:
+            return request
+
+        monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "secret")
+        monkeypatch.setattr(asyncio, "get_event_loop", lambda: ImmediateLoop())
+        raw = json.dumps(
+            {
+                "action": "opened",
+                "installation": {"id": 1},
+                "repository": {"full_name": "jclee941/x"},
+                "issue": {"number": 1},
+            }
+        ).encode()
+        signature = "sha256=" + hmac.new(b"secret", raw, hashlib.sha256).hexdigest()
+
+        asyncio.run(app_module._tee_pull_request_to_checks(FakeRequest(raw, signature), call_next))
+
+        assert ("_run_event_issue_maintenance_once", ("issues",)) in submitted

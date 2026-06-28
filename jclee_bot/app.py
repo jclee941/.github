@@ -19,8 +19,6 @@ import logging
 import os
 import subprocess  # noqa: S404 - fixed-arg git checkout of the PR head
 import tempfile
-import threading
-import time
 from functools import partial
 from typing import Any, Literal
 
@@ -47,8 +45,8 @@ app.include_router(readme_automation_router)
 
 GITHUB_API = "https://api.github.com"
 type MaintenanceMode = Literal["safe", "force"]
+ISSUE_MAINTENANCE_EVENTS = frozenset({"issues", "pull_request", "create", "pull_request_review"})
 logger = logging.getLogger(__name__)
-_issue_maintenance_scheduler_thread: threading.Thread | None = None
 
 
 def _verify_signature(secret: str, payload: bytes, signature: str | None) -> bool:
@@ -236,20 +234,6 @@ def _run_app_issue_maintenance(
         }
 
 
-def _issue_maintenance_scheduler_disabled() -> bool:
-    value = os.environ.get("JCLEE_BOT_DISABLE_ISSUE_MAINTENANCE_SCHEDULER", "")
-    return value.lower() in {"1", "true", "yes"}
-
-
-def _issue_maintenance_scheduler_interval() -> int:
-    value = os.environ.get("JCLEE_BOT_ISSUE_MAINTENANCE_INTERVAL_SECONDS", "3600")
-    try:
-        interval = int(value)
-    except ValueError:
-        return 3600
-    return max(interval, 60)
-
-
 def _issue_maintenance_lock_path() -> str:
     return os.environ.get("JCLEE_BOT_ISSUE_MAINTENANCE_LOCK_PATH", "/tmp/jclee-bot-issue-maintenance.lock")
 
@@ -269,14 +253,16 @@ def _release_issue_maintenance_lock(fd: int) -> None:
     os.close(fd)
 
 
-def _run_scheduled_issue_maintenance_once() -> dict[str, Any]:
+def _run_event_issue_maintenance_once(event: str) -> dict[str, Any]:
+    if event not in ISSUE_MAINTENANCE_EVENTS:
+        return {"skipped": "event does not require issue maintenance", "event": event}
     app_id = os.environ.get("GITHUB_APP_ID", "")
     private_key = os.environ.get("GITHUB_PRIVATE_KEY", "")
     if not app_id or not private_key:
-        return {"skipped": "github app credentials unavailable"}
+        return {"skipped": "github app credentials unavailable", "event": event}
     fd = _acquire_issue_maintenance_lock()
     if fd is None:
-        return {"skipped": "issue maintenance already running"}
+        return {"skipped": "issue maintenance already running", "event": event}
     try:
         result = _run_app_issue_maintenance(
             app_id=app_id,
@@ -286,38 +272,12 @@ def _run_scheduled_issue_maintenance_once() -> dict[str, Any]:
             mode="force",
         )
         if result.get("error"):
-            logger.error("Scheduled issue maintenance failed: %s", result)
+            logger.error("Event issue maintenance failed after %s webhook: %s", event, result)
         else:
-            logger.info("Scheduled issue maintenance completed")
+            logger.info("Event issue maintenance completed after %s webhook", event)
         return result
     finally:
         _release_issue_maintenance_lock(fd)
-
-
-def _issue_maintenance_scheduler_loop(interval_seconds: int) -> None:
-    while True:
-        _run_scheduled_issue_maintenance_once()
-        time.sleep(interval_seconds)
-
-
-def _start_issue_maintenance_scheduler() -> None:
-    global _issue_maintenance_scheduler_thread
-    if _issue_maintenance_scheduler_disabled():
-        return
-    if not os.environ.get("GITHUB_APP_ID") or not os.environ.get("GITHUB_PRIVATE_KEY"):
-        return
-    if _issue_maintenance_scheduler_thread is not None and _issue_maintenance_scheduler_thread.is_alive():
-        return
-    _issue_maintenance_scheduler_thread = threading.Thread(
-        target=_issue_maintenance_scheduler_loop,
-        args=(_issue_maintenance_scheduler_interval(),),
-        name="jclee-bot-issue-maintenance",
-        daemon=True,
-    )
-    _issue_maintenance_scheduler_thread.start()
-
-
-app.router.on_startup.append(_start_issue_maintenance_scheduler)
 
 
 def _workflow_run_from_payload(payload: dict[str, Any]) -> workflow_issue_automation.WorkflowRun | None:
@@ -424,6 +384,9 @@ async def _tee_pull_request_to_checks(request: Request, call_next):
         pull_request_ok = event == "pull_request" and _verify_signature(secret, raw, sig)
         issue_event_ok = event in {"issues", "issue_comment"} and bool(secret) and _verify_signature(secret, raw, sig)
         gitops_event_ok = event in {"create", "pull_request_review"} and _verify_signature(secret, raw, sig)
+        maintenance_event_ok = (
+            event in ISSUE_MAINTENANCE_EVENTS and bool(secret) and _verify_signature(secret, raw, sig)
+        )
         if pull_request_ok or issue_event_ok or gitops_event_ok:
             try:
                 payload = json.loads(raw or b"{}")
@@ -438,18 +401,22 @@ async def _tee_pull_request_to_checks(request: Request, call_next):
                         loop.run_in_executor(None, _run_checks_for_payload, payload)
                     if payload.get("action") in gitops_automation.AUTO_MERGE_PR_ACTIONS:
                         loop.run_in_executor(None, _run_gitops_automation_for_payload, payload, event)
+                    if maintenance_event_ok:
+                        loop.run_in_executor(None, _run_event_issue_maintenance_once, event)
                 elif event in {"issues", "issue_comment"}:
                     import asyncio
 
-                    asyncio.get_event_loop().run_in_executor(
-                        None, _run_issue_management_for_payload, payload, event
-                    )
+                    loop = asyncio.get_event_loop()
+                    loop.run_in_executor(None, _run_issue_management_for_payload, payload, event)
+                    if maintenance_event_ok:
+                        loop.run_in_executor(None, _run_event_issue_maintenance_once, event)
                 elif event in {"create", "pull_request_review"}:
                     import asyncio
 
-                    asyncio.get_event_loop().run_in_executor(
-                        None, _run_gitops_automation_for_payload, payload, event
-                    )
+                    loop = asyncio.get_event_loop()
+                    loop.run_in_executor(None, _run_gitops_automation_for_payload, payload, event)
+                    if maintenance_event_ok:
+                        loop.run_in_executor(None, _run_event_issue_maintenance_once, event)
             except Exception:  # noqa: BLE001 - checks must never break the review path
                 pass
     return await call_next(request)
