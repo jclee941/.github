@@ -137,12 +137,12 @@ def test_source_repo_prompt_keeps_automation_contract(monkeypatch, tmp_path):
     def fake_call_llm(system: str, user: str) -> str:
         captured["system"] = system
         captured["user"] = user
-        return "# github-bot\n"
+        return "# jclee-bot\n"
 
     monkeypatch.setattr(mod, "run_tree", lambda _repo_root: ".\n├── jclee_bot\n└── pr_agent")
     monkeypatch.setattr(mod, "call_llm", fake_call_llm)
 
-    assert mod.generate_readme(tmp_path) == "# github-bot\n"
+    assert mod.generate_readme(tmp_path) == "# jclee-bot\n"
 
     assert "jclee-bot automation surfaces" in captured["system"]
     assert "jclee-bot에의해자동화됨" in captured["system"]

@@ -2,18 +2,18 @@
 # Public URL via Cloudflare Tunnel: https://bot.jclee.me
 #
 # Usage (on the homelab host as root):
-#   cd /opt/github-bot && docker compose -f docker-compose.github_app.yml up -d
+#   cd /opt/jclee-bot && docker compose -f docker-compose.github_app.yml up -d
 #
-# Required: /opt/github-bot/.env with secrets (see below).
+# Required: /opt/jclee-bot/.env with secrets (see below).
 #   GITHUB_APP_ID=...
 #   GITHUB_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
 #   GITHUB_WEBHOOK_SECRET=...
 #   ISSUE_MAINTENANCE_TOKEN=...
-#   CLIPROXY_API_KEY=sk-cliproxy-github-bot-...
+#   CLIPROXY_API_KEY=sk-cliproxy-jclee-bot-...
 services:
-  github-bot-app:
-    image: registry.jclee.me/github-bot-app:latest
-    container_name: github-bot-app
+  jclee-bot-app:
+    image: registry.jclee.me/jclee-bot-app:latest
+    container_name: jclee-bot-app
     restart: unless-stopped
     ports:
       - "127.0.0.1:3001:3000"   # bind to localhost; CF tunnel ingress to localhost:3001
@@ -26,6 +26,10 @@ services:
       GITHUB.PRIVATE_KEY: "${GITHUB_PRIVATE_KEY}"
       GITHUB.WEBHOOK_SECRET: "${GITHUB_WEBHOOK_SECRET}"
       ISSUE_MAINTENANCE_TOKEN: "${ISSUE_MAINTENANCE_TOKEN}"
+      NATIVE_HEALTH_TOKEN: "${NATIVE_HEALTH_TOKEN:-}"
+      ELASTICSEARCH_HOSTS: "${ELASTICSEARCH_HOSTS:-}"
+      ELK_USERNAME: "${ELK_USERNAME:-}"
+      ELK_PASSWORD: "${ELK_PASSWORD:-}"
 
       # CLIProxyAPI (OpenAI-compatible homelab gateway)
       CLIPROXY_API_KEY: "${CLIPROXY_API_KEY}"
@@ -76,7 +80,7 @@ services:
   # Filebeat: ship logs to Elasticsearch
   filebeat:
     image: docker.elastic.co/beats/filebeat:8.17.0
-    container_name: filebeat-github-bot
+    container_name: filebeat-jclee-bot
     # Copy the read-only bind-mounted config to a root-owned 0600 file inside
     # the container, then run with strict.perms ENABLED. This satisfies
     # Filebeat's permission check regardless of the host file's owner/mode,
@@ -104,7 +108,7 @@ services:
     networks:
       - cliproxy_net
     depends_on:
-      - github-bot-app
+      - jclee-bot-app
 
   # Auto-update: poll registry every 60s and restart app when image changes.
   watchtower:

@@ -30,7 +30,7 @@ updates:
           - "minor"
           - "patch"
 
-  # NOTE: no npm ecosystem here. This source repo (jclee941/.github) is Python-
+  # NOTE: no npm ecosystem here. This source repo (jclee941/jclee-bot) is Python-
   # only and has no package.json, so an npm ecosystem would fail every weekly
   # Dependabot run.
   # Go scripts (go.mod) - none yet, but ready when scripts/ gets a go.mod

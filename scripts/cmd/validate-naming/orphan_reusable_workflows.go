@@ -52,7 +52,7 @@ func (v *validator) orphanReusableWorkflows() error {
 		base := filepath.Base(rel)
 		// Called by any other local workflow? A `uses:` reference ends in the
 		// file's base name (e.g. ./.github/workflows/44_x.yml or
-		// jclee941/.github/.github/workflows/44_x.yml@ref).
+		// jclee941/jclee-bot/.github/workflows/44_x.yml@ref).
 		called := false
 		for other, ob := range contents {
 			if other == rel {

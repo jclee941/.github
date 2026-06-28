@@ -36,7 +36,7 @@ jclee_bot/review_engine/
 
 | Task | Location |
 |------|----------|
-| Installed console scripts | `pyproject.toml` maps `github-bot` and `pr-agent` to `cli.py` |
+| Installed console scripts | `pyproject.toml` maps `jclee-bot`, `github-bot`, and `pr-agent` to `cli.py` |
 | Change default model | `settings/configuration.toml` `[config].model` |
 | Override per-repo | `.pr_agent.toml` (repo root) |
 | Edit review prompts | `settings/pr_reviewer_prompts.toml` |

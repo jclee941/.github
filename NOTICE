@@ -1,4 +1,4 @@
-github-bot
+jclee-bot
 Copyright (C) 2026 jclee941
 
 ================================================================================
@@ -62,6 +62,6 @@ and the historic `git log d82f7d3e..HEAD --name-status` reference recorded there
 AGPL-3.0 §13 (Remote Network Interaction):
   This service is deployed as a private service accessible only to jclee941's
   repositories on GitHub. Source access for authorized users is provided via
-  this repository itself (https://github.com/jclee941/github-bot).
+  this repository itself (https://github.com/jclee941/jclee-bot).
 
 ================================================================================

@@ -67,7 +67,7 @@ def _install_common_fakes(monkeypatch: MonkeyPatch) -> None:
 def _sweep() -> list[str]:
     return workflow_issue_automation.sweep_legacy_failure_issues(
         token="tok",
-        repo_full_name="jclee941/.github",
+        repo_full_name="jclee941/jclee-bot",
         default_branch="master",
         dry_run=False,
     )
@@ -82,7 +82,7 @@ def test_sweep_preserves_github_pull_request_entries(monkeypatch: MonkeyPatch) -
             "",
             "- **Workflow:** ELK Health Check",
             "- **Commit:** abcdef1234567890abcdef1234567890abcdef12",
-            "- **Run:** https://github.com/jclee941/.github/actions/runs/100",
+            "- **Run:** https://github.com/jclee941/jclee-bot/actions/runs/100",
         ]
     )
 
@@ -93,7 +93,7 @@ def test_sweep_preserves_github_pull_request_entries(monkeypatch: MonkeyPatch) -
                 "number": 700,
                 "title": "[ci] ELK Health Check failed at abcdef12",
                 "body": issue_body,
-                "pull_request": {"url": "https://api.github.com/repos/jclee941/.github/pulls/700"},
+                "pull_request": {"url": "https://api.github.com/repos/jclee941/jclee-bot/pulls/700"},
             }
         ]
 
@@ -122,7 +122,7 @@ def test_sweep_preserves_current_issue_when_newest_completed_run_failed(monkeypa
             "",
             "- **Workflow:** ELK Health Check",
             "- **Commit:** abcdef1234567890abcdef1234567890abcdef12",
-            "- **Run:** https://github.com/jclee941/.github/actions/runs/100",
+            "- **Run:** https://github.com/jclee941/jclee-bot/actions/runs/100",
         ]
     )
 
@@ -166,7 +166,7 @@ def test_sweep_preserves_current_issue_with_malformed_commit(monkeypatch: Monkey
             "",
             "- **Workflow:** ELK Health Check",
             "- **Commit:** abcdef12-not-a-full-sha",
-            "- **Run:** https://github.com/jclee941/.github/actions/runs/100",
+            "- **Run:** https://github.com/jclee941/jclee-bot/actions/runs/100",
         ]
     )
 
@@ -189,7 +189,7 @@ def test_sweep_defers_current_issue_when_matching_run_is_active(monkeypatch: Mon
             "",
             "- **Workflow:** ELK Health Check",
             "- **Commit:** abcdef1234567890abcdef1234567890abcdef12",
-            "- **Run:** https://github.com/jclee941/.github/actions/runs/100",
+            "- **Run:** https://github.com/jclee941/jclee-bot/actions/runs/100",
         ]
     )
 
@@ -257,7 +257,7 @@ def test_legacy_sweep_preserves_github_pull_request_entries(monkeypatch: MonkeyP
                     {
                         "number": 77,
                         "title": "ELK Health Check Failed",
-                        "pull_request": {"url": "https://api.github.com/repos/jclee941/.github/pulls/77"},
+                        "pull_request": {"url": "https://api.github.com/repos/jclee941/jclee-bot/pulls/77"},
                     }
                 ]
             )

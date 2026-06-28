@@ -176,8 +176,7 @@ class TestForkPrAgentConfig:
             f"Registered commands: {sorted(command2class.keys())}"
         )
 
-    def test_console_scripts_expose_both_entry_points(self):
-        """pyproject.toml must expose both github-bot and the pr-agent alias."""
+    def test_console_scripts_expose_bot_and_pr_agent_entry_points(self):
         pyproject = (
             pathlib.Path(__file__).parent.parent.parent / "pyproject.toml"
         )
@@ -185,6 +184,9 @@ class TestForkPrAgentConfig:
             data = tomllib.load(f)
         scripts = data.get("project", {}).get("scripts", {})
         target = "jclee_bot.review_engine.cli:run"
+        assert scripts.get("jclee-bot") == target, (
+            f"Expected console script jclee-bot={target!r}, got {scripts.get('jclee-bot')!r}"
+        )
         assert scripts.get("github-bot") == target, (
             f"Expected console script github-bot={target!r}, got {scripts.get('github-bot')!r}"
         )

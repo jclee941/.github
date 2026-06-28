@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	repoinventory "github.com/jclee941/.github/scripts/internal/repos"
+	repoinventory "github.com/jclee941/jclee-bot/scripts/internal/repos"
 )
 
 func normalizeReviewRepos(raw string) ([]string, error) {

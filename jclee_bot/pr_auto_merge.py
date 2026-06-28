@@ -7,7 +7,7 @@ import requests
 
 from jclee_bot.gitops_automation import GitHubGraphQLError, add_auto_merge_label, enable_auto_merge
 
-DOCS_SYNC_TITLE = "docs: sync standard templates from jclee941/.github"
+DOCS_SYNC_TITLE = "docs: sync standard templates from jclee941/jclee-bot"
 AUTOMATION_TITLE_PREFIXES = ("chore(deps", "build(deps", DOCS_SYNC_TITLE)
 AUTOMATION_HEAD_PREFIXES = ("dependabot/", "renovate/", "bot/", "jclee-bot/", "docs-sync/")
 AUTO_MERGE_ERRORS = (GitHubGraphQLError, requests.RequestException)

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	repoinventory "github.com/jclee941/.github/scripts/internal/repos"
+	repoinventory "github.com/jclee941/jclee-bot/scripts/internal/repos"
 )
 
 var (

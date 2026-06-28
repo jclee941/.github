@@ -7,6 +7,7 @@ on:
   repository_dispatch:
     types: [runtime-health-check]
   workflow_dispatch:
+
 permissions:
   contents: read
 
@@ -14,119 +15,32 @@ concurrency:
   group: runtime-health-check-${{ github.event.workflow_run.id || github.run_id }}
   cancel-in-progress: false
 
-env:
-  HEALTH_ISSUE_REPO: ${{ github.repository }}
-
 jobs:
-  app_endpoint:
-    name: GitHub App webhook endpoint
+  runtime-health:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
-    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@v2
         with:
           egress-policy: audit
-      - name: Check bot webhook endpoint
+
+      - name: Delegate runtime health to jclee-bot
         env:
-          ISSUE_COMMANDS_TOKEN: ${{ secrets.ISSUE_COMMANDS_TOKEN || secrets.APP_ISSUE_MAINTENANCE_TOKEN }}
-          ISSUE_TITLE: 🚨 Bot webhook endpoint unreachable
-          ENDPOINT: https://bot.jclee.me/api/v1/github_webhooks
+          NATIVE_HEALTH_TOKEN: ${{ secrets.NATIVE_HEALTH_TOKEN || secrets.APP_ISSUE_MAINTENANCE_TOKEN }}
         run: |
           set -euo pipefail
-
-          upsert_issue() {
-            local body="$1"
-            if [ -z "${ISSUE_COMMANDS_TOKEN:-}" ]; then
-              echo "::warning::ISSUE_COMMANDS_TOKEN/APP_ISSUE_MAINTENANCE_TOKEN is not configured; skipping jclee-bot issue command."
-              return 0
-            fi
-            payload="$(jq -cn \
-              --arg repo "$HEALTH_ISSUE_REPO" \
-              --arg title "$ISSUE_TITLE" \
-              --arg body "$body"$'\n\n''_jclee-bot에의해자동화됨._' \
-              '{repository: $repo, commands: [{type: "upsert_issue", title: $title, body: $body, labels: ["runtime-health", "automation"]}]}')"
-            curl -fsS --retry 3 --retry-delay 5 --max-time 120 \
-              -X POST "https://bot.jclee.me/api/v1/issue_commands" \
-              -H "Authorization: Bearer ${ISSUE_COMMANDS_TOKEN}" \
-              -H "Content-Type: application/json" \
-              -d "$payload" \
-              | jq -e '.actions | type == "array"' >/dev/null
-          }
-
-          http_code=$(curl -sS -I -o /tmp/app_endpoint_headers.txt -w "%{http_code}" \
-            --connect-timeout 10 --max-time 20 --retry 6 --retry-delay 10 --retry-all-errors \
-            "$ENDPOINT" || true)
-          case "$http_code" in
-            200|401|403|404|405)
-              echo "Webhook endpoint responded with HTTP $http_code"
-              ;;
-            *)
-              body=$(printf "%s\n\n- Endpoint: %s\n- Expected status: 200, 401, 403, 404, or 405\n- Actual status: %s\n- Timeout: 20s per attempt, 6 retries\n- Workflow run: %s/%s/actions/runs/%s\n- Checked at: %s\n" \
-                "Runtime health check failed for the GitHub App webhook endpoint." \
-                "$ENDPOINT" \
-                "${http_code:-no response}" \
-                "$GITHUB_SERVER_URL" \
-                "$GITHUB_REPOSITORY" \
-                "$GITHUB_RUN_ID" \
-                "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
-              upsert_issue "$body"
-              exit 1
-              ;;
-          esac
-
-  cliproxy_health:
-    name: CLIProxyAPI unauthenticated health
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
-    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
-    timeout-minutes: 5
-    steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@v2
-        with:
-          egress-policy: audit
-      - name: Check CLIProxyAPI models endpoint
-        env:
-          ISSUE_COMMANDS_TOKEN: ${{ secrets.ISSUE_COMMANDS_TOKEN || secrets.APP_ISSUE_MAINTENANCE_TOKEN }}
-          ISSUE_TITLE: 🚨 CLIProxyAPI unreachable
-          ENDPOINT: https://cliproxy.jclee.me/v1/models
-        run: |
-          set -euo pipefail
-
-          upsert_issue() {
-            local body="$1"
-            if [ -z "${ISSUE_COMMANDS_TOKEN:-}" ]; then
-              echo "::warning::ISSUE_COMMANDS_TOKEN/APP_ISSUE_MAINTENANCE_TOKEN is not configured; skipping jclee-bot issue command."
-              return 0
-            fi
-            payload="$(jq -cn \
-              --arg repo "$HEALTH_ISSUE_REPO" \
-              --arg title "$ISSUE_TITLE" \
-              --arg body "$body"$'\n\n''_jclee-bot에의해자동화됨._' \
-              '{repository: $repo, commands: [{type: "upsert_issue", title: $title, body: $body, labels: ["runtime-health", "automation"]}]}')"
-            curl -fsS --retry 3 --retry-delay 5 --max-time 120 \
-              -X POST "https://bot.jclee.me/api/v1/issue_commands" \
-              -H "Authorization: Bearer ${ISSUE_COMMANDS_TOKEN}" \
-              -H "Content-Type: application/json" \
-              -d "$payload" \
-              | jq -e '.actions | type == "array"' >/dev/null
-          }
-
-          http_code=$(curl -sS -o /tmp/cliproxy_health.json -w "%{http_code}" \
-            --connect-timeout 10 --max-time 20 --retry 6 --retry-delay 10 --retry-all-errors \
-            "$ENDPOINT" || true)
-          if [ "$http_code" = "401" ]; then
-            echo "CLIProxyAPI responded with expected HTTP 401"
-          else
-            body=$(printf "%s\n\n- Endpoint: %s\n- Expected status: 401 without auth\n- Actual status: %s\n- Timeout: 20s per attempt, 6 retries\n- Workflow run: %s/%s/actions/runs/%s\n- Checked at: %s\n" \
-              "Runtime health check failed for CLIProxyAPI." \
-              "$ENDPOINT" \
-              "${http_code:-no response}" \
-              "$GITHUB_SERVER_URL" \
-              "$GITHUB_REPOSITORY" \
-              "$GITHUB_RUN_ID" \
-              "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
-            upsert_issue "$body"
+          if [ -z "${NATIVE_HEALTH_TOKEN:-}" ]; then
+            echo "::error::NATIVE_HEALTH_TOKEN/APP_ISSUE_MAINTENANCE_TOKEN is not configured"
             exit 1
           fi
+          payload="$(jq -cn \
+            --arg repo "$GITHUB_REPOSITORY" \
+            '{repository: $repo, checks: ["runtime_health"]}')"
+          curl -fsS --retry 3 --retry-delay 5 --max-time 180 \
+            -X POST "https://bot.jclee.me/api/v1/native_health" \
+            -H "Authorization: Bearer ${NATIVE_HEALTH_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$payload" \
+            | jq -e '(.checks | all(.status == "healthy")) and (.actions | type == "array")' >/dev/null

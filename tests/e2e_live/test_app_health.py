@@ -18,7 +18,7 @@ WEBHOOK_URL = "https://bot.jclee.me/api/v1/github_webhooks"
 CLIPROXY_URL = "https://cliproxy.jclee.me/v1/models"
 
 CANDIDATE_REPOS = [
-    f"{GITHUB_OWNER}/.github",
+    f"{GITHUB_OWNER}/jclee-bot",
     f"{GITHUB_OWNER}/resume",
     f"{GITHUB_OWNER}/account",
 ]

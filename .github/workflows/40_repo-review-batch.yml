@@ -55,13 +55,13 @@ jobs:
       - name: Checkout local actions
         uses: actions/checkout@v6
         with:
-          repository: jclee941/.github
+          repository: jclee941/jclee-bot
           ref: master
           fetch-depth: 1
-      - name: Checkout jclee941/.github
+      - name: Checkout jclee941/jclee-bot
         uses: actions/checkout@v6
         with:
-          repository: jclee941/.github
+          repository: jclee941/jclee-bot
           ref: master
           path: pr-agent-src
           fetch-depth: 1

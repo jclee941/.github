@@ -18,126 +18,29 @@ concurrency:
 jobs:
   monitor:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
-    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
-    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@v2
         with:
           egress-policy: audit
-      - name: Check CLIProxyAPI connectivity
-        id: cliproxy
+
+      - name: Delegate bot health to jclee-bot
         env:
-          CLIPROXY_API_KEY: ${{ secrets.CLIPROXY_API_KEY }}
+          NATIVE_HEALTH_TOKEN: ${{ secrets.NATIVE_HEALTH_TOKEN || secrets.APP_ISSUE_MAINTENANCE_TOKEN }}
         run: |
-          set -eu
-          if [ -z "$CLIPROXY_API_KEY" ]; then
-            echo "cliproxy_ok=false" >> "$GITHUB_OUTPUT"
-            echo "cliproxy_error=CLIPROXY_API_KEY secret not set" >> "$GITHUB_OUTPUT"
-          else
-            HTTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}' \
-              --max-time 15 \
-              https://cliproxy.jclee.me/v1/models \
-              -H "Authorization: Bearer $CLIPROXY_API_KEY" 2>/dev/null || echo "000")
-            if [ "$HTTP_CODE" = "200" ]; then
-              echo "cliproxy_ok=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "cliproxy_ok=false" >> "$GITHUB_OUTPUT"
-              echo "cliproxy_error=HTTP $HTTP_CODE" >> "$GITHUB_OUTPUT"
-            fi
+          set -euo pipefail
+          if [ -z "${NATIVE_HEALTH_TOKEN:-}" ]; then
+            echo "::error::NATIVE_HEALTH_TOKEN/APP_ISSUE_MAINTENANCE_TOKEN is not configured"
+            exit 1
           fi
-
-      - name: Check jclee-bot review activity
-        id: bot_activity
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
-        run: |
-          set -eu
-          CUTOFF=$(date -u -d '48 hours ago' +%Y-%m-%dT%H:%M:%SZ)
-
-          # Use the search API to find issues/PRs the bot has touched in the
-          # last 48h instead of paginating every repo's /pulls + /pulls/comments.
-          # `commenter:` covers PR comments and issue comments. `total_count`
-          # is capped at 1000 by the search API but anything >0 means alive.
-          QUERY="commenter:jclee-bot[bot] user:jclee941 updated:>=$CUTOFF"
-          REVIEW_COUNT=$(gh api -X GET search/issues \
-            -f q="$QUERY" \
-            -f per_page=1 \
-            --jq '.total_count' 2>/dev/null || echo 0)
-
-          echo "review_count=$REVIEW_COUNT" >> "$GITHUB_OUTPUT"
-          if [ "$REVIEW_COUNT" -gt 0 ]; then
-            echo "bot_active=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "bot_active=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Evaluate health
-        id: health
-        run: |
-          set -eu
-          CLIPROXY_OK="${{ steps.cliproxy.outputs.cliproxy_ok }}"
-          BOT_ACTIVE="${{ steps.bot_activity.outputs.bot_active }}"
-          REVIEW_COUNT="${{ steps.bot_activity.outputs.review_count }}"
-
-          if [ "$CLIPROXY_OK" = "true" ] && [ "$BOT_ACTIVE" = "true" ]; then
-            echo "status=healthy" >> "$GITHUB_OUTPUT"
-            echo "summary=OK - CLIProxyAPI up, $REVIEW_COUNT reviews in 48h" >> "$GITHUB_OUTPUT"
-          elif [ "$CLIPROXY_OK" != "true" ]; then
-            echo "status=critical" >> "$GITHUB_OUTPUT"
-            echo "summary=FAIL - CLIProxyAPI unreachable" >> "$GITHUB_OUTPUT"
-          else
-            echo "status=critical" >> "$GITHUB_OUTPUT"
-            echo "summary=FAIL - jclee-bot silent (0 reviews in 48h)" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Create or update alert issue
-        env:
-          ISSUE_COMMANDS_TOKEN: ${{ secrets.ISSUE_COMMANDS_TOKEN || secrets.APP_ISSUE_MAINTENANCE_TOKEN }}
-        run: |
-          set -eu
-          if [ -z "${ISSUE_COMMANDS_TOKEN:-}" ]; then
-            echo "::warning::ISSUE_COMMANDS_TOKEN/APP_ISSUE_MAINTENANCE_TOKEN is not configured; skipping jclee-bot issue command."
-            exit 0
-          fi
-          STATUS="${{ steps.health.outputs.status }}"
-          SUMMARY="${{ steps.health.outputs.summary }}"
-          TITLE='[bot-health] jclee-bot critical alert'
-
-          if [ "$STATUS" = "healthy" ]; then
-            payload="$(jq -cn \
-              --arg repo "$GITHUB_REPOSITORY" \
-              --arg comment "Bot health restored - $SUMMARY"$'\n\n''_jclee-bot에의해자동화됨._' \
-              '{repository: $repo, commands: [{type: "close_matching_issues", labels: ["bot-health", "critical"], comment: $comment}]}')"
-            curl -fsS --retry 3 --retry-delay 5 --max-time 120 \
-              -X POST "https://bot.jclee.me/api/v1/issue_commands" \
-              -H "Authorization: Bearer ${ISSUE_COMMANDS_TOKEN}" \
-              -H "Content-Type: application/json" \
-              -d "$payload" \
-              | jq -e '.actions | type == "array"' >/dev/null
-            echo "Bot is healthy. $SUMMARY"
-            exit 0
-          fi
-
-          BODY=$(printf '%s\n' '## Bot Health Alert' '' "$SUMMARY" '' '### Timestamp' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '' '### Checklist' '- [ ] Verify CLIProxyAPI container is running on the homelab host' '- [ ] Check GitHub App webhook delivery logs: https://github.com/settings/apps/jclee-bot/advanced' "- [ ] Review container logs on the homelab host: \`ssh root@<homelab-host> \"docker logs github-bot-app\"\`" "- [ ] Test CLIProxyAPI manually: \`curl https://cliproxy.jclee.me/v1/models\`" '' '_jclee-bot에의해자동화됨._')
           payload="$(jq -cn \
             --arg repo "$GITHUB_REPOSITORY" \
-            --arg title "$TITLE" \
-            --arg body "$BODY" \
-            '{repository: $repo, commands: [{type: "upsert_issue", title: $title, body: $body, labels: ["bot-health", "critical", "automation"]}]}')"
-          curl -fsS --retry 3 --retry-delay 5 --max-time 120 \
-            -X POST "https://bot.jclee.me/api/v1/issue_commands" \
-            -H "Authorization: Bearer ${ISSUE_COMMANDS_TOKEN}" \
+            '{repository: $repo, checks: ["bot_health"]}')"
+          curl -fsS --retry 3 --retry-delay 5 --max-time 180 \
+            -X POST "https://bot.jclee.me/api/v1/native_health" \
+            -H "Authorization: Bearer ${NATIVE_HEALTH_TOKEN}" \
             -H "Content-Type: application/json" \
             -d "$payload" \
-            | jq -e '.actions | type == "array"' >/dev/null
-      - name: Checkout (for composite action resolution)
-        if: failure()
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
-      - name: Notify on failure
-        if: failure()
-        uses: ./.github/actions/notify-on-failure
-        with:
-          jclee-bot-token: ${{ secrets.ISSUE_COMMANDS_TOKEN || secrets.APP_ISSUE_MAINTENANCE_TOKEN }}
+            | jq -e '(.checks | all(.status == "healthy")) and (.actions | type == "array")' >/dev/null

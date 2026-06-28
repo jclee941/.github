@@ -10,12 +10,12 @@ def test_cancelled_workflow_run_is_not_recorded_as_failure() -> None:
         run_id=123,
         conclusion="cancelled",
         pr_number=0,
-        run_url="https://github.com/jclee941/.github/actions/runs/123",
+        run_url="https://github.com/jclee941/jclee-bot/actions/runs/123",
     )
 
     actions = workflow_issue_automation.record_workflow_run(
         token="tok",
-        repo_full_name="jclee941/.github",
+        repo_full_name="jclee941/jclee-bot",
         run=run,
         dry_run=True,
     )
@@ -30,7 +30,7 @@ def test_success_sweeps_legacy_on_payload_default_branch(monkeypatch) -> None:
         run_id=123,
         conclusion="success",
         pr_number=0,
-        run_url="https://github.com/jclee941/.github/actions/runs/123",
+        run_url="https://github.com/jclee941/jclee-bot/actions/runs/123",
     )
     seen: dict[str, str] = {}
 
@@ -48,7 +48,7 @@ def test_success_sweeps_legacy_on_payload_default_branch(monkeypatch) -> None:
 
     actions = workflow_issue_automation.record_workflow_run(
         token="tok",
-        repo_full_name="jclee941/.github",
+        repo_full_name="jclee941/jclee-bot",
         run=run,
         default_branch="main",
         dry_run=False,
@@ -72,8 +72,8 @@ def test_ci_failure_endpoint_uses_repository_object_full_name(monkeypatch) -> No
     result = app_module._run_app_ci_failure_issues(
         app_id="123",
         private_key="key",
-        payload={"repository": {"full_name": "jclee941/.github"}, "dry_run": True},
+        payload={"repository": {"full_name": "jclee941/jclee-bot"}, "dry_run": True},
     )
 
     assert result == {"dry_run": True, "actions": [], "error": "installation token unavailable"}
-    assert seen == {"repo_full_name": "jclee941/.github"}
+    assert seen == {"repo_full_name": "jclee941/jclee-bot"}

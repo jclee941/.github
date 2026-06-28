@@ -58,7 +58,7 @@ class TestPullRequestMaintenanceDecisions:
         # Given
         pr = _pr(
             number=17,
-            title="docs: sync standard templates from jclee941/.github",
+            title="docs: sync standard templates from jclee941/jclee-bot",
             updated_hours_ago=1,
             head_ref="bot/docs-sync",
         )

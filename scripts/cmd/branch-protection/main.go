@@ -34,7 +34,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jclee941/.github/scripts/internal/repos"
+	"github.com/jclee941/jclee-bot/scripts/internal/repos"
 )
 
 // protectionPayload is the JSON body for the branch protection PUT call.

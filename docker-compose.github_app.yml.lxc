@@ -3,21 +3,21 @@
 # WARNING: This file must NOT contain secrets. All secrets come from .env.
 #
 # Usage (on the homelab host as root):
-#   cd /opt/github-bot && docker compose -f docker-compose.github_app.yml.lxc up -d
+#   cd /opt/jclee-bot && docker compose -f docker-compose.github_app.yml.lxc up -d
 #
-# Required: /opt/github-bot/.env with secrets (see below).
+# Required: /opt/jclee-bot/.env with secrets (see below).
 #   GITHUB_APP_ID=...
 #   GITHUB_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
 #   GITHUB_WEBHOOK_SECRET=...
-#   CLIPROXY_API_KEY=sk-cliproxy-github-bot-...
+#   CLIPROXY_API_KEY=sk-cliproxy-jclee-bot-...
 
 services:
-  github-bot-app:
+  jclee-bot-app:
     build:
       context: .
       dockerfile: Dockerfile.github_app
-    image: github-bot:app
-    container_name: github-bot-app
+    image: jclee-bot:app
+    container_name: jclee-bot-app
     restart: unless-stopped
     ports:
       - "127.0.0.1:3001:3000"
@@ -28,6 +28,12 @@ services:
       GITHUB.APP_ID: "${GITHUB_APP_ID}"
       GITHUB.PRIVATE_KEY: "${GITHUB_PRIVATE_KEY}"
       GITHUB.WEBHOOK_SECRET: "${GITHUB_WEBHOOK_SECRET}"
+      ISSUE_MAINTENANCE_TOKEN: "${ISSUE_MAINTENANCE_TOKEN}"
+      NATIVE_HEALTH_TOKEN: "${NATIVE_HEALTH_TOKEN:-}"
+      CLIPROXY_API_KEY: "${CLIPROXY_API_KEY}"
+      ELASTICSEARCH_HOSTS: "${ELASTICSEARCH_HOSTS:-}"
+      ELK_USERNAME: "${ELK_USERNAME:-}"
+      ELK_PASSWORD: "${ELK_PASSWORD:-}"
       OPENAI.KEY: "${CLIPROXY_API_KEY}"
       OPENAI.API_BASE: https://cliproxy.jclee.me/v1
       CONFIG.MODEL: minimax-m3

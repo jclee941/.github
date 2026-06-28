@@ -10,7 +10,7 @@ on:
 
 permissions:
   contents: read
-  issues: write
+  issues: read
 
 concurrency:
   group: elk-health-check-${{ github.event.workflow_run.id || github.run_id }}
@@ -19,8 +19,7 @@ concurrency:
 jobs:
   elk-health-check:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
-    # Homelab-only: requires access to internal Elasticsearch (host in ELK_HOST secret)
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Harden Runner
@@ -28,65 +27,21 @@ jobs:
         with:
           egress-policy: audit
 
-      - name: Check Elasticsearch connectivity
+      - name: Delegate ELK health to jclee-bot
         env:
-          ELK_HOST: ${{ secrets.ELK_HOST }}
-          ELK_USERNAME: ${{ secrets.ELK_USERNAME }}
-          ELK_PASSWORD: ${{ secrets.ELK_PASSWORD }}
+          NATIVE_HEALTH_TOKEN: ${{ secrets.NATIVE_HEALTH_TOKEN || secrets.APP_ISSUE_MAINTENANCE_TOKEN }}
         run: |
-          set -eu
-          echo "Checking Elasticsearch at ${ELK_HOST}..."
-          if curl -sS --connect-timeout 10 -m 15 -u "${ELK_USERNAME}:${ELK_PASSWORD}" \
-            "http://${ELK_HOST}/_cluster/health" 2>/dev/null | grep -q '"status"'; then
-            echo "✅ Elasticsearch is reachable"
-            curl -sS -u "${ELK_USERNAME}:${ELK_PASSWORD}" "http://${ELK_HOST}/_cluster/health?pretty"
-          else
-            echo "❌ Elasticsearch is unreachable"
+          set -euo pipefail
+          if [ -z "${NATIVE_HEALTH_TOKEN:-}" ]; then
+            echo "::error::NATIVE_HEALTH_TOKEN/APP_ISSUE_MAINTENANCE_TOKEN is not configured"
             exit 1
           fi
-
-      - name: Check index health
-        env:
-          ELK_HOST: ${{ secrets.ELK_HOST }}
-          ELK_USERNAME: ${{ secrets.ELK_USERNAME }}
-          ELK_PASSWORD: ${{ secrets.ELK_PASSWORD }}
-        run: |
-          set -eu
-          echo "Checking github-bot-logs indices..."
-          # The bot's own logs must reach ELK. Zero github-bot-logs-* indices means
-          # filebeat on the app host is not shipping (broken log pipeline), which is
-          # exactly the failure mode a health check must surface, not hide.
-          COUNT=$(curl -sS --connect-timeout 10 -m 15 -u "${ELK_USERNAME}:${ELK_PASSWORD}" \
-            "http://${ELK_HOST}/_cat/indices/github-bot-logs-*?h=index" 2>/dev/null | grep -c . || true)
-          echo "github-bot-logs-* index count: ${COUNT}"
-          curl -sS --connect-timeout 10 -m 15 -u "${ELK_USERNAME}:${ELK_PASSWORD}" \
-            "http://${ELK_HOST}/_cat/indices/github-bot-logs-*?v" 2>/dev/null || true
-          if [ "${COUNT}" -eq 0 ]; then
-            echo "❌ No github-bot-logs-* indices found — filebeat log shipping is broken on the app host"
-            exit 1
-          fi
-          echo "✅ github-bot-logs indices present"
-
-      - name: Check Filebeat indices
-        env:
-          ELK_HOST: ${{ secrets.ELK_HOST }}
-          ELK_USERNAME: ${{ secrets.ELK_USERNAME }}
-          ELK_PASSWORD: ${{ secrets.ELK_PASSWORD }}
-        run: |
-          echo "Checking Filebeat indices..."
-          curl -sS --connect-timeout 10 -m 15 -u "${ELK_USERNAME}:${ELK_PASSWORD}" \
-            "http://${ELK_HOST}/_cat/indices/filebeat-*?v&health=yellow,red" 2>/dev/null || true
-
-      - name: Checkout (for composite action resolution)
-        if: failure()
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
-      - name: Notify on failure
-        if: failure()
-        uses: ./.github/actions/notify-on-failure
-        with:
-          jclee-bot-token: ${{ secrets.ISSUE_COMMANDS_TOKEN || secrets.APP_ISSUE_MAINTENANCE_TOKEN }}
-          title: 'ELK Health Check Failed'
-          body: 'ELK health check workflow failed. Elasticsearch may be down or unreachable.'
-          labels: 'elk-health,automated'
+          payload="$(jq -cn \
+            --arg repo "$GITHUB_REPOSITORY" \
+            '{repository: $repo, checks: ["elk_health"]}')"
+          curl -fsS --retry 3 --retry-delay 5 --max-time 180 \
+            -X POST "https://bot.jclee.me/api/v1/native_health" \
+            -H "Authorization: Bearer ${NATIVE_HEALTH_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$payload" \
+            | jq -e '(.checks | all(.status == "healthy")) and (.actions | type == "array")' >/dev/null

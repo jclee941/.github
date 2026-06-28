@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	repoinventory "github.com/jclee941/.github/scripts/internal/repos"
+	repoinventory "github.com/jclee941/jclee-bot/scripts/internal/repos"
 )
 
 // resolveReviewScript must find repo_review.py regardless of how the binary is

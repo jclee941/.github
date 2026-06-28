@@ -1,6 +1,6 @@
 """jclee_bot — fork-owned extensions for the jclee-bot GitHub App.
 
-This package is OWNED by the fork (jclee941/.github). The review engine,
+This package is OWNED by the fork (jclee941/jclee-bot). The review engine,
 originally derived from upstream ``pr_agent``, has been absorbed in-tree as
 ``jclee_bot.review_engine`` (see jclee_bot/review_engine/AGENTS.md). It adds an
 App Checks-API runner so the GitHub App

@@ -52,7 +52,7 @@ audit had not actually been running.
 (`41_pages-deploy.yml` + `.github/scripts/build_pages.py`) that renders Markdown
 to HTML with client-side Mermaid and an index page (`412535ff`, `9fe319e5`).
 Enabled GitHub Pages (`build_type=workflow`); the site is live at
-`https://jclee941.github.io/.github/`.
+`https://jclee941.github.io/jclee-bot/`.
 
 **Why**: surface the architecture and standardization docs (including the new
 구성도) as a browsable site. First attempt 404'd because `deploy-pages` serves

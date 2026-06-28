@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	repoinventory "github.com/jclee941/.github/scripts/internal/repos"
+	repoinventory "github.com/jclee941/jclee-bot/scripts/internal/repos"
 )
 
 var forbiddenRunInterpolationRe = regexp.MustCompile(`\$\{\{\s*(inputs|github\.event\.inputs)\.`)

@@ -4,13 +4,13 @@
 
 Go automation tools for the canonical `config/repos.yaml` inventory: merged branch cleanup,
 branch protection, rulesets, secret sync, repo review, and naming validation. The inventory currently
-has 16 entries; `.github` is the source repo and `pr-agent` is excluded from rollout-style automation.
+has 16 entries; `jclee-bot` is the source repo and `pr-agent` is excluded from rollout-style automation.
 
 ## STRUCTURE
 
 ```
 scripts/
-├── go.mod                               # module github.com/jclee941/.github/scripts
+├── go.mod                               # module github.com/jclee941/jclee-bot/scripts
 ├── cmd/
 │   ├── branch-protection/main.go        # auto-merge + branch protection rules
 │   ├── branch-cleanup/main.go           # delete branches merged into managed default branches

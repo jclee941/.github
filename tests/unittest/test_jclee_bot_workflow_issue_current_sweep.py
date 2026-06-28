@@ -88,7 +88,7 @@ def test_sweep_closes_current_default_branch_ci_failure_after_matching_success(
             "",
             "- **Workflow:** Live E2E Tests",
             "- **Commit:** abcdef1234567890abcdef1234567890abcdef12",
-            "- **Run:** https://github.com/jclee941/.github/actions/runs/100",
+            "- **Run:** https://github.com/jclee941/jclee-bot/actions/runs/100",
         ]
     )
 
@@ -113,7 +113,7 @@ def test_sweep_closes_current_default_branch_ci_failure_after_matching_success(
     # When
     actions = workflow_issue_automation.sweep_legacy_failure_issues(
         token="tok",
-        repo_full_name="jclee941/.github",
+        repo_full_name="jclee941/jclee-bot",
         default_branch="master",
         dry_run=False,
     )
@@ -141,7 +141,7 @@ def test_sweep_preserves_current_ci_failure_when_body_references_pr(monkeypatch:
             "- **Workflow:** ELK Health Check",
             "- **Commit:** abcdef1234567890abcdef1234567890abcdef12",
             "- **PR:** #686",
-            "- **Run:** https://github.com/jclee941/.github/actions/runs/100",
+            "- **Run:** https://github.com/jclee941/jclee-bot/actions/runs/100",
         ]
     )
 
@@ -166,7 +166,7 @@ def test_sweep_preserves_current_ci_failure_when_body_references_pr(monkeypatch:
     # When
     actions = workflow_issue_automation.sweep_legacy_failure_issues(
         token="tok",
-        repo_full_name="jclee941/.github",
+        repo_full_name="jclee941/jclee-bot",
         default_branch="master",
         dry_run=False,
     )

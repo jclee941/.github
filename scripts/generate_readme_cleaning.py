@@ -75,7 +75,7 @@ def _unwrap_json_content(s: str) -> str:
 
 
 def sanitize_links(text: str) -> str:
-    canonical = "https://github.com/jclee941/.github"
+    canonical = "https://github.com/jclee941/jclee-bot"
     url_re = re.compile(
         r"https?://(?:www\.)?github\.com/jclee941/([A-Za-z0-9._-]+)(?:/[^\s)\]>\"']*)?"
     )
@@ -95,13 +95,13 @@ def _known_jclee_repos() -> set[str]:
     try:
         payload = yaml.safe_load(inventory.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError):
-        return {".github"}
+        return {"jclee-bot"}
     if not isinstance(payload, dict):
-        return {".github"}
+        return {"jclee-bot"}
     repositories = payload.get("repositories")
     if not isinstance(repositories, list):
-        return {".github"}
-    repos = {".github"}
+        return {"jclee-bot"}
+    repos = {"jclee-bot"}
     for repo in repositories:
         if not isinstance(repo, dict):
             continue

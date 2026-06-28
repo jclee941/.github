@@ -10,13 +10,12 @@ import (
 	"sort"
 	"strings"
 
-	repoinventory "github.com/jclee941/.github/scripts/internal/repos"
+	repoinventory "github.com/jclee941/jclee-bot/scripts/internal/repos"
 )
 
 // secretsToSync names the env vars to sync. Each must be present in the
 // caller's environment; missing values fail loud rather than silently
 // erasing the downstream secret.
-//
 var secretsToSync = []string{
 	"CLIPROXY_API_KEY",
 	"GH_PAT",

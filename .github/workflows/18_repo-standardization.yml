@@ -68,7 +68,7 @@ jobs:
             args+=(--dry-run)
             mode="dry-run"
           elif [ "${GH_PAT_AVAILABLE}" != "true" ]; then
-            echo "::error::GH_PAT is required to standardize managed repositories outside jclee941/.github."
+            echo "::error::GH_PAT is required to standardize managed repositories outside jclee941/jclee-bot."
             exit 1
           fi
           if [ -n "${INPUT_REPOS}" ]; then

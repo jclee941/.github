@@ -31,6 +31,7 @@ from jclee_bot import (
     issue_commands,
     issue_maintenance,
     issue_management,
+    native_health,
     workflow_issue_automation,
 )
 from jclee_bot.context_guards import neutralize_on_missing_context
@@ -347,6 +348,21 @@ def _run_app_issue_commands(*, app_id: str, private_key: str, payload: dict[str,
     return result
 
 
+def _run_app_native_health(*, app_id: str, private_key: str, payload: dict[str, Any]) -> dict[str, Any]:
+    repo_full_name = repo_full_name_from_payload(payload)
+    dry_run = bool(payload.get("dry_run", False))
+    if not repo_full_name:
+        return {"dry_run": dry_run, "actions": [], "error": "repository is required"}
+    token = workflow_issue_automation.installation_token_for_repo(
+        app_id=app_id,
+        private_key=private_key,
+        repo_full_name=repo_full_name,
+    )
+    if not token:
+        return {"dry_run": dry_run, "actions": [], "error": "installation token unavailable"}
+    return native_health.run_native_health(token=token, payload=payload)
+
+
 def _bearer_token_ok(expected: str, authorization: str | None) -> bool:
     if not expected or not authorization or not authorization.startswith("Bearer "):
         return False
@@ -504,6 +520,25 @@ async def issue_commands_webhook(request: Request, response: Response) -> dict[s
     if payload is None:
         return {"error": "invalid json"}
     return _run_app_issue_commands(app_id=app_id, private_key=private_key, payload=payload)
+
+
+@app.post("/api/v1/native_health")
+async def native_health_webhook(request: Request, response: Response) -> dict[str, Any]:
+    expected = os.environ.get("NATIVE_HEALTH_TOKEN", "") or os.environ.get("ISSUE_MAINTENANCE_TOKEN", "")
+    if not _bearer_token_ok(expected, request.headers.get("Authorization")):
+        response.status_code = 401
+        return {"error": "invalid token"}
+
+    app_id = os.environ.get("GITHUB_APP_ID", "")
+    private_key = os.environ.get("GITHUB_PRIVATE_KEY", "")
+    if not app_id or not private_key:
+        response.status_code = 503
+        return {"error": "github app credentials unavailable"}
+
+    payload = json_payload_or_error(await request.body(), response)
+    if payload is None:
+        return {"error": "invalid json"}
+    return _run_app_native_health(app_id=app_id, private_key=private_key, payload=payload)
 
 
 @app.post("/api/v1/checks_webhook")

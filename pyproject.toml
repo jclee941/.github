@@ -3,7 +3,7 @@ requires = ["setuptools>=82.0.1", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "github-bot"
+name = "jclee-bot"
 version = "0.3.1"
 
 authors = [{ name = "QodoAI", email = "ofir.f@qodo.ai" }]
@@ -29,8 +29,8 @@ dynamic = ["dependencies"]
 dependencies = { file = ["requirements.txt"] }
 
 [project.urls]
-Homepage = "https://github.com/jclee941/github-bot"
-Documentation = "https://github.com/jclee941/github-bot#readme"
+Homepage = "https://github.com/jclee941/jclee-bot"
+Documentation = "https://github.com/jclee941/jclee-bot#readme"
 
 [tool.setuptools]
 include-package-data = true
@@ -42,6 +42,7 @@ include = [
 ] # fork-owned jclee_bot package (includes the absorbed review engine).
 
 [project.scripts]
+jclee-bot = "jclee_bot.review_engine.cli:run"
 github-bot = "jclee_bot.review_engine.cli:run"
 pr-agent = "jclee_bot.review_engine.cli:run"
 

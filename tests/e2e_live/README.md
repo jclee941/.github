@@ -1,6 +1,6 @@
 # Live E2E Test Suite
 
-`tests/e2e_live` contains pytest fixtures and helpers for validating the real `jclee941/.github` automation stack
+`tests/e2e_live` contains pytest fixtures and helpers for validating the real `jclee941/jclee-bot` automation stack
 against GitHub. These tests are intentionally separate from mocked `tests/e2e` tests because they call the live
 GitHub API, inspect real workflow runs, and may use dedicated canary repositories for mutation scenarios.
 
@@ -34,7 +34,7 @@ branches, or opening pull requests. The guard raises immediately unless the targ
 `MUTATION_ALLOWED_REPOS`.
 
 Production repositories must remain read-only in this suite. Do not add tests that mutate any managed production repo
-selected by `config/repos.yaml` with `automation.branch_protection: true`. The `github-bot` source repository is intentionally excluded
+selected by `config/repos.yaml` with `automation.branch_protection: true`. The `jclee-bot` source repository is intentionally excluded
 from the managed automation rollout checks.
 
 ## Required environment variables

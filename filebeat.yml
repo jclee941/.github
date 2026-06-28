@@ -1,5 +1,5 @@
 # Filebeat configuration for GitHub App log shipping to Elasticsearch
-# Deployed alongside github-bot-app in docker-compose.github_app.yml
+# Deployed alongside jclee-bot-app in docker-compose.github_app.yml
 
 filebeat.inputs:
   - type: container
@@ -19,12 +19,12 @@ filebeat.inputs:
           fields: ["agent", "ecs", "input", "log.file", "log.offset"]
           ignore_missing: true
 
-# Only collect logs from github-bot-app container
+# Only collect logs from jclee-bot-app container
   - type: log
     paths:
-      - /var/log/github-bot/*.log
+      - /var/log/jclee-bot/*.log
     fields:
-      service: github-bot
+      service: jclee-bot
     fields_under_root: true
     processors:
       - decode_json_fields:
@@ -41,22 +41,22 @@ output.elasticsearch:
   hosts: ["${ELASTICSEARCH_HOSTS}"]
   username: "${ELASTICSEARCH_USERNAME:elastic}"
   password: "${ELASTICSEARCH_PASSWORD:}"
-  index: "github-bot-logs-%{+yyyy.MM.dd}"
+  index: "jclee-bot-logs-%{+yyyy.MM.dd}"
   template:
-    name: "github-bot-logs"
-    pattern: "github-bot-logs-*"
+    name: "jclee-bot-logs"
+    pattern: "jclee-bot-logs-*"
     enabled: true
 
 # Index lifecycle management
 setup.ilm:
   enabled: true
-  policy_name: "github-bot-logs"
+  policy_name: "jclee-bot-logs"
   pattern: "{now/d}-000001"
-  rollover_alias: "github-bot-logs"
+  rollover_alias: "jclee-bot-logs"
 
 setup.template:
-  name: "github-bot-logs"
-  pattern: "github-bot-logs-*"
+  name: "jclee-bot-logs"
+  pattern: "jclee-bot-logs-*"
   enabled: true
   settings:
     index.number_of_shards: 1

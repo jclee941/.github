@@ -194,6 +194,28 @@ class TestIssueMaintenanceWorkflow:
     def test_cleanup_is_not_owned_by_workflow(self):
         assert not list(WF_DIR.glob("[0-9][0-9]_issue-maintenance.yml"))
 
+
+class TestNativeHealthWorkflowPolicy:
+    def test_health_workflows_delegate_to_jclee_bot(self):
+        for workflow in [
+            "elk-health-check.yml",
+            "elk-setup.yml",
+            "bot-health-monitor.yml",
+            "runtime-health-check.yml",
+        ]:
+            text = read_workflow(workflow)
+            assert "/api/v1/native_health" in text
+            assert "NATIVE_HEALTH_TOKEN" in text
+            assert "ISSUE_COMMANDS_TOKEN" not in text
+            assert "ELK_HOST" not in text
+            assert "/_cluster/health" not in text
+            assert "/_cat/indices" not in text
+
+    def test_build_pushes_rename_compatibility_tag(self):
+        text = read_workflow("build-and-push-app.yml")
+        assert "registry.jclee.me/jclee-bot-app:latest" in text
+        assert "registry.jclee.me/github-bot-app:latest" in text
+
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------

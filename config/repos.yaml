@@ -3,7 +3,7 @@
 
 repositories:
   # Source of truth (this repo)
-  - name: .github
+  - name: jclee-bot
     visibility: public
     default_branch: master
     automation:
@@ -12,7 +12,7 @@ repositories:
       health_check: true
       auto_merge: true
 
-  # Public repos (12 total including .github)
+  # Public repos (12 total including jclee-bot)
   - name: account
     visibility: public
     default_branch: master

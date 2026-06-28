@@ -33,10 +33,10 @@ jobs:
       - name: Check out base branch
         uses: actions/checkout@v6
 
-      - name: Check out pr-agent source from jclee941/.github
+      - name: Check out pr-agent source from jclee941/jclee-bot
         uses: actions/checkout@v6
         with:
-          repository: jclee941/.github
+          repository: jclee941/jclee-bot
           ref: master
           path: pr-agent-src
           fetch-depth: 1

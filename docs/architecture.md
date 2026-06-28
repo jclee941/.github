@@ -1,6 +1,6 @@
 # jclee-bot 아키텍처 및 자동화 흐름
 
-> 본 문서는 `jclee941/.github` 저장소의 전체 자동화 스택을 시각적으로 설명합니다.  
+> 본 문서는 `jclee941/jclee-bot` 저장소의 전체 자동화 스택을 시각적으로 설명합니다.
 > 모든 다이어그램은 GitHub 네이티브 Mermaid 렌더러로 표시됩니다.
 
 ---
@@ -17,7 +17,7 @@ flowchart TB
 
     subgraph 홈랩["🏠 홈랩 (&lt;homelab-host&gt;)"]
         direction TB
-        WEB["github-bot-app<br/>(localhost:3001)"]
+        WEB["jclee-bot-app<br/>(localhost:3001)"]
         PROXY["CLIProxyAPI<br/>(localhost:8317)"]
         LLM["Claude / Codex / Gemini<br/>CLI"]
         FB["Filebeat<br/>(로그 수집)"]
@@ -49,7 +49,7 @@ flowchart TB
 |-----------|------|------|
 | **GitHub** | PR 이벤트 발생, 리뷰 코멘트 표시 | Public Cloud |
 | **Cloudflare Tunnel** | 홈랩 남부 네트워크에 퍼블릭 HTTPS 엔드포인트 제공 | Cloudflare Edge |
-| **github-bot-app** | Webhook 수신, 리뷰 엔진 실행, GitHub API 호출 | <homelab-host> (:3001) |
+| **jclee-bot-app** | Webhook 수신, 리뷰 엔진 실행, GitHub API 호출 | <homelab-host> (:3001) |
 | **CLIProxyAPI** | Claude/Codex/Gemini CLI를 OpenAI API로 래핑 | <homelab-host> (:8317) |
 | **AI CLI** | 실제 LLM 추론 수행 (Claude Code / Codex CLI / Gemini CLI) | <homelab-host> (로컬 실행) |
 | **Filebeat** | Docker 컨테이너 로그 수집 및 전송 | <homelab-host> (로컬) |
@@ -204,7 +204,7 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    START(("운영 트리거<br/>(webhook / API / schedule)")) --> APP["jclee-bot App<br/>(github-bot-app)"]
+    START(("운영 트리거<br/>(webhook / API / schedule)")) --> APP["jclee-bot App<br/>(jclee-bot-app)"]
     
     APP --> INSTALL["GitHub App installation<br/>repo + permission 조회"]
     INSTALL --> TARGETS["config/repos.yaml<br/>관리 대상 필터"]

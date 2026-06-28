@@ -1,4 +1,4 @@
-# github-bot | jclee941
+# jclee-bot | jclee941
 
 > AI-powered PR reviewer and GitHub automation platform for `jclee941/*` repositories, backed by a homelab CLIProxyAPI deployment.
 > homelab CLIProxyAPI 배포를 기반으로 `jclee941/*` 저장소를 자동화하는 AI PR 리뷰어 및 GitHub 자동화 플랫폼입니다.
@@ -90,7 +90,7 @@ Production automation follows a **GitHub App-centered operating model**: the hom
 ### Repo Governance | 저장소 거버넌스
 
 - Six Go CLIs (`branch-cleanup`, `branch-protection`, `rulesets-manager`, `repo-review`, `sync-secrets`, `validate-naming`) roll out stale merged-branch cleanup, branch protection, GitHub Rulesets, secret sync, periodic repo review, and naming/inventory enforcement across the 16 managed repos.
-- `config/repos.yaml` is the canonical managed-repo inventory; the `github-bot` source repo itself is excluded from auto-deploy.
+- `config/repos.yaml` is the canonical managed-repo inventory; the `jclee-bot` source repo itself is excluded from auto-deploy.
 
 ---
 
@@ -152,7 +152,7 @@ All Go CLIs live under `scripts/cmd/<tool>/main.go` and are intended to be run f
 ## Repository Structure | 저장소 구조
 
 ```text
-github-bot/
+jclee-bot/
 ├── AGENTS.md                            # machine-readable project knowledge base
 ├── CODE_OF_CONDUCT.md
 ├── CONTRIBUTING.md
@@ -211,8 +211,8 @@ github-bot/
 ### Clone and install | 클론 및 설치
 
 ```bash
-git clone <repo-url> github-bot
-cd github-bot
+git clone <repo-url> jclee-bot
+cd jclee-bot
 make install         # creates .venv, installs -e .
 ```
 

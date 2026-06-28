@@ -15,7 +15,7 @@ def test_success_event_preserves_current_ci_failure_when_body_references_pr(monk
             "- **Workflow:** Sanity",
             "- **Commit:** abcdef1234567890abcdef1234567890abcdef12",
             "- **PR:** #686",
-            "- **Run:** https://github.com/jclee941/.github/actions/runs/100",
+            "- **Run:** https://github.com/jclee941/jclee-bot/actions/runs/100",
         ]
     )
 
@@ -44,14 +44,14 @@ def test_success_event_preserves_current_ci_failure_when_body_references_pr(monk
     # When
     actions = workflow_issue_automation.record_workflow_run(
         token="tok",
-        repo_full_name="jclee941/.github",
+        repo_full_name="jclee941/jclee-bot",
         run=workflow_issue_automation.WorkflowRun(
             name="Sanity",
             head_sha="abcdef1234567890abcdef1234567890abcdef12",
             run_id=123,
             conclusion="success",
             pr_number=0,
-            run_url="https://github.com/jclee941/.github/actions/runs/123",
+            run_url="https://github.com/jclee941/jclee-bot/actions/runs/123",
         ),
         dry_run=False,
     )

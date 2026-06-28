@@ -36,14 +36,14 @@ jobs:
       - name: Checkout local actions
         uses: actions/checkout@v6
         with:
-          repository: jclee941/.github
+          repository: jclee941/jclee-bot
           ref: master
           fetch-depth: 1
 
       - name: Checkout repository inventory
         uses: actions/checkout@v6
         with:
-          repository: jclee941/.github
+          repository: jclee941/jclee-bot
           path: .github-inventory
 
       - name: Set up Python 3.12

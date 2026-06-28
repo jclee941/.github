@@ -27,7 +27,7 @@ def automation_source_system_prompt() -> str:
         "use real '#' headings. "
         "Current README-gen primary model: minimax-m3 (fallback: gpt-5.5 via CLIProxyAPI). "
         "Do NOT invent GitHub repository URLs: never link to non-existent repos such as "
-        "github.com/jclee941/CLIProxyAPI or github.com/jclee941/github-bot. For external "
+        "github.com/jclee941/CLIProxyAPI or retired/guessed repository slugs. For external "
         "links use only qodo-ai/pr-agent, cliproxy.jclee.me, and bot.jclee.me. "
     )
 

@@ -3,7 +3,7 @@ name: PR Review (CLIProxyAPI)
 # Posts an automated AI code review against any non-draft PR.
 #
 # This workflow is downstream-portable: it does NOT require the host repo
-# to contain pr-agent source. It clones jclee941/.github at a separate
+# to contain pr-agent source. It clones jclee941/jclee-bot at a separate
 # path and installs pr-agent from there, then runs the review against
 # the host repo's PR via the GitHub API.
 
@@ -38,13 +38,13 @@ jobs:
       - name: Checkout local actions
         uses: actions/checkout@v6
         with:
-          repository: jclee941/.github
+          repository: jclee941/jclee-bot
           ref: master
           fetch-depth: 1
-      - name: Check out pr-agent source from jclee941/.github
+      - name: Check out pr-agent source from jclee941/jclee-bot
         uses: actions/checkout@v6
         with:
-          repository: jclee941/.github
+          repository: jclee941/jclee-bot
           ref: master
           path: pr-agent-src
           fetch-depth: 1

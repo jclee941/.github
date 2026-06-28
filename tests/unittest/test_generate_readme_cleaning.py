@@ -20,13 +20,13 @@ def test_sanitize_links_strips_nonexistent_jclee_repos():
     md = (
         "See [CLIProxyAPI](https://github.com/jclee941/CLIProxyAPI) and "
         "[badge](https://github.com/jclee941/github-bot) plus the real "
-        "[upstream](https://github.com/qodo-ai/pr-agent) and [self](https://github.com/jclee941/.github)."
+        "[upstream](https://github.com/qodo-ai/pr-agent) and [self](https://github.com/jclee941/jclee-bot)."
     )
     out = mod.sanitize_links(md)
     assert "github.com/jclee941/CLIProxyAPI" not in out, out
     assert "github.com/jclee941/github-bot" not in out, out
     assert "github.com/qodo-ai/pr-agent" in out, out
-    assert "github.com/jclee941/.github" in out, out
+    assert "github.com/jclee941/jclee-bot" in out, out
 
     badge = "[![v](https://img.shields.io/badge/x.svg)](https://github.com/jclee941/github-bot)"
     bout = mod.sanitize_links(badge)
@@ -129,12 +129,12 @@ def test_sanitize_links_handles_http_and_www():
     md = (
         "[a](http://github.com/jclee941/github-bot) "
         "[b](https://www.github.com/jclee941/CLIProxyAPI) "
-        "[ok](https://github.com/jclee941/.github)"
+        "[ok](https://github.com/jclee941/jclee-bot)"
     )
     out = mod.sanitize_links(md)
     assert "jclee941/github-bot" not in out, out
     assert "jclee941/CLIProxyAPI" not in out, out
-    assert "jclee941/.github" in out, out
+    assert "jclee941/jclee-bot" in out, out
 
 
 def test_sanitize_links_canonicalizes_unknown_repo_paths_to_repo_root():
@@ -146,7 +146,7 @@ def test_sanitize_links_canonicalizes_unknown_repo_paths_to_repo_root():
     out = mod.sanitize_links(md)
     assert "settings/secrets/actions" not in out, out
     assert "blob/main/README.md" not in out, out
-    assert out.count("https://github.com/jclee941/.github") == 2
+    assert out.count("https://github.com/jclee941/jclee-bot") == 2
 
 
 def test_known_repos_excludes_private_inventory_entries(tmp_path, monkeypatch):
@@ -164,10 +164,10 @@ def test_known_repos_excludes_private_inventory_entries(tmp_path, monkeypatch):
     )
 
     monkeypatch.setattr(mod, "_REPO_ROOT", tmp_path)
-    assert mod._known_jclee_repos() == {".github", "account"}
+    assert mod._known_jclee_repos() == {"jclee-bot", "account"}
 
 
-def test_known_repos_uses_yaml_parser_for_inventory_variation(tmp_path, monkeypatch):
+def test_known_repos_parses_inventory_variation(tmp_path, monkeypatch):
     mod = _load_cleaning_module()
     config_dir = tmp_path / "config"
     config_dir.mkdir()
@@ -177,7 +177,7 @@ def test_known_repos_uses_yaml_parser_for_inventory_variation(tmp_path, monkeypa
         "  - visibility: public\n"
         "    name: account\n"
         "  - visibility: public\n"
-        '    name: ".github"\n'
+        "    name: jclee-bot\n"
         "    automation:\n"
         "      branch_protection: true\n"
         "  - visibility: public\n"
@@ -186,7 +186,7 @@ def test_known_repos_uses_yaml_parser_for_inventory_variation(tmp_path, monkeypa
     )
 
     monkeypatch.setattr(mod, "_REPO_ROOT", tmp_path)
-    assert mod._known_jclee_repos() == {".github", "account", "propose"}
+    assert mod._known_jclee_repos() == {"jclee-bot", "account", "propose"}
 
 
 def test_normalize_strips_thinking_variant():

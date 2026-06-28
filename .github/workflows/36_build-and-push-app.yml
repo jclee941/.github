@@ -92,7 +92,9 @@ jobs:
           context: .
           file: Dockerfile.github_app
           push: true
-          tags: registry.jclee.me/github-bot-app:latest
+          tags: |
+            registry.jclee.me/jclee-bot-app:latest
+            registry.jclee.me/github-bot-app:latest
           build-args: |
             APP_VERSION=${{ github.sha }}
             VCS_REF=${{ github.sha }}

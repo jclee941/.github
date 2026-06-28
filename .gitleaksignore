@@ -1,4 +1,4 @@
-# Gitleaks fingerprint allowlist for jclee941/.github (pr-agent fork).
+# Gitleaks fingerprint allowlist for jclee941/jclee-bot (pr-agent fork).
 #
 # All entries below are PRE-EXISTING upstream qodo-ai/pr-agent test fixtures and
 # documentation examples (NOT real secrets). They live in:

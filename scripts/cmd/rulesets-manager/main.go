@@ -28,7 +28,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/jclee941/.github/scripts/internal/repos"
+	"github.com/jclee941/jclee-bot/scripts/internal/repos"
 )
 
 type result struct {

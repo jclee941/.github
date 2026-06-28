@@ -24,6 +24,7 @@ REQUIRED_ROUTES = {
     ("POST", "/api/v1/issue_maintenance"),
     ("POST", "/api/v1/ci_failure_issues"),
     ("POST", "/api/v1/issue_commands"),
+    ("POST", "/api/v1/native_health"),
     ("POST", "/api/v1/readme_automation"),
 }
 

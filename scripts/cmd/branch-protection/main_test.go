@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jclee941/.github/scripts/internal/repos"
+	"github.com/jclee941/jclee-bot/scripts/internal/repos"
 )
 
 var protectedRepoNames = repos.Names(repos.ProtectedRepos())
@@ -117,7 +117,7 @@ func TestProtectedReposInvariants(t *testing.T) {
 		seen[r] = struct{}{}
 	}
 
-	want := ".github"
+	want := "jclee-bot"
 	found := false
 	for _, r := range protectedRepoNames {
 		if r == want {

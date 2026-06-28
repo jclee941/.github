@@ -70,7 +70,7 @@ def test_legacy_sweep_closes_release_drafter_notify_issue_after_latest_master_su
     # When
     actions = workflow_issue_automation.sweep_legacy_failure_issues(
         token="tok",
-        repo_full_name="jclee941/.github",
+        repo_full_name="jclee941/jclee-bot",
         default_branch="master",
         dry_run=False,
     )
@@ -123,7 +123,7 @@ def test_legacy_sweep_closes_old_sanity_current_issue_after_latest_master_succes
     # When
     actions = workflow_issue_automation.sweep_legacy_failure_issues(
         token="tok",
-        repo_full_name="jclee941/.github",
+        repo_full_name="jclee941/jclee-bot",
         default_branch="master",
         dry_run=False,
     )
@@ -176,7 +176,7 @@ def test_legacy_sweep_closes_notify_sanity_issue_after_latest_master_success(
     # When
     actions = workflow_issue_automation.sweep_legacy_failure_issues(
         token="tok",
-        repo_full_name="jclee941/.github",
+        repo_full_name="jclee941/jclee-bot",
         default_branch="master",
         dry_run=False,
     )
@@ -234,7 +234,7 @@ def test_legacy_sweep_closes_pr_review_failure_issue_when_pr_is_closed(
     # When
     actions = workflow_issue_automation.sweep_legacy_failure_issues(
         token="tok",
-        repo_full_name="jclee941/.github",
+        repo_full_name="jclee941/jclee-bot",
         default_branch="master",
         dry_run=False,
     )

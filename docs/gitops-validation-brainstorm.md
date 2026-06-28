@@ -1,6 +1,6 @@
 # GitOps 검증 강화 및 중복 기능 제거 브레인스토밍
 
-**대상 저장소**: `jclee941/.github` (모든 `jclee941/*` 리포지토리에 자동 배포되는 워크플로 표준의 출처)
+**대상 저장소**: `jclee941/jclee-bot` (모든 `jclee941/*` 리포지토리에 자동 배포되는 워크플로 표준의 출처)
 **분석일**: 2026-06-03
 **분석 + 구현**: 동일 PR
 **분석 범위**: `.github/workflows/` (57개 → 47개), `scripts/cmd/*` (Go 도구 8개), `scripts/*.py`, `scripts/cmd/deploy-to-repos/main.go` 배포 매니페스트

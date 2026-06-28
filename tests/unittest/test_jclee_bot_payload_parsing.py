@@ -13,6 +13,7 @@ from jclee_bot import app as app_module
         ("/api/v1/issue_maintenance", "ISSUE_MAINTENANCE_TOKEN", "Bearer tok"),
         ("/api/v1/ci_failure_issues", "CI_FAILURE_ISSUES_TOKEN", "Bearer tok"),
         ("/api/v1/issue_commands", "ISSUE_COMMANDS_TOKEN", "Bearer tok"),
+        ("/api/v1/native_health", "NATIVE_HEALTH_TOKEN", "Bearer tok"),
         ("/api/v1/readme_automation", "README_AUTOMATION_TOKEN", "Bearer tok"),
     ],
 )

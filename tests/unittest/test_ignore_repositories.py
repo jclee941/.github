@@ -40,13 +40,16 @@ PROVIDERS = [
     ("gitlab", gitlab_should_process_pr_logic, make_gitlab_body),
 ]
 
+def set_ignore_repositories(value):
+    get_settings().set("CONFIG.IGNORE_REPOSITORIES", value or None)
+
 class TestIgnoreRepositories:
     def setup_method(self):
-        get_settings().set("CONFIG.IGNORE_REPOSITORIES", [])
+        set_ignore_repositories([])
 
     @pytest.mark.parametrize("provider_name, provider_func, body_func", PROVIDERS)
     def test_should_ignore_matching_repository(self, provider_name, provider_func, body_func):
-        get_settings().set("CONFIG.IGNORE_REPOSITORIES", ["org/repo-to-ignore"])
+        set_ignore_repositories(["org/repo-to-ignore"])
         body = {
             "pull_request": {},
             "repository": {"full_name": "org/repo-to-ignore"},
@@ -58,7 +61,7 @@ class TestIgnoreRepositories:
 
     @pytest.mark.parametrize("provider_name, provider_func, body_func", PROVIDERS)
     def test_should_not_ignore_non_matching_repository(self, provider_name, provider_func, body_func):
-        get_settings().set("CONFIG.IGNORE_REPOSITORIES", ["org/repo-to-ignore"])
+        set_ignore_repositories(["org/repo-to-ignore"])
         body = {
             "pull_request": {},
             "repository": {"full_name": "org/other-repo"},
@@ -70,7 +73,7 @@ class TestIgnoreRepositories:
 
     @pytest.mark.parametrize("provider_name, provider_func, body_func", PROVIDERS)
     def test_should_not_ignore_when_config_empty(self, provider_name, provider_func, body_func):
-        get_settings().set("CONFIG.IGNORE_REPOSITORIES", [])
+        set_ignore_repositories([])
         body = {
             "pull_request": {},
             "repository": {"full_name": "org/repo-to-ignore"},
@@ -78,4 +81,4 @@ class TestIgnoreRepositories:
         }
         result = provider_func(body_func(body["repository"]["full_name"]))
         # print(f"DEBUG: Provider={provider_name}, test_should_not_ignore_when_config_empty, result={result}")
-        assert result is True, f"{provider_name}: PR should not be ignored if ignore_repositories config is empty" 
+        assert result is True, f"{provider_name}: PR should not be ignored if ignore_repositories config is empty"

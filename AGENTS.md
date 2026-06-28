@@ -1,4 +1,4 @@
-# github-bot - PROJECT KNOWLEDGE BASE
+# jclee-bot - PROJECT KNOWLEDGE BASE
 
 **Generated:** 2026-06-28
 **Commit:** `f0eb10bb`
@@ -16,7 +16,7 @@ per-repo workflow deployment is no longer the primary rollout path.
 ## STRUCTURE
 
 ```text
-github-bot/
+jclee-bot/
 ├── .github/               # workflows, local actions, templates, CODEOWNERS
 ├── jclee_bot/             # first-party GitHub App checks runner + review engine
 │   ├── app.py, dispatch.py, github_checks.py  # FastAPI app + Checks API client

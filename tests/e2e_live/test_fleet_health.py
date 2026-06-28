@@ -23,7 +23,7 @@ from .repo_config import GITHUB_API_URL, GITHUB_OWNER, REQUIRED_CONTEXTS, REQUIR
 
 pytestmark = pytest.mark.readonly
 
-SOURCE_REPO = f"{GITHUB_OWNER}/.github"
+SOURCE_REPO = f"{GITHUB_OWNER}/jclee-bot"
 APP_SLUG = "jclee-bot"
 
 DRIFT_FILES = tuple(f".github/workflows/{workflow}" for workflow in REQUIRED_WORKFLOWS) + tuple(REQUIRED_FILES)
@@ -49,7 +49,7 @@ def test_workflow_presence(github_client: requests.Session, repo_inventory: Mapp
 
 
 def test_workflow_drift(github_client: requests.Session, repo_inventory: Mapping[str, JsonValue]) -> None:
-    """Report workflow/config drift against jclee941/.github without failing."""
+    """Report workflow/config drift against jclee941/jclee-bot without failing."""
     drift: list[str] = []
     source_shas = {path: content_sha(github_client, SOURCE_REPO, path) for path in DRIFT_FILES}
 

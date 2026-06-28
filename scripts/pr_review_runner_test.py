@@ -20,7 +20,7 @@ from pr_review_runner import (
 class TestParsePRUrl:
     def test_valid_url(self):
         from pr_review_runner import _parse_pr_url
-        assert _parse_pr_url("https://github.com/jclee941/.github/pull/42") == ("jclee941/.github", 42)
+        assert _parse_pr_url("https://github.com/jclee941/jclee-bot/pull/42") == ("jclee941/jclee-bot", 42)
 
     def test_invalid_url_raises(self):
         from pr_review_runner import _parse_pr_url
@@ -41,7 +41,7 @@ class TestFetchPRMeta:
                 "author": {"login": "dependabot[bot]"},
             }),
         )
-        meta = fetch_pr_meta("https://github.com/jclee941/.github/pull/1")
+        meta = fetch_pr_meta("https://github.com/jclee941/jclee-bot/pull/1")
         assert meta.number == 1
         assert meta.author == "dependabot[bot]"
         assert meta.title == "feat: add foo"
@@ -53,7 +53,7 @@ class TestFetchPRMeta:
     @patch("pr_review_runner.subprocess.run")
     def test_failure_returns_empty_meta(self, mock_run):
         mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error")
-        meta = fetch_pr_meta("https://github.com/jclee941/.github/pull/1")
+        meta = fetch_pr_meta("https://github.com/jclee941/jclee-bot/pull/1")
         assert meta.author == ""
         assert meta.title == ""
         assert meta.loc == 0
@@ -107,7 +107,7 @@ class TestRunCommands:
     def test_success(self, mock_run, tmp_path: Path):
         mock_run.return_value = MagicMock(returncode=0, stdout="ok\n")
         log = tmp_path / "pr-agent.log"
-        status = run_commands("https://github.com/jclee941/.github/pull/1", ["review"], log)
+        status = run_commands("https://github.com/jclee941/jclee-bot/pull/1", ["review"], log)
         assert status == 0
         assert "ok" in log.read_text()
 
@@ -118,7 +118,7 @@ class TestRunCommands:
             MagicMock(returncode=1, stdout="error\n"),
         ]
         log = tmp_path / "pr-agent.log"
-        status = run_commands("https://github.com/jclee941/.github/pull/1", ["review", "improve"], log)
+        status = run_commands("https://github.com/jclee941/jclee-bot/pull/1", ["review", "improve"], log)
         assert status == 1
         assert "error" in log.read_text()
         assert mock_run.call_count == 2
@@ -155,7 +155,7 @@ class TestMain:
         mock_run.return_value = 0
         mock_silent.return_value = False
         log = tmp_path / "pr-agent.log"
-        assert main(["https://github.com/jclee941/.github/pull/1", "--log", str(log)]) == 0
+        assert main(["https://github.com/jclee941/jclee-bot/pull/1", "--log", str(log)]) == 0
 
     @patch("pr_review_runner.fetch_pr_meta")
     @patch("pr_review_runner.run_commands")
@@ -163,7 +163,7 @@ class TestMain:
         mock_fetch.return_value = PRMeta(1, "user", "feat: add foo", 10, 5, ["foo.py"])
         mock_run.return_value = 1
         log = tmp_path / "pr-agent.log"
-        assert main(["https://github.com/jclee941/.github/pull/1", "--log", str(log)]) == 1
+        assert main(["https://github.com/jclee941/jclee-bot/pull/1", "--log", str(log)]) == 1
 
     @patch("pr_review_runner.fetch_pr_meta")
     @patch("pr_review_runner.run_commands")
@@ -173,7 +173,7 @@ class TestMain:
         mock_run.return_value = 0
         mock_silent.return_value = True
         log = tmp_path / "pr-agent.log"
-        assert main(["https://github.com/jclee941/.github/pull/1", "--log", str(log)]) == 1
+        assert main(["https://github.com/jclee941/jclee-bot/pull/1", "--log", str(log)]) == 1
 
     @patch("pr_review_runner.fetch_pr_meta")
     @patch("pr_review_runner.run_commands")
@@ -183,7 +183,7 @@ class TestMain:
         mock_run.return_value = 0
         mock_silent.return_value = False
         log = tmp_path / "pr-agent.log"
-        main(["https://github.com/jclee941/.github/pull/1", "--log", str(log)])
+        main(["https://github.com/jclee941/jclee-bot/pull/1", "--log", str(log)])
         _, call_args, _ = mock_run.mock_calls[0]
         assert call_args[1] == ["review"]
 

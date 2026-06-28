@@ -1,0 +1,106 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+from fastapi.testclient import TestClient
+
+from jclee_bot import native_health, native_health_checks
+
+
+@dataclass(frozen=True)
+class FakeResponse:
+    text: str = ""
+    body: dict[str, Any] | None = None
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> dict[str, Any]:
+        return self.body or {}
+
+
+def test_elk_health_accepts_legacy_indices_during_rename(monkeypatch) -> None:
+    calls: list[str] = []
+
+    def fake_elk_request(payload, method: str, path: str, **kwargs) -> FakeResponse:
+        calls.append(path)
+        if path == "/_cluster/health":
+            return FakeResponse(body={"status": "green"})
+        if "jclee-bot-logs-*" in path:
+            return FakeResponse(text="")
+        if "github-bot-logs-*" in path:
+            return FakeResponse(text="github-bot-logs-2026.06.29\n")
+        raise AssertionError(path)
+
+    monkeypatch.setattr(native_health_checks, "_elk_request", fake_elk_request)
+    monkeypatch.setattr(
+        native_health.issue_commands,
+        "run_issue_commands",
+        lambda **kwargs: {"actions": [command["type"] for command in kwargs["payload"]["commands"]]},
+    )
+
+    result = native_health.run_native_health(
+        token="tok",
+        payload={"repository": "jclee941/jclee-bot", "dry_run": True, "checks": ["elk_health"]},
+    )
+
+    assert result["checks"] == [
+        {
+            "name": "elk_health",
+            "status": "healthy",
+            "summary": "ELK is reachable and bot log indices are present",
+        }
+    ]
+    assert result["actions"] == ["close_matching_issues"]
+    assert any("github-bot-logs-*" in path for path in calls)
+
+
+def test_runtime_failure_upserts_issue_from_native_bot(monkeypatch) -> None:
+    captured: list[dict[str, Any]] = []
+
+    def fake_http_status(url: str, **kwargs) -> int:
+        return 503 if "github_webhooks" in url else 401
+
+    def fake_issue_commands(**kwargs) -> dict[str, Any]:
+        captured.extend(kwargs["payload"]["commands"])
+        return {"actions": ["upsert-create:jclee941/jclee-bot#4"]}
+
+    monkeypatch.setattr(native_health_checks, "_http_status", fake_http_status)
+    monkeypatch.setattr(native_health.issue_commands, "run_issue_commands", fake_issue_commands)
+
+    result = native_health.run_native_health(
+        token="tok",
+        payload={"repository": "jclee941/jclee-bot", "dry_run": False, "checks": ["runtime_health"]},
+    )
+
+    assert result["checks"][0]["status"] == "critical"
+    assert captured[0]["type"] == "upsert_issue"
+    assert captured[0]["title"] == "Bot webhook endpoint unreachable"
+    assert "jclee-bot에의해자동화됨" in captured[0]["body"]
+
+
+def test_native_health_endpoint_delegates_to_app_module(monkeypatch) -> None:
+    from jclee_bot import app as app_module
+
+    calls: list[dict[str, object]] = []
+
+    def fake_run(**kwargs) -> dict[str, object]:
+        calls.append(kwargs)
+        return {"dry_run": True, "repository": "jclee941/jclee-bot", "checks": [], "actions": []}
+
+    monkeypatch.setenv("NATIVE_HEALTH_TOKEN", "native")
+    monkeypatch.setenv("GITHUB_APP_ID", "123")
+    monkeypatch.setenv("GITHUB_PRIVATE_KEY", "key")
+    monkeypatch.setattr(app_module, "_run_app_native_health", fake_run)
+
+    response = TestClient(app_module.app, raise_server_exceptions=False).post(
+        "/api/v1/native_health",
+        json={"repository": "jclee941/jclee-bot", "dry_run": True, "checks": ["elk_health"]},
+        headers={"Authorization": "Bearer native"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["repository"] == "jclee941/jclee-bot"
+    assert calls[0]["app_id"] == "123"
+    assert calls[0]["private_key"] == "key"

@@ -2,7 +2,7 @@
 
 ## OVERVIEW
 
-Live tests against the real `jclee941/.github` automation stack via GitHub API. Readonly inspections cover the managed fleet; controlled mutations are restricted to the private canary repo.
+Live tests against the real `jclee941/jclee-bot` automation stack via GitHub API. Readonly inspections cover the managed fleet; controlled mutations are restricted to the private canary repo.
 
 ## STRUCTURE
 

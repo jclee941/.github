@@ -17,7 +17,7 @@ def test_workflow_run_payload_skips_malformed_run_id() -> None:
                 "id": malformed_run_id,
                 "conclusion": "failure",
                 "pr_number": 4,
-                "run_url": "https://github.com/jclee941/.github/actions/runs/not-a-number",
+                "run_url": "https://github.com/jclee941/jclee-bot/actions/runs/not-a-number",
             },
         }
 
@@ -37,7 +37,7 @@ def test_workflow_run_payload_defaults_malformed_pr_number() -> None:
                 "id": 123,
                 "conclusion": "failure",
                 "pr_number": malformed_pr_number,
-                "run_url": "https://github.com/jclee941/.github/actions/runs/123",
+                "run_url": "https://github.com/jclee941/jclee-bot/actions/runs/123",
             },
         }
 
@@ -58,7 +58,7 @@ def test_failure_dry_run_reports_ci_issue_creation_without_mutating(monkeypatch)
         run_id=123,
         conclusion="failure",
         pr_number=0,
-        run_url="https://github.com/jclee941/.github/actions/runs/123",
+        run_url="https://github.com/jclee941/jclee-bot/actions/runs/123",
     )
     mutations: list[str] = []
 
@@ -68,7 +68,7 @@ def test_failure_dry_run_reports_ci_issue_creation_without_mutating(monkeypatch)
 
     actions = workflow_issue_automation.record_workflow_run(
         token="tok",
-        repo_full_name="jclee941/.github",
+        repo_full_name="jclee941/jclee-bot",
         run=run,
         dry_run=True,
     )
@@ -84,7 +84,7 @@ def test_success_closes_recovered_and_sweeps_legacy(monkeypatch) -> None:
         run_id=123,
         conclusion="success",
         pr_number=0,
-        run_url="https://github.com/jclee941/.github/actions/runs/123",
+        run_url="https://github.com/jclee941/jclee-bot/actions/runs/123",
     )
 
     monkeypatch.setattr(
@@ -100,7 +100,7 @@ def test_success_closes_recovered_and_sweeps_legacy(monkeypatch) -> None:
 
     actions = workflow_issue_automation.record_workflow_run(
         token="tok",
-        repo_full_name="jclee941/.github",
+        repo_full_name="jclee941/jclee-bot",
         run=run,
         dry_run=False,
     )
@@ -131,7 +131,7 @@ def test_success_closes_current_ci_failure_title(monkeypatch: MonkeyPatch) -> No
     # When
     actions = workflow_issue_automation.close_recovered_workflow_issues(
         token="tok",
-        repo_full_name="jclee941/.github",
+        repo_full_name="jclee941/jclee-bot",
         workflow_name="ELK Health Check",
         head_sha="abcdef1234567890abcdef1234567890abcdef12",
         dry_run=False,
@@ -181,7 +181,7 @@ def test_success_does_not_close_same_issue_twice_when_titles_overlap(monkeypatch
     # When
     actions = workflow_issue_automation.close_recovered_workflow_issues(
         token="tok",
-        repo_full_name="jclee941/.github",
+        repo_full_name="jclee941/jclee-bot",
         workflow_name="Runtime Health Check",
         head_sha="abcdef1234567890abcdef1234567890abcdef12",
         dry_run=False,
@@ -199,7 +199,7 @@ def test_ci_failure_endpoint_delegates_to_app_module(monkeypatch) -> None:
 
     def fake_run(**kwargs) -> dict[str, object]:
         calls.append(kwargs)
-        return {"dry_run": True, "repository": "jclee941/.github", "actions": ["create-ci-failure:x"]}
+        return {"dry_run": True, "repository": "jclee941/jclee-bot", "actions": ["create-ci-failure:x"]}
 
     monkeypatch.setenv("CI_FAILURE_ISSUES_TOKEN", "ci")
     monkeypatch.setenv("GITHUB_APP_ID", "123")
@@ -209,7 +209,7 @@ def test_ci_failure_endpoint_delegates_to_app_module(monkeypatch) -> None:
     response = TestClient(app_module.app, raise_server_exceptions=False).post(
         "/api/v1/ci_failure_issues",
         json={
-            "repository": "jclee941/.github",
+            "repository": "jclee941/jclee-bot",
             "dry_run": True,
             "workflow_run": {
                 "name": "Sanity",
@@ -217,14 +217,14 @@ def test_ci_failure_endpoint_delegates_to_app_module(monkeypatch) -> None:
                 "id": 123,
                 "conclusion": "failure",
                 "pr_number": 0,
-                "run_url": "https://github.com/jclee941/.github/actions/runs/123",
+                "run_url": "https://github.com/jclee941/jclee-bot/actions/runs/123",
             },
         },
         headers={"Authorization": "Bearer ci"},
     )
 
     assert response.status_code == 200
-    assert response.json() == {"dry_run": True, "repository": "jclee941/.github", "actions": ["create-ci-failure:x"]}
+    assert response.json() == {"dry_run": True, "repository": "jclee941/jclee-bot", "actions": ["create-ci-failure:x"]}
     assert calls[0]["app_id"] == "123"
     assert calls[0]["private_key"] == "key"
 
@@ -247,7 +247,7 @@ def test_ci_failure_endpoint_handles_malformed_workflow_run_numbers(monkeypatch)
         response = client.post(
             "/api/v1/ci_failure_issues",
             json={
-                "repository": "jclee941/.github",
+                "repository": "jclee941/jclee-bot",
                 "dry_run": True,
                 "workflow_run": {
                     "name": "Sanity",
@@ -255,7 +255,7 @@ def test_ci_failure_endpoint_handles_malformed_workflow_run_numbers(monkeypatch)
                     "id": malformed_number,
                     "conclusion": "failure",
                     "pr_number": malformed_number,
-                    "run_url": "https://github.com/jclee941/.github/actions/runs/not-a-number",
+                    "run_url": "https://github.com/jclee941/jclee-bot/actions/runs/not-a-number",
                 },
             },
             headers={"Authorization": "Bearer ci"},
@@ -264,6 +264,6 @@ def test_ci_failure_endpoint_handles_malformed_workflow_run_numbers(monkeypatch)
         assert response.status_code == 200
         assert response.json() == {
             "dry_run": True,
-            "repository": "jclee941/.github",
+            "repository": "jclee941/jclee-bot",
             "actions": ["close-legacy:8:30_runtime-health-check.yml"],
         }

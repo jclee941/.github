@@ -1,6 +1,6 @@
 # Contributing
 
-`jclee941/.github` is the source of truth for the standard automation that runs across all `jclee941/*` public repositories. The jclee-bot GitHub App (see `jclee_bot/` Python package) handles PR/CI checks centrally via the Checks API for every managed repo.
+`jclee941/jclee-bot` is the source of truth for the standard automation that runs across all `jclee941/*` public repositories. The jclee-bot GitHub App (see `jclee_bot/` Python package) handles PR/CI checks centrally via the Checks API for every managed repo.
 
 ## Scope
 
@@ -67,7 +67,7 @@ for f in scripts/*.go; do go build -o /tmp/check-$(basename "$f" .go) "$f"; done
 - Never paste API keys, tokens, or PII into PR descriptions, issue bodies, or commit messages.
 - The `jclee-bot / secret-scan` check (gitleaks run inside the App image) blocks merges that introduce real-looking secrets. False positives can be allowlisted in `.gitleaksignore` (commit-pinned fingerprint format).
 - For active vulnerabilities, open a **private** security advisory:
-  <https://github.com/jclee941/.github/security/advisories/new>
+  <https://github.com/jclee941/jclee-bot/security/advisories/new>
 
 ## Documentation expectations
 
