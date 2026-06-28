@@ -36,6 +36,7 @@ jclee_bot/review_engine/
 
 | Task | Location |
 |------|----------|
+| Installed console scripts | `pyproject.toml` maps `github-bot` and `pr-agent` to `cli.py` |
 | Change default model | `settings/configuration.toml` `[config].model` |
 | Override per-repo | `.pr_agent.toml` (repo root) |
 | Edit review prompts | `settings/pr_reviewer_prompts.toml` |
@@ -52,6 +53,11 @@ jclee_bot/review_engine/
   `algo/` and `tools/` modules.
 - Per-repo overrides go in `.pr_agent.toml`; engine-wide defaults and prompt
   packs go in `settings/`.
+- `github_action_runner.py` is the GitHub Actions runtime entry point; keep its
+  environment-variable contract aligned with `.github/workflows/10_pr-review.yml`
+  and `.github/workflows/11_security-pr-review.yml`.
+- Review output is Korean-first unless a prompt/config override intentionally
+  changes `CONFIG.RESPONSE_LANGUAGE`.
 
 ## ANTI-PATTERNS
 
@@ -61,3 +67,6 @@ jclee_bot/review_engine/
 - Do not re-introduce an external "upstream" remote or re-create the `pr_agent/`
   package layout; the project is now standalone and the review engine is
   in-tree.
+- Do not import the App integration layer from this package. `jclee_bot.app`
+  wraps the review engine; the review engine should stay reusable by CLI,
+  GitHub Action, and server entry points.

@@ -30,7 +30,10 @@ Dependabot/Renovate config, issue templates, and PR template.
 | PR review workflow for this repo | `workflows/10_pr-review.yml` |
 | Deep security review | `workflows/11_security-pr-review.yml` |
 | App image build/push | `workflows/36_build-and-push-app.yml` |
+| App README automation trigger | `workflows/34_readme-automation.yml` |
+| CI failure issue trigger/recovery | `workflows/37_ci-failure-issues.yml` |
 | Live e2e workflow | `workflows/39_e2e-live.yml` |
+| Batch repo review | `workflows/40_repo-review-batch.yml` |
 | App-owned README automation | `jclee_bot/readme_automation.py`, `jclee_bot/readme_runner.py` |
 | App docs policy check | `jclee_bot/checks/docs_policy.py` |
 | Failure issue creation | `actions/notify-on-failure/action.yml` |
@@ -46,6 +49,10 @@ Dependabot/Renovate config, issue templates, and PR template.
 - PR review workflows use literal-dot Dynaconf env keys such as `OPENAI.KEY`,
   `OPENAI.API_BASE`, `CONFIG.MODEL`, and `CONFIG.FALLBACK_MODELS`; keep
   `GITHUB__USER_TOKEN` as the token exception.
+- `90_sanity.yml` is the fast gate for import safety, workflow parsing, embedded
+  `github-script` syntax, model-config drift, and `validate-naming`.
+- Workflows that call App APIs are thin triggers; durable PR/issue/README behavior
+  belongs in `jclee_bot/` and should be tested there.
 
 ## ANTI-PATTERNS
 
@@ -56,3 +63,7 @@ Dependabot/Renovate config, issue templates, and PR template.
 - Do not duplicate App check behavior with old per-repo CI workflows.
 - Do not restore retired downstream README/template deploy workflows; App-era
   automation owns cross-repo policy checks and README automation.
+- Do not let `pull_request_target` paths check out or execute untrusted fork head
+  code without the existing fork/head-repo guard pattern.
+- Do not hardcode managed-repo lists in workflow shell blocks; derive inventory
+  from `config/repos.yaml` or the Go helpers.
