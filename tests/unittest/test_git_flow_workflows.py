@@ -193,6 +193,8 @@ class TestReadmeAutomationOwnedByApp:
 class TestIssueMaintenanceWorkflow:
     def test_waits_for_app_maintenance_results(self):
         text = read_workflow("issue-maintenance.yml")
+        assert "schedule:" in text
+        assert "17 * * * *" in text
         assert "BACKGROUND:" in text
         assert '\\"background\\": ${BACKGROUND}' in text
         assert "BACKGROUND: false" in text
