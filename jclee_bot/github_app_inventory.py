@@ -19,7 +19,11 @@ class InstallationRepository(TypedDict, total=False):
     name: str
 
 
-def managed_repo_names(config_path: Path | None = None) -> set[str] | None:
+def managed_repo_names(
+    config_path: Path | None = None,
+    *,
+    deploy_workflows_only: bool = True,
+) -> set[str] | None:
     path = config_path or Path(__file__).resolve().parents[1] / "config" / "repos.yaml"
     if not path.exists():
         return None
@@ -28,7 +32,8 @@ def managed_repo_names(config_path: Path | None = None) -> set[str] | None:
     return {
         str(repo["name"])
         for repo in repos
-        if isinstance(repo, dict) and repo.get("automation", {}).get("deploy_workflows") is True
+        if isinstance(repo, dict)
+        and (not deploy_workflows_only or repo.get("automation", {}).get("deploy_workflows") is True)
     }
 
 

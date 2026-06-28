@@ -14,7 +14,7 @@ def _repo_health_issue() -> dict[str, str | list[dict[str, str]]]:
 class TestRunAppMaintenance:
     def test_missing_repo_config_falls_back_to_owner_scoped_app_repos(self, monkeypatch) -> None:
         # Given
-        monkeypatch.setattr(issue_maintenance, "managed_repo_names", lambda config_path=None: None)
+        monkeypatch.setattr(issue_maintenance, "managed_repo_names", lambda **kwargs: None)
         monkeypatch.setattr(issue_maintenance, "app_installations", lambda **kwargs: [{"id": 42}])
         monkeypatch.setattr(issue_maintenance.github_checks, "installation_token", lambda *args: "tok")
         monkeypatch.setattr(
@@ -47,7 +47,7 @@ class TestRunAppMaintenance:
 
     def test_owner_scoped_non_managed_repo_runs_when_bot_owned_issue_exists(self, monkeypatch) -> None:
         # Given
-        monkeypatch.setattr(issue_maintenance, "managed_repo_names", lambda config_path=None: {"bug"})
+        monkeypatch.setattr(issue_maintenance, "managed_repo_names", lambda **kwargs: {"bug"})
         monkeypatch.setattr(issue_maintenance, "app_installations", lambda **kwargs: [{"id": 42}])
         monkeypatch.setattr(issue_maintenance.github_checks, "installation_token", lambda *args: "tok")
         monkeypatch.setattr(
@@ -88,7 +88,7 @@ class TestRunAppMaintenance:
 
     def test_force_mode_requires_managed_repo_inventory(self, monkeypatch) -> None:
         # Given
-        monkeypatch.setattr(issue_maintenance, "managed_repo_names", lambda config_path=None: None)
+        monkeypatch.setattr(issue_maintenance, "managed_repo_names", lambda **kwargs: None)
         monkeypatch.setattr(issue_maintenance, "app_installations", lambda **kwargs: [{"id": 42}])
 
         # When
@@ -110,7 +110,7 @@ class TestRunAppMaintenance:
 
     def test_force_mode_skips_non_managed_bot_owned_issue_fallback(self, monkeypatch) -> None:
         # Given
-        monkeypatch.setattr(issue_maintenance, "managed_repo_names", lambda config_path=None: {"bug"})
+        monkeypatch.setattr(issue_maintenance, "managed_repo_names", lambda **kwargs: {"bug"})
         monkeypatch.setattr(issue_maintenance, "app_installations", lambda **kwargs: [{"id": 42}])
         monkeypatch.setattr(issue_maintenance.github_checks, "installation_token", lambda *args: "tok")
         monkeypatch.setattr(
@@ -144,7 +144,7 @@ class TestRunAppMaintenance:
 
     def test_force_mode_records_repo_error_and_continues(self, monkeypatch) -> None:
         # Given
-        monkeypatch.setattr(issue_maintenance, "managed_repo_names", lambda config_path=None: {"account", "bug"})
+        monkeypatch.setattr(issue_maintenance, "managed_repo_names", lambda **kwargs: {"account", "bug"})
         monkeypatch.setattr(issue_maintenance, "app_installations", lambda **kwargs: [{"id": 42}])
         monkeypatch.setattr(issue_maintenance.github_checks, "installation_token", lambda *args: "tok")
         monkeypatch.setattr(

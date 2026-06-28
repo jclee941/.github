@@ -502,7 +502,7 @@ def run_app_maintenance(
     dry_run: bool,
     mode: MaintenanceMode = "safe",
 ) -> dict[str, Any]:
-    allowed = managed_repo_names()
+    allowed = managed_repo_names(deploy_workflows_only=False)
     if mode == "force" and allowed is None:
         return {
             "dry_run": dry_run,
