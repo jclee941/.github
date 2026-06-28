@@ -95,8 +95,32 @@ jobs:
               }
             }
 
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              labels: 'documentation,repo-health',
+              state: 'open',
+            });
+            const existing = issues.find(i => i.title.includes('문서 누락'));
+
             if (missing.length === 0) {
-              console.log(`✅ ${repo}: all required files present`);
+              if (existing) {
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: existing.number,
+                  body: '필수 문서 파일이 모두 확인되어 자동으로 닫습니다.\n\n_Repository Health Check에 의해 자동화됨._',
+                });
+                await github.rest.issues.update({
+                  owner,
+                  repo,
+                  issue_number: existing.number,
+                  state: 'closed',
+                });
+                console.log(`✅ ${repo}: all required files present; closed issue #${existing.number}`);
+              } else {
+                console.log(`✅ ${repo}: all required files present`);
+              }
               return;
             }
 
@@ -122,15 +146,6 @@ jobs:
             const title = criticalMissing.length > 0
               ? `[BOT] 필수 문서 누락: ${missing.map(f => f.path).join(', ')}`
               : `[BOT] 권장 문서 누락: ${missing.map(f => f.path).join(', ')}`;
-
-            // Check for existing open issue
-            const { data: issues } = await github.rest.issues.listForRepo({
-              owner,
-              repo,
-              labels: 'documentation,repo-health',
-              state: 'open',
-            });
-            const existing = issues.find(i => i.title.includes('문서 누락'));
 
             if (existing) {
               await github.rest.issues.update({
