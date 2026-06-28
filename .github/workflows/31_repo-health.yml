@@ -105,19 +105,7 @@ jobs:
 
             if (missing.length === 0) {
               if (existing) {
-                await github.rest.issues.createComment({
-                  owner,
-                  repo,
-                  issue_number: existing.number,
-                  body: '필수 문서 파일이 모두 확인되어 자동으로 닫습니다.\n\n_Repository Health Check에 의해 자동화됨._',
-                });
-                await github.rest.issues.update({
-                  owner,
-                  repo,
-                  issue_number: existing.number,
-                  state: 'closed',
-                });
-                console.log(`✅ ${repo}: all required files present; closed issue #${existing.number}`);
+                console.log(`✅ ${repo}: all required files present; jclee-bot App issue maintenance handles closure for issue #${existing.number}`);
               } else {
                 console.log(`✅ ${repo}: all required files present`);
               }

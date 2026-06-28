@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 import requests
-import yaml
 
 from jclee_bot import github_checks, issue_management, pr_maintenance
+from jclee_bot.github_api_client import GITHUB_API, headers
+from jclee_bot.github_app_inventory import app_installations, installation_repositories, managed_repo_names
 from jclee_bot.issue_maintenance_rules import (
     issue_stats,
     should_close_duplicate_bot_review,
@@ -15,12 +15,13 @@ from jclee_bot.issue_maintenance_rules import (
     should_close_stale,
     should_mark_stale,
 )
+from jclee_bot.repo_health_maintenance import (
+    has_bot_owned_issue,
+    is_repo_health_issue,
+    missing_repo_health_files,
+)
 
-GITHUB_API = "https://api.github.com"
 SUMMARY_LABELS = ["issue-summary", "bot"]
-REPO_HEALTH_LABELS = {"documentation", "repo-health"}
-REPO_HEALTH_FILES = ("README.md", "CONTRIBUTING.md", "LICENSE")
-BOT_OWNED_LABELS = {"jclee-bot", "repo-health"}
 STALE_MESSAGE = (
     "이 이슈는 30일 이상 활동이 없어 `stale` 상태로 전환됩니다. "
     "추가 활동이 없으면 7일 후 자동으로 닫힙니다."
@@ -40,10 +41,6 @@ REPO_HEALTH_RECOVERED_MESSAGE = (
 )
 
 
-def _headers(token: str) -> dict[str, str]:
-    return {"Authorization": f"token {token}", "Accept": "application/vnd.github+json"}
-
-
 def _paginate(token: str, path: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     page = 1
@@ -52,7 +49,7 @@ def _paginate(token: str, path: str, params: dict[str, Any] | None = None) -> li
         request_params.update({"per_page": 100, "page": page})
         resp = requests.get(
             f"{GITHUB_API}{path}",
-            headers=_headers(token),
+            headers=headers(token),
             params=request_params,
             timeout=30,
         )
@@ -70,45 +67,15 @@ def list_open_issues(*, token: str, repo_full_name: str) -> list[dict[str, Any]]
     return _paginate(token, f"/repos/{repo_full_name}/issues", {"state": "open"})
 
 
-def _repo_file_exists(*, token: str, repo_full_name: str, path: str) -> bool:
-    resp = requests.get(
-        f"{GITHUB_API}/repos/{repo_full_name}/contents/{path}",
-        headers=_headers(token),
-        timeout=30,
-    )
-    if resp.status_code == 404:
-        return False
-    resp.raise_for_status()
-    return True
-
-
-def missing_repo_health_files(*, token: str, repo_full_name: str) -> list[str]:
-    return [
-        path
-        for path in REPO_HEALTH_FILES
-        if not _repo_file_exists(token=token, repo_full_name=repo_full_name, path=path)
-    ]
-
-
-def _is_repo_health_issue(issue: dict[str, Any]) -> bool:
-    labels = issue_management.label_names(issue.get("labels", []))
-    title = str(issue.get("title") or "")
-    return REPO_HEALTH_LABELS <= labels and "문서 누락" in title
-
-
-def _has_bot_owned_issue(issues: list[dict[str, Any]]) -> bool:
-    return any(BOT_OWNED_LABELS & issue_management.label_names(issue.get("labels", [])) for issue in issues)
-
-
 def ensure_label(*, token: str, repo_full_name: str, name: str, color: str, description: str) -> None:
-    resp = requests.get(f"{GITHUB_API}/repos/{repo_full_name}/labels/{name}", headers=_headers(token), timeout=30)
+    resp = requests.get(f"{GITHUB_API}/repos/{repo_full_name}/labels/{name}", headers=headers(token), timeout=30)
     if resp.status_code == 200:
         return
     if resp.status_code != 404:
         resp.raise_for_status()
     create = requests.post(
         f"{GITHUB_API}/repos/{repo_full_name}/labels",
-        headers=_headers(token),
+        headers=headers(token),
         json={"name": name, "color": color, "description": description},
         timeout=30,
     )
@@ -119,7 +86,7 @@ def ensure_label(*, token: str, repo_full_name: str, name: str, color: str, desc
 def comment_issue(*, token: str, repo_full_name: str, issue_number: int, body: str) -> None:
     resp = requests.post(
         f"{GITHUB_API}/repos/{repo_full_name}/issues/{issue_number}/comments",
-        headers=_headers(token),
+        headers=headers(token),
         json={"body": body},
         timeout=30,
     )
@@ -129,7 +96,7 @@ def comment_issue(*, token: str, repo_full_name: str, issue_number: int, body: s
 def close_issue(*, token: str, repo_full_name: str, issue_number: int) -> None:
     resp = requests.patch(
         f"{GITHUB_API}/repos/{repo_full_name}/issues/{issue_number}",
-        headers=_headers(token),
+        headers=headers(token),
         json={"state": "closed"},
         timeout=30,
     )
@@ -163,7 +130,7 @@ def upsert_summary_issue(*, token: str, repo_full_name: str, stats: dict[str, in
         number = int(existing[0]["number"])
         resp = requests.patch(
             f"{GITHUB_API}/repos/{repo_full_name}/issues/{number}",
-            headers=_headers(token),
+            headers=headers(token),
             json={"body": body},
             timeout=30,
         )
@@ -171,7 +138,7 @@ def upsert_summary_issue(*, token: str, repo_full_name: str, stats: dict[str, in
         return f"update-summary:{number}"
     resp = requests.post(
         f"{GITHUB_API}/repos/{repo_full_name}/issues",
-        headers=_headers(token),
+        headers=headers(token),
         json={
             "title": f"[BOT] 주간 이슈 현황 ({now.date().isoformat()})",
             "body": body,
@@ -227,7 +194,7 @@ def maintain_repo(*, token: str, repo_full_name: str, dry_run: bool, now: dateti
                 )
                 close_issue(token=token, repo_full_name=repo_full_name, issue_number=number)
             continue
-        if _is_repo_health_issue(issue):
+        if is_repo_health_issue(issue):
             missing_files = missing_repo_health_files(token=token, repo_full_name=repo_full_name)
             if not missing_files:
                 actions.append(f"close-recovered-repo-health:{number}")
@@ -271,51 +238,6 @@ def maintain_repo(*, token: str, repo_full_name: str, dry_run: bool, now: dateti
         actions.append(summary_action)
     return {"repo": repo_full_name, "actions": actions, "stats": stats}
 
-
-def managed_repo_names(config_path: Path | None = None) -> set[str] | None:
-    path = config_path or Path(__file__).resolve().parents[1] / "config" / "repos.yaml"
-    if not path.exists():
-        return None
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    repos = data.get("repositories", []) if isinstance(data, dict) else []
-    return {
-        str(repo["name"])
-        for repo in repos
-        if isinstance(repo, dict) and repo.get("automation", {}).get("deploy_workflows") is True
-    }
-
-
-def app_installations(*, app_id: str, private_key: str) -> list[dict[str, Any]]:
-    token_jwt = github_checks._app_jwt(app_id, private_key)  # noqa: SLF001 - shared App auth helper
-    resp = requests.get(
-        f"{GITHUB_API}/app/installations",
-        headers={"Authorization": f"Bearer {token_jwt}", "Accept": "application/vnd.github+json"},
-        timeout=30,
-    )
-    resp.raise_for_status()
-    data = resp.json()
-    return data if isinstance(data, list) else []
-
-
-def installation_repositories(*, token: str) -> list[dict[str, Any]]:
-    repos: list[dict[str, Any]] = []
-    page = 1
-    while True:
-        resp = requests.get(
-            f"{GITHUB_API}/installation/repositories",
-            headers=_headers(token),
-            params={"per_page": 100, "page": page},
-            timeout=30,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        batch = data.get("repositories", []) if isinstance(data, dict) else []
-        repos.extend(batch)
-        if len(batch) < 100:
-            return repos
-        page += 1
-
-
 def run_app_maintenance(*, app_id: str, private_key: str, owner: str, dry_run: bool) -> dict[str, Any]:
     allowed = managed_repo_names()
     results: list[dict[str, Any]] = []
@@ -336,6 +258,6 @@ def run_app_maintenance(*, app_id: str, private_key: str, owner: str, dry_run: b
                 issues = list_open_issues(token=token, repo_full_name=full_name)
             except requests.RequestException:
                 continue
-            if _has_bot_owned_issue(issues):
+            if has_bot_owned_issue(issues):
                 results.append(maintain_repo(token=token, repo_full_name=full_name, dry_run=dry_run))
     return {"dry_run": dry_run, "repositories": results}

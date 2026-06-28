@@ -16,10 +16,10 @@ def _repo_health_script() -> str:
     raise AssertionError("Check repository health step not found")
 
 
-def test_repo_health_closes_existing_issue_when_required_docs_recover() -> None:
+def test_repo_health_leaves_recovered_issue_closure_to_app() -> None:
     script = _repo_health_script()
 
     assert "if (missing.length === 0)" in script
-    assert "github.rest.issues.createComment" in script
-    assert "state: 'closed'" in script
-    assert "all required files present; closed issue" in script
+    assert "github.rest.issues.createComment" not in script
+    assert "state: 'closed'" not in script
+    assert "jclee-bot App issue maintenance handles closure" in script
