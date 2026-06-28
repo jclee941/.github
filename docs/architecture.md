@@ -204,7 +204,7 @@ flowchart TD
     INSTALL --> TARGETS["config/repos.yaml<br/>관리 대상 필터"]
     
     TARGETS --> README["README 자동화<br/>bot/auto-readme-update"]
-    TARGETS --> CHECKS["Checks API<br/>jclee-bot / pr-metadata<br/>jclee-bot / secret-scan<br/>jclee-bot / actionlint"]
+    TARGETS --> CHECKS["Checks API<br/>jclee-bot / pr-metadata<br/>jclee-bot / secret-scan<br/>jclee-bot / actionlint<br/>jclee-bot / docs-policy"]
     TARGETS --> ISSUES["Issue automation<br/>label / stale cleanup"]
     
     README --> BRANCH["App token clone + render + push"]
