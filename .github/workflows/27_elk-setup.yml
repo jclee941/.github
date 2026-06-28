@@ -36,6 +36,9 @@ jobs:
       - name: Delegate ELK setup to jclee-bot
         env:
           NATIVE_HEALTH_TOKEN: ${{ secrets.NATIVE_HEALTH_TOKEN || secrets.APP_ISSUE_MAINTENANCE_TOKEN }}
+          ELK_HOST: ${{ secrets.ELK_HOST }}
+          ELK_USERNAME: ${{ secrets.ELK_USERNAME }}
+          ELK_PASSWORD: ${{ secrets.ELK_PASSWORD }}
         run: |
           set -euo pipefail
           if [ -z "${NATIVE_HEALTH_TOKEN:-}" ]; then
@@ -44,7 +47,16 @@ jobs:
           fi
           payload="$(jq -cn \
             --arg repo "$GITHUB_REPOSITORY" \
-            '{repository: $repo, checks: ["elk_setup"]}')"
+            --arg elk_host "$ELK_HOST" \
+            --arg elk_username "$ELK_USERNAME" \
+            --arg elk_password "$ELK_PASSWORD" \
+            '{
+              repository: $repo,
+              checks: ["elk_setup"],
+              elk_host: $elk_host,
+              elk_username: $elk_username,
+              elk_password: $elk_password
+            }')"
           curl -fsS --retry 3 --retry-delay 5 --max-time 180 \
             -X POST "https://bot.jclee.me/api/v1/native_health" \
             -H "Authorization: Bearer ${NATIVE_HEALTH_TOKEN}" \

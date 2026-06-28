@@ -207,9 +207,15 @@ class TestNativeHealthWorkflowPolicy:
             assert "/api/v1/native_health" in text
             assert "NATIVE_HEALTH_TOKEN" in text
             assert "ISSUE_COMMANDS_TOKEN" not in text
-            assert "ELK_HOST" not in text
             assert "/_cluster/health" not in text
             assert "/_cat/indices" not in text
+
+    def test_elk_workflows_pass_secrets_only_to_jclee_bot(self):
+        for workflow in ["elk-health-check.yml", "elk-setup.yml"]:
+            text = read_workflow(workflow)
+            assert "ELK_HOST" in text
+            assert "elk_host: $elk_host" in text
+            assert 'curl -fsS --retry 3 --retry-delay 5 --max-time 180 \\' in text
 
     def test_build_pushes_rename_compatibility_tag(self):
         text = read_workflow("build-and-push-app.yml")
