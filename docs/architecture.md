@@ -10,16 +10,18 @@
 ```mermaid
 flowchart TB
     subgraph 외부_서비스["🌐 외부 서비스"]
+        direction TB
         GH["GitHub.com<br/>(jclee941/* 리포)"]
         CF["Cloudflare Tunnel<br/>(bot.jclee.me)"]
     end
 
-    subgraph 홈랩["🏠 홈랩 (<homelab-host>)"]
+    subgraph 홈랩["🏠 홈랩 (&lt;homelab-host&gt;)"]
+        direction TB
         WEB["github-bot-app<br/>(localhost:3001)"]
         PROXY["CLIProxyAPI<br/>(localhost:8317)"]
         LLM["Claude / Codex / Gemini<br/>CLI"]
         FB["Filebeat<br/>(로그 수집)"]
-        ES["Elasticsearch<br/>(<homelab-elk>:9200)"]
+        ES["Elasticsearch<br/>(&lt;homelab-elk&gt;:9200)"]
     end
 
     GH -->|"Webhook<br/>pull_request.opened"| CF
@@ -164,16 +166,19 @@ sequenceDiagram
 ```mermaid
 flowchart LR
     subgraph 생성["📝 이슈 생성"]
+        direction TB
         A["Issue Opened"] --> B{"in-progress 라벨?"}
         B -->|Yes| C["jclee-bot App<br/>브랜치 생성"]
         B -->|No| D["수동 할당 대기"]
     end
     
     subgraph 할당["👤 할당"]
+        direction TB
         E["Assignee 지정"] --> C
     end
     
     subgraph 정리["🧹 정리"]
+        direction TB
         C --> H["개발 진행"]
         H --> I["PR 생성"]
         I --> J["PR 머지"]
@@ -181,6 +186,7 @@ flowchart LR
     end
     
     subgraph 스테일["⏰ 스테일 라벨 정리"]
+        direction TB
         L["jclee-bot App<br/>issues / issue_comment webhook"] --> M{"활동 발생?"}
         M -->|Issue edited/reopened| Q["stale 라벨 제거"]
         M -->|Comment created| Q
@@ -275,18 +281,22 @@ flowchart TD
 ```mermaid
 flowchart LR
     subgraph PR_Events["📋 PR 이벤트"]
+        direction TB
         PR["pull_request"]
     end
     
     subgraph Push_Events["🚀 Push 이벤트"]
+        direction TB
         PUSH["push to master"]
     end
     
     subgraph Schedule_Events["⏰ 스케줄"]
+        direction TB
         CRON["cron schedule"]
     end
     
     subgraph Issue_Events["🐛 이슈 이벤트"]
+        direction TB
         ISSUE["issues"]
     end
     
@@ -382,15 +392,18 @@ flowchart LR
 ```mermaid
 flowchart TB
     subgraph Origin["📚 Original Source (qodo-ai/pr-agent)"]
+        direction TB
         U1["jclee_bot/review_engine/settings/<br/>configuration.toml"]
     end
 
     subgraph Project_Config["⚙️ Project Configuration"]
+        direction TB
         F1[".pr_agent.toml<br/>(최우선)"]
         F2["jclee_bot/review_engine/settings/<br/>configuration.toml<br/>(model/fallback 오버라이드)"]
     end
 
     subgraph Runtime["🏃 런타임"]
+        direction TB
         R1["환경 변수<br/>OPENAI.KEY<br/>CONFIG.MODEL"]
         R2["GitHub Secrets"]
     end
@@ -417,7 +430,7 @@ flowchart TB
 ## 다이어그램 렌더링 테스트
 
 > **참고**: 위 다이어그램들은 GitHub 네이티브 Mermaid 렌더러에서 자동 표시됩니다.  
-> 로컬에서 미리 보려면 [Mermaid Live Editor](https://mermaid.live)에 코드를 붙여넣으세요.
+> README는 렌더러 실패 시에도 읽히도록 표 기반 아키텍처 요약만 노출합니다.
 
 ### Mermaid 버전 호환성
 

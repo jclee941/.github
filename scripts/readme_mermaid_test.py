@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
-"""readme_mermaid_test.py — guard the README architecture Mermaid diagram.
+"""readme_mermaid_test.py — guard architecture diagram rendering policy.
 
 Why this exists
 ---------------
-GitHub renders ```mermaid fenced blocks as diagrams. When a flowchart node
-label contains a *bare* angle bracket (``[<homelab-host>...]`` or an
-``<https://...>`` autolink), Mermaid's parser treats ``<`` as the start of an
-HTML tag, fails, and GitHub silently falls back to showing the raw code instead
-of the diagram. That regression shipped in README.md (the architecture diagram
-rendered as code).
+GitHub renders ```mermaid fenced blocks as diagrams, but a parser regression or
+unsupported syntax can make a README show the flowchart source instead of a
+diagram. README.md is the high-signal landing surface, so it must summarize the
+architecture without exposing a Mermaid fenced block. Detailed docs may still
+use GitHub-native Mermaid diagrams.
 
 Mermaid renders ``<`` / ``>`` literally only when the label is a quoted string
-(``["..."]``) — typically HTML-escaped as ``&lt;`` / ``&gt;``. This test pins
-that invariant so the diagram can never silently regress to raw code: every
-node label inside the ```mermaid block must be free of bare angle brackets.
+(``["..."]``) — typically HTML-escaped as ``&lt;`` / ``&gt;``. This test keeps
+detailed docs renderable by requiring every node label inside a Mermaid block
+to be free of bare angle brackets.
 
 A full Mermaid parse needs a browser/DOMPurify which is unavailable in this
 offline CI, so we assert the exact, well-understood failure condition instead.
@@ -26,7 +25,9 @@ from typing import Final
 
 REPO_ROOT: Final = Path(__file__).resolve().parent.parent
 README: Final = REPO_ROOT / "README.md"
-ARCHITECTURE_DOCS: Final = [README, *sorted((REPO_ROOT / "docs").glob("**/*.md"))]
+PROMPTS: Final = REPO_ROOT / "scripts" / "generate_readme_prompts.py"
+DOCS: Final = sorted((REPO_ROOT / "docs").glob("**/*.md"))
+ARCHITECTURE_DOCS: Final = [README, *DOCS]
 
 # Matches a flowchart node-label payload: NodeId[ ... ] / NodeId( ... ) etc.
 # We only care about the text between the brackets that follows an identifier.
@@ -100,16 +101,25 @@ def subgraphs_without_vertical_direction(block: str) -> list[str]:
     return offenders
 
 
-def test_readme_has_mermaid_architecture_block():
+def test_readme_does_not_expose_mermaid_architecture_block():
     blocks = extract_mermaid_blocks(README.read_text(encoding="utf-8"))
-    assert blocks, "README.md must contain a ```mermaid architecture diagram"
+    assert not blocks, "README.md must summarize architecture without a ```mermaid fenced block"
+
+
+def test_readme_generator_does_not_request_readme_mermaid():
+    text = PROMPTS.read_text(encoding="utf-8")
+    assert "For the README architecture section" in text
+    assert "compact Markdown tables" in text
+    assert "request-flow steps" in text
+    assert "remain readable even when diagram rendering is unavailable" in text
+    assert "flowchart inside a ```mermaid fenced block" not in text
 
 
 def test_no_bare_angle_brackets_in_mermaid_labels():
-    blocks = extract_mermaid_blocks(README.read_text(encoding="utf-8"))
     all_offenders: list[str] = []
-    for block in blocks:
-        all_offenders.extend(bare_angle_labels(block))
+    for path in DOCS:
+        for block in extract_mermaid_blocks(path.read_text(encoding="utf-8")):
+            all_offenders.extend(bare_angle_labels(block))
     assert not all_offenders, (
         "Mermaid node labels contain bare angle brackets that break GitHub "
         "rendering (shown as raw code). Quote the label and HTML-escape the "
@@ -118,10 +128,10 @@ def test_no_bare_angle_brackets_in_mermaid_labels():
 
 
 def test_mermaid_subgraphs_render_as_vertical_stacks():
-    blocks = extract_mermaid_blocks(README.read_text(encoding="utf-8"))
     all_offenders: list[str] = []
-    for block in blocks:
-        all_offenders.extend(subgraphs_without_vertical_direction(block))
+    for path in DOCS:
+        for block in extract_mermaid_blocks(path.read_text(encoding="utf-8")):
+            all_offenders.extend(subgraphs_without_vertical_direction(block))
     assert not all_offenders, f"Mermaid subgraphs must use direction TB to avoid row layout: {all_offenders}"
 
 

@@ -96,56 +96,26 @@ Production automation follows a **GitHub App-centered operating model**: the hom
 
 ## Architecture | 아키텍처
 
-```mermaid
-flowchart TD
-    subgraph GH["GitHub.com"]
-        direction TB
-        REPO["jclee941/* repositories<br/>16 managed in config/repos.yaml"]
-        ACT["GitHub Actions runners"]
-    end
+| Layer | Runtime surface | Owner | Notes |
+|-------|-----------------|-------|-------|
+| GitHub repositories | `jclee941/*`, 16 managed repos from `config/repos.yaml` | GitHub App installation | Webhook source and Checks API target |
+| App stack | FastAPI webhook receiver on `<homelab-host>:8000` | `jclee_bot` | Checks, reviews, issue maintenance, README automation, and CI-failure cleanup |
+| Review engine | `jclee_bot.review_engine` | `jclee-bot` App | Absorbed first-party review package originally derived from `qodo-ai/pr-agent` |
+| LLM gateway | `https://cliproxy.jclee.me/v1` via CLIProxyAPI on `<homelab-host>:8317` | Homelab runtime | `minimax-m3` primary, `gpt-5.5` fallback |
+| Observability | Filebeat to ELK on `<homelab-elk>:9200` | Homelab runtime | Structured JSON logs from webhook, checks, and review paths |
+| Repo operations | Go CLIs under `scripts/cmd/*` | Maintainer-run / scheduled automation | Branch cleanup, branch protection, rulesets, repo review, secret sync, naming validation |
 
-    subgraph APP["Homelab App Stack"]
-        direction TB
-        WH["Webhook Receiver<br/>FastAPI on &lt;homelab-host&gt;:8000"]
-        BOT["jclee_bot<br/>Checks API runner<br/>pr-metadata / secret-scan / actionlint / docs-policy"]
-        PR["review engine<br/>jclee_bot.review_engine<br/>originally qodo-ai/pr-agent"]
-    end
+### Request Flow | 요청 흐름
 
-    subgraph LLM["LLM Gateway"]
-        direction TB
-        CLI["CLIProxyAPI<br/>&lt;homelab-host&gt;:8317<br/>https://cliproxy.jclee.me/v1"]
-        MOD["Models<br/>minimax-m3 primary<br/>gpt-5.5 fallback"]
-    end
+1. GitHub webhook events from managed repositories reach the FastAPI receiver.
+2. `jclee_bot` runs App-owned checks and dispatches review, issue, README, and GitOps automation.
+3. Review/check work calls CLIProxyAPI through the public OpenAI-compatible endpoint.
+4. App logs ship through Filebeat to the ELK stack for operational visibility.
+5. Go CLIs reconcile repository policy from the canonical `config/repos.yaml` inventory.
 
-    subgraph OBS["Observability"]
-        direction TB
-        FB["Filebeat<br/>log shipper"]
-        ELK["ELK Stack<br/>&lt;homelab-elk&gt;:9200<br/>Elasticsearch + Kibana"]
-    end
-
-    subgraph OPS["Repo Operations"]
-        direction TB
-        GO["Go CLIs<br/>branch-cleanup<br/>branch-protection<br/>repo-review<br/>rulesets-manager<br/>sync-secrets<br/>validate-naming"]
-    end
-
-    REPO --> WH
-    ACT --> REPO
-    WH --> BOT
-    WH --> PR
-    BOT --> PR
-    PR --> CLI
-    BOT --> CLI
-    CLI --> MOD
-    WH --> FB
-    BOT --> FB
-    PR --> FB
-    FB --> ELK
-    GO --> REPO
-```
-
-> **Diagram conventions | 다이어그램 표기 규약**
-> - `<homelab-host>` / `<homelab-elk>` are placeholders for the homelab LXC endpoints. No private IPs or LXC numbers are hardcoded.
-> - The CLIProxyAPI public endpoint is `https://cliproxy.jclee.me/v1`.
+> **Architecture conventions | 아키텍처 표기 규약**
+> - `<homelab-host>` / `<homelab-elk>` are placeholders for the homelab endpoints. No private IPs or LXC numbers are hardcoded.
+> - Detailed rendered diagrams live in `docs/architecture.md`; this README keeps the architecture summary readable even when Mermaid rendering is unavailable.
 
 ---
 
