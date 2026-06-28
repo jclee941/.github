@@ -133,7 +133,7 @@ class TestPullRequestMaintenanceDecisions:
         assert old_plan.reason == "pending-checks"
         assert fresh_plan is None
 
-    def test_only_master_is_protected_from_branch_deletion(self) -> None:
+    def test_default_branch_names_are_protected_from_branch_deletion(self) -> None:
         # Given
         master_pr = _pr(number=41, head_ref="master", updated_hours_ago=2)
         main_pr = _pr(number=42, head_ref="main", updated_hours_ago=2)
@@ -147,7 +147,7 @@ class TestPullRequestMaintenanceDecisions:
         assert master_plan is not None
         assert master_plan.can_delete_branch is False
         assert main_plan is not None
-        assert main_plan.can_delete_branch is True
+        assert main_plan.can_delete_branch is False
 
 
 class TestMaintainPullRequests:
@@ -292,6 +292,35 @@ class TestMaintainPullRequests:
         # Then
         assert actions == ["close-pr:9:failed-checks", "delete-pr-branch:9", "force-cancel-run:77:in_progress"]
         assert mutations == ["comment", "close", "delete", "cancel"]
+
+    def test_force_mode_closes_human_prs_without_checking_ci(self, monkeypatch) -> None:
+        # Given
+        pr = _pr(number=55, title="feat: human work", head_ref="feature/profile", updated_hours_ago=1)
+        mutations: list[str] = []
+
+        monkeypatch.setattr(pr_maintenance, "list_open_pull_requests", lambda **kwargs: [pr])
+        monkeypatch.setattr(
+            pr_maintenance,
+            "commit_check_summary",
+            lambda **kwargs: mutations.append("checks") or pr_maintenance.CheckSummary(failed=(), pending=()),
+        )
+        monkeypatch.setattr(pr_maintenance, "list_active_workflow_runs", lambda **kwargs: [])
+        monkeypatch.setattr(pr_maintenance, "comment_pr", lambda **kwargs: mutations.append("comment"))
+        monkeypatch.setattr(pr_maintenance, "close_pr", lambda **kwargs: mutations.append("close"))
+        monkeypatch.setattr(pr_maintenance, "delete_head_branch", lambda **kwargs: mutations.append("delete"))
+
+        # When
+        actions = pr_maintenance.maintain_pull_requests(
+            token="tok",
+            repo_full_name="jclee941/propose",
+            dry_run=False,
+            now=NOW,
+            mode="force",
+        )
+
+        # Then
+        assert actions == ["close-pr:55:force-repo-zero", "delete-pr-branch:55"]
+        assert mutations == ["comment", "close", "delete"]
 
     def test_records_github_api_errors_without_aborting_maintenance(self, monkeypatch) -> None:
         # Given

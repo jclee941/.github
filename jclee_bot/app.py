@@ -18,7 +18,7 @@ import os
 import subprocess  # noqa: S404 - fixed-arg git checkout of the PR head
 import tempfile
 from functools import partial
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import Request, Response
 
@@ -42,6 +42,7 @@ from jclee_bot.review_engine.servers.github_app import app
 app.include_router(readme_automation_router)
 
 GITHUB_API = "https://api.github.com"
+type MaintenanceMode = Literal["safe", "force"]
 
 
 def _verify_signature(secret: str, payload: bytes, signature: str | None) -> bool:
@@ -202,16 +203,24 @@ def _run_gitops_automation_for_payload(payload: dict[str, Any], event: str) -> d
     return {"actions": []}
 
 
-def _run_app_issue_maintenance(*, app_id: str, private_key: str, owner: str, dry_run: bool) -> dict[str, Any]:
+def _run_app_issue_maintenance(
+    *,
+    app_id: str,
+    private_key: str,
+    owner: str,
+    dry_run: bool,
+    mode: MaintenanceMode,
+) -> dict[str, Any]:
     try:
         return issue_maintenance.run_app_maintenance(
             app_id=app_id,
             private_key=private_key,
             owner=owner,
             dry_run=dry_run,
+            mode=mode,
         )
     except Exception:  # noqa: BLE001 - background maintenance must not crash the App worker
-        return {"dry_run": dry_run, "repositories": [], "error": "issue maintenance failed"}
+        return {"dry_run": dry_run, "mode": mode, "repositories": [], "error": "issue maintenance failed"}
 
 
 def _workflow_run_from_payload(payload: dict[str, Any]) -> workflow_issue_automation.WorkflowRun | None:
@@ -296,6 +305,14 @@ def _int_or_zero(value: Any) -> int:
         return 0
 
 
+def _parse_maintenance_mode(value: Any) -> MaintenanceMode | None:
+    if value is None or value == "":
+        return "safe"
+    if value == "safe" or value == "force":
+        return value
+    return None
+
+
 @app.middleware("http")
 async def _tee_pull_request_to_checks(request: Request, call_next):
     """GitHub Apps have a SINGLE webhook URL. Tee pull_request events delivered
@@ -359,15 +376,32 @@ async def issue_maintenance_webhook(request: Request, response: Response) -> dic
         return {"error": "invalid json"}
     dry_run = bool(payload.get("dry_run", False))
     owner = str(payload.get("owner") or "jclee941")
+    mode = _parse_maintenance_mode(payload.get("mode"))
+    if mode is None:
+        response.status_code = 400
+        return {"error": "mode must be safe or force"}
     if payload.get("background", True):
         import asyncio
 
         asyncio.get_event_loop().run_in_executor(
             None,
-            partial(_run_app_issue_maintenance, app_id=app_id, private_key=private_key, owner=owner, dry_run=dry_run),
+            partial(
+                _run_app_issue_maintenance,
+                app_id=app_id,
+                private_key=private_key,
+                owner=owner,
+                dry_run=dry_run,
+                mode=mode,
+            ),
         )
-        return {"accepted": True, "dry_run": dry_run, "owner": owner}
-    return _run_app_issue_maintenance(app_id=app_id, private_key=private_key, owner=owner, dry_run=dry_run)
+        return {"accepted": True, "dry_run": dry_run, "mode": mode, "owner": owner}
+    return _run_app_issue_maintenance(
+        app_id=app_id,
+        private_key=private_key,
+        owner=owner,
+        dry_run=dry_run,
+        mode=mode,
+    )
 
 
 @app.post("/api/v1/ci_failure_issues")

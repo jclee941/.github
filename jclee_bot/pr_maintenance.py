@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import quote
 
 import requests
@@ -10,6 +10,7 @@ import requests
 from jclee_bot.pr_auto_merge import (
     AUTO_MERGE_ERRORS,
     DOCS_SYNC_TITLE,
+    CheckState,
     apply_pr_auto_merge,
     is_automation_pr,
     nested_str,
@@ -24,15 +25,21 @@ ACTIVE_RUN_STATUSES = ("queued", "in_progress", "requested", "waiting")
 FAILED_PR_STALE_HOURS = 1
 PENDING_PR_STALE_HOURS = 2
 ACTIVE_RUN_STALE_MINUTES = 30
-PROTECTED_BRANCHES = frozenset({"master"})
+type MaintenanceMode = Literal["safe", "force"]
+
+PROTECTED_BRANCHES = frozenset({"master", "main", "develop", "release"})
 PR_CLEANUP_MESSAGE = (
     "jclee-bot 자동 유지보수: 오래된 자동화 PR이 실패/대기 상태로 남아 있어 닫습니다.\n\n"
     "필요한 변경이면 최신 기준에서 자동화가 다시 생성합니다."
 )
+FORCE_PR_CLEANUP_MESSAGE = (
+    "jclee-bot repo-zero 유지보수: 관리 레포 표준화를 위해 열린 PR을 자동 정리합니다.\n\n"
+    "필요한 변경이면 최신 기준에서 새 PR을 다시 열어주세요."
+)
 
 
 @dataclass(frozen=True, slots=True)
-class CheckSummary:
+class CheckSummary(CheckState):
     failed: tuple[str, ...]
     pending: tuple[str, ...]
 
@@ -85,10 +92,12 @@ def _paginate_key(
     items: list[dict[str, Any]] = []
     page = 1
     while True:
+        request_params: dict[str, Any] = {} if params is None else dict(params)
+        request_params.update({"per_page": 100, "page": page})
         resp = requests.get(
             f"{GITHUB_API}{path}",
             headers=_headers(token),
-            params={**(params or {}), "per_page": 100, "page": page},
+            params=request_params,
             timeout=30,
         )
         resp.raise_for_status()
@@ -105,7 +114,16 @@ def _paginate_key(
 def _can_delete_head_branch(pr: dict[str, Any], repo_full_name: str) -> bool:
     head_ref = nested_str(pr, "head", "ref")
     head_repo = nested_str(pr, "head", "repo", "full_name")
-    return bool(head_ref) and head_ref not in PROTECTED_BRANCHES and head_repo == repo_full_name
+    return bool(head_ref) and not is_protected_branch(head_ref) and head_repo == repo_full_name
+
+
+def is_protected_branch(branch: str, default_branch: str = "") -> bool:
+    return (
+        not branch
+        or branch == default_branch
+        or branch in PROTECTED_BRANCHES
+        or branch.startswith("release/")
+    )
 
 
 def plan_pr_cleanup(
@@ -197,11 +215,11 @@ def list_active_workflow_runs(*, token: str, repo_full_name: str) -> list[dict[s
     return runs
 
 
-def comment_pr(*, token: str, repo_full_name: str, pr_number: int) -> None:
+def comment_pr(*, token: str, repo_full_name: str, pr_number: int, body: str = PR_CLEANUP_MESSAGE) -> None:
     resp = requests.post(
         f"{GITHUB_API}/repos/{repo_full_name}/issues/{pr_number}/comments",
         headers=_headers(token),
-        json={"body": PR_CLEANUP_MESSAGE},
+        json={"body": body},
         timeout=30,
     )
     resp.raise_for_status()
@@ -239,7 +257,14 @@ def cancel_workflow_run(*, token: str, repo_full_name: str, run_id: int, force: 
         resp.raise_for_status()
 
 
-def maintain_pull_requests(*, token: str, repo_full_name: str, dry_run: bool, now: datetime | None = None) -> list[str]:
+def maintain_pull_requests(
+    *,
+    token: str,
+    repo_full_name: str,
+    dry_run: bool,
+    now: datetime | None = None,
+    mode: MaintenanceMode = "safe",
+) -> list[str]:
     current_time = now or datetime.now(UTC)
     actions: list[str] = []
 
@@ -250,6 +275,27 @@ def maintain_pull_requests(*, token: str, repo_full_name: str, dry_run: bool, no
         pull_requests = []
 
     for pr in pull_requests:
+        if mode == "force":
+            number = int(pr.get("number", 0) or 0)
+            if number <= 0:
+                continue
+            head_ref = nested_str(pr, "head", "ref")
+            can_delete_branch = _can_delete_head_branch(pr, repo_full_name)
+            actions.append(f"close-pr:{number}:force-repo-zero")
+            if can_delete_branch:
+                actions.append(f"delete-pr-branch:{number}")
+            if not dry_run:
+                comment_pr(
+                    token=token,
+                    repo_full_name=repo_full_name,
+                    pr_number=number,
+                    body=FORCE_PR_CLEANUP_MESSAGE,
+                )
+                close_pr(token=token, repo_full_name=repo_full_name, pr_number=number)
+                if can_delete_branch:
+                    delete_head_branch(token=token, repo_full_name=repo_full_name, head_ref=head_ref)
+            continue
+
         sha = nested_str(pr, "head", "sha")
         checks = CheckSummary((), ())
         plan = plan_pr_cleanup(pr, checks=checks, repo_full_name=repo_full_name, now=current_time)
@@ -291,12 +337,17 @@ def maintain_pull_requests(*, token: str, repo_full_name: str, dry_run: bool, no
         workflow_runs = []
 
     for run in workflow_runs:
-        plan = plan_run_cleanup(run, now=current_time)
-        if plan is None:
+        run_plan = plan_run_cleanup(run, now=current_time)
+        if run_plan is None:
             continue
-        prefix = "force-cancel" if plan.force else "cancel"
-        actions.append(f"{prefix}-run:{plan.run_id}:{plan.status}")
+        prefix = "force-cancel" if run_plan.force else "cancel"
+        actions.append(f"{prefix}-run:{run_plan.run_id}:{run_plan.status}")
         if not dry_run:
-            cancel_workflow_run(token=token, repo_full_name=repo_full_name, run_id=plan.run_id, force=plan.force)
+            cancel_workflow_run(
+                token=token,
+                repo_full_name=repo_full_name,
+                run_id=run_plan.run_id,
+                force=run_plan.force,
+            )
 
     return actions

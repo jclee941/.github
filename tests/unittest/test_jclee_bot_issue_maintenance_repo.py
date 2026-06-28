@@ -256,3 +256,138 @@ class TestMaintainRepo:
         # Then
         assert result["actions"] == ["close-pr:9:failed-checks", "mark-stale:1", "close-stale:2", "create-summary"]
         assert mutations == ["ensure", "add", "comment", "comment", "close"]
+
+    def test_force_mode_closes_every_open_issue_without_creating_summary(self, monkeypatch) -> None:
+        # Given
+        now = datetime(2026, 6, 19, tzinfo=UTC)
+        monkeypatch.setattr(
+            issue_maintenance,
+            "list_open_issues",
+            lambda **kwargs: [
+                _issue(number=1, updated_days_ago=1, labels=[{"name": "security"}]),
+                _issue(number=2, updated_days_ago=1, labels=[{"name": "critical"}]),
+            ],
+        )
+        mutations: list[str] = []
+        monkeypatch.setattr(issue_maintenance, "comment_issue", lambda **kwargs: mutations.append("comment"))
+        monkeypatch.setattr(issue_maintenance, "close_issue", lambda **kwargs: mutations.append("close"))
+        monkeypatch.setattr(
+            issue_maintenance,
+            "upsert_summary_issue",
+            lambda **kwargs: mutations.append("summary") or "create-summary",
+        )
+        monkeypatch.setattr(issue_maintenance.pr_maintenance, "maintain_pull_requests", lambda **kwargs: [])
+
+        # When
+        result = issue_maintenance.maintain_repo(
+            token="tok",
+            repo_full_name="jclee941/propose",
+            dry_run=False,
+            now=now,
+            mode="force",
+        )
+
+        # Then
+        assert result["actions"] == ["close-issue:1:force-repo-zero", "close-issue:2:force-repo-zero"]
+        assert mutations == ["comment", "close", "comment", "close"]
+
+    def test_force_mode_skips_pull_request_issue_records(self, monkeypatch) -> None:
+        # Given
+        now = datetime(2026, 6, 19, tzinfo=UTC)
+        pull_request_issue = _issue(number=7, updated_days_ago=1)
+        pull_request_issue["pull_request"] = "present"
+        monkeypatch.setattr(issue_maintenance, "list_open_issues", lambda **kwargs: [pull_request_issue])
+        mutations: list[str] = []
+        monkeypatch.setattr(issue_maintenance, "comment_issue", lambda **kwargs: mutations.append("comment"))
+        monkeypatch.setattr(issue_maintenance, "close_issue", lambda **kwargs: mutations.append("close"))
+        monkeypatch.setattr(issue_maintenance.pr_maintenance, "maintain_pull_requests", lambda **kwargs: [])
+
+        # When
+        result = issue_maintenance.maintain_repo(
+            token="tok",
+            repo_full_name="jclee941/propose",
+            dry_run=False,
+            now=now,
+            mode="force",
+        )
+
+        # Then
+        assert result["actions"] == []
+        assert mutations == []
+
+    def test_branch_cleanup_safe_mode_deletes_only_merged_non_pr_branches(self) -> None:
+        # Given
+        branches = [
+            issue_maintenance.BranchState(name="master", protected=False, merged_to_default=True),
+            issue_maintenance.BranchState(name="main", protected=False, merged_to_default=True),
+            issue_maintenance.BranchState(name="fix/done", protected=False, merged_to_default=True),
+            issue_maintenance.BranchState(name="fix/open-pr", protected=False, merged_to_default=True),
+            issue_maintenance.BranchState(name="feat/unmerged", protected=False, merged_to_default=False),
+            issue_maintenance.BranchState(name="release/1.0", protected=False, merged_to_default=True),
+            issue_maintenance.BranchState(name="ops/protected", protected=True, merged_to_default=True),
+        ]
+
+        # When
+        plans = issue_maintenance.plan_branch_cleanup(
+            branches,
+            open_heads={"fix/open-pr"},
+            default_branch="master",
+            mode="safe",
+        )
+
+        # Then
+        assert plans == [issue_maintenance.BranchCleanupPlan(name="fix/done", reason="merged")]
+
+    def test_branch_cleanup_force_mode_deletes_unmerged_non_protected_branches(self) -> None:
+        # Given
+        branches = [
+            issue_maintenance.BranchState(name="master", protected=False, merged_to_default=True),
+            issue_maintenance.BranchState(name="feat/unmerged", protected=False, merged_to_default=False),
+            issue_maintenance.BranchState(name="fix/open-pr", protected=False, merged_to_default=False),
+            issue_maintenance.BranchState(name="ops/protected", protected=True, merged_to_default=False),
+        ]
+
+        # When
+        plans = issue_maintenance.plan_branch_cleanup(
+            branches,
+            open_heads={"fix/open-pr"},
+            default_branch="master",
+            mode="force",
+        )
+
+        # Then
+        assert plans == [issue_maintenance.BranchCleanupPlan(name="feat/unmerged", reason="force-repo-zero")]
+
+    def test_branch_cleanup_fails_closed_when_open_pr_heads_cannot_be_loaded(self, monkeypatch) -> None:
+        # Given
+        monkeypatch.setattr(
+            issue_maintenance,
+            "list_branch_states",
+            lambda **kwargs: [
+                issue_maintenance.BranchState(name="feat/unmerged", protected=False, merged_to_default=False)
+            ],
+        )
+        monkeypatch.setattr(
+            issue_maintenance,
+            "open_pr_heads",
+            lambda **kwargs: (_ for _ in ()).throw(requests.Timeout("network slow")),
+        )
+        mutations: list[str] = []
+        monkeypatch.setattr(
+            issue_maintenance.pr_maintenance,
+            "delete_head_branch",
+            lambda **kwargs: mutations.append("delete"),
+        )
+
+        # When
+        actions = issue_maintenance.maintain_branches(
+            token="tok",
+            repo_full_name="jclee941/propose",
+            dry_run=False,
+            default_branch="master",
+            mode="force",
+        )
+
+        # Then
+        assert actions == ["branch-open-pr-error:Timeout"]
+        assert mutations == []

@@ -25,11 +25,12 @@ class TestRunAppMaintenance:
                 {"full_name": "other/propose", "name": "propose"},
             ],
         )
-        maintained: list[str] = []
+        maintained: list[tuple[str, bool]] = []
         monkeypatch.setattr(
             issue_maintenance,
             "maintain_repo",
-            lambda **kwargs: maintained.append(kwargs["repo_full_name"]) or {"repo": kwargs["repo_full_name"]},
+            lambda **kwargs: maintained.append((kwargs["repo_full_name"], kwargs["branch_cleanup"]))
+            or {"repo": kwargs["repo_full_name"]},
         )
 
         # When
@@ -41,8 +42,8 @@ class TestRunAppMaintenance:
         )
 
         # Then
-        assert maintained == ["jclee941/propose"]
-        assert result == {"dry_run": True, "repositories": [{"repo": "jclee941/propose"}]}
+        assert maintained == [("jclee941/propose", False)]
+        assert result == {"dry_run": True, "mode": "safe", "repositories": [{"repo": "jclee941/propose"}]}
 
     def test_owner_scoped_non_managed_repo_runs_when_bot_owned_issue_exists(self, monkeypatch) -> None:
         # Given
@@ -64,12 +65,13 @@ class TestRunAppMaintenance:
                 return [_repo_health_issue()]
             return []
 
-        maintained: list[str] = []
+        maintained: list[tuple[str, bool]] = []
         monkeypatch.setattr(issue_maintenance, "list_open_issues", open_issues)
         monkeypatch.setattr(
             issue_maintenance,
             "maintain_repo",
-            lambda **kwargs: maintained.append(kwargs["repo_full_name"]) or {"repo": kwargs["repo_full_name"]},
+            lambda **kwargs: maintained.append((kwargs["repo_full_name"], kwargs["branch_cleanup"]))
+            or {"repo": kwargs["repo_full_name"]},
         )
 
         # When
@@ -81,8 +83,64 @@ class TestRunAppMaintenance:
         )
 
         # Then
-        assert maintained == ["jclee941/ai-dacon"]
-        assert result == {"dry_run": True, "repositories": [{"repo": "jclee941/ai-dacon"}]}
+        assert maintained == [("jclee941/ai-dacon", False)]
+        assert result == {"dry_run": True, "mode": "safe", "repositories": [{"repo": "jclee941/ai-dacon"}]}
+
+    def test_force_mode_requires_managed_repo_inventory(self, monkeypatch) -> None:
+        # Given
+        monkeypatch.setattr(issue_maintenance, "managed_repo_names", lambda config_path=None: None)
+        monkeypatch.setattr(issue_maintenance, "app_installations", lambda **kwargs: [{"id": 42}])
+
+        # When
+        result = issue_maintenance.run_app_maintenance(
+            app_id="123",
+            private_key="key",
+            owner="jclee941",
+            dry_run=True,
+            mode="force",
+        )
+
+        # Then
+        assert result == {
+            "dry_run": True,
+            "mode": "force",
+            "repositories": [],
+            "error": "managed repository inventory is required for force mode",
+        }
+
+    def test_force_mode_skips_non_managed_bot_owned_issue_fallback(self, monkeypatch) -> None:
+        # Given
+        monkeypatch.setattr(issue_maintenance, "managed_repo_names", lambda config_path=None: {"bug"})
+        monkeypatch.setattr(issue_maintenance, "app_installations", lambda **kwargs: [{"id": 42}])
+        monkeypatch.setattr(issue_maintenance.github_checks, "installation_token", lambda *args: "tok")
+        monkeypatch.setattr(
+            issue_maintenance,
+            "installation_repositories",
+            lambda **kwargs: [
+                {"full_name": "jclee941/ai-dacon", "name": "ai-dacon"},
+                {"full_name": "jclee941/bug", "name": "bug"},
+            ],
+        )
+        maintained: list[tuple[str, bool]] = []
+        monkeypatch.setattr(
+            issue_maintenance,
+            "maintain_repo",
+            lambda **kwargs: maintained.append((kwargs["repo_full_name"], kwargs["branch_cleanup"]))
+            or {"repo": kwargs["repo_full_name"]},
+        )
+
+        # When
+        result = issue_maintenance.run_app_maintenance(
+            app_id="123",
+            private_key="key",
+            owner="jclee941",
+            dry_run=True,
+            mode="force",
+        )
+
+        # Then
+        assert maintained == [("jclee941/bug", True)]
+        assert result == {"dry_run": True, "mode": "force", "repositories": [{"repo": "jclee941/bug"}]}
 
     def test_managed_repo_names_returns_none_when_config_file_is_missing(self, tmp_path: Path) -> None:
         assert issue_maintenance.managed_repo_names(tmp_path / "missing.yml") is None
@@ -110,9 +168,9 @@ class TestIssueMaintenanceEndpoint:
 
         calls: list[dict[str, str | bool]] = []
 
-        def fake_run_app_maintenance(**kwargs: str | bool) -> dict[str, bool | list[dict[str, str]]]:
+        def fake_run_app_maintenance(**kwargs: str | bool) -> dict[str, str | bool | list[dict[str, str]]]:
             calls.append(kwargs)
-            return {"dry_run": True, "repositories": []}
+            return {"dry_run": True, "mode": "safe", "repositories": []}
 
         monkeypatch.setenv("ISSUE_MAINTENANCE_TOKEN", "maint")
         monkeypatch.setenv("GITHUB_APP_ID", "123")
@@ -128,8 +186,77 @@ class TestIssueMaintenanceEndpoint:
 
         # Then
         assert response.status_code == 200
-        assert response.json() == {"dry_run": True, "repositories": []}
-        assert calls == [{"app_id": "123", "private_key": "key", "owner": "jclee941", "dry_run": True}]
+        assert response.json() == {"dry_run": True, "mode": "safe", "repositories": []}
+        assert calls == [
+            {"app_id": "123", "private_key": "key", "owner": "jclee941", "dry_run": True, "mode": "safe"}
+        ]
+
+    def test_runs_force_maintenance_when_requested(self, monkeypatch) -> None:
+        # Given
+        from jclee_bot import app as app_module
+
+        calls: list[dict[str, str | bool]] = []
+
+        def fake_run_app_maintenance(**kwargs: str | bool) -> dict[str, str | bool | list[dict[str, str]]]:
+            calls.append(kwargs)
+            return {"dry_run": False, "mode": "force", "repositories": []}
+
+        monkeypatch.setenv("ISSUE_MAINTENANCE_TOKEN", "maint")
+        monkeypatch.setenv("GITHUB_APP_ID", "123")
+        monkeypatch.setenv("GITHUB_PRIVATE_KEY", "key")
+        monkeypatch.setattr(app_module.issue_maintenance, "run_app_maintenance", fake_run_app_maintenance)
+
+        # When
+        response = TestClient(app_module.app, raise_server_exceptions=False).post(
+            "/api/v1/issue_maintenance",
+            json={"dry_run": False, "background": False, "mode": "force"},
+            headers={"Authorization": "Bearer maint"},
+        )
+
+        # Then
+        assert response.status_code == 200
+        assert response.json() == {"dry_run": False, "mode": "force", "repositories": []}
+        assert calls == [
+            {"app_id": "123", "private_key": "key", "owner": "jclee941", "dry_run": False, "mode": "force"}
+        ]
+
+    def test_rejects_unknown_maintenance_mode(self, monkeypatch) -> None:
+        # Given
+        from jclee_bot import app as app_module
+
+        monkeypatch.setenv("ISSUE_MAINTENANCE_TOKEN", "maint")
+        monkeypatch.setenv("GITHUB_APP_ID", "123")
+        monkeypatch.setenv("GITHUB_PRIVATE_KEY", "key")
+
+        # When
+        response = TestClient(app_module.app, raise_server_exceptions=False).post(
+            "/api/v1/issue_maintenance",
+            json={"dry_run": True, "background": False, "mode": "delete-everything"},
+            headers={"Authorization": "Bearer maint"},
+        )
+
+        # Then
+        assert response.status_code == 400
+        assert response.json() == {"error": "mode must be safe or force"}
+
+    def test_rejects_unhashable_maintenance_mode(self, monkeypatch) -> None:
+        # Given
+        from jclee_bot import app as app_module
+
+        monkeypatch.setenv("ISSUE_MAINTENANCE_TOKEN", "maint")
+        monkeypatch.setenv("GITHUB_APP_ID", "123")
+        monkeypatch.setenv("GITHUB_PRIVATE_KEY", "key")
+
+        # When
+        response = TestClient(app_module.app, raise_server_exceptions=False).post(
+            "/api/v1/issue_maintenance",
+            json={"dry_run": True, "background": False, "mode": ["force"]},
+            headers={"Authorization": "Bearer maint"},
+        )
+
+        # Then
+        assert response.status_code == 400
+        assert response.json() == {"error": "mode must be safe or force"}
 
     def test_defaults_to_background_ack_for_long_maintenance(self, monkeypatch) -> None:
         # Given
@@ -149,4 +276,4 @@ class TestIssueMaintenanceEndpoint:
 
         # Then
         assert response.status_code == 200
-        assert response.json() == {"accepted": True, "dry_run": True, "owner": "jclee941"}
+        assert response.json() == {"accepted": True, "dry_run": True, "mode": "safe", "owner": "jclee941"}
