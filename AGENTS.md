@@ -1,7 +1,7 @@
 # jclee-bot - PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-06-28
-**Commit:** `f0eb10bb`
+**Generated:** 2026-06-30
+**Commit:** `24ad4e5d`
 **Branch:** `master`
 **Upstream provenance:** originally derived from `qodo-ai/pr-agent` (de-forked; see `docs/defork-provenance.md` and `NOTICE`)
 
@@ -17,7 +17,7 @@ per-repo workflow deployment is no longer the primary rollout path.
 
 ```text
 jclee-bot/
-├── .github/               # workflows, local actions, templates, CODEOWNERS
+├── .github/               # numbered workflows, local actions, templates, CODEOWNERS
 ├── jclee_bot/             # first-party GitHub App checks runner + review engine
 │   ├── app.py, dispatch.py, github_checks.py  # FastAPI app + Checks API client
 │   ├── checks/            # pr-metadata, secret-scan, actionlint, docs-policy
@@ -26,9 +26,11 @@ jclee-bot/
 │   ├── readme_automation.py, readme_runner.py     # App-owned README jobs
 │   └── review_engine/     # AI review engine (originally derived from qodo-ai/pr-agent)
 ├── scripts/               # Go CLIs + Python helpers for repo automation
+│   └── evolution/          # file-based suggestion/regression feedback engine
 ├── tests/                 # unit, mocked e2e, and live GitHub e2e tests
 ├── docs/                  # architecture, review templates, operational notes
 ├── templates/             # downstream community-file sources
+├── github_action/          # legacy/auxiliary GitHub Action shell entrypoint
 ├── config/repos.yaml      # canonical managed-repo inventory
 ├── pyproject.toml         # Python package/lint/test config
 └── docker-compose.github_app.yml
@@ -39,14 +41,15 @@ jclee-bot/
 |------|----------|-------|
 | App-owned PR checks | `jclee_bot/` | Posts `pr-metadata`, `secret-scan`, `actionlint`, and `docs-policy` via Checks API; branch protection requires the first three |
 | GitOps and bot PR flow | `jclee_bot/gitops_automation.py`, `jclee_bot/pr_auto_merge.py` | Branch-to-PR, App-owned bot PR auto-merge, protected `master` flow |
-| Workflow and reusable-action policy | `.github/` | Numeric workflow stages, local actions, issue/PR templates |
+| Workflow and reusable-action policy | `.github/` | Numeric workflow stages, local actions, issue/PR templates, workflow-run dependencies |
 | Default/fallback model config | `.pr_agent.toml`, `jclee_bot/review_engine/settings/configuration.toml` | Per-repo overrides go in `.pr_agent.toml`; engine-wide defaults live in the engine's `settings/` |
 | Managed repo inventory | `config/repos.yaml` | Canonical source for managed repos and per-repo automation flags |
 | Branch cleanup / protection / rulesets | `scripts/cmd/branch-cleanup`, `scripts/cmd/branch-protection`, `scripts/cmd/rulesets-manager` | Run from `scripts/`; use `--dry-run` before mutations |
 | Naming and workflow invariants | `scripts/cmd/validate-naming` | Enforces workflow/template/README inventory rules |
+| Suggestion/regression feedback engine | `scripts/evolution/` | File-based JSON CLI and SQLite-backed learning helpers; source lives under `scripts/`, not the installed Python package |
 | README automation | `jclee_bot/readme_automation.py`, `jclee_bot/readme_runner.py` | Uses `scripts/generate_readme.py` helpers; redacts private IPs and rejects invented repo links |
 | Review prompt templates | `docs/review-templates/`, `.pr_agent.toml` | Review output is Korean; PR/issue templates are bilingual; prompts live in `jclee_bot/review_engine/settings/` |
-| Tests | `tests/` | Unit and mocked e2e tests inherit `tests/AGENTS.md`; live GitHub tests add `tests/e2e_live/AGENTS.md` |
+| Tests | `tests/` | Unit and mocked e2e tests inherit `tests/AGENTS.md`; dense unit-test rules live in `tests/unittest/AGENTS.md`; live GitHub tests add `tests/e2e_live/AGENTS.md` |
 | Live GitHub tests | `tests/e2e_live/` | Has its own mutation guard instructions |
 | Docs and review templates | `docs/` | Architecture, provenance, GitOps notes, and review-template guidance |
 
@@ -54,7 +57,7 @@ jclee-bot/
 
 | Symbol | Type | Location | Role |
 |--------|------|----------|------|
-| `jclee_bot.review_engine.cli.run` | function | `jclee_bot/review_engine/cli.py` | Local `pr-agent` CLI entry (console script) |
+| `jclee_bot.review_engine.cli.run` | function | `jclee_bot/review_engine/cli.py` | Local `jclee-bot`, `github-bot`, and `pr-agent` console-script entry |
 | `jclee_bot.review_engine.servers.github_action_runner.run_action` | function | `jclee_bot/review_engine/servers/github_action_runner.py` | GitHub Action runner |
 | `jclee_bot.app._run_checks_for_payload` | function | `jclee_bot/app.py` | Fetches PR context, runs checks, reports Check Runs |
 | `jclee_bot.app._tee_pull_request_to_checks` | middleware | `jclee_bot/app.py` | Tees the review-engine webhook into App checks and App-owned automation |
@@ -69,12 +72,16 @@ jclee-bot/
 ## CONVENTIONS
 
 - Python target is 3.12; use the repo `Makefile` targets for local install/test/lint.
+- Ruff keeps full correctness checks for the absorbed review engine while suppressing cosmetic `E501` and `F541`; fork-owned code and tests should stay cleaner.
+- Pytest markers are declared in `pyproject.toml`; add new live-test categories there before using them.
 - pr-agent workflow env vars use literal-dot Dynaconf spelling in Actions, such as
   `OPENAI.KEY`, `OPENAI.API_BASE`, `CONFIG.MODEL`, and `CONFIG.FALLBACK_MODELS`.
   Keep `GITHUB__USER_TOKEN` as the GitHub token exception.
 - `config/repos.yaml` is the canonical repo list; do not duplicate repo counts or default branches by hand.
 - Workflow files stay flat in `.github/workflows/` and follow numeric stage names such as `10_pr-review.yml`.
+- Workflow `name:` values are dependency targets for `workflow_run`; do not treat filenames as the only workflow identity.
 - `templates/` contains downstream community files only; App checks are shipped through the App image.
+- `_site/` is generated GitHub Pages output and is not a source-of-truth editing surface.
 - README architecture diagrams must use sanitized placeholders such as `<homelab-host>` and `<homelab-elk>`; never restore raw private infrastructure addresses.
 - Conventional commit subjects are the observed repo style; common scopes include `ci`, `app`, `docs`, `review`, `workflow`.
 
@@ -94,6 +101,7 @@ make install
 make test-unit
 make test-e2e
 make test-live
+make test
 make lint
 
 (cd scripts && go test ./...)
@@ -101,6 +109,7 @@ make lint
 (cd scripts && go run ./cmd/branch-cleanup --dry-run)
 (cd scripts && go run ./cmd/branch-protection --dry-run)
 (cd scripts && go run ./cmd/rulesets-manager --dry-run)
+(cd scripts && go run ./cmd/repo-review --dry-run)
 ```
 
 ## NOTES

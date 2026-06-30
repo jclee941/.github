@@ -3,8 +3,9 @@
 ## OVERVIEW
 
 Go automation tools for the canonical `config/repos.yaml` inventory: merged branch cleanup,
-branch protection, rulesets, secret sync, repo review, and naming validation. The inventory currently
-has 16 entries; `jclee-bot` is the source repo and `pr-agent` is excluded from rollout-style automation.
+branch protection, rulesets, secret sync, repo review, naming validation, README generation helpers,
+and a file-based suggestion/regression feedback engine. `jclee-bot` is the source repo; rollout-style
+automation follows each row's `automation.deploy_workflows` value in `config/repos.yaml`.
 
 ## STRUCTURE
 
@@ -25,7 +26,8 @@ scripts/
 ├── cmd/validate-naming/*_test.go        # naming/security/readme-inventory guard tests
 ├── repo_review.py                       # legacy Python helper
 ├── pr_review_runner.py                  # Python PR review invocation helper
-└── generate_readme.py                   # README auto-generation helper
+├── generate_readme.py                   # README auto-generation helper
+└── evolution/                           # JSON-in/out feedback engine with SQLite storage
 ```
 
 ## WHERE TO LOOK
@@ -38,38 +40,35 @@ scripts/
 | Sync shared secrets across repos | `cmd/sync-secrets/main.go` |
 | Batch repository review | `cmd/repo-review/main.go` |
 | Enforce naming conventions | `cmd/validate-naming/main.go` |
+| README generation prompts/helpers | `generate_readme.py`, `generate_readme_prompts.py` |
+| Suggestion/regression feedback engine | `evolution/cli.py`, `evolution/facade.py`, `evolution/storage.py` |
+| CI gate for naming/inventory | `cmd/validate-naming/main.go`, `.github/workflows/90_sanity.yml` |
 
 ## COMMANDS
 
 ```bash
 cd scripts
-
-# Branch protection
+go test ./...
 go run ./cmd/branch-protection --dry-run
 go run ./cmd/branch-protection           # apply to eligible repos from config/repos.yaml
-
-# Merged branch cleanup
 go run ./cmd/branch-cleanup --dry-run
 go run ./cmd/branch-cleanup              # delete branches already merged into default branches
-
-# GitHub Rulesets
 go run ./cmd/rulesets-manager --dry-run
 go run ./cmd/rulesets-manager --mode list
-
-# Secret sync; both env vars are required and are written to each target repo
 CLIPROXY_API_KEY=... GH_PAT=... go run ./cmd/sync-secrets --dry-run
-CLIPROXY_API_KEY=... GH_PAT=... go run ./cmd/sync-secrets
-
-# Naming + orphan-workflow + readme-inventory validation
 go run ./cmd/validate-naming
 go run ./cmd/validate-naming --fix       # auto-fix where supported
-
-# Batch repo review
 go run ./cmd/repo-review --dry-run
-
-# Tests
-go test ./...
+cd ..
+.venv/bin/python -m scripts.evolution.cli init-db --db .cache/evolution.sqlite
 ```
+
+## CONVENTIONS
+
+- `scripts/evolution/` is intentionally file-based JSON in/out so it can be tested without GitHub or LLM access.
+- `scripts/evolution/storage.py` owns the SQLite schema and migration behavior; keep schema changes deterministic and covered by focused tests.
+- Python helper modules under `scripts/` are repo-local utilities; `pyproject.toml` only packages `jclee_bot*`, so do not rely on them as installed package entry points.
+- `validate-naming` is part of the source-repo sanity gate; keep its README/workflow inventory expectations aligned with `.github/workflows/` and `README.md`.
 
 ## ANTI-PATTERNS
 
@@ -77,3 +76,4 @@ go test ./...
 - Never hardcode secrets or API keys in `.go` source files.
 - Never run `go run` from the repo root. Always `cd scripts` first.
 - Never apply `branch-protection`, `rulesets-manager`, `branch-cleanup`, `sync-secrets`, or `repo-review` to live repos before a dry-run or list pass has shown the target inventory.
+- Never feed `scripts/evolution` live GitHub or LLM calls directly; adapt external outputs to JSON and pass them through the CLI or facade.
