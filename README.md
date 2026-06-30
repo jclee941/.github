@@ -38,7 +38,7 @@ This repository is the `jclee941/*` automation stack: a homelab-hosted GitHub Ap
 
 - a first-party `jclee_bot` GitHub App checks runner that posts `pr-metadata`, `secret-scan`, `actionlint`, and `docs-policy` via the Checks API,
 - a homelab CLIProxyAPI deployment (`https://cliproxy.jclee.me/v1`) that serves as the LLM gateway,
-- `jclee_bot` App-owned automation and **6 Go automation CLIs** that manage the `config/repos.yaml` repository rows end-to-end,
+- `jclee_bot` App-owned automation that manages the `config/repos.yaml` repository rows end-to-end, with Go CLIs retained for diagnostics and local maintenance,
 - an ELK observability stack (Elasticsearch + Kibana) with Filebeat log shipping,
 - issue/PR templates and review prompt packs localized for Korean-first review output.
 
@@ -48,7 +48,7 @@ Production automation follows a **GitHub App-centered operating model**: the hom
 
 - Checks API를 통해 `pr-metadata`, `secret-scan`, `actionlint`, `docs-policy`를 게시하는 1등 시민 `jclee_bot` GitHub App 검사 러너,
 - LLM 게이트웨이 역할을 하는 homelab CLIProxyAPI 배포(`https://cliproxy.jclee.me/v1`),
-- `config/repos.yaml`의 저장소 row를 종단(end-to-end)으로 관리하는 `jclee_bot` App 소유 자동화와 **6개의 Go 자동화 CLI**,
+- `config/repos.yaml`의 저장소 row를 종단(end-to-end)으로 관리하는 `jclee_bot` App 소유 자동화와 진단/로컬 유지보수용 Go CLI,
 - Filebeat 로그 수집을 포함한 ELK 관측 가능성 스택(Elasticsearch + Kibana),
 - 한국어 우선 리뷰 출력에 맞춘 이슈/PR 템플릿과 리뷰 프롬프트 팩.
 

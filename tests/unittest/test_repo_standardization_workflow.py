@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 from tests.unittest.workflow_policy_helpers import (
@@ -50,7 +51,48 @@ class TestRepositoryStandardizationWorkflow:
         offenders = [item for item in forbidden if item in readme]
 
         assert "Repository standardization | `jclee-bot` App" in readme
+        assert not re.search(r"Go automation CLIs[^\n.]+(?:manage|end-to-end)", readme)
+        assert not re.search(r"Go 자동화 CLI[^\n.]+(?:관리|종단|end-to-end)", readme)
         assert not offenders, f"README must not describe legacy Go CLIs as the policy rollout owner: {offenders}"
+
+    def test_docs_lock_policy_rollout_to_app_not_go_clis(self) -> None:
+        docs: dict[str, list[str]] = {
+            "README.md": [
+                "Repository standardization | `jclee-bot` App",
+                "production policy rollout is not driven by workflow-side Go execution",
+            ],
+            "docs/git-automation-masterplan.md": [
+                "Production branch protection and Rulesets rollout must stay App-owned",
+                "Branch protection diagnostics",
+                "Rulesets diagnostics",
+            ],
+            "docs/automation-enhancement-brainstorm.md": [
+                "production standardization is App-owned",
+                "Go diagnostic dry-run",
+            ],
+            "scripts/AGENTS.md": [
+                "production repository standardization is owned by the App endpoint",
+                "Never add workflow-side `go run ./cmd/branch-protection`",
+            ],
+        }
+        combined: list[str] = []
+        for relative_path, required in docs.items():
+            text = (REPO_ROOT / relative_path).read_text(encoding="utf-8")
+            combined.append(text)
+            missing = [item for item in required if item not in text]
+            assert not missing, f"{relative_path} is missing App-owned rollout wording: {missing}"
+
+        all_docs = "\n".join(combined)
+        forbidden = [
+            "Branch protection rollout | `scripts/cmd/branch-protection`",
+            "Rulesets rollout | `scripts/cmd/rulesets-manager`",
+            "Apply branch protection + auto-merge",
+            "Manage GitHub Rulesets (list/apply/delete)",
+            "go run ./cmd/branch-protection           # apply",
+        ]
+        offenders = [item for item in forbidden if item in all_docs]
+
+        assert not offenders, f"docs must not present Go CLIs as production policy rollout owners: {offenders}"
 
     def test_workflow_does_not_install_go(self) -> None:
         steps = workflow_steps("repo-standardization.yml", "standardize")
