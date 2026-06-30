@@ -106,7 +106,7 @@ jobs:
               method="POST",
           )
           try:
-              with urllib.request.urlopen(request, timeout=60) as response:
+              with urllib.request.urlopen(request, timeout=900) as response:
                   body = response.read().decode()
           except urllib.error.HTTPError as error:
               print(error.read().decode(), file=sys.stderr)

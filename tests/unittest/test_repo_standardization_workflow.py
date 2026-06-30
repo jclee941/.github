@@ -24,6 +24,7 @@ class TestRepositoryStandardizationWorkflow:
         assert env["REPO_STANDARDIZATION_URL"] == "http://127.0.0.1:3001/api/v1/repo_standardization"
         assert isinstance(run, str)
         assert "Repository standardization failed" in run
+        assert "timeout=900" in run
 
     def test_workflow_does_not_run_gitops_go_clis(self) -> None:
         text = "\n".join(str(step.get("run", "")) for step in workflow_steps("repo-standardization.yml", "standardize"))
