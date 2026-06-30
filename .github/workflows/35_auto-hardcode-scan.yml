@@ -87,6 +87,7 @@ jobs:
               # legitimate public URLs (docs/config/templates), not secrets
               ".ls-lint.yml", "CODE_OF_CONDUCT.md", "config/repos.yaml",
               "templates/README.md", "templates/CONTRIBUTING.md",
+              ".codex/lsp-client.json", ".opencode/lsp.json",
           }
           NOISY_ALLOWLIST_PREFIXES = (
               # upstream fork source — audited at fork time, not rewritten
