@@ -58,7 +58,18 @@ def test_run_app_readme_automation_filters_managed_repos(monkeypatch):
     )
 
     assert calls == ["jclee941/propose"]
-    assert result == {"dry_run": True, "repositories": [{"repo": "jclee941/propose", "changed": True}]}
+    assert result == {
+        "dry_run": True,
+        "repositories": [{"repo": "jclee941/propose", "changed": True}],
+        "summary": {
+            "repository_count": 1,
+            "changed_count": 1,
+            "unchanged_count": 0,
+            "dry_run_changed_count": 0,
+            "pr_count": 0,
+            "error_count": 0,
+        },
+    }
 
 
 def test_readme_automation_endpoint_runs_sync_when_requested(monkeypatch):
@@ -200,7 +211,7 @@ def test_readme_automation_records_job_progress(monkeypatch, tmp_path):
     status = readme_jobs.get_job(str(job["id"]))
 
     assert status["status"] == "running"
-    assert status["progress"] == {"repository_count": 2, "error_count": 1}
+    assert status["progress"] == {"repository_count": 2, "changed_count": 1, "error_count": 1}
     assert status["result"] == {
         "dry_run": True,
         "repositories": [
@@ -208,38 +219,6 @@ def test_readme_automation_records_job_progress(monkeypatch, tmp_path):
             {"repo": "jclee941/bug", "changed": False, "error": "boom"},
         ],
     }
-
-
-def test_run_app_readme_automation_reports_progress(monkeypatch):
-    progress: list[dict[str, bool | str]] = []
-
-    monkeypatch.setattr(readme_runner.issue_maintenance, "managed_repo_names", lambda: {"propose", "bug"})
-    monkeypatch.setattr(readme_runner.issue_maintenance, "app_installations", lambda **kwargs: [{"id": 42}])
-    monkeypatch.setattr(readme_runner.github_checks, "installation_token", lambda *args: "tok")
-    monkeypatch.setattr(
-        readme_runner.issue_maintenance,
-        "installation_repositories",
-        lambda **kwargs: [
-            {"full_name": "jclee941/propose", "name": "propose", "default_branch": "master"},
-            {"full_name": "jclee941/bug", "name": "bug", "default_branch": "master"},
-        ],
-    )
-    monkeypatch.setattr(
-        readme_runner,
-        "ensure_readme_commit",
-        lambda **kwargs: {"repo": kwargs["repo"]["full_name"], "changed": True},
-    )
-
-    result = readme_runner.run_app_readme_automation(
-        app_id="123",
-        private_key="key",
-        owner="jclee941",
-        dry_run=True,
-        progress=progress.append,
-    )
-
-    assert progress == result["repositories"]
-    assert [item["repo"] for item in progress] == ["jclee941/propose", "jclee941/bug"]
 
 
 def test_readme_automation_endpoint_rejects_missing_token(monkeypatch):

@@ -3,7 +3,7 @@ from __future__ import annotations
 import subprocess
 import sys
 import tempfile
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from importlib import import_module
 from pathlib import Path
 from typing import Any, Callable
@@ -100,7 +100,7 @@ def render_readme(repo_path: Path) -> str:
     )
 
 
-def ensure_readme_commit(*, token: str, repo: dict[str, Any], dry_run: bool) -> dict[str, Any]:
+def ensure_readme_commit(*, token: str, repo: Mapping[str, Any], dry_run: bool) -> dict[str, Any]:
     repo_full_name = str(repo.get("full_name", ""))
     default_branch = TARGET_BRANCH
     if not repo_full_name:
@@ -192,7 +192,7 @@ def enable_auto_merge(*, token: str, pull_request_id: str) -> None:
         resp.raise_for_status()
 
 
-def _repo_allowed(repo: dict[str, Any], *, owner: str, names: set[str] | None) -> bool:
+def _repo_allowed(repo: Mapping[str, Any], *, owner: str, names: set[str] | None) -> bool:
     full_name = str(repo.get("full_name", ""))
     name = str(repo.get("name", ""))
     return full_name.startswith(f"{owner}/") and (names is None or name in names)
@@ -202,6 +202,21 @@ def _target_names(raw_names: Iterable[str] | None) -> set[str] | None:
     if raw_names is None:
         return issue_maintenance.managed_repo_names()
     return {name.strip() for name in raw_names if name.strip()}
+
+
+def _readme_result_summary(results: list[dict[str, Any]]) -> dict[str, int]:
+    changed_count = sum(1 for item in results if item.get("changed") is True)
+    error_count = sum(1 for item in results if item.get("error"))
+    return {
+        "repository_count": len(results),
+        "changed_count": changed_count,
+        "unchanged_count": sum(1 for item in results if item.get("changed") is False and not item.get("error")),
+        "dry_run_changed_count": sum(
+            1 for item in results if item.get("changed") is True and item.get("dry_run") is True
+        ),
+        "pr_count": sum(1 for item in results if item.get("pr") and not item.get("error")),
+        "error_count": error_count,
+    }
 
 
 def _contents_permission_error(permission: object, *, dry_run: bool, permission_known: bool) -> str | None:
@@ -249,4 +264,4 @@ def run_app_readme_automation(
                 results.append(result)
                 if progress is not None:
                     progress(result)
-    return {"dry_run": dry_run, "repositories": results}
+    return {"dry_run": dry_run, "repositories": results, "summary": _readme_result_summary(results)}

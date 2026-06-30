@@ -46,6 +46,8 @@ def test_prompt_keeps_jclee_bot_as_automation_surface():
     assert "jclee-bot automation surfaces" in text
     assert "Do NOT render a GitHub workflow inventory table" in text
     assert "workflow files are implementation triggers" in text
+    assert "operator-scannable status tables" in text
+    assert "Observability" in text
     assert "jclee-bot에의해자동화됨" in text
     assert "list all real workflow files grouped by trigger type" not in text
 
