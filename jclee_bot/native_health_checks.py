@@ -164,11 +164,21 @@ def _http_status(url: str, *, headers: dict[str, str] | None = None, head: bool 
     return response.status_code
 
 
+def _cliproxy_models_url(payload: dict[str, Any]) -> str:
+    explicit = _env(payload, "CLIPROXY_MODELS_URL")
+    if explicit:
+        return explicit.rstrip("/")
+    api_base = _env(payload, "OPENAI_BASE_URL", "OPENAI.API_BASE", "OPENAI_API_BASE")
+    if api_base:
+        return f"{api_base.rstrip('/')}/models"
+    return "https://cliproxy.jclee.me/v1/models"
+
+
 def check_runtime_health(payload: dict[str, Any]) -> HealthResult:
     labels = ("runtime-health", "automation")
-    base_url = _env(payload, "BOT_PUBLIC_BASE_URL") or "https://bot.jclee.me"
+    base_url = _env(payload, "BOT_INTERNAL_BASE_URL") or _env(payload, "BOT_PUBLIC_BASE_URL") or "http://127.0.0.1:3000"
     webhook = f"{base_url.rstrip('/')}/api/v1/github_webhooks"
-    cliproxy = _env(payload, "CLIPROXY_MODELS_URL") or "https://cliproxy.jclee.me/v1/models"
+    cliproxy = _cliproxy_models_url(payload)
     try:
         webhook_status = _http_status(webhook, head=True)
     except Exception as exc:  # noqa: BLE001
@@ -218,7 +228,7 @@ def check_bot_health(token: str, payload: dict[str, Any]) -> HealthResult:
     if not api_key:
         return _critical("bot_health", title, labels, "CLIPROXY_API_KEY is not configured for native bot health")
     try:
-        status = _http_status("https://cliproxy.jclee.me/v1/models", headers={"Authorization": f"Bearer {api_key}"})
+        status = _http_status(_cliproxy_models_url(payload), headers={"Authorization": f"Bearer {api_key}"})
     except Exception as exc:  # noqa: BLE001
         return _critical(
             "bot_health",

@@ -80,6 +80,24 @@ def test_runtime_failure_upserts_issue_from_native_bot(monkeypatch) -> None:
     assert "jclee-bot에의해자동화됨" in captured[0]["body"]
 
 
+def test_runtime_health_defaults_to_internal_bot_and_cliproxy_urls(monkeypatch) -> None:
+    calls: list[tuple[str, bool]] = []
+
+    def fake_http_status(url: str, **kwargs) -> int:
+        calls.append((url, bool(kwargs.get("head", False))))
+        return 405 if "github_webhooks" in url else 401
+
+    monkeypatch.setattr(native_health_checks, "_http_status", fake_http_status)
+
+    result = native_health_checks.check_runtime_health({"OPENAI_BASE_URL": "http://cliproxyapi:8317/v1"})
+
+    assert result.status == "healthy"
+    assert calls == [
+        ("http://127.0.0.1:3000/api/v1/github_webhooks", True),
+        ("http://cliproxyapi:8317/v1/models", False),
+    ]
+
+
 def test_bot_health_request_exception_returns_critical(monkeypatch) -> None:
     def broken_http_status(url: str, **kwargs) -> int:
         raise TimeoutError("cliproxy timeout")
