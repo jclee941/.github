@@ -210,6 +210,13 @@ class TestNativeHealthWorkflowPolicy:
             assert "/_cluster/health" not in text
             assert "/_cat/indices" not in text
 
+    def test_native_health_workflows_surface_bot_response_summary(self):
+        for workflow in ["bot-health-monitor.yml", "runtime-health-check.yml"]:
+            text = read_workflow(workflow)
+            assert 'response="$(curl -fsS --retry 3 --retry-delay 5 --max-time 180 \\' in text
+            assert "Native health::\\(.name) \\(.status): \\(.summary)" in text
+            assert "Native health issue actions::\\(.issue_error)" in text
+
     def test_elk_workflows_pass_secrets_only_to_jclee_bot(self):
         for workflow in ["elk-health-check.yml", "elk-setup.yml"]:
             text = read_workflow(workflow)
