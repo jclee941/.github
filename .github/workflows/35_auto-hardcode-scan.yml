@@ -83,7 +83,7 @@ jobs:
               "docker-compose.github_app.yml",
               "docker-compose.github_app.yml.lxc",
               "Dockerfile.github_app", "Dockerfile.github_action",
-              "pyproject.toml", "MANIFEST.in", "CONTRIBUTING.md",
+              "pyproject.toml", "uv.lock", "MANIFEST.in", "CONTRIBUTING.md",
               # legitimate public URLs (docs/config/templates), not secrets
               ".ls-lint.yml", "CODE_OF_CONDUCT.md", "config/repos.yaml",
               "templates/README.md", "templates/CONTRIBUTING.md",
