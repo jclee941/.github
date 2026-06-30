@@ -47,12 +47,14 @@ class TestRepositoryStandardizationWorkflow:
             "GitHub Rulesets rollout",
             "Roll out branch protection rules across managed repos",
             "GitHub Rulesets rollout and drift correction",
+            "`config/repos.yaml`의 저장소 row를 종단(end-to-end)으로 관리하는 `jclee_bot` App 소유 자동화와 **6개의 Go 자동화 CLI**",
         ]
         offenders = [item for item in forbidden if item in readme]
 
         assert "Repository standardization | `jclee-bot` App" in readme
         assert not re.search(r"Go automation CLIs[^\n.]+(?:manage|end-to-end)", readme)
         assert not re.search(r"Go 자동화 CLI[^\n.]+(?:관리|종단|end-to-end)", readme)
+        assert not re.search(r"종단\(end-to-end\)으로 관리[^\n.]+Go 자동화 CLI", readme)
         assert not offenders, f"README must not describe legacy Go CLIs as the policy rollout owner: {offenders}"
 
     def test_docs_lock_policy_rollout_to_app_not_go_clis(self) -> None:
