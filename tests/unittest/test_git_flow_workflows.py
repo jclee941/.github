@@ -60,8 +60,8 @@ class TestManagedRepositoryStandardizationWorkflow:
     def test_setup_go_cache_uses_scripts_module_dependency_file(self):
         text = read_workflow("18_repo-standardization.yml")
 
-        assert "cache-dependency-path: scripts/go.sum" in text, (
-            "Managed Repository Standardization must point setup-go caching at scripts/go.sum, "
+        assert "cache-dependency-path: scripts/go.mod" in text, (
+            "Managed Repository Standardization must point setup-go caching at scripts/go.mod, "
             "because the Go module lives under scripts/ rather than the repository root."
         )
 
