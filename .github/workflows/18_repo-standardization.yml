@@ -5,10 +5,6 @@ on:
     branches: [master]
     paths:
       - 'config/repos.yaml'
-      - 'scripts/cmd/branch-protection/**'
-      - 'scripts/cmd/repo-standardization/**'
-      - 'scripts/cmd/rulesets-manager/**'
-      - 'scripts/internal/repos/**'
       - '.github/workflows/18_repo-standardization.yml'
   workflow_run:
     workflows: ["Sanity"]
@@ -39,15 +35,9 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 20
     env:
-      GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
-      GH_PAT_AVAILABLE: ${{ secrets.GH_PAT != '' }}
-      REPO_METADATA_TOKEN: ${{ secrets.REPO_METADATA_TOKEN }}
-      REPO_METADATA_TOKEN_AVAILABLE: ${{ secrets.REPO_METADATA_TOKEN != '' }}
-      REPO_METADATA_URL: http://127.0.0.1:3001/api/v1/repo_metadata
-      HOME: /tmp/jclee-bot-repo-standardization-${{ github.run_id }}/home
-      XDG_CACHE_HOME: /tmp/jclee-bot-repo-standardization-${{ github.run_id }}/cache
-      GOCACHE: /tmp/jclee-bot-repo-standardization-${{ github.run_id }}/cache/go-build
-      GOMODCACHE: /tmp/jclee-bot-repo-standardization-${{ github.run_id }}/cache/go-mod
+      REPO_STANDARDIZATION_TOKEN: ${{ secrets.REPO_STANDARDIZATION_TOKEN || secrets.REPO_METADATA_TOKEN }}
+      REPO_STANDARDIZATION_TOKEN_AVAILABLE: ${{ secrets.REPO_STANDARDIZATION_TOKEN != '' || secrets.REPO_METADATA_TOKEN != '' }}
+      REPO_STANDARDIZATION_URL: https://bot.jclee.me/api/v1/repo_standardization
       INPUT_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
       INPUT_REPOS: ${{ github.event_name == 'workflow_dispatch' && inputs.repos || '' }}
     steps:
@@ -61,52 +51,35 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Prepare Go cache directories
-        run: |
-          mkdir -p "$HOME" "$XDG_CACHE_HOME" "$GOCACHE" "$GOMODCACHE"
-
-      - name: Install Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: '1.21'
-          cache-dependency-path: scripts/go.mod
-
       - name: Resolve mode
         id: mode
-        working-directory: scripts
         run: |
           set -euo pipefail
           mode="apply"
           dry_run="false"
-          normalized_repos=""
+          repos="${INPUT_REPOS}"
           if [ "${INPUT_DRY_RUN}" = "true" ]; then
             dry_run="true"
             mode="dry-run"
-          elif [ "${GH_PAT_AVAILABLE}" != "true" ]; then
-            echo "::error::GH_PAT is required to standardize managed repositories outside jclee941/jclee-bot."
+          elif [ "${REPO_STANDARDIZATION_TOKEN_AVAILABLE}" != "true" ]; then
+            echo "::error::REPO_STANDARDIZATION_TOKEN or REPO_METADATA_TOKEN is required for App-owned repository standardization."
             exit 1
-          elif [ "${REPO_METADATA_TOKEN_AVAILABLE}" != "true" ]; then
-            echo "::error::REPO_METADATA_TOKEN is required for App-owned repository metadata automation."
-            exit 1
-          fi
-          if [ -n "${INPUT_REPOS}" ]; then
-            normalized_repos="$(go run ./cmd/repo-standardization --normalize-repos --repos "${INPUT_REPOS}")"
           fi
           {
             printf 'dry_run=%s\n' "${dry_run}"
             printf 'mode=%s\n' "${mode}"
-            printf 'repos=%s\n' "${normalized_repos}"
+            printf 'repos=%s\n' "${repos}"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Reconcile repository metadata through jclee-bot
+      - name: Delegate repository standardization to jclee-bot
         run: |
           set -euo pipefail
-          if [ "${REPO_METADATA_TOKEN_AVAILABLE}" != "true" ]; then
-            echo "::warning::Skipping repository metadata dry-run because no App automation token is configured."
+          if [ "${REPO_STANDARDIZATION_TOKEN_AVAILABLE}" != "true" ]; then
+            echo "::warning::Skipping repository standardization dry-run because no App automation token is configured."
             exit 0
           fi
-          REPO_METADATA_REPOS="${{ steps.mode.outputs.repos }}" \
-          REPO_METADATA_DRY_RUN="${{ steps.mode.outputs.dry_run }}" \
+          REPO_STANDARDIZATION_REPOS="${{ steps.mode.outputs.repos }}" \
+          REPO_STANDARDIZATION_DRY_RUN="${{ steps.mode.outputs.dry_run }}" \
           python3 <<'PY'
           import json
           import os
@@ -114,13 +87,13 @@ jobs:
           import urllib.error
           import urllib.request
 
-          repos = [item for item in os.environ.get("REPO_METADATA_REPOS", "").split(",") if item]
-          token = os.environ.get("REPO_METADATA_TOKEN", "")
-          url = os.environ.get("REPO_METADATA_URL", "http://127.0.0.1:3001/api/v1/repo_metadata")
+          repos = os.environ.get("REPO_STANDARDIZATION_REPOS", "")
+          token = os.environ.get("REPO_STANDARDIZATION_TOKEN", "")
+          url = os.environ.get("REPO_STANDARDIZATION_URL", "https://bot.jclee.me/api/v1/repo_standardization")
           payload = json.dumps({
               "owner": "jclee941",
-              "dry_run": os.environ.get("REPO_METADATA_DRY_RUN") == "true",
-              "repos": repos or None,
+              "dry_run": os.environ.get("REPO_STANDARDIZATION_DRY_RUN") == "true",
+              "repos": repos,
               "background": False,
           }).encode()
           request = urllib.request.Request(
@@ -140,66 +113,14 @@ jobs:
               raise
           print(body)
           result = json.loads(body)
-          failed = [
-              repo.get("repo", "<unknown>")
-              for repo in result.get("repositories", [])
-              if repo.get("action") == "failed"
-          ]
-          if result.get("error") or failed:
-              message = "Repository metadata reconciliation failed: {}".format(failed or result.get("error"))
+          summary = result.get("summary", {})
+          if result.get("error") or summary.get("status") == "failed":
+              message = "Repository standardization failed: {}".format(
+                  result.get("error") or summary.get("failed_steps", [])
+              )
               print(message, file=sys.stderr)
               sys.exit(1)
           PY
-
-      - name: Validate downstream repository docs
-        working-directory: scripts
-        run: |
-          set -euo pipefail
-          args=()
-          if [ "${{ steps.mode.outputs.dry_run }}" = "true" ]; then
-            args+=(--dry-run)
-          fi
-          if [ -n "${{ steps.mode.outputs.repos }}" ]; then
-            args+=(--repos "${{ steps.mode.outputs.repos }}")
-          fi
-          go run ./cmd/repo-standardization "${args[@]}"
-
-      - name: Apply branch protection and auto-merge defaults
-        working-directory: scripts
-        run: |
-          set -euo pipefail
-          args=()
-          if [ "${{ steps.mode.outputs.dry_run }}" = "true" ]; then
-            args+=(--dry-run)
-          fi
-          if [ -n "${{ steps.mode.outputs.repos }}" ]; then
-            args+=(--repos "${{ steps.mode.outputs.repos }}")
-          fi
-          go run ./cmd/branch-protection "${args[@]}"
-
-      - name: Apply GitHub Rulesets
-        working-directory: scripts
-        run: |
-          set -euo pipefail
-          args=()
-          if [ "${{ steps.mode.outputs.dry_run }}" = "true" ]; then
-            args+=(--dry-run)
-          fi
-          if [ -n "${{ steps.mode.outputs.repos }}" ]; then
-            args+=(--repos "${{ steps.mode.outputs.repos }}")
-          fi
-          go run ./cmd/rulesets-manager "${args[@]}"
-
-      - name: List resulting rulesets
-        if: always()
-        working-directory: scripts
-        run: |
-          set -euo pipefail
-          list_args=()
-          if [ -n "${{ steps.mode.outputs.repos }}" ]; then
-            list_args+=(--repos "${{ steps.mode.outputs.repos }}")
-          fi
-          go run ./cmd/rulesets-manager --mode=list "${list_args[@]}"
 
       - name: Summary
         if: always()
@@ -210,10 +131,8 @@ jobs:
             echo ""
             echo "- Mode: ${{ steps.mode.outputs.mode }}"
             echo "- Inventory: \`config/repos.yaml\`"
-            echo "- Repository metadata: descriptions, topics, and homepage URLs reconciled by \`jclee-bot\` App endpoint"
-            echo "- Downstream docs: raw Mermaid/chart blocks rejected by \`repo-standardization\`"
-            echo "- Branch protection: \`jclee-bot / pr-metadata\`, \`jclee-bot / secret-scan\`, \`jclee-bot / actionlint\`"
-            echo "- Ruleset: \`Default Branch Protection\`"
+            echo "- Execution: delegated to \`jclee-bot\` App endpoint \`/api/v1/repo_standardization\`"
+            echo "- Repository metadata, downstream docs, branch protection, and rulesets are App-owned"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Notify on failure

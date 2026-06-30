@@ -5,7 +5,6 @@ from pathlib import Path
 
 from tests.unittest.workflow_policy_helpers import (
     REPO_ROOT,
-    repo_standardization_validation_step,
     run_bash_script,
     step_with_run_containing,
     workflow_job,
@@ -13,21 +12,39 @@ from tests.unittest.workflow_policy_helpers import (
 )
 
 
-class TestRepositoryMetadataWorkflow:
-    def test_repo_metadata_is_owned_by_app_endpoint(self) -> None:
+class TestRepositoryStandardizationWorkflow:
+    def test_standardization_is_owned_by_app_endpoint(self) -> None:
         job = workflow_job("repo-standardization.yml", "standardize")
         steps = workflow_steps("repo-standardization.yml", "standardize")
-        reconcile = step_with_run_containing(steps, "/api/v1/repo_metadata")
+        delegate = step_with_run_containing(steps, "/api/v1/repo_standardization")
         env = job.get("env")
-        run = reconcile.get("run")
+        run = delegate.get("run")
 
         assert isinstance(env, dict)
-        assert env["REPO_METADATA_TOKEN"] == "${{ secrets.REPO_METADATA_TOKEN }}"
+        assert env["REPO_STANDARDIZATION_URL"] == "https://bot.jclee.me/api/v1/repo_standardization"
         assert isinstance(run, str)
-        assert "/api/v1/repo_metadata" in run
-        assert "Repository metadata reconciliation failed" in run
+        assert "Repository standardization failed" in run
 
-    def test_repo_standardization_rejects_malicious_dispatch_repos_before_mutation(self, tmp_path: Path) -> None:
+    def test_workflow_does_not_run_gitops_go_clis(self) -> None:
+        text = "\n".join(str(step.get("run", "")) for step in workflow_steps("repo-standardization.yml", "standardize"))
+        forbidden = [
+            "go run ./cmd/repo-standardization",
+            "go run ./cmd/branch-protection",
+            "go run ./cmd/rulesets-manager",
+            "http://127.0.0.1",
+            "/api/v1/repo_metadata",
+        ]
+        offenders = [item for item in forbidden if item in text]
+
+        assert not offenders, f"repo standardization workflow must delegate to jclee-bot App only: {offenders}"
+
+    def test_workflow_does_not_install_go(self) -> None:
+        steps = workflow_steps("repo-standardization.yml", "standardize")
+        uses = [str(step.get("uses", "")) for step in steps]
+
+        assert not any("actions/setup-go" in item for item in uses)
+
+    def test_dispatch_repo_input_is_not_executed_in_mode_resolution(self, tmp_path: Path) -> None:
         steps = workflow_steps("repo-standardization.yml", "standardize")
         resolve = next(step for step in steps if step.get("id") == "mode")
         resolve_run = resolve.get("run")
@@ -37,42 +54,13 @@ class TestRepositoryMetadataWorkflow:
         output = tmp_path / "github-output"
         env = os.environ | {
             "GITHUB_OUTPUT": str(output),
-            "GH_PAT_AVAILABLE": "false",
             "INPUT_DRY_RUN": "true",
             "INPUT_REPOS": f"tmux; touch {marker}",
-            "REPO_METADATA_TOKEN_AVAILABLE": "false",
+            "REPO_STANDARDIZATION_TOKEN_AVAILABLE": "false",
         }
 
-        result = run_bash_script(resolve_run, cwd=REPO_ROOT / "scripts", env=env)
-
-        assert result.returncode != 0
-        assert not marker.exists()
-
-    def test_repo_standardization_passes_repo_selection_as_single_argv(self, tmp_path: Path) -> None:
-        steps = workflow_steps("repo-standardization.yml", "standardize")
-        run_docs = repo_standardization_validation_step(steps)
-        docs_run = run_docs.get("run")
-        assert isinstance(docs_run, str)
-
-        marker = tmp_path / "repo-injection"
-        argv_file = tmp_path / "argv.txt"
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
-        go = bin_dir / "go"
-        _ = go.write_text(
-            f"#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > {argv_file}\n",
-            encoding="utf-8",
-        )
-        go.chmod(0o755)
-
-        substituted = docs_run.replace("${{ steps.mode.outputs.dry_run }}", "true").replace(
-            "${{ steps.mode.outputs.repos }}",
-            f"tmux; touch {marker}",
-        )
-        env = os.environ | {"PATH": f"{bin_dir}:{os.environ['PATH']}"}
-
-        result = run_bash_script(substituted, cwd=REPO_ROOT / "scripts", env=env)
+        result = run_bash_script(resolve_run, cwd=REPO_ROOT, env=env)
 
         assert result.returncode == 0
         assert not marker.exists()
-        assert argv_file.read_text(encoding="utf-8").splitlines()[-1] == f"tmux; touch {marker}"
+        assert f"repos=tmux; touch {marker}" in output.read_text(encoding="utf-8")
