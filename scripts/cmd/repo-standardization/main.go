@@ -16,12 +16,13 @@ import (
 const defaultWorkDir = "/tmp/repo-standardization"
 
 func main() {
-	defaultRepos := repos.Names(repos.DeployableRepos())
+	managedRepos := repos.DeployableRepos()
+	defaultRepos := repos.Names(managedRepos)
 	reposFlag := flag.String("repos", strings.Join(defaultRepos, ","), "comma-separated downstream managed repo names")
 	owner := flag.String("owner", "jclee941", "GitHub owner/org")
 	workDir := flag.String("work-dir", defaultWorkDir, "working directory for cloned repos")
 	localDir := flag.String("local-dir", "", "scan one local repository instead of cloning managed repos")
-	dryRun := flag.Bool("dry-run", false, "preview validation without mutating repos; this command never mutates")
+	dryRun := flag.Bool("dry-run", false, "preview validation without mutating downstream repos")
 	printDefaultRepos := flag.Bool("print-default-repos", false, "print default downstream repo list and exit")
 	normalizeReposOnly := flag.Bool("normalize-repos", false, "validate --repos against downstream inventory, print normalized repo list, and exit")
 	flag.Parse()
@@ -68,13 +69,13 @@ func main() {
 	fmt.Println()
 
 	failures := 0
-	for _, repo := range repoList {
-		if err := validateManagedRepo(*owner, repo, *workDir); err != nil {
-			fmt.Fprintf(os.Stderr, "::warning::%s/%s failed standardization: %v\n", *owner, repo, err)
+	for _, repoName := range repoList {
+		if err := validateManagedRepo(*owner, repoName, *workDir); err != nil {
+			fmt.Fprintf(os.Stderr, "::warning::%s/%s failed standardization: %v\n", *owner, repoName, err)
 			failures++
 			continue
 		}
-		fmt.Printf("- %s/%s: passed\n", *owner, repo)
+		fmt.Printf("- %s/%s: passed\n", *owner, repoName)
 	}
 
 	fmt.Println()
@@ -96,12 +97,12 @@ func runLocalScan(root string) error {
 	return nil
 }
 
-func validateManagedRepo(owner, repo, workDir string) error {
-	repoDir := filepath.Join(workDir, repo)
+func validateManagedRepo(owner, repoName, workDir string) error {
+	repoDir := filepath.Join(workDir, repoName)
 	if err := os.RemoveAll(repoDir); err != nil {
 		return fmt.Errorf("remove previous clone: %w", err)
 	}
-	if err := cloneRepo(owner, repo, repoDir); err != nil {
+	if err := cloneRepo(owner, repoName, repoDir); err != nil {
 		return fmt.Errorf("clone repo: %w", err)
 	}
 	findings, err := scanRepoDocs(repoDir)

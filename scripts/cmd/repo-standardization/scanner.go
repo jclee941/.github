@@ -72,7 +72,7 @@ func scanMarkdownFile(root, path string) ([]finding, error) {
 
 func shouldSkipDir(name string) bool {
 	switch name {
-	case ".git", ".hg", ".svn", ".venv", "node_modules", "vendor", "dist", "build", "_site":
+	case ".git", ".hg", ".svn", ".venv", ".omo", "node_modules", "vendor", "dist", "build", "_site":
 		return true
 	default:
 		return false

@@ -6,6 +6,7 @@ engine entry points, secret masking, and config loading. They must stay GREEN on
 current code AND after the migration completes; their job is to make a missed import
 or lost package-data fail loudly here rather than silently in production.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -25,6 +26,7 @@ REQUIRED_ROUTES = {
     ("POST", "/api/v1/ci_failure_issues"),
     ("POST", "/api/v1/issue_commands"),
     ("POST", "/api/v1/native_health"),
+    ("POST", "/api/v1/repo_metadata"),
     ("POST", "/api/v1/readme_automation"),
 }
 
@@ -37,11 +39,7 @@ def _app_matches_path(app, path: str, method: str) -> bool:
 def test_app_loads_and_exposes_required_routes() -> None:
     from jclee_bot.app import app
 
-    missing = {
-        f"{method} {path}"
-        for method, path in REQUIRED_ROUTES
-        if not _app_matches_path(app, path, method)
-    }
+    missing = {f"{method} {path}" for method, path in REQUIRED_ROUTES if not _app_matches_path(app, path, method)}
     assert not missing, f"app is missing required production routes: {sorted(missing)}"
 
 

@@ -132,6 +132,7 @@ GitHub Actions do not own PR/issue mutation logic. They either run CI/build work
 | GitOps | `jclee-bot` App | Branch-to-PR, existing bot PR auto-merge sweep, protected master flow | 브랜치→PR, 기존 봇 PR 자동 병합 sweep, master 보호 흐름 |
 | Issue maintenance | `jclee-bot` App | stale marking/closing, duplicate review cleanup, issue summaries | stale/중복 리뷰 이슈 정리와 요약 |
 | README automation | `jclee-bot` App | README creation/update PRs across managed repos | 관리 저장소 README 생성/갱신 PR |
+| Repository metadata | `jclee-bot` App | inventory-driven descriptions, topics, and homepage reconciliation | 인벤토리 기반 저장소 설명, 토픽, 홈페이지 현행화 |
 | CI failure issues | `jclee-bot` App | failure issue creation, recovery close, legacy issue sweep; `jclee-bot에의해자동화됨` | 실패 이슈 등록, 복구 시 닫기, 레거시 이슈 정리 |
 
 ### Go Automation Tools 6 total | Go 자동화 도구 6개

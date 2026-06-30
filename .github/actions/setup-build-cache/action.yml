@@ -2,9 +2,10 @@ name: Set up build cache
 description: >-
   Route build caches (Go, pip, uv, npm, Docker buildx) to the NFS-backed mount
   (/mnt/nas-cache) on self-hosted runners, and give HOME a stable LOCAL path.
-  The self-hosted LXC runner has HOME unset and a small 32G rootfs, so build
-  caches were ephemeral and disk-pressuring. Caches go to NAS; HOME stays local
-  (RUNNER_TEMP) to avoid persisting credentials/git/ssh state and NFS locking.
+  The self-hosted runner has HOME unset and a small root filesystem, so build
+  caches were ephemeral and disk-pressuring. Caches go to shared storage; HOME
+  stays local (RUNNER_TEMP) to avoid persisting credentials/git/ssh state and
+  NFS locking.
   On GitHub-hosted runners this is a no-op (existing actions/cache flow is kept).
 
 runs:

@@ -4,6 +4,7 @@ The wrapper must (a) preserve the upstream pr_agent webhook route so reviews
 keep working, and (b) dispatch a pull_request payload to the App-owned checks
 and produce CheckResults to report via the Checks API.
 """
+
 from __future__ import annotations
 
 from starlette.routing import Match
@@ -11,8 +12,9 @@ from starlette.routing import Match
 from jclee_bot import dispatch
 
 
-def _pr_payload(*, title="feat: ok", head="feat/x", base="master", files=None,
-                additions=5, deletions=1, action="opened"):
+def _pr_payload(
+    *, title="feat: ok", head="feat/x", base="master", files=None, additions=5, deletions=1, action="opened"
+):
     return {
         "action": action,
         "pull_request": {
@@ -53,9 +55,7 @@ class TestDispatch:
         assert meta.conclusion == "failure"
 
     def test_actionlint_only_on_workflow_change(self):
-        no_wf = dispatch.run_checks(
-            _pr_payload(), changed_files=["a.py"], workspace="/nonexistent"
-        )
+        no_wf = dispatch.run_checks(_pr_payload(), changed_files=["a.py"], workspace="/nonexistent")
         al = next(r for r in no_wf if r.name == "jclee-bot / actionlint")
         assert al.conclusion == "neutral"
 
@@ -86,6 +86,11 @@ class TestWrapperApp:
         from jclee_bot.app import app
 
         assert _app_matches_path(app, "/api/v1/readme_automation", "POST")
+
+    def test_app_exposes_repo_metadata_route(self):
+        from jclee_bot.app import app
+
+        assert _app_matches_path(app, "/api/v1/repo_metadata", "POST")
 
     def test_app_preserves_health_route(self):
         from jclee_bot.app import app
@@ -171,8 +176,7 @@ class TestGithubChecksPayload:
         from jclee_bot import github_checks
         from jclee_bot.checks import CheckResult
 
-        r = CheckResult(name="jclee-bot / pr-metadata", conclusion="failure",
-                        title="bad", summary="details")
+        r = CheckResult(name="jclee-bot / pr-metadata", conclusion="failure", title="bad", summary="details")
         body = github_checks.check_run_payload(r, "deadbeef")
         assert body["name"] == "jclee-bot / pr-metadata"
         assert body["head_sha"] == "deadbeef"

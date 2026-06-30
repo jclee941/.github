@@ -111,7 +111,7 @@ jobs:
               '{repository: $repo, commands: [{type: "close_matching_issues", title_contains: "[org-health] Weekly Organization Health Report", labels: ["org-health"], comment: $comment}]}')"
             curl -fsS --retry 3 --retry-delay 5 --max-time 120 \
               -X POST "https://bot.jclee.me/api/v1/issue_commands" \
-              -H "Authorization: Bearer ${ISSUE_COMMANDS_TOKEN}" \
+              --config <(printf 'header = "Authorization: %s %s"\n' "Bearer" "${ISSUE_COMMANDS_TOKEN}") \
               -H "Content-Type: application/json" \
               -d "$payload" \
               | jq -e '.actions | type == "array"' >/dev/null
@@ -127,7 +127,7 @@ jobs:
             '{repository: $repo, commands: [{type: "close_matching_issues", title_contains: "[org-health] Weekly Organization Health Report", labels: ["org-health"], comment: $comment}, {type: "create_issue", title: $title, body: $body, labels: ["org-health", "automation"]}]}')"
           curl -fsS --retry 3 --retry-delay 5 --max-time 120 \
             -X POST "https://bot.jclee.me/api/v1/issue_commands" \
-            -H "Authorization: Bearer ${ISSUE_COMMANDS_TOKEN}" \
+            --config <(printf 'header = "Authorization: %s %s"\n' "Bearer" "${ISSUE_COMMANDS_TOKEN}") \
             -H "Content-Type: application/json" \
             -d "$payload" \
             | jq -e '.actions | type == "array"' >/dev/null

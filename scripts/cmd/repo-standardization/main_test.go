@@ -68,6 +68,24 @@ func TestScanRepoDocs_allowsRenderedSvgImage_whenMarkdownReferencesAsset(t *test
 	}
 }
 
+func TestScanRepoDocs_skipsOmoEvidenceArtifacts(t *testing.T) {
+	// Given
+	root := t.TempDir()
+	writeTestFile(t, root, ".omo/evidence/remote-readmes/splunk.md", "```mermaid\nflowchart LR\nA --> B\n```\n")
+	writeTestFile(t, root, "README.md", "# Clean docs\n")
+
+	// When
+	findings, err := scanRepoDocs(root)
+
+	// Then
+	if err != nil {
+		t.Fatalf("scanRepoDocs returned error: %v", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf(".omo evidence artifacts should be skipped, got findings: %#v", findings)
+	}
+}
+
 func TestNormalizeRepoList_usesDeployableInventoryByDefault(t *testing.T) {
 	// Given
 	allowed := repoinventory.Names(repoinventory.DeployableRepos())

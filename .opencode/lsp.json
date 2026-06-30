@@ -1,0 +1,40 @@
+{
+  "lsp": {
+    "basedpyright": {
+      "priority": 100
+    },
+    "gopls": {
+      "priority": 100,
+      "initialization": {
+        "staticcheck": true
+      }
+    },
+    "yaml-ls": {
+      "priority": 100,
+      "initialization": {
+        "yaml": {
+          "schemaStore": {
+            "enable": true
+          },
+          "schemas": {
+            "https://json.schemastore.org/github-workflow.json": ".github/workflows/*.yml"
+          },
+          "validate": true,
+          "completion": true,
+          "format": {
+            "enable": true
+          }
+        }
+      }
+    },
+    "bash": {
+      "priority": 100
+    },
+    "ruff": {
+      "priority": 90
+    },
+    "pyright": {
+      "disabled": true
+    }
+  }
+}

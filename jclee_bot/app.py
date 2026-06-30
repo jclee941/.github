@@ -9,6 +9,7 @@ the GitHub API, runs the static checks against a real checkout, and reports
 each result to the GitHub Checks API. Deployed via Dockerfile.github_app:
 ``gunicorn ... jclee_bot.app:app``.
 """
+
 from __future__ import annotations
 
 import fcntl
@@ -32,6 +33,7 @@ from jclee_bot import (
     issue_maintenance,
     issue_management,
     native_health,
+    repository_metadata_endpoint,
     workflow_issue_automation,
 )
 from jclee_bot.context_guards import neutralize_on_missing_context
@@ -43,6 +45,7 @@ from jclee_bot.readme_automation import router as readme_automation_router
 from jclee_bot.review_engine.servers.github_app import app
 
 app.include_router(readme_automation_router)
+app.include_router(repository_metadata_endpoint.router)
 
 GITHUB_API = "https://api.github.com"
 type MaintenanceMode = Literal["safe", "force"]
@@ -102,15 +105,22 @@ def _checkout_pr_head(token: str, repo_full_name: str, head_sha: str, workspace:
     fetch_env = git_env_with_auth(git_askpass_env(token=token, workspace=workspace))
     try:
         subprocess.run(  # noqa: S603 - fixed args
-            ["git", "init", "-q", workspace], check=True, timeout=30,
+            ["git", "init", "-q", workspace],
+            check=True,
+            timeout=30,
         )
         subprocess.run(  # noqa: S603
             ["git", "-C", workspace, "fetch", "-q", "--depth", "1", url, head_sha],
-            check=True, timeout=120, capture_output=True, env=fetch_env,
+            check=True,
+            timeout=120,
+            capture_output=True,
+            env=fetch_env,
         )
         subprocess.run(  # noqa: S603
             ["git", "-C", workspace, "checkout", "-q", "FETCH_HEAD"],
-            check=True, timeout=60, capture_output=True,
+            check=True,
+            timeout=60,
+            capture_output=True,
         )
         return True
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
@@ -149,7 +159,9 @@ def _run_checks_for_payload(payload: dict[str, Any]) -> dict[str, Any]:
         if token and head_sha and repo_full_name:
             checkout_ok = _checkout_pr_head(token, repo_full_name, head_sha, workspace)
         results = dispatch.run_checks(
-            payload, changed_files=changed_files, workspace=workspace,
+            payload,
+            changed_files=changed_files,
+            workspace=workspace,
         )
 
     # Never publish a merge-satisfying required check when context was unavailable:
@@ -162,8 +174,10 @@ def _run_checks_for_payload(payload: dict[str, Any]) -> dict[str, Any]:
         for result in results:
             try:
                 github_checks.create_check_run(
-                    token=token, repo_full_name=repo_full_name,
-                    result=result, head_sha=head_sha,
+                    token=token,
+                    repo_full_name=repo_full_name,
+                    result=result,
+                    head_sha=head_sha,
                 )
                 reported.append(result.name)
             except Exception:  # noqa: BLE001 - one failed report must not abort others

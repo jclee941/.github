@@ -70,7 +70,7 @@ jobs:
 
           curl -fsS --retry 3 --retry-delay 5 --max-time 60 \
             -X POST "https://bot.jclee.me/api/v1/readme_automation" \
-            -H "Authorization: Bearer ${README_AUTOMATION_TOKEN}" \
+            --config <(printf 'header = "Authorization: %s %s"\n' "Bearer" "${README_AUTOMATION_TOKEN}") \
             -H "Content-Type: application/json" \
             -d "${payload}" \
             | tee readme-automation-result.json
@@ -83,7 +83,7 @@ jobs:
           job_id="$(jq -r '.job_id' readme-automation-result.json)"
           for _ in $(seq 1 120); do
             curl -fsS --retry 2 --retry-delay 2 --max-time 30 \
-              -H "Authorization: Bearer ${README_AUTOMATION_TOKEN}" \
+              --config <(printf 'header = "Authorization: %s %s"\n' "Bearer" "${README_AUTOMATION_TOKEN}") \
               "https://bot.jclee.me/api/v1/readme_automation/jobs/${job_id}" \
               | tee readme-automation-job.json
             status="$(jq -r '.status' readme-automation-job.json)"

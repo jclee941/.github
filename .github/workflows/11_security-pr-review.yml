@@ -75,7 +75,7 @@ jobs:
           HTTP_CODE=$(curl -sS -o /tmp/cliproxy_test.json -w '%{http_code}' \
             --max-time 15 \
             https://cliproxy.jclee.me/v1/models \
-            -H "Authorization: Bearer $CLIPROXY_API_KEY")
+            --config <(printf 'header = "Authorization: %s %s"\n' "Bearer" "$CLIPROXY_API_KEY"))
           if [ "$HTTP_CODE" != "200" ]; then
             echo "ERROR: CLIProxyAPI returned HTTP $HTTP_CODE"
             cat /tmp/cliproxy_test.json

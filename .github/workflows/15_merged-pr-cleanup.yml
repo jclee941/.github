@@ -107,7 +107,7 @@ jobs:
             '{repository: $repo, dry_run: $dry_run, commands: [{type: "close_issues", numbers: $numbers, comment: $comment}]}')"
           curl -fsS --retry 3 --retry-delay 5 --max-time 120 \
             -X POST "https://bot.jclee.me/api/v1/issue_commands" \
-            -H "Authorization: Bearer ${ISSUE_COMMANDS_TOKEN}" \
+            --config <(printf 'header = "Authorization: %s %s"\n' "Bearer" "${ISSUE_COMMANDS_TOKEN}") \
             -H "Content-Type: application/json" \
             -d "$payload" \
             | jq -e '.actions | type == "array"' >/dev/null
@@ -133,7 +133,7 @@ jobs:
             '{repository: $repo, dry_run: $dry_run, commands: [{type: "close_matching_issues", title_contains: $title, comment: $comment}]}')"
           curl -fsS --retry 3 --retry-delay 5 --max-time 120 \
             -X POST "https://bot.jclee.me/api/v1/issue_commands" \
-            -H "Authorization: Bearer ${ISSUE_COMMANDS_TOKEN}" \
+            --config <(printf 'header = "Authorization: %s %s"\n' "Bearer" "${ISSUE_COMMANDS_TOKEN}") \
             -H "Content-Type: application/json" \
             -d "$payload" \
             | jq -e '.actions | type == "array"' >/dev/null

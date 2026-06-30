@@ -40,7 +40,7 @@ jobs:
             '{repository: $repo, checks: ["bot_health"]}')"
           response="$(curl -fsS --retry 3 --retry-delay 5 --max-time 180 \
             -X POST "https://bot.jclee.me/api/v1/native_health" \
-            -H "Authorization: Bearer ${NATIVE_HEALTH_TOKEN}" \
+            --config <(printf 'header = "Authorization: %s %s"\n' "Bearer" "${NATIVE_HEALTH_TOKEN}") \
             -H "Content-Type: application/json" \
             -d "$payload")"
           jq -r '.checks[]? | "::notice title=Native health::\(.name) \(.status): \(.summary)"' <<<"$response"
