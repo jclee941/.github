@@ -36,13 +36,14 @@ concurrency:
 jobs:
   standardize:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
-    runs-on: ${{ github.repository_visibility == 'private' && 'self-hosted' || 'ubuntu-latest' }}
+    runs-on: self-hosted
     timeout-minutes: 20
     env:
       GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
       GH_PAT_AVAILABLE: ${{ secrets.GH_PAT != '' }}
       REPO_METADATA_TOKEN: ${{ secrets.REPO_METADATA_TOKEN }}
       REPO_METADATA_TOKEN_AVAILABLE: ${{ secrets.REPO_METADATA_TOKEN != '' }}
+      REPO_METADATA_URL: http://127.0.0.1:3001/api/v1/repo_metadata
       INPUT_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
       INPUT_REPOS: ${{ github.event_name == 'workflow_dispatch' && inputs.repos || '' }}
     steps:
@@ -106,6 +107,7 @@ jobs:
 
           repos = [item for item in os.environ.get("REPO_METADATA_REPOS", "").split(",") if item]
           token = os.environ.get("REPO_METADATA_TOKEN", "")
+          url = os.environ.get("REPO_METADATA_URL", "http://127.0.0.1:3001/api/v1/repo_metadata")
           payload = json.dumps({
               "owner": "jclee941",
               "dry_run": os.environ.get("REPO_METADATA_DRY_RUN") == "true",
@@ -113,7 +115,7 @@ jobs:
               "background": False,
           }).encode()
           request = urllib.request.Request(
-              "https://bot.jclee.me/api/v1/repo_metadata",
+              url,
               data=payload,
               headers={
                   "Authorization": "Bearer " + token,
