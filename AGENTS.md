@@ -1,7 +1,7 @@
 # jclee-bot - PROJECT KNOWLEDGE BASE
 
 **Generated:** 2026-06-30
-**Commit:** `24ad4e5d`
+**Commit:** `815e992b`
 **Branch:** `master`
 **Upstream provenance:** originally derived from `qodo-ai/pr-agent` (de-forked; see `docs/defork-provenance.md` and `NOTICE`)
 
@@ -33,6 +33,7 @@ jclee-bot/
 ├── github_action/          # legacy/auxiliary GitHub Action shell entrypoint
 ├── config/repos.yaml      # canonical managed-repo inventory
 ├── pyproject.toml         # Python package/lint/test config
+├── uv.lock                # committed uv dependency lockfile
 └── docker-compose.github_app.yml
 
 ## WHERE TO LOOK
@@ -40,6 +41,7 @@ jclee-bot/
 | Task | Location | Notes |
 |------|----------|-------|
 | App-owned PR checks | `jclee_bot/` | Posts `pr-metadata`, `secret-scan`, `actionlint`, and `docs-policy` via Checks API; branch protection requires the first three |
+| Check implementation details | `jclee_bot/checks/` | Pure `run(...) -> CheckResult` modules; child AGENTS owns branch-protection-sensitive check rules |
 | GitOps and bot PR flow | `jclee_bot/gitops_automation.py`, `jclee_bot/pr_auto_merge.py` | Branch-to-PR, App-owned bot PR auto-merge, protected `master` flow |
 | Workflow and reusable-action policy | `.github/` | Numeric workflow stages, local actions, issue/PR templates, workflow-run dependencies |
 | Default/fallback model config | `.pr_agent.toml`, `jclee_bot/review_engine/settings/configuration.toml` | Per-repo overrides go in `.pr_agent.toml`; engine-wide defaults live in the engine's `settings/` |
@@ -50,6 +52,7 @@ jclee-bot/
 | README automation | `jclee_bot/readme_automation.py`, `jclee_bot/readme_runner.py` | Uses `scripts/generate_readme.py` helpers; redacts private IPs and rejects invented repo links |
 | Review prompt templates | `docs/review-templates/`, `.pr_agent.toml` | Review output is Korean; PR/issue templates are bilingual; prompts live in `jclee_bot/review_engine/settings/` |
 | Tests | `tests/` | Unit and mocked e2e tests inherit `tests/AGENTS.md`; dense unit-test rules live in `tests/unittest/AGENTS.md`; live GitHub tests add `tests/e2e_live/AGENTS.md` |
+| Mocked webhook e2e tests | `tests/e2e/` | FastAPI `TestClient` tests with mocked GitHub provider; no live tokens/network |
 | Live GitHub tests | `tests/e2e_live/` | Has its own mutation guard instructions |
 | Docs and review templates | `docs/` | Architecture, provenance, GitOps notes, and review-template guidance |
 
@@ -72,6 +75,7 @@ jclee-bot/
 ## CONVENTIONS
 
 - Python target is 3.12; use the repo `Makefile` targets for local install/test/lint.
+- `uv.lock` is committed; after dependency edits, run `uv lock --check` or update the lockfile intentionally.
 - Ruff keeps full correctness checks for the absorbed review engine while suppressing cosmetic `E501` and `F541`; fork-owned code and tests should stay cleaner.
 - Pytest markers are declared in `pyproject.toml`; add new live-test categories there before using them.
 - pr-agent workflow env vars use literal-dot Dynaconf spelling in Actions, such as
@@ -104,6 +108,7 @@ make test-live
 make test
 make lint
 
+uv lock --check
 (cd scripts && go test ./...)
 (cd scripts && go run ./cmd/validate-naming)
 (cd scripts && go run ./cmd/branch-cleanup --dry-run)
