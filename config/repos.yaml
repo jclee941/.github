@@ -12,7 +12,7 @@ repositories:
       health_check: true
       auto_merge: true
 
-  # Public repos (12 total including jclee-bot)
+  # Public repos
   - name: account
     visibility: public
     default_branch: master
@@ -76,19 +76,6 @@ repositories:
     metadata:
       description: "게임 보상 자동 수령 봇 — API 클레임 + 스크래핑 + 알림 (Python)"
       topics: [automation, bot, game, python, scraping]
-      homepage: ""
-
-  - name: opencode
-    visibility: public
-    default_branch: master
-    automation:
-      deploy_workflows: true
-      branch_protection: true
-      health_check: true
-      auto_merge: true
-    metadata:
-      description: "opencode AI 코딩 에이전트 커스터마이징 — skills, commands, config (Go)"
-      topics: [ai-agent, configuration, developer-tools, golang, opencode]
       homepage: ""
 
   - name: resume
@@ -156,7 +143,7 @@ repositories:
       topics: [dotfiles, productivity, terminal, tmux]
       homepage: ""
 
-  # Private repos (3)
+  # Private repos
   - name: hycu
     visibility: private
     default_branch: master
@@ -195,13 +182,3 @@ repositories:
       description: "모바일 청첩장 — 결혼식 없이 시작을 알리는 커플용 디지털 청첩장 (Cloudflare Workers + GSAP, propose.jclee.me)"
       topics: [cloudflare-workers, gsap, korean, typescript, wedding-invitation]
       homepage: "https://propose.jclee.me"
-
-  # pr-agent fork excluded from deploy/protection
-  - name: pr-agent
-    visibility: public
-    default_branch: master
-    automation:
-      deploy_workflows: false  # upstream fork, don't overwrite
-      branch_protection: false # uses upstream workflows
-      health_check: false
-      auto_merge: false

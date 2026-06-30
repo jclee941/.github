@@ -9,7 +9,7 @@
 
 [![CLIProxy](https://img.shields.io/badge/LLM%20Gateway-CLIProxyAPI-purple.svg)](https://cliproxy.jclee.me/v1)
 [![jclee-bot](https://img.shields.io/badge/automation-jclee.bot-yellowgreen.svg)](#jclee-bot-automation--jclee-bot-자동화)
-[![Go Tools](https://img.shields.io/badge/go--tools-5-blue.svg)](#go-automation-tools-5-total--go-자동화-도구-5개)
+[![Go Tools](https://img.shields.io/badge/go--tools-6-blue.svg)](#go-automation-tools-6-total--go-자동화-도구-6개)
 
 ---
 
@@ -20,7 +20,7 @@
 - [Architecture | 아키텍처](#architecture--아키텍처)
 - [Automation Inventory | 자동화 인벤토리](#automation-inventory--자동화-인벤토리)
   - [jclee-bot Automation | jclee-bot 자동화](#jclee-bot-automation--jclee-bot-자동화)
-  - [Go Automation Tools 5 total | Go 자동화 도구 5개](#go-automation-tools-5-total--go-자동화-도구-5개)
+  - [Go Automation Tools 6 total | Go 자동화 도구 6개](#go-automation-tools-6-total--go-자동화-도구-6개)
 - [Repository Structure | 저장소 구조](#repository-structure--저장소-구조)
 - [Quick Start | 빠른 시작](#quick-start--빠른-시작)
 - [Local Development | 로컬 개발](#local-development--로컬-개발)
@@ -38,7 +38,7 @@ This repository is the `jclee941/*` automation stack: a homelab-hosted GitHub Ap
 
 - a first-party `jclee_bot` GitHub App checks runner that posts `pr-metadata`, `secret-scan`, `actionlint`, and `docs-policy` via the Checks API,
 - a homelab CLIProxyAPI deployment (`https://cliproxy.jclee.me/v1`) that serves as the LLM gateway,
-- `jclee_bot` App-owned automation and **6 Go automation CLIs** that manage 16 downstream repositories end-to-end,
+- `jclee_bot` App-owned automation and **6 Go automation CLIs** that manage the `config/repos.yaml` repository rows end-to-end,
 - an ELK observability stack (Elasticsearch + Kibana) with Filebeat log shipping,
 - issue/PR templates and review prompt packs localized for Korean-first review output.
 
@@ -48,7 +48,7 @@ Production automation follows a **GitHub App-centered operating model**: the hom
 
 - Checks API를 통해 `pr-metadata`, `secret-scan`, `actionlint`, `docs-policy`를 게시하는 1등 시민 `jclee_bot` GitHub App 검사 러너,
 - LLM 게이트웨이 역할을 하는 homelab CLIProxyAPI 배포(`https://cliproxy.jclee.me/v1`),
-- 16개의 다운스트림 저장소를 종단(end-to-end)으로 관리하는 `jclee_bot` App 소유 자동화와 **6개의 Go 자동화 CLI**,
+- `config/repos.yaml`의 저장소 row를 종단(end-to-end)으로 관리하는 `jclee_bot` App 소유 자동화와 **6개의 Go 자동화 CLI**,
 - Filebeat 로그 수집을 포함한 ELK 관측 가능성 스택(Elasticsearch + Kibana),
 - 한국어 우선 리뷰 출력에 맞춘 이슈/PR 템플릿과 리뷰 프롬프트 팩.
 
@@ -89,7 +89,7 @@ Production automation follows a **GitHub App-centered operating model**: the hom
 
 ### Repo Governance | 저장소 거버넌스
 
-- Six Go CLIs (`branch-cleanup`, `branch-protection`, `rulesets-manager`, `repo-review`, `sync-secrets`, `validate-naming`) roll out stale merged-branch cleanup, branch protection, GitHub Rulesets, secret sync, periodic repo review, and naming/inventory enforcement across the 16 managed repos.
+- Six Go CLIs (`branch-cleanup`, `branch-protection`, `rulesets-manager`, `repo-review`, `sync-secrets`, `validate-naming`) roll out stale merged-branch cleanup, branch protection, GitHub Rulesets, secret sync, periodic repo review, and naming/inventory enforcement across the managed repository rows.
 - `config/repos.yaml` is the canonical managed-repo inventory; the `jclee-bot` source repo itself is excluded from auto-deploy.
 
 ---
@@ -98,7 +98,7 @@ Production automation follows a **GitHub App-centered operating model**: the hom
 
 | Layer | Runtime surface | Owner | Notes |
 |-------|-----------------|-------|-------|
-| GitHub repositories | `jclee941/*`, 16 managed repos from `config/repos.yaml` | GitHub App installation | Webhook source and Checks API target |
+| GitHub repositories | `jclee941/*` rows from `config/repos.yaml` | GitHub App installation | Webhook source and Checks API target |
 | App stack | FastAPI webhook receiver on `<homelab-host>:8000` | `jclee_bot` | Checks, reviews, issue maintenance, README automation, and CI-failure cleanup |
 | Review engine | `jclee_bot.review_engine` | `jclee-bot` App | Absorbed first-party review package originally derived from `qodo-ai/pr-agent` |
 | LLM gateway | `https://cliproxy.jclee.me/v1` via CLIProxyAPI on `<homelab-host>:8317` | Homelab runtime | `minimax-m3` primary, `gpt-5.5` fallback |
@@ -141,7 +141,7 @@ All Go CLIs live under `scripts/cmd/<tool>/main.go` and are intended to be run f
 | # | Tool | Purpose | 목적 |
 |---|------|---------|------|
 | 1 | `branch-cleanup` | Delete remote branches already merged into each managed repo's default branch | 기본 브랜치에 병합된 원격 브랜치 정리 |
-| 2 | `branch-protection` | Roll out branch protection rules across the 16 managed repos | 분기 보호 규칙 롤아웃 |
+| 2 | `branch-protection` | Roll out branch protection rules across managed repos | 분기 보호 규칙 롤아웃 |
 | 3 | `repo-review` | Periodic repo review pass (readme, workflows, CODEOWNERS) | 저장소 주기 리뷰 |
 | 4 | `rulesets-manager` | GitHub Rulesets rollout and drift correction | GitHub Rulesets 롤아웃 |
 | 5 | `sync-secrets` | Sync repo/org secrets from a canonical source | 시크릿 동기화 |
@@ -192,7 +192,7 @@ jclee-bot/
 ├── docs/                                # architecture, review templates, ops notes
 ├── templates/                           # downstream community-file sources
 └── config/
-    └── repos.yaml                       # canonical managed-repo inventory (16 repos)
+    └── repos.yaml                       # canonical managed-repo inventory
 ```
 
 > **Edit policy | 편집 규칙** — The review engine at `jclee_bot/review_engine/` is first-party code; modify it directly when needed, but prefer narrow changes and update relevant prompt packs rather than rewriting large modules. Put new App-level behavior in `jclee_bot/` and keep the review engine a stable contract surface.
