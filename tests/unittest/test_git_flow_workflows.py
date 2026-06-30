@@ -6,99 +6,14 @@ editing the workflow files or making network calls.
 
 from __future__ import annotations
 
-import os
-import subprocess
 from pathlib import Path
-from typing import cast
 
-import pytest
-import yaml
-
-from jclee_bot.json_boundary import object_dict, object_list
-
-# Root of the repo (parent of .github/)
-REPO_ROOT = Path(__file__).resolve().parents[2]  # /home/jclee/dev/.github
-WF_DIR = REPO_ROOT / ".github" / "workflows"
-assert WF_DIR.exists(), f"Workflows dir not found: {WF_DIR}"
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def read_workflow(name: str) -> str:
-    """Return raw text of a workflow file.
-
-    Workflow files carry an ``NN_`` sequential-numbering prefix (e.g.
-    ``30_runtime-health-check.yml``). Callers pass the logical name
-    (``runtime-health-check.yml``) and this resolves the prefixed file so
-    the policy tests stay stable across re-numbering.
-    re-numbering.
-    """
-    path = WF_DIR / name
-    if not path.exists():
-        matches = sorted(WF_DIR.glob(f"[0-9][0-9]_{name}"))
-        if matches:
-            path = matches[0]
-    if not path.exists():
-        pytest.fail(f"Workflow not found: {path}")
-    return path.read_text()
-
-
-def read_workflow_yaml(name: str) -> dict[str, object]:
-    parsed = cast(object, yaml.safe_load(read_workflow(name)))
-    return object_dict(parsed)
-
-
-def workflow_job(name: str, job: str) -> dict[str, object]:
-    workflow = read_workflow_yaml(name)
-    jobs = object_dict(workflow["jobs"])
-    return object_dict(jobs[job])
-
-
-def workflow_steps(name: str, job: str) -> list[dict[str, object]]:
-    job_config = workflow_job(name, job)
-    steps = object_list(job_config["steps"], "workflow job must contain steps")
-    return [object_dict(cast(object, step)) for step in steps if isinstance(step, dict)]
-
-
-def step_with_run_containing(steps: list[dict[str, object]], text: str) -> dict[str, object]:
-    for step in steps:
-        run = step.get("run")
-        if isinstance(run, str) and text in run:
-            return step
-    pytest.fail(f"Workflow run step containing {text!r} was not found")
-
-
-def repo_standardization_validation_step(steps: list[dict[str, object]]) -> dict[str, object]:
-    for step in steps:
-        run = step.get("run")
-        if isinstance(run, str) and "repo-standardization" in run and "--normalize-repos" not in run:
-            return step
-    pytest.fail("Repository standardization validation step was not found")
-
-
-def run_bash_script(script: str, *, cwd: Path, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["bash", "-euo", "pipefail", "-c", script],
-        cwd=cwd,
-        env=env,
-        text=True,
-        capture_output=True,
-        timeout=30,
-        check=False,
-    )
-
-
-def read_workflow_issue_automation_source() -> str:
-    paths = [
-        REPO_ROOT / "jclee_bot" / "workflow_issue_automation.py",
-        REPO_ROOT / "jclee_bot" / "workflow_legacy_sweep.py",
-        REPO_ROOT / "jclee_bot" / "workflow_current_sweep.py",
-    ]
-    return "\n".join(path.read_text(encoding="utf-8") for path in paths)
-
+from tests.unittest.workflow_policy_helpers import (
+    REPO_ROOT,
+    WF_DIR,
+    read_workflow,
+    read_workflow_issue_automation_source,
+)
 
 # ---------------------------------------------------------------------------
 # T5 – Build workflow policy
@@ -225,71 +140,6 @@ class TestReadmeAutomationOwnedByApp:
 class TestIssueMaintenanceWorkflow:
     def test_cleanup_is_not_owned_by_workflow(self):
         assert not list(WF_DIR.glob("[0-9][0-9]_issue-maintenance.yml"))
-
-
-class TestRepositoryMetadataWorkflow:
-    def test_repo_metadata_is_owned_by_app_endpoint(self):
-        job = workflow_job("repo-standardization.yml", "standardize")
-        steps = workflow_steps("repo-standardization.yml", "standardize")
-        reconcile = step_with_run_containing(steps, "/api/v1/repo_metadata")
-        env = job.get("env")
-        run = reconcile.get("run")
-
-        assert isinstance(env, dict)
-        assert env["REPO_METADATA_TOKEN"] == "${{ secrets.REPO_METADATA_TOKEN }}"
-        assert isinstance(run, str)
-        assert "/api/v1/repo_metadata" in run
-        assert "Repository metadata reconciliation failed" in run
-
-    def test_repo_standardization_rejects_malicious_dispatch_repos_before_mutation(self, tmp_path: Path):
-        steps = workflow_steps("repo-standardization.yml", "standardize")
-        resolve = next(step for step in steps if step.get("id") == "mode")
-        resolve_run = resolve.get("run")
-        assert isinstance(resolve_run, str)
-
-        marker = tmp_path / "repo-injection"
-        output = tmp_path / "github-output"
-        env = os.environ | {
-            "GITHUB_OUTPUT": str(output),
-            "GH_PAT_AVAILABLE": "false",
-            "INPUT_DRY_RUN": "true",
-            "INPUT_REPOS": f"tmux; touch {marker}",
-            "REPO_METADATA_TOKEN_AVAILABLE": "false",
-        }
-
-        result = run_bash_script(resolve_run, cwd=REPO_ROOT / "scripts", env=env)
-
-        assert result.returncode != 0
-        assert not marker.exists()
-
-    def test_repo_standardization_passes_repo_selection_as_single_argv(self, tmp_path: Path):
-        steps = workflow_steps("repo-standardization.yml", "standardize")
-        run_docs = repo_standardization_validation_step(steps)
-        docs_run = run_docs.get("run")
-        assert isinstance(docs_run, str)
-
-        marker = tmp_path / "repo-injection"
-        argv_file = tmp_path / "argv.txt"
-        bin_dir = tmp_path / "bin"
-        bin_dir.mkdir()
-        go = bin_dir / "go"
-        _ = go.write_text(
-            f"#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > {argv_file}\n",
-            encoding="utf-8",
-        )
-        go.chmod(0o755)
-
-        substituted = docs_run.replace("${{ steps.mode.outputs.dry_run }}", "true").replace(
-            "${{ steps.mode.outputs.repos }}",
-            f"tmux; touch {marker}",
-        )
-        env = os.environ | {"PATH": f"{bin_dir}:{os.environ['PATH']}"}
-
-        result = run_bash_script(substituted, cwd=REPO_ROOT / "scripts", env=env)
-
-        assert result.returncode == 0
-        assert not marker.exists()
-        assert argv_file.read_text(encoding="utf-8").splitlines()[-1] == f"tmux; touch {marker}"
 
 
 class TestNativeHealthWorkflowPolicy:

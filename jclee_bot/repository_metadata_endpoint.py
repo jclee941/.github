@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import asyncio
 import hmac
 import os
-from functools import partial
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Request, Response
 
 from jclee_bot import repository_metadata
 from jclee_bot.json_boundary import JsonObject, JsonValue
@@ -17,7 +15,7 @@ router = APIRouter()
 
 
 @router.post("/api/v1/repo_metadata")
-async def repo_metadata_webhook(request: Request, response: Response) -> JsonObject:
+async def repo_metadata_webhook(request: Request, response: Response, background_tasks: BackgroundTasks) -> JsonObject:
     expected = os.environ.get("REPO_METADATA_TOKEN", "")
     if not _bearer_token_ok(expected, request.headers.get("Authorization")):
         response.status_code = 401
@@ -37,6 +35,7 @@ async def repo_metadata_webhook(request: Request, response: Response) -> JsonObj
         private_key=private_key,
         payload=payload,
         response=response,
+        background_tasks=background_tasks,
     )
 
 
@@ -46,6 +45,7 @@ def handle_repo_metadata_request(
     private_key: str,
     payload: JsonObject,
     response: Response,
+    background_tasks: BackgroundTasks,
 ) -> JsonObject:
     try:
         dry_run = bool(payload.get("dry_run", False))
@@ -56,16 +56,13 @@ def handle_repo_metadata_request(
         return {"error": str(exc)}
 
     if payload.get("background", False):
-        _ = asyncio.get_event_loop().run_in_executor(
-            None,
-            partial(
-                repository_metadata.run_app_repository_metadata_safely,
-                app_id=app_id,
-                private_key=private_key,
-                owner=owner,
-                dry_run=dry_run,
-                repo_names=repo_names,
-            ),
+        background_tasks.add_task(
+            repository_metadata.run_app_repository_metadata_safely,
+            app_id=app_id,
+            private_key=private_key,
+            owner=owner,
+            dry_run=dry_run,
+            repo_names=repo_names,
         )
         return {"accepted": True, "dry_run": dry_run, "owner": owner}
 

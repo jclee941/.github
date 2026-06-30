@@ -3,13 +3,13 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import TypeGuard, cast
 
 import requests
 import yaml
 
 from jclee_bot import workflow_issue_automation
-from jclee_bot.json_boundary import JsonObject, json_object, object_dict, object_list
+from jclee_bot.json_boundary import JsonObject, is_object_mapping, json_object, object_dict, object_list
 
 GITHUB_API = "https://api.github.com"
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "repos.yaml"
@@ -58,7 +58,7 @@ def run_app_repository_metadata(
     config_path: Path = DEFAULT_CONFIG_PATH,
 ) -> JsonObject:
     desired_by_name = desired_repository_metadata(config_path)
-    selected_names = set(repo_names or desired_by_name)
+    selected_names = set(desired_by_name) if repo_names is None else set(repo_names)
     actions: list[MetadataAction] = []
 
     unknown = sorted(selected_names - set(desired_by_name))
@@ -125,13 +125,13 @@ def desired_repository_metadata(config_path: Path) -> dict[str, DesiredRepositor
 
     desired: dict[str, DesiredRepositoryMetadata] = {}
     for entry_value in repositories:
-        if not isinstance(entry_value, dict):
+        if not is_object_mapping(entry_value):
             continue
-        entry = object_dict(cast(object, entry_value))
+        entry = object_dict(entry_value)
         metadata_value = entry.get("metadata")
-        if not isinstance(metadata_value, dict):
+        if not is_object_mapping(metadata_value):
             continue
-        metadata = object_dict(cast(object, metadata_value))
+        metadata = object_dict(metadata_value)
         name = entry.get("name")
         description = metadata.get("description")
         if not isinstance(name, str) or not isinstance(description, str) or not description:
@@ -227,29 +227,31 @@ def metadata_drift(
 
 
 def normalize_topics(values: object) -> tuple[str, ...]:
-    if not isinstance(values, list | tuple):
+    if not is_topic_values(values):
         return ()
-    items = cast("list[object] | tuple[object, ...]", values)
-    topics = {value.strip().lower() for value in items if isinstance(value, str) and value.strip()}
+    topics = {value.strip().lower() for value in values if isinstance(value, str) and value.strip()}
     return tuple(sorted(topics))
 
 
 def github_get(*, token: str, path: str) -> JsonObject:
     response = requests.get(api_url(path), headers=github_headers(token), timeout=30)
     response.raise_for_status()
-    return json_object(cast(object, response.json()), f"GET {path}")
+    raw = cast(object, response.json())
+    return json_object(raw, f"GET {path}")
 
 
 def github_patch(*, token: str, path: str, payload: JsonObject) -> JsonObject:
     response = requests.patch(api_url(path), headers=github_headers(token), json=payload, timeout=30)
     response.raise_for_status()
-    return json_object(cast(object, response.json()), f"PATCH {path}")
+    raw = cast(object, response.json())
+    return json_object(raw, f"PATCH {path}")
 
 
 def github_put(*, token: str, path: str, payload: JsonObject) -> JsonObject:
     response = requests.put(api_url(path), headers=github_headers(token), json=payload, timeout=30)
     response.raise_for_status()
-    return json_object(cast(object, response.json()), f"PUT {path}")
+    raw = cast(object, response.json())
+    return json_object(raw, f"PUT {path}")
 
 
 def api_url(path: str) -> str:
@@ -274,3 +276,7 @@ def summarize_actions(actions: list[MetadataAction]) -> JsonObject:
         current = summary.get(action.action, 0)
         summary[action.action] = current + 1 if isinstance(current, int) else 1
     return summary
+
+
+def is_topic_values(value: object) -> TypeGuard[list[object] | tuple[object, ...]]:
+    return isinstance(value, list | tuple)

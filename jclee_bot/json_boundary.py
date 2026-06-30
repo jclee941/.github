@@ -1,35 +1,42 @@
 from __future__ import annotations
 
-from typing import cast
+from typing import TypeGuard
 
 type JsonValue = str | int | float | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
 type JsonObject = dict[str, JsonValue]
 
 
 def json_object(value: object, context: str) -> JsonObject:
-    if not isinstance(value, dict):
+    if not is_object_mapping(value):
         raise ValueError(f"{context} did not return a JSON object")
-    return {key: json_value(item) for key, item in object_dict(cast(object, value)).items()}
+    return {str(key): json_value(item) for key, item in value.items()}
 
 
 def json_value(value: object) -> JsonValue:
     if isinstance(value, str | int | float | bool) or value is None:
         return value
-    if isinstance(value, list):
-        return [json_value(item) for item in cast(list[object], value)]
-    if isinstance(value, dict):
-        return {key: json_value(item) for key, item in object_dict(cast(object, value)).items()}
+    if is_object_list(value):
+        return [json_value(item) for item in value]
+    if is_object_mapping(value):
+        return {str(key): json_value(item) for key, item in value.items()}
     return str(value)
 
 
 def object_dict(value: object, error: str = "value must be a mapping") -> dict[str, object]:
-    if not isinstance(value, dict):
+    if not is_object_mapping(value):
         raise ValueError(error)
-    raw = cast(dict[object, object], value)
-    return {str(key): item for key, item in raw.items()}
+    return {str(key): item for key, item in value.items()}
 
 
 def object_list(value: object, error: str) -> list[object]:
-    if not isinstance(value, list):
+    if not is_object_list(value):
         raise ValueError(error)
-    return cast(list[object], value)
+    return value
+
+
+def is_object_mapping(value: object) -> TypeGuard[dict[object, object]]:
+    return isinstance(value, dict)
+
+
+def is_object_list(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)

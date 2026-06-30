@@ -16,8 +16,7 @@ import (
 const defaultWorkDir = "/tmp/repo-standardization"
 
 func main() {
-	managedRepos := repos.DeployableRepos()
-	defaultRepos := repos.Names(managedRepos)
+	defaultRepos := repos.Names(repos.DeployableRepos())
 	reposFlag := flag.String("repos", strings.Join(defaultRepos, ","), "comma-separated downstream managed repo names")
 	owner := flag.String("owner", "jclee941", "GitHub owner/org")
 	workDir := flag.String("work-dir", defaultWorkDir, "working directory for cloned repos")
