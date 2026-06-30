@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, cast
@@ -43,26 +44,44 @@ def run_app_repo_standardization_safely(
     dry_run: bool,
     repo_names: JsonValue,
     config_path: Path = DEFAULT_CONFIG_PATH,
+    max_attempts: int = 3,
+    retry_delay_seconds: float = 2.0,
 ) -> JsonObject:
-    try:
-        return run_app_repo_standardization(
-            app_id=app_id,
-            private_key=private_key,
-            owner=owner,
-            dry_run=dry_run,
-            repo_names=repo_names,
-            config_path=config_path,
-        )
-    except (OSError, ValueError, requests.RequestException, subprocess.SubprocessError) as exc:
-        logger.exception("App repository standardization failed")
-        return {
-            "dry_run": dry_run,
-            "owner": owner,
-            "steps": [],
-            "error": "repository standardization failed",
-            "error_type": type(exc).__name__,
-            "detail": str(exc),
-        }
+    attempts = max(1, max_attempts)
+    for attempt in range(1, attempts + 1):
+        try:
+            return run_app_repo_standardization(
+                app_id=app_id,
+                private_key=private_key,
+                owner=owner,
+                dry_run=dry_run,
+                repo_names=repo_names,
+                config_path=config_path,
+            )
+        except (requests.ConnectionError, requests.Timeout) as exc:
+            if attempt == attempts:
+                return standardization_error(dry_run=dry_run, owner=owner, exc=exc)
+            logger.warning(
+                "App repository standardization hit transient GitHub API failure; retrying",
+                extra={"attempt": attempt, "attempts": attempts, "error_type": type(exc).__name__},
+            )
+            time.sleep(retry_delay_seconds * attempt)
+        except (OSError, ValueError, requests.RequestException, subprocess.SubprocessError) as exc:
+            logger.exception("App repository standardization failed")
+            return standardization_error(dry_run=dry_run, owner=owner, exc=exc)
+    raise AssertionError("unreachable retry loop exit")
+
+
+def standardization_error(*, dry_run: bool, owner: str, exc: Exception) -> JsonObject:
+    logger.exception("App repository standardization failed")
+    return {
+        "dry_run": dry_run,
+        "owner": owner,
+        "steps": [],
+        "error": "repository standardization failed",
+        "error_type": type(exc).__name__,
+        "detail": str(exc),
+    }
 
 
 def run_app_repo_standardization(

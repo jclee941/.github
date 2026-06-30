@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import importlib
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
 import pytest
+import requests
 from _pytest.monkeypatch import MonkeyPatch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -69,6 +71,7 @@ def test_repo_standardization_endpoint_reports_failed_summary(monkeypatch: Monke
         dry_run: bool,
         repo_names: JsonValue,
     ) -> JsonObject:
+        assert (app_id, private_key, repo_names) == ("123", "key", None)
         return {
             "dry_run": dry_run,
             "owner": owner,
@@ -93,7 +96,45 @@ def test_repo_standardization_endpoint_reports_failed_summary(monkeypatch: Monke
 
 def test_parse_repo_selection_rejects_paths() -> None:
     with pytest.raises(ValueError, match="managed repo name"):
-        repo_standardization.parse_repo_selection("../tmux", frozenset({"tmux"}))
+        _ = repo_standardization.parse_repo_selection("../tmux", frozenset({"tmux"}))
+
+
+def test_safe_runner_retries_transient_github_api_connection_failure(monkeypatch: MonkeyPatch) -> None:
+    calls = 0
+
+    def fake_run(
+        *,
+        app_id: str,
+        private_key: str,
+        owner: str,
+        dry_run: bool,
+        repo_names: JsonValue,
+        config_path: Path,
+    ) -> JsonObject:
+        nonlocal calls
+        assert (app_id, private_key, repo_names) == ("123", "key", "tmux")
+        assert config_path == repo_standardization.DEFAULT_CONFIG_PATH
+        calls += 1
+        if calls == 1:
+            raise requests.ConnectionError("api.github.com refused connection")
+        return {"dry_run": dry_run, "owner": owner, "steps": [], "summary": {"status": "ok", "failed_steps": []}}
+
+    def fake_sleep(delay: float) -> None:
+        assert delay == 2.0
+
+    monkeypatch.setattr(repo_standardization, "run_app_repo_standardization", fake_run)
+    monkeypatch.setattr(time, "sleep", fake_sleep)
+
+    result = repo_standardization.run_app_repo_standardization_safely(
+        app_id="123",
+        private_key="key",
+        owner="jclee941",
+        dry_run=False,
+        repo_names="tmux",
+    )
+
+    assert calls == 2
+    assert result["summary"] == {"status": "ok", "failed_steps": []}
 
 
 def test_scan_markdown_docs_detects_raw_mermaid(tmp_path: Path) -> None:
