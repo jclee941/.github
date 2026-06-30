@@ -34,6 +34,7 @@ from jclee_bot import (
     issue_management,
     native_health,
     repository_metadata_endpoint,
+    repo_standardization_endpoint,
     workflow_issue_automation,
 )
 from jclee_bot.context_guards import neutralize_on_missing_context
@@ -46,6 +47,7 @@ from jclee_bot.review_engine.servers.github_app import app
 
 app.include_router(readme_automation_router)
 app.include_router(repository_metadata_endpoint.router)
+app.include_router(repo_standardization_endpoint.router)
 
 GITHUB_API = "https://api.github.com"
 type MaintenanceMode = Literal["safe", "force"]

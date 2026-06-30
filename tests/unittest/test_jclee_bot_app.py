@@ -92,6 +92,11 @@ class TestWrapperApp:
 
         assert _app_matches_path(app, "/api/v1/repo_metadata", "POST")
 
+    def test_app_exposes_repo_standardization_route(self):
+        from jclee_bot.app import app
+
+        assert _app_matches_path(app, "/api/v1/repo_standardization", "POST")
+
     def test_app_preserves_health_route(self):
         from jclee_bot.app import app
 
