@@ -21,10 +21,25 @@ def dry_run_env(tmp_path: Path) -> dict[str, str]:
     gh = bin_dir / "gh"
     _ = gh.write_text(
         """#!/usr/bin/env python3
+import os
+import subprocess
 import sys
 args = sys.argv[1:]
 if len(args) >= 2 and args[0] == 'api' and args[1].startswith('repos/jclee941/'):
     print('master')
+elif args[:2] == ['pr', 'list']:
+    print('')
+elif args[:2] == ['repo', 'clone'] and len(args) >= 4:
+    repo_dir = args[3]
+    os.makedirs(repo_dir, exist_ok=True)
+    subprocess.run(['git', 'init', '-q'], cwd=repo_dir, check=True)
+    subprocess.run(['git', 'config', 'user.email', 'fake@example.invalid'], cwd=repo_dir, check=True)
+    subprocess.run(['git', 'config', 'user.name', 'fake gh'], cwd=repo_dir, check=True)
+    with open(os.path.join(repo_dir, 'README.md'), 'w', encoding='utf-8') as handle:
+        handle.write('fake repo\\n')
+    subprocess.run(['git', 'add', 'README.md'], cwd=repo_dir, check=True)
+    subprocess.run(['git', 'commit', '-q', '-m', 'init'], cwd=repo_dir, check=True)
+    subprocess.run(['git', 'update-ref', 'refs/remotes/origin/master', 'HEAD'], cwd=repo_dir, check=True)
 elif args[:2] == ['repo', 'view']:
     print('master')
 else:
@@ -58,6 +73,28 @@ def run_go_cli(args: Sequence[str], env: Mapping[str, str], timeout: int = 60) -
         stdout = "" if exc.stdout is None else str(exc.stdout)
         stderr = "" if exc.stderr is None else str(exc.stderr)
         pytest.fail(f"go CLI timed out after {timeout}s\nstdout:\n{stdout}\nstderr:\n{stderr}")
+
+
+@pytest.mark.skipif(GO_MISSING, reason="go binary is not available on PATH")
+def test_branch_cleanup_dry_run_smoke(dry_run_env: Mapping[str, str]) -> None:
+    result = run_go_cli(["./cmd/branch-cleanup", "--dry-run", "--repos=resume"], dry_run_env)
+
+    assert result.returncode == 0, result.stderr
+    assert "Summary (dry-run):" in result.stdout
+    assert "jclee941/resume" in result.stdout
+    assert "Total merge-cleanup candidate branches:" in result.stdout
+
+
+@pytest.mark.skipif(GO_MISSING, reason="go binary is not available on PATH")
+def test_rulesets_manager_dry_run_smoke(dry_run_env: Mapping[str, str]) -> None:
+    result = run_go_cli(["./cmd/rulesets-manager", "--dry-run", "--repos=resume"], dry_run_env)
+
+    assert result.returncode == 0, result.stderr
+    assert "repos/jclee941/resume/rulesets/" in result.stdout
+    assert "jclee-bot / pr-metadata" in result.stdout
+    assert "jclee-bot / secret-scan" in result.stdout
+    assert "jclee-bot / actionlint" in result.stdout
+    assert "- jclee941/resume: previewed" in result.stdout
 
 
 

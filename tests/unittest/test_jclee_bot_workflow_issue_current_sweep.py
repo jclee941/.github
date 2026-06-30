@@ -57,6 +57,21 @@ def _success_runs_response() -> FakeResponse:
     )
 
 
+def _active_runs_response() -> FakeResponse:
+    return FakeResponse(
+        {
+            "workflow_runs": [
+                {
+                    "head_branch": "master",
+                    "status": "in_progress",
+                    "conclusion": None,
+                    "head_sha": "abcdef1234567890abcdef1234567890abcdef12",
+                }
+            ]
+        }
+    )
+
+
 def _install_common_sweep_fakes(monkeypatch: MonkeyPatch) -> None:
     def no_legacy_issues(*, token: str, repo_full_name: str, title_substring: str) -> list[int]:
         del token, repo_full_name, title_substring
@@ -77,46 +92,62 @@ def _install_common_sweep_fakes(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(requests, "get", fake_get)
 
 
-def test_sweep_closes_current_default_branch_ci_failure_after_matching_success(
-    monkeypatch: MonkeyPatch,
-) -> None:
-    # Given
-    closed: list[tuple[int, str]] = []
-    issue_body = "\n".join(
+def _current_issue_body(workflow_name: str) -> str:
+    return "\n".join(
         [
             "## CI Failure",
             "",
-            "- **Workflow:** Live E2E Tests",
+            f"- **Workflow:** {workflow_name}",
             "- **Commit:** abcdef1234567890abcdef1234567890abcdef12",
             "- **Run:** https://github.com/jclee941/jclee-bot/actions/runs/100",
         ]
     )
 
+
+def _install_current_issue(
+    monkeypatch: MonkeyPatch,
+    *,
+    issue_number: int,
+    workflow_name: str,
+) -> None:
     def open_current_issue(*, token: str, repo_full_name: str, labels: str | None = None) -> list[dict[str, object]]:
         del token, repo_full_name, labels
         return [
             {
-                "number": 692,
-                "title": "[ci] Live E2E Tests failed at abcdef12",
-                "body": issue_body,
+                "number": issue_number,
+                "title": f"[ci] {workflow_name} failed at abcdef12",
+                "body": _current_issue_body(workflow_name),
             }
         ]
+
+    monkeypatch.setattr(workflow_current_sweep, "_open_ci_failure_issues", open_current_issue)
+
+
+def _run_sweep() -> list[str]:
+    return workflow_issue_automation.sweep_legacy_failure_issues(
+        token="tok",
+        repo_full_name="jclee941/jclee-bot",
+        default_branch="master",
+        dry_run=False,
+    )
+
+
+def test_sweep_closes_current_default_branch_ci_failure_after_matching_success(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    # Given
+    closed: list[tuple[int, str]] = []
 
     def fake_close(*, token: str, repo_full_name: str, issue_number: int, body: str) -> None:
         del token, repo_full_name
         closed.append((issue_number, body))
 
     _install_common_sweep_fakes(monkeypatch)
-    monkeypatch.setattr(workflow_current_sweep, "_open_ci_failure_issues", open_current_issue)
+    _install_current_issue(monkeypatch, issue_number=692, workflow_name="Live E2E Tests")
     monkeypatch.setattr(workflow_issue_automation, "_close", fake_close)
 
     # When
-    actions = workflow_issue_automation.sweep_legacy_failure_issues(
-        token="tok",
-        repo_full_name="jclee941/jclee-bot",
-        default_branch="master",
-        dry_run=False,
-    )
+    actions = _run_sweep()
 
     # Then
     assert actions == ["close-current:692:39_e2e-live.yml"]
@@ -129,6 +160,53 @@ def test_sweep_closes_current_default_branch_ci_failure_after_matching_success(
             ),
         )
     ]
+
+
+def test_sweep_keeps_current_ci_failure_when_workflow_name_is_missing(monkeypatch: MonkeyPatch) -> None:
+    # Given
+    closed: list[int] = []
+
+    def fake_close(*, token: str, repo_full_name: str, issue_number: int, body: str) -> None:
+        del token, repo_full_name, body
+        closed.append(issue_number)
+
+    _install_common_sweep_fakes(monkeypatch)
+    _install_current_issue(monkeypatch, issue_number=694, workflow_name="Removed Workflow")
+    monkeypatch.setattr(workflow_issue_automation, "_close", fake_close)
+
+    # When
+    actions = _run_sweep()
+
+    # Then
+    assert actions == ["keep-current:694:workflow-not-found"]
+    assert closed == []
+
+
+def test_sweep_defers_current_ci_failure_when_matching_run_is_active(monkeypatch: MonkeyPatch) -> None:
+    # Given
+    closed: list[int] = []
+
+    def fake_get(url: str, **kwargs: object) -> FakeResponse:
+        del kwargs
+        if url.endswith("/actions/workflows?per_page=100"):
+            return _workflow_list_response()
+        return _active_runs_response()
+
+    def fake_close(*, token: str, repo_full_name: str, issue_number: int, body: str) -> None:
+        del token, repo_full_name, body
+        closed.append(issue_number)
+
+    _install_common_sweep_fakes(monkeypatch)
+    monkeypatch.setattr(requests, "get", fake_get)
+    _install_current_issue(monkeypatch, issue_number=695, workflow_name="Live E2E Tests")
+    monkeypatch.setattr(workflow_issue_automation, "_close", fake_close)
+
+    # When
+    actions = _run_sweep()
+
+    # Then
+    assert actions == ["defer-current:695:39_e2e-live.yml:run-in-flight"]
+    assert closed == []
 
 
 def test_sweep_preserves_current_ci_failure_when_body_references_pr(monkeypatch: MonkeyPatch) -> None:
@@ -164,12 +242,7 @@ def test_sweep_preserves_current_ci_failure_when_body_references_pr(monkeypatch:
     monkeypatch.setattr(workflow_issue_automation, "_close", fake_close)
 
     # When
-    actions = workflow_issue_automation.sweep_legacy_failure_issues(
-        token="tok",
-        repo_full_name="jclee941/jclee-bot",
-        default_branch="master",
-        dry_run=False,
-    )
+    actions = _run_sweep()
 
     # Then
     assert actions == []
