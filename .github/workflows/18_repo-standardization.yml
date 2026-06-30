@@ -35,8 +35,8 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 20
     env:
-      REPO_STANDARDIZATION_TOKEN: ${{ secrets.REPO_STANDARDIZATION_TOKEN || secrets.REPO_METADATA_TOKEN }}
-      REPO_STANDARDIZATION_TOKEN_AVAILABLE: ${{ secrets.REPO_STANDARDIZATION_TOKEN != '' || secrets.REPO_METADATA_TOKEN != '' }}
+      REPO_STANDARDIZATION_TOKEN: ${{ secrets.REPO_STANDARDIZATION_TOKEN }}
+      REPO_STANDARDIZATION_TOKEN_AVAILABLE: ${{ secrets.REPO_STANDARDIZATION_TOKEN != '' }}
       REPO_STANDARDIZATION_URL: http://127.0.0.1:3001/api/v1/repo_standardization
       INPUT_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
       INPUT_REPOS: ${{ github.event_name == 'workflow_dispatch' && inputs.repos || '' }}
@@ -57,29 +57,27 @@ jobs:
           set -euo pipefail
           mode="apply"
           dry_run="false"
-          repos="${INPUT_REPOS}"
           if [ "${INPUT_DRY_RUN}" = "true" ]; then
             dry_run="true"
             mode="dry-run"
           elif [ "${REPO_STANDARDIZATION_TOKEN_AVAILABLE}" != "true" ]; then
-            echo "::error::REPO_STANDARDIZATION_TOKEN or REPO_METADATA_TOKEN is required for App-owned repository standardization."
+            echo "::error::REPO_STANDARDIZATION_TOKEN is required for App-owned repository standardization."
             exit 1
           fi
           {
             printf 'dry_run=%s\n' "${dry_run}"
             printf 'mode=%s\n' "${mode}"
-            printf 'repos=%s\n' "${repos}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Delegate repository standardization to jclee-bot
+        env:
+          REPO_STANDARDIZATION_DRY_RUN: ${{ steps.mode.outputs.dry_run }}
         run: |
           set -euo pipefail
           if [ "${REPO_STANDARDIZATION_TOKEN_AVAILABLE}" != "true" ]; then
             echo "::warning::Skipping repository standardization dry-run because no App automation token is configured."
             exit 0
           fi
-          REPO_STANDARDIZATION_REPOS="${{ steps.mode.outputs.repos }}" \
-          REPO_STANDARDIZATION_DRY_RUN="${{ steps.mode.outputs.dry_run }}" \
           python3 <<'PY'
           import json
           import os
@@ -87,7 +85,7 @@ jobs:
           import urllib.error
           import urllib.request
 
-          repos = os.environ.get("REPO_STANDARDIZATION_REPOS", "")
+          repos = os.environ.get("INPUT_REPOS", "")
           token = os.environ.get("REPO_STANDARDIZATION_TOKEN", "")
           url = os.environ.get("REPO_STANDARDIZATION_URL", "http://127.0.0.1:3001/api/v1/repo_standardization")
           payload = json.dumps({

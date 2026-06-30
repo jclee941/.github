@@ -83,6 +83,10 @@ lint.ignore = ["B008"]
   "E402",
 ] # Ignore `E402` (import violations) in all `__init__.py` files.
 
+"jclee_bot/app.py" = [
+  "I001",
+]
+
 # Absorbed review-engine tree: lint for correctness, but do not enforce cosmetic
 # line-length (E501) or f-string-without-placeholder (F541) rewrites.
 "jclee_bot/review_engine/**/*.py" = ["E501", "F541"]

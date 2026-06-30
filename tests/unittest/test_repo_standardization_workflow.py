@@ -23,6 +23,8 @@ class TestRepositoryStandardizationWorkflow:
 
         assert isinstance(env, dict)
         assert env["REPO_STANDARDIZATION_URL"] == "http://127.0.0.1:3001/api/v1/repo_standardization"
+        assert env["REPO_STANDARDIZATION_TOKEN"] == "${{ secrets.REPO_STANDARDIZATION_TOKEN }}"
+        assert env["REPO_STANDARDIZATION_TOKEN_AVAILABLE"] == "${{ secrets.REPO_STANDARDIZATION_TOKEN != '' }}"
         assert isinstance(run, str)
         assert "Repository standardization failed" in run
         assert "timeout=900" in run
@@ -34,6 +36,7 @@ class TestRepositoryStandardizationWorkflow:
             "go run ./cmd/branch-protection",
             "go run ./cmd/rulesets-manager",
             "/api/v1/repo_metadata",
+            "REPO_METADATA_TOKEN",
         ]
         offenders = [item for item in forbidden if item in text]
 
@@ -121,4 +124,14 @@ class TestRepositoryStandardizationWorkflow:
 
         assert result.returncode == 0
         assert not marker.exists()
-        assert f"repos=tmux; touch {marker}" in output.read_text(encoding="utf-8")
+        assert "repos=" not in output.read_text(encoding="utf-8")
+
+    def test_dispatch_repo_input_is_not_reinjected_into_delegate_shell(self) -> None:
+        steps = workflow_steps("repo-standardization.yml", "standardize")
+        delegate = step_with_run_containing(steps, "/api/v1/repo_standardization")
+        run = delegate.get("run")
+
+        assert isinstance(run, str)
+        assert 'REPO_STANDARDIZATION_REPOS="${{ steps.mode.outputs.repos }}"' not in run
+        assert "${{ steps.mode.outputs.repos }}" not in run
+        assert 'os.environ.get("INPUT_REPOS", "")' in run

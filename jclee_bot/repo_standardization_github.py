@@ -6,6 +6,12 @@ import requests
 
 from jclee_bot import workflow_issue_automation
 from jclee_bot.github_api_client import GITHUB_API, headers
+from jclee_bot.github_retry import (
+    MAX_GITHUB_REQUEST_ATTEMPTS,
+    github_request,
+    is_retryable_request_exception,
+    sleep_before_retry,
+)
 from jclee_bot.json_boundary import JsonObject, is_object_mapping, json_object, json_value, object_dict, object_list
 from jclee_bot.repo_standardization_types import RepositoryAction, StandardizationStep, step_status
 
@@ -110,15 +116,38 @@ def upsert_ruleset(*, token: str, full_repo: str, dry_run: bool) -> RepositoryAc
     if dry_run:
         detail = "update existing ruleset" if existing_id else "create ruleset"
         return RepositoryAction(repo=full_repo, action="would_apply", detail=detail)
-    method = github_put if existing_id else github_post
-    path = f"/repos/{full_repo}/rulesets/{existing_id}" if existing_id else f"/repos/{full_repo}/rulesets"
-    _ = method(token=token, path=path, payload=ruleset_payload())
+    if existing_id:
+        _ = github_put(
+            token=token,
+            path=f"/repos/{full_repo}/rulesets/{existing_id}",
+            payload=ruleset_payload(),
+        )
+    else:
+        create_ruleset(token=token, full_repo=full_repo)
     return RepositoryAction(repo=full_repo, action="applied")
 
 
+def create_ruleset(*, token: str, full_repo: str) -> None:
+    for attempt in range(1, MAX_GITHUB_REQUEST_ATTEMPTS + 1):
+        try:
+            _ = github_post_once(token=token, path=f"/repos/{full_repo}/rulesets", payload=ruleset_payload())
+            return
+        except requests.RequestException as exc:
+            if not is_retryable_request_exception(exc):
+                raise
+            created_id = find_ruleset_id(token=token, full_repo=full_repo, ruleset_name=DEFAULT_RULESET_NAME)
+            if created_id is not None:
+                return
+            if attempt == MAX_GITHUB_REQUEST_ATTEMPTS:
+                raise
+            sleep_before_retry()
+    raise RuntimeError("unreachable GitHub ruleset creation retry state")
+
+
 def find_ruleset_id(*, token: str, full_repo: str, ruleset_name: str) -> int | None:
-    response = requests.get(f"{GITHUB_API}/repos/{full_repo}/rulesets", headers=headers(token), timeout=30)
-    response.raise_for_status()
+    response = github_request(
+        lambda: requests.get(f"{GITHUB_API}/repos/{full_repo}/rulesets", headers=headers(token), timeout=30)
+    )
     raw_rulesets = object_list(json_value(response_json(response)), "rulesets response must be a JSON array")
     for item in raw_rulesets:
         if not is_object_mapping(item):
@@ -154,19 +183,21 @@ def ruleset_payload() -> JsonObject:
 
 
 def github_patch(*, token: str, path: str, payload: JsonObject) -> JsonObject:
-    response = requests.patch(f"{GITHUB_API}{path}", headers=headers(token), json=payload, timeout=30)
-    response.raise_for_status()
+    response = github_request(
+        lambda: requests.patch(f"{GITHUB_API}{path}", headers=headers(token), json=payload, timeout=30)
+    )
     return json_object(json_value(response_json(response)), f"PATCH {path}")
 
 
 def github_put(*, token: str, path: str, payload: JsonObject) -> JsonObject:
-    response = requests.put(f"{GITHUB_API}{path}", headers=headers(token), json=payload, timeout=30)
-    response.raise_for_status()
+    response = github_request(
+        lambda: requests.put(f"{GITHUB_API}{path}", headers=headers(token), json=payload, timeout=30)
+    )
     raw = json_value(response_json(response)) if response.content else {}
     return json_object(raw, f"PUT {path}")
 
 
-def github_post(*, token: str, path: str, payload: JsonObject) -> JsonObject:
+def github_post_once(*, token: str, path: str, payload: JsonObject) -> JsonObject:
     response = requests.post(f"{GITHUB_API}{path}", headers=headers(token), json=payload, timeout=30)
     response.raise_for_status()
     return json_object(json_value(response_json(response)), f"POST {path}")

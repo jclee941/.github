@@ -19,7 +19,7 @@ async def repo_standardization_webhook(
     response: Response,
     background_tasks: BackgroundTasks,
 ) -> JsonObject:
-    expected = os.environ.get("REPO_STANDARDIZATION_TOKEN") or os.environ.get("REPO_METADATA_TOKEN", "")
+    expected = os.environ.get("REPO_STANDARDIZATION_TOKEN", "")
     if not _bearer_token_ok(expected, request.headers.get("Authorization")):
         response.status_code = 401
         return {"error": "invalid token"}
@@ -51,14 +51,15 @@ def handle_repo_standardization_request(
     background_tasks: BackgroundTasks,
 ) -> JsonObject:
     try:
-        dry_run = bool(payload.get("dry_run", False))
+        dry_run = bool_payload_field(payload, "dry_run", False)
         owner = parse_repo_metadata_owner(payload.get("owner"))
         repo_names = payload.get("repos")
+        background = bool_payload_field(payload, "background", False)
     except ValueError as exc:
         response.status_code = 400
         return {"error": str(exc)}
 
-    if payload.get("background", False):
+    if background:
         background_tasks.add_task(
             repo_standardization.run_app_repo_standardization_safely,
             app_id=app_id,
@@ -88,3 +89,10 @@ def _bearer_token_ok(expected: str, authorization: str | None) -> bool:
     if not expected or not authorization or not authorization.startswith("Bearer "):
         return False
     return hmac.compare_digest(expected, authorization.removeprefix("Bearer ").strip())
+
+
+def bool_payload_field(payload: JsonObject, field: str, default: bool) -> bool:
+    value = payload.get(field, default)
+    if isinstance(value, bool):
+        return value
+    raise ValueError(f"{field} must be a boolean")

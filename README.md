@@ -358,7 +358,7 @@ pr-agent config          --pr_url=<url>
 
 - **Managed repo inventory | 관리 저장소 목록** — `config/repos.yaml` is the single source of truth. Do not duplicate repo counts or default branches by hand; tooling reads this file.
 - **Review engine defaults | 리뷰 엔진 기본값** — `jclee_bot/review_engine/settings/configuration.toml` and the per-tool `pr_*.toml` prompt packs. Keep project overrides in this directory rather than scattering them across workflows or App code.
-- **Dynaconf env vars | Dynaconf 환경 변수** — Inside Actions, use the literal-dot spelling: `OPENAI.KEY`, `OPENAI.API_BASE`, `CONFIG.MODEL`, `CONFIG.FALLBACK_MODELS`. The one exception is `GITHUB__USER_TOKEN`, which keeps the double-underscore form.
+- **Dynaconf env vars | Dynaconf 환경 변수** — Inside Actions, use the literal-dot spelling: `OPENAI.KEY`, `OPENAI.API_BASE`, `CONFIG.MODEL`, `CONFIG.FALLBACK_MODELS`. The one exception is `GITHUB__USER_TOKEN`, which keeps the double-underscore form. PR review workflows may also export SDK compatibility aliases such as `OPENAI_API_KEY`, `OPENAI_BASE_URL`, and `GITHUB_TOKEN` when third-party clients require them.
 - **Templates | 템플릿** — `templates/` holds the downstream community-file sources (CODE_OF_CONDUCT, CONTRIBUTING, SECURITY, issue/PR templates, Korean localisation).
 - **App config | App 설정** — `docker-compose.github_app.yml` for the standard layout; `docker-compose.github_app.yml.lxc` adds the LXC-tuned overrides (network mode, mounts).
 

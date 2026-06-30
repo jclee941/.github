@@ -94,6 +94,37 @@ def test_repo_standardization_endpoint_reports_failed_summary(monkeypatch: Monke
     assert response.json()["summary"]["failed_steps"] == ["downstream-docs"]
 
 
+def test_repo_standardization_endpoint_rejects_metadata_token_fallback(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.delenv("REPO_STANDARDIZATION_TOKEN", raising=False)
+    monkeypatch.setenv("REPO_METADATA_TOKEN", "metadata-token")
+    monkeypatch.setenv("GITHUB_APP_ID", "123")
+    monkeypatch.setenv("GITHUB_PRIVATE_KEY", "key")
+
+    response = TestClient(app_under_test(), raise_server_exceptions=False).post(
+        "/api/v1/repo_standardization",
+        json={"owner": "jclee941", "repos": "tmux", "dry_run": False},
+        headers={"Authorization": "Bearer metadata-token"},
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {"error": "invalid token"}
+
+
+def test_repo_standardization_endpoint_rejects_string_booleans(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setenv("REPO_STANDARDIZATION_TOKEN", "repo-std")
+    monkeypatch.setenv("GITHUB_APP_ID", "123")
+    monkeypatch.setenv("GITHUB_PRIVATE_KEY", "key")
+
+    response = TestClient(app_under_test(), raise_server_exceptions=False).post(
+        "/api/v1/repo_standardization",
+        json={"owner": "jclee941", "repos": "tmux", "dry_run": "false"},
+        headers={"Authorization": "Bearer repo-std"},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"error": "dry_run must be a boolean"}
+
+
 def test_parse_repo_selection_rejects_paths() -> None:
     with pytest.raises(ValueError, match="managed repo name"):
         _ = repo_standardization.parse_repo_selection("../tmux", frozenset({"tmux"}))

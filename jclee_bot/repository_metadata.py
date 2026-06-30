@@ -9,6 +9,7 @@ import requests
 import yaml
 
 from jclee_bot import workflow_issue_automation
+from jclee_bot.github_retry import github_request
 from jclee_bot.json_boundary import JsonObject, is_object_mapping, json_object, object_dict, object_list
 
 GITHUB_API = "https://api.github.com"
@@ -234,22 +235,23 @@ def normalize_topics(values: object) -> tuple[str, ...]:
 
 
 def github_get(*, token: str, path: str) -> JsonObject:
-    response = requests.get(api_url(path), headers=github_headers(token), timeout=30)
-    response.raise_for_status()
+    response = github_request(lambda: requests.get(api_url(path), headers=github_headers(token), timeout=30))
     raw = cast(object, response.json())
     return json_object(raw, f"GET {path}")
 
 
 def github_patch(*, token: str, path: str, payload: JsonObject) -> JsonObject:
-    response = requests.patch(api_url(path), headers=github_headers(token), json=payload, timeout=30)
-    response.raise_for_status()
+    response = github_request(
+        lambda: requests.patch(api_url(path), headers=github_headers(token), json=payload, timeout=30)
+    )
     raw = cast(object, response.json())
     return json_object(raw, f"PATCH {path}")
 
 
 def github_put(*, token: str, path: str, payload: JsonObject) -> JsonObject:
-    response = requests.put(api_url(path), headers=github_headers(token), json=payload, timeout=30)
-    response.raise_for_status()
+    response = github_request(
+        lambda: requests.put(api_url(path), headers=github_headers(token), json=payload, timeout=30)
+    )
     raw = cast(object, response.json())
     return json_object(raw, f"PUT {path}")
 
