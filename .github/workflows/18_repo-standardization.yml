@@ -37,7 +37,7 @@ jobs:
     env:
       REPO_STANDARDIZATION_TOKEN: ${{ secrets.REPO_STANDARDIZATION_TOKEN || secrets.REPO_METADATA_TOKEN }}
       REPO_STANDARDIZATION_TOKEN_AVAILABLE: ${{ secrets.REPO_STANDARDIZATION_TOKEN != '' || secrets.REPO_METADATA_TOKEN != '' }}
-      REPO_STANDARDIZATION_URL: https://bot.jclee.me/api/v1/repo_standardization
+      REPO_STANDARDIZATION_URL: http://127.0.0.1:3001/api/v1/repo_standardization
       INPUT_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
       INPUT_REPOS: ${{ github.event_name == 'workflow_dispatch' && inputs.repos || '' }}
     steps:
@@ -89,7 +89,7 @@ jobs:
 
           repos = os.environ.get("REPO_STANDARDIZATION_REPOS", "")
           token = os.environ.get("REPO_STANDARDIZATION_TOKEN", "")
-          url = os.environ.get("REPO_STANDARDIZATION_URL", "https://bot.jclee.me/api/v1/repo_standardization")
+          url = os.environ.get("REPO_STANDARDIZATION_URL", "http://127.0.0.1:3001/api/v1/repo_standardization")
           payload = json.dumps({
               "owner": "jclee941",
               "dry_run": os.environ.get("REPO_STANDARDIZATION_DRY_RUN") == "true",

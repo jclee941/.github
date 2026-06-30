@@ -21,7 +21,7 @@ class TestRepositoryStandardizationWorkflow:
         run = delegate.get("run")
 
         assert isinstance(env, dict)
-        assert env["REPO_STANDARDIZATION_URL"] == "https://bot.jclee.me/api/v1/repo_standardization"
+        assert env["REPO_STANDARDIZATION_URL"] == "http://127.0.0.1:3001/api/v1/repo_standardization"
         assert isinstance(run, str)
         assert "Repository standardization failed" in run
 
@@ -31,7 +31,6 @@ class TestRepositoryStandardizationWorkflow:
             "go run ./cmd/repo-standardization",
             "go run ./cmd/branch-protection",
             "go run ./cmd/rulesets-manager",
-            "http://127.0.0.1",
             "/api/v1/repo_metadata",
         ]
         offenders = [item for item in forbidden if item in text]
