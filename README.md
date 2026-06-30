@@ -89,7 +89,8 @@ Production automation follows a **GitHub App-centered operating model**: the hom
 
 ### Repo Governance | 저장소 거버넌스
 
-- Six Go CLIs (`branch-cleanup`, `branch-protection`, `rulesets-manager`, `repo-review`, `sync-secrets`, `validate-naming`) roll out stale merged-branch cleanup, branch protection, GitHub Rulesets, secret sync, periodic repo review, and naming/inventory enforcement across the managed repository rows.
+- The `jclee-bot` App owns repository standardization for managed rows: metadata, downstream documentation checks, branch protection, and GitHub Rulesets are reconciled through the App endpoint.
+- Go CLIs under `scripts/cmd/*` remain local diagnostic, dry-run, and maintenance helpers; production policy rollout is not driven by workflow-side Go execution.
 - `config/repos.yaml` is the canonical managed-repo inventory; the `jclee-bot` source repo itself is excluded from auto-deploy.
 
 ---
@@ -103,7 +104,8 @@ Production automation follows a **GitHub App-centered operating model**: the hom
 | Review engine | `jclee_bot.review_engine` | `jclee-bot` App | Absorbed first-party review package originally derived from `qodo-ai/pr-agent` |
 | LLM gateway | `https://cliproxy.jclee.me/v1` via CLIProxyAPI on `<homelab-host>:8317` | Homelab runtime | `minimax-m3` primary, `gpt-5.5` fallback |
 | Observability | Filebeat to ELK on `<homelab-elk>:9200` | Homelab runtime | Structured JSON logs from webhook, checks, and review paths |
-| Repo operations | Go CLIs under `scripts/cmd/*` | Maintainer-run / scheduled automation | Branch cleanup, branch protection, rulesets, repo review, secret sync, naming validation |
+| Repository standardization | `jclee-bot` App | App endpoint `/api/v1/repo_standardization` | Metadata, downstream docs policy, branch protection, and GitHub Rulesets reconciliation |
+| Repo diagnostics | Go CLIs under `scripts/cmd/*` | Maintainer-run dry-run / local maintenance | Branch cleanup, repo review, secret sync, naming validation, and policy payload inspection |
 
 ### Request Flow | 요청 흐름
 
@@ -111,7 +113,7 @@ Production automation follows a **GitHub App-centered operating model**: the hom
 2. `jclee_bot` runs App-owned checks and dispatches review, issue, README, and GitOps automation.
 3. Review/check work calls CLIProxyAPI through the public OpenAI-compatible endpoint.
 4. App logs ship through Filebeat to the ELK stack for operational visibility.
-5. Go CLIs reconcile repository policy from the canonical `config/repos.yaml` inventory.
+5. The App standardization endpoint reconciles repository policy from the canonical `config/repos.yaml` inventory.
 
 > **Architecture conventions | 아키텍처 표기 규약**
 > - `<homelab-host>` / `<homelab-elk>` are placeholders for the homelab endpoints. No private IPs or LXC numbers are hardcoded.
@@ -139,12 +141,14 @@ GitHub Actions do not own PR/issue mutation logic. They either run CI/build work
 
 All Go CLIs live under `scripts/cmd/<tool>/main.go` and are intended to be run from the repo root via the convention shown in *Commands Reference*. They are statically linked single-binary tools with no runtime dependencies beyond `git` and the `GITHUB_TOKEN` / `GH_TOKEN` env var.
 
+Production repository standardization is App-owned. The policy-related Go CLIs are kept for local dry-runs, diagnostics, and compatibility checks; active workflows delegate branch protection and Rulesets reconciliation to `/api/v1/repo_standardization`.
+
 | # | Tool | Purpose | 목적 |
 |---|------|---------|------|
 | 1 | `branch-cleanup` | Delete remote branches already merged into each managed repo's default branch | 기본 브랜치에 병합된 원격 브랜치 정리 |
-| 2 | `branch-protection` | Roll out branch protection rules across managed repos | 분기 보호 규칙 롤아웃 |
+| 2 | `branch-protection` | Inspect branch protection payloads and run local maintenance checks | 분기 보호 payload 점검과 로컬 유지보수 |
 | 3 | `repo-review` | Periodic repo review pass (readme, workflows, CODEOWNERS) | 저장소 주기 리뷰 |
-| 4 | `rulesets-manager` | GitHub Rulesets rollout and drift correction | GitHub Rulesets 롤아웃 |
+| 4 | `rulesets-manager` | Inspect GitHub Rulesets payloads and run local maintenance checks | GitHub Rulesets payload 점검과 로컬 유지보수 |
 | 5 | `sync-secrets` | Sync repo/org secrets from a canonical source | 시크릿 동기화 |
 | 6 | `validate-naming` | Enforce workflow prefixes, template inventory, README links | 명명/인벤토리 검증 |
 
@@ -292,6 +296,8 @@ docker compose -f docker-compose.github_app.yml up -d
 
 ### Working on Go tools | Go 도구 개발
 
+Policy rollout changes must be implemented in the App standardization path first. Use the Go tools below for local diagnostics and compatibility checks.
+
 ```bash
 (cd scripts && go run ./cmd/branch-protection --help)
 (cd scripts && go run ./cmd/branch-cleanup --help)
@@ -340,9 +346,9 @@ pr-agent config          --pr_url=<url>
 | Command | Description | 설명 |
 |---------|-------------|------|
 | `(cd scripts && go run ./cmd/branch-cleanup)` | Delete remote branches already merged into managed repo default branches | 병합 완료 원격 브랜치 정리 |
-| `(cd scripts && go run ./cmd/branch-protection)` | Roll out branch protection to managed repos | 분기 보호 롤아웃 |
+| `(cd scripts && go run ./cmd/branch-protection --dry-run)` | Inspect branch protection payloads for managed repos | 관리 저장소 분기 보호 payload 점검 |
 | `(cd scripts && go run ./cmd/repo-review)` | Periodic repo review pass | 저장소 주기 리뷰 |
-| `(cd scripts && go run ./cmd/rulesets-manager)` | GitHub Rulesets rollout | Rulesets 롤아웃 |
+| `(cd scripts && go run ./cmd/rulesets-manager --dry-run)` | Inspect GitHub Rulesets payloads | GitHub Rulesets payload 점검 |
 | `(cd scripts && go run ./cmd/sync-secrets)` | Sync secrets across managed repos | 시크릿 동기화 |
 | `(cd scripts && go run ./cmd/validate-naming)` | Enforce naming/inventory invariants | 명명 검증 |
 

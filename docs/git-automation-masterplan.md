@@ -25,8 +25,9 @@ primary rollout mechanism.
 | Branch-to-PR GitOps | `jclee_bot/gitops_automation.py` | Unit tests in `tests/unittest/test_jclee_bot_gitops_automation.py` |
 | Bot PR auto-merge | `jclee_bot/pr_auto_merge.py` | App event unit coverage and live PR check state |
 | Merged branch cleanup | `scripts/cmd/branch-cleanup` | `(cd scripts && go run ./cmd/branch-cleanup --dry-run)` |
-| Branch protection rollout | `scripts/cmd/branch-protection` | `(cd scripts && go run ./cmd/branch-protection --dry-run)` |
-| Rulesets rollout | `scripts/cmd/rulesets-manager` | `(cd scripts && go run ./cmd/rulesets-manager --dry-run)` |
+| Repository standardization | `jclee_bot/repo_standardization_endpoint.py` | App endpoint `/api/v1/repo_standardization`; latest `18_repo-standardization.yml` run |
+| Branch protection diagnostics | `scripts/cmd/branch-protection` | `(cd scripts && go run ./cmd/branch-protection --dry-run)` |
+| Rulesets diagnostics | `scripts/cmd/rulesets-manager` | `(cd scripts && go run ./cmd/rulesets-manager --dry-run)` |
 | Repo review batch | `scripts/cmd/repo-review` | `(cd scripts && go run ./cmd/repo-review --normalize-repos)` |
 | CI failure issue lifecycle | `jclee_bot/workflow_issue_automation.py` and `jclee_bot/workflow_current_sweep.py` | Unit tests in `tests/unittest/test_jclee_bot_workflow_issue_*.py` |
 | README automation | `jclee_bot/readme_automation.py` and `jclee_bot/readme_runner.py` | README tests plus live App job evidence |
@@ -40,8 +41,10 @@ primary rollout mechanism.
    - Normalize explicit repo lists before using them in mutation-capable tools.
 
 2. Keep policy rollout observable before mutation.
+   - Production branch protection and Rulesets rollout must stay App-owned
+     through `/api/v1/repo_standardization`.
    - `branch-cleanup`, `branch-protection`, and `rulesets-manager` must retain
-     dry-run coverage.
+     dry-run coverage as diagnostics and compatibility checks.
    - Required check contexts must remain aligned between branch protection,
      rulesets, tests, and docs.
    - Broad workflow mutations stay behind explicit workflow dispatch inputs and
@@ -56,7 +59,7 @@ primary rollout mechanism.
 
 4. Keep live verification cheap and read-only by default.
    - Local unit tests cover parser and policy payload behavior.
-   - `tests/e2e_live/test_go_cli.py` smokes the first-class Go CLIs without
+   - `tests/e2e_live/test_go_cli.py` smokes the local diagnostic Go CLIs without
      GitHub credentials by injecting a fake `gh` binary where possible.
    - Live fleet checks are limited to readonly health and branch-protection
      assertions unless a mutation test is explicitly requested.
@@ -68,6 +71,8 @@ Use this sequence when changing git automation:
 ```bash
 (cd scripts && go test ./cmd/branch-cleanup ./cmd/branch-protection ./cmd/rulesets-manager ./cmd/repo-review)
 pytest tests/unittest/test_jclee_bot_gitops_automation.py \
+  tests/unittest/test_jclee_bot_repo_standardization.py \
+  tests/unittest/test_repo_standardization_workflow.py \
   tests/unittest/test_jclee_bot_workflow_issue_automation.py \
   tests/unittest/test_jclee_bot_workflow_issue_current_sweep.py \
   tests/unittest/test_jclee_bot_workflow_issue_event_recovery.py
@@ -81,12 +86,15 @@ gh issue list --repo jclee941/jclee-bot --state open --json number --jq 'length'
 gh pr list --repo jclee941/jclee-bot --state open --json number --jq 'length'
 ```
 
+For production proof, trigger `18_repo-standardization.yml` against the deployed
+App and confirm the workflow reaches `success` on the target commit.
+
 ## Current Guardrail
 
-The weakest verified policy surfaces were `branch-cleanup` and
-`rulesets-manager`, because the live smoke suite covered branch protection and
-repo review but not those two CLIs. They now belong in the readonly Go CLI smoke
-suite so policy drift breaks before an operator relies on a manual dry-run.
+The weakest verified policy surfaces were the boundaries between the App-owned
+standardization endpoint and the older Go diagnostics. Active workflows now
+delegate to `/api/v1/repo_standardization`, while the Go CLI smoke suite keeps
+the local diagnostic tools from drifting.
 
 The riskiest runtime surface is current CI-failure issue cleanup. It must stay
 biased toward preserving or deferring issues when workflow identity or run state

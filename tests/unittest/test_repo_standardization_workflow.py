@@ -38,6 +38,20 @@ class TestRepositoryStandardizationWorkflow:
 
         assert not offenders, f"repo standardization workflow must delegate to jclee-bot App only: {offenders}"
 
+    def test_readme_presents_app_as_repo_policy_rollout_owner(self) -> None:
+        readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+        forbidden = [
+            "Go CLIs reconcile repository policy",
+            "Roll out branch protection to managed repos",
+            "GitHub Rulesets rollout",
+            "Roll out branch protection rules across managed repos",
+            "GitHub Rulesets rollout and drift correction",
+        ]
+        offenders = [item for item in forbidden if item in readme]
+
+        assert "Repository standardization | `jclee-bot` App" in readme
+        assert not offenders, f"README must not describe legacy Go CLIs as the policy rollout owner: {offenders}"
+
     def test_workflow_does_not_install_go(self) -> None:
         steps = workflow_steps("repo-standardization.yml", "standardize")
         uses = [str(step.get("uses", "")) for step in steps]

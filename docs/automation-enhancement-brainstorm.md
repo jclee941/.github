@@ -15,7 +15,7 @@
 | AI PR 리뷰 | `/review` `/improve` `/describe` 자동 실행, 한국어 출력, critical 발견 시 이슈 자동 생성 |
 | 하드코드 탐지 | AWS/GitHub 토큰·JWT·private key·connection string regex + LLM (`pr_hardcode_detector.py`) |
 | 워크플로우 | 26개 (`NN_` 접두사 실행 순서), 다운스트림 per-repo workflow 배포 대신 App/API 위임 중심 |
-| Go CLI | 5개 (`branch-protection`, `repo-review`, `rulesets-manager`, `sync-secrets`, `validate-naming`) |
+| Go CLI | 5개 (`branch-protection`, `repo-review`, `rulesets-manager`, `sync-secrets`, `validate-naming`) - policy tools are diagnostics; production standardization is App-owned |
 | 관측성 | Prometheus 메트릭 + `/health` + `/ready` (`monitoring.py`), ELK 연동 |
 | 테스트 | `scripts/cmd/*` 5개 Go command 패키지 모두 `_test.go` 보유, `90_sanity.yml` CI 게이트 |
 
@@ -37,7 +37,7 @@
 
 | # | 갭 / Gap | 근거 / Evidence | 영향 / Impact |
 |---|----------|-----------------|---------------|
-| **G1** | 정책 드리프트 검증은 `branch-protection` / `rulesets-manager` dry-run 중심이며, 스케줄된 원격 비교 리포트는 별도 표면으로 분리되어 있지 않음 | `scripts/cmd/branch-protection/main.go`, `scripts/cmd/rulesets-manager/main.go`, `.github/workflows/31_repo-health.yml` | GitHub 원격 정책이 수동 변경될 때 감지는 가능하지만 전용 리포트로 모이지 않음 |
+| **G1** | 정책 드리프트 검증은 App 표준화 엔드포인트와 Go diagnostic dry-run 사이에 분산되어 있으며, 스케줄된 원격 비교 리포트는 별도 표면으로 분리되어 있지 않음 | `jclee_bot/repo_standardization_endpoint.py`, `scripts/cmd/branch-protection/main.go`, `scripts/cmd/rulesets-manager/main.go`, `.github/workflows/31_repo-health.yml` | GitHub 원격 정책이 수동 변경될 때 감지는 가능하지만 전용 리포트로 모이지 않음 |
 | **G2** | Downstream Health Check는 App-era 전환 후 per-workflow sweep을 비워 둔 no-op close 경로임 | `.github/workflows/29_downstream-health-check.yml` (`WORKFLOWS=()`) | 기존 issue 정리는 안전하지만 downstream 상태 관측 신호로는 약함 |
 | **G3** | App 이미지 롤아웃 후 런타임 검증은 별도 health workflows에 의존함 | `.github/workflows/36_build-and-push-app.yml`, `.github/workflows/30_runtime-health-check.yml` | 배포 직후 canary/rollback 판단이 한 표면으로 묶여 있지 않음 |
 

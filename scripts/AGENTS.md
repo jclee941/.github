@@ -3,9 +3,10 @@
 ## OVERVIEW
 
 Go automation tools for the canonical `config/repos.yaml` inventory: merged branch cleanup,
-branch protection, rulesets, secret sync, repo review, naming validation, README generation helpers,
-and a file-based suggestion/regression feedback engine. `jclee-bot` is the source repo; rollout-style
-automation follows each row's `automation.deploy_workflows` value in `config/repos.yaml`.
+branch-protection diagnostics, rulesets diagnostics, secret sync, repo review, naming validation,
+README generation helpers, and a file-based suggestion/regression feedback engine. `jclee-bot`
+is the source repo; production repository standardization is owned by the App endpoint, not by
+workflow-side Go execution.
 
 ## STRUCTURE
 
@@ -13,11 +14,11 @@ automation follows each row's `automation.deploy_workflows` value in `config/rep
 scripts/
 ├── go.mod                               # module github.com/jclee941/jclee-bot/scripts
 ├── cmd/
-│   ├── branch-protection/main.go        # auto-merge + branch protection rules
+│   ├── branch-protection/main.go        # branch protection dry-run diagnostics
 │   ├── branch-cleanup/main.go           # delete branches merged into managed default branches
-│   ├── repo-standardization/main.go     # downstream documentation standardization checks
+│   ├── repo-standardization/main.go     # legacy downstream documentation diagnostics
 │   ├── repo-review/main.go              # batch repo review
-│   ├── rulesets-manager/main.go         # GitHub Rulesets list/apply/delete
+│   ├── rulesets-manager/main.go         # GitHub Rulesets list/dry-run diagnostics
 │   ├── sync-secrets/main.go             # sync CLIPROXY_API_KEY and GH_PAT across repos
 │   └── validate-naming/main.go          # naming + orphan-workflow + readme-inventory validators
 ├── internal/
@@ -36,8 +37,8 @@ scripts/
 | Task | File |
 |------|------|
 | Delete merged stale branches | `cmd/branch-cleanup/main.go` |
-| Apply branch protection + auto-merge | `cmd/branch-protection/main.go` |
-| Manage GitHub Rulesets (list/apply/delete) | `cmd/rulesets-manager/main.go` |
+| Inspect branch protection payloads | `cmd/branch-protection/main.go` |
+| Inspect GitHub Rulesets payloads | `cmd/rulesets-manager/main.go` |
 | Sync shared secrets across repos | `cmd/sync-secrets/main.go` |
 | Validate downstream doc standardization | `cmd/repo-standardization/main.go` |
 | Batch repository review | `cmd/repo-review/main.go` |
@@ -52,7 +53,6 @@ scripts/
 cd scripts
 go test ./...
 go run ./cmd/branch-protection --dry-run
-go run ./cmd/branch-protection           # apply to eligible repos from config/repos.yaml
 go run ./cmd/branch-cleanup --dry-run
 go run ./cmd/branch-cleanup              # delete branches already merged into default branches
 go run ./cmd/rulesets-manager --dry-run
@@ -76,6 +76,7 @@ cd ..
 ## ANTI-PATTERNS
 
 - Never run the legacy root-level binaries (`./branch-protection`, `./sync-secrets`, `./repo-review`). Use `go run ./cmd/<name>` instead.
+- Never add workflow-side `go run ./cmd/branch-protection`, `go run ./cmd/rulesets-manager`, or `go run ./cmd/repo-standardization` as the production rollout path. Use the App endpoint `/api/v1/repo_standardization`.
 - Never hardcode secrets or API keys in `.go` source files.
 - Never run `go run` from the repo root. Always `cd scripts` first.
 - Never apply `branch-protection`, `rulesets-manager`, `branch-cleanup`, `sync-secrets`, or `repo-review` to live repos before a dry-run or list pass has shown the target inventory.
