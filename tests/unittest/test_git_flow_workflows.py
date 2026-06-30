@@ -217,6 +217,12 @@ class TestNativeHealthWorkflowPolicy:
             assert "elk_host: $elk_host" in text
             assert 'curl -fsS --retry 3 --retry-delay 5 --max-time 180 \\' in text
 
+    def test_bot_health_workflow_passes_cliproxy_key_to_jclee_bot(self):
+        text = read_workflow("bot-health-monitor.yml")
+        assert "CLIPROXY_API_KEY: ${{ secrets.CLIPROXY_API_KEY }}" in text
+        assert "--arg cliproxy_api_key \"$CLIPROXY_API_KEY\"" in text
+        assert "CLIPROXY_API_KEY: $cliproxy_api_key" in text
+
     def test_build_pushes_rename_compatibility_tag(self):
         text = read_workflow("build-and-push-app.yml")
         assert "registry.jclee.me/jclee-bot-app:latest" in text

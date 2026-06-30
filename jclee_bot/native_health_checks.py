@@ -217,19 +217,37 @@ def check_bot_health(token: str, payload: dict[str, Any]) -> HealthResult:
     api_key = _env(payload, "CLIPROXY_API_KEY")
     if not api_key:
         return _critical("bot_health", title, labels, "CLIPROXY_API_KEY is not configured for native bot health")
-    status = _http_status("https://cliproxy.jclee.me/v1/models", headers={"Authorization": f"Bearer {api_key}"})
+    try:
+        status = _http_status("https://cliproxy.jclee.me/v1/models", headers={"Authorization": f"Bearer {api_key}"})
+    except Exception as exc:  # noqa: BLE001
+        return _critical(
+            "bot_health",
+            title,
+            labels,
+            "CLIProxyAPI authenticated health did not respond",
+            error=f"{type(exc).__name__}: {exc}",
+        )
     if status != 200:
         return _critical("bot_health", title, labels, f"CLIProxyAPI authenticated health returned HTTP {status}")
     owner = str(repo_full_name_from_payload(payload) or "jclee941/jclee-bot").split("/", 1)[0]
     cutoff = (datetime.now(UTC) - timedelta(hours=48)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    response = requests.get(
-        f"{GITHUB_API}/search/issues",
-        headers=issue_commands._headers(token),  # noqa: SLF001
-        params={"q": f"commenter:jclee-bot[bot] user:{owner} updated:>={cutoff}", "per_page": 1},
-        timeout=30,
-    )
-    response.raise_for_status()
-    count = int(response.json().get("total_count", 0) or 0)
+    try:
+        response = requests.get(
+            f"{GITHUB_API}/search/issues",
+            headers=issue_commands._headers(token),  # noqa: SLF001
+            params={"q": f"commenter:jclee-bot[bot] user:{owner} updated:>={cutoff}", "per_page": 1},
+            timeout=30,
+        )
+        response.raise_for_status()
+        count = int(response.json().get("total_count", 0) or 0)
+    except Exception as exc:  # noqa: BLE001
+        return _critical(
+            "bot_health",
+            title,
+            labels,
+            "GitHub activity search failed for native bot health",
+            error=f"{type(exc).__name__}: {exc}",
+        )
     if count <= 0:
         return _critical(
             "bot_health",

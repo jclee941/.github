@@ -71,13 +71,20 @@ def run_native_health(*, token: str, payload: dict[str, Any]) -> dict[str, Any]:
         return {"dry_run": dry_run, "actions": [], "error": "repository is required"}
     requested_checks = _parse_checks(payload.get("checks") or payload.get("check"))
     results = [_run_check(check, token, payload) for check in requested_checks]
-    issue_result = issue_commands.run_issue_commands(
-        token=token,
-        payload={"repository": repo_full_name, "dry_run": dry_run, "commands": _commands(results)},
-    )
+    try:
+        issue_result = issue_commands.run_issue_commands(
+            token=token,
+            payload={"repository": repo_full_name, "dry_run": dry_run, "commands": _commands(results)},
+        )
+    except Exception as exc:  # noqa: BLE001
+        issue_result = {
+            "actions": [f"issue-actions-error:{type(exc).__name__}"],
+            "error": str(exc),
+        }
     return {
         "dry_run": dry_run,
         "repository": repo_full_name,
         "checks": [{"name": r.name, "status": r.status, "summary": r.summary} for r in results],
         "actions": issue_result.get("actions", []),
+        **({"issue_error": issue_result["error"]} if issue_result.get("error") else {}),
     }
