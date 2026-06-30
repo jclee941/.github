@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import Final
+from typing import Final, cast
 
 import requests
 
 from jclee_bot import workflow_issue_automation
 from jclee_bot.github_api_client import GITHUB_API, headers
-from jclee_bot.json_boundary import JsonObject, json_object
+from jclee_bot.json_boundary import JsonObject, is_object_mapping, json_object, json_value, object_dict, object_list
 from jclee_bot.repo_standardization_types import RepositoryAction, StandardizationStep, step_status
 
 TARGET_BRANCH: Final = "master"
@@ -47,12 +47,12 @@ def branch_protection_step(
 def apply_branch_protection(*, token: str, full_repo: str, dry_run: bool) -> RepositoryAction:
     if dry_run:
         return RepositoryAction(repo=full_repo, action="would_apply")
-    github_patch(
+    _ = github_patch(
         token=token,
         path=f"/repos/{full_repo}",
         payload={"allow_auto_merge": True, "delete_branch_on_merge": True},
     )
-    github_put(
+    _ = github_put(
         token=token,
         path=f"/repos/{full_repo}/branches/{TARGET_BRANCH}/protection",
         payload=branch_protection_payload(),
@@ -112,20 +112,21 @@ def upsert_ruleset(*, token: str, full_repo: str, dry_run: bool) -> RepositoryAc
         return RepositoryAction(repo=full_repo, action="would_apply", detail=detail)
     method = github_put if existing_id else github_post
     path = f"/repos/{full_repo}/rulesets/{existing_id}" if existing_id else f"/repos/{full_repo}/rulesets"
-    method(token=token, path=path, payload=ruleset_payload())
+    _ = method(token=token, path=path, payload=ruleset_payload())
     return RepositoryAction(repo=full_repo, action="applied")
 
 
 def find_ruleset_id(*, token: str, full_repo: str, ruleset_name: str) -> int | None:
     response = requests.get(f"{GITHUB_API}/repos/{full_repo}/rulesets", headers=headers(token), timeout=30)
     response.raise_for_status()
-    raw_rulesets = response.json()
-    if not isinstance(raw_rulesets, list):
-        return None
+    raw_rulesets = object_list(json_value(response_json(response)), "rulesets response must be a JSON array")
     for item in raw_rulesets:
-        if not isinstance(item, dict) or item.get("name") != ruleset_name:
+        if not is_object_mapping(item):
             continue
-        ruleset_id = item.get("id")
+        ruleset = object_dict(item)
+        if ruleset.get("name") != ruleset_name:
+            continue
+        ruleset_id = ruleset.get("id")
         if isinstance(ruleset_id, int):
             return ruleset_id
     return None
@@ -155,17 +156,21 @@ def ruleset_payload() -> JsonObject:
 def github_patch(*, token: str, path: str, payload: JsonObject) -> JsonObject:
     response = requests.patch(f"{GITHUB_API}{path}", headers=headers(token), json=payload, timeout=30)
     response.raise_for_status()
-    return json_object(response.json(), f"PATCH {path}")
+    return json_object(json_value(response_json(response)), f"PATCH {path}")
 
 
 def github_put(*, token: str, path: str, payload: JsonObject) -> JsonObject:
     response = requests.put(f"{GITHUB_API}{path}", headers=headers(token), json=payload, timeout=30)
     response.raise_for_status()
-    raw = response.json() if response.content else {}
+    raw = json_value(response_json(response)) if response.content else {}
     return json_object(raw, f"PUT {path}")
 
 
 def github_post(*, token: str, path: str, payload: JsonObject) -> JsonObject:
     response = requests.post(f"{GITHUB_API}{path}", headers=headers(token), json=payload, timeout=30)
     response.raise_for_status()
-    return json_object(response.json(), f"POST {path}")
+    return json_object(json_value(response_json(response)), f"POST {path}")
+
+
+def response_json(response: requests.Response) -> object:
+    return cast(object, response.json())

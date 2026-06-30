@@ -52,7 +52,7 @@ def scan_remote_repository(*, token: str, owner: str, repo_name: str) -> Reposit
 def clone_repository(*, token: str, full_repo: str, repo_dir: Path, workspace: str) -> None:
     auth_env = git_askpass_env(token=token, workspace=workspace)
     try:
-        subprocess.run(
+        _ = subprocess.run(
             ["git", "clone", "--depth", "1", f"https://github.com/{full_repo}.git", str(repo_dir)],
             check=True,
             timeout=120,
