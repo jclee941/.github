@@ -69,6 +69,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: '1.21'
+          cache-dependency-path: scripts/go.sum
 
       - name: Resolve mode
         id: mode
