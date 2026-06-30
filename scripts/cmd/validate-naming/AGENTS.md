@@ -21,6 +21,7 @@ Go validator for workflow names, issue-template names, required App check contex
 
 - Run from the scripts module: `(cd scripts && go run ./cmd/validate-naming)`.
 - Add each new invariant to the `validations` slice in `main.go` and cover it with table-driven tests.
+- Downstream repository checks that clone managed repos belong in `cmd/repo-standardization`, not this source-repo-only validator.
 - The canonical managed repo list comes from `config/repos.yaml`; validators should reject hardcoded managed-repo inventories in workflows or Go commands.
 - Required branch-protection contexts are exactly `jclee-bot / pr-metadata`, `jclee-bot / secret-scan`, and `jclee-bot / actionlint`.
 - README checks should enforce the App automation surface, not resurrect a row-by-row workflow inventory.

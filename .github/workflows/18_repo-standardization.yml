@@ -6,6 +6,7 @@ on:
     paths:
       - 'config/repos.yaml'
       - 'scripts/cmd/branch-protection/**'
+      - 'scripts/cmd/repo-standardization/**'
       - 'scripts/cmd/rulesets-manager/**'
       - 'scripts/internal/repos/**'
       - '.github/workflows/18_repo-standardization.yml'
@@ -77,6 +78,12 @@ jobs:
           printf 'args=%s\n' "${args[*]}" >> "$GITHUB_OUTPUT"
           printf 'mode=%s\n' "${mode}" >> "$GITHUB_OUTPUT"
 
+      - name: Verify downstream documentation standardization
+        working-directory: scripts
+        run: |
+          set -euo pipefail
+          go run ./cmd/repo-standardization ${{ steps.mode.outputs.args }}
+
       - name: Apply branch protection and auto-merge defaults
         working-directory: scripts
         run: |
@@ -109,6 +116,7 @@ jobs:
             echo ""
             echo "- Mode: ${{ steps.mode.outputs.mode }}"
             echo "- Inventory: \`config/repos.yaml\`"
+            echo "- Downstream docs: raw Mermaid/chart blocks rejected by \`repo-standardization\`"
             echo "- Branch protection: \`jclee-bot / pr-metadata\`, \`jclee-bot / secret-scan\`, \`jclee-bot / actionlint\`"
             echo "- Ruleset: \`Default Branch Protection\`"
           } >> "$GITHUB_STEP_SUMMARY"

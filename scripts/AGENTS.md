@@ -15,6 +15,7 @@ scripts/
 ├── cmd/
 │   ├── branch-protection/main.go        # auto-merge + branch protection rules
 │   ├── branch-cleanup/main.go           # delete branches merged into managed default branches
+│   ├── repo-standardization/main.go     # downstream documentation standardization checks
 │   ├── repo-review/main.go              # batch repo review
 │   ├── rulesets-manager/main.go         # GitHub Rulesets list/apply/delete
 │   ├── sync-secrets/main.go             # sync CLIPROXY_API_KEY and GH_PAT across repos
@@ -38,6 +39,7 @@ scripts/
 | Apply branch protection + auto-merge | `cmd/branch-protection/main.go` |
 | Manage GitHub Rulesets (list/apply/delete) | `cmd/rulesets-manager/main.go` |
 | Sync shared secrets across repos | `cmd/sync-secrets/main.go` |
+| Validate downstream doc standardization | `cmd/repo-standardization/main.go` |
 | Batch repository review | `cmd/repo-review/main.go` |
 | Enforce naming conventions | `cmd/validate-naming/main.go` |
 | README generation prompts/helpers | `generate_readme.py`, `generate_readme_prompts.py` |
@@ -55,6 +57,7 @@ go run ./cmd/branch-cleanup --dry-run
 go run ./cmd/branch-cleanup              # delete branches already merged into default branches
 go run ./cmd/rulesets-manager --dry-run
 go run ./cmd/rulesets-manager --mode list
+go run ./cmd/repo-standardization --dry-run
 CLIPROXY_API_KEY=... GH_PAT=... go run ./cmd/sync-secrets --dry-run
 go run ./cmd/validate-naming
 go run ./cmd/validate-naming --fix       # auto-fix where supported

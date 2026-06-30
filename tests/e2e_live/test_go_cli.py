@@ -147,3 +147,13 @@ def test_repo_review_normalize_repos_rejects_unsafe_repo_names(dry_run_env: Mapp
 
     assert result.returncode != 0
     assert "must be a managed repo name" in result.stderr
+
+
+@pytest.mark.skipif(GO_MISSING, reason="go binary is not available on PATH")
+def test_repo_standardization_dry_run_smoke(dry_run_env: Mapping[str, str]) -> None:
+    result = run_go_cli(["./cmd/repo-standardization", "--dry-run", "--repos=resume"], dry_run_env)
+
+    assert result.returncode == 0, result.stderr
+    assert "repo-standardization starting (dry-run)" in result.stdout
+    assert "- jclee941/resume: passed" in result.stdout
+    assert "repo-standardization finished. failures=0" in result.stdout
