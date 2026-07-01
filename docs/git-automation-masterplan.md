@@ -25,7 +25,7 @@ primary rollout mechanism.
 | Branch-to-PR GitOps | `jclee_bot/gitops_automation.py` | Unit tests in `tests/unittest/test_jclee_bot_gitops_automation.py` |
 | Bot PR auto-merge | `jclee_bot/pr_auto_merge.py` | App event unit coverage and live PR check state |
 | Merged branch cleanup | `scripts/cmd/branch-cleanup` | `(cd scripts && go run ./cmd/branch-cleanup --dry-run)` |
-| Repository standardization | `jclee_bot/repo_standardization_endpoint.py` | App endpoint `/api/v1/repo_standardization`; latest `18_repo-standardization.yml` run |
+| Repository standardization | `jclee_bot/repo_standardization_endpoint.py` | App endpoint `/api/v1/repo_standardization`; App runtime health and endpoint tests |
 | Branch protection diagnostics | `scripts/cmd/branch-protection` | `(cd scripts && go run ./cmd/branch-protection --dry-run)` |
 | Rulesets diagnostics | `scripts/cmd/rulesets-manager` | `(cd scripts && go run ./cmd/rulesets-manager --dry-run)` |
 | Repo review batch | `scripts/cmd/repo-review` | `(cd scripts && go run ./cmd/repo-review --normalize-repos)` |
@@ -86,15 +86,17 @@ gh issue list --repo jclee941/jclee-bot --state open --json number --jq 'length'
 gh pr list --repo jclee941/jclee-bot --state open --json number --jq 'length'
 ```
 
-For production proof, trigger `18_repo-standardization.yml` against the deployed
-App and confirm the workflow reaches `success` on the target commit.
+For production proof, call the deployed App standardization endpoint with
+`dry_run=true` and confirm the response summary is not failed. The retired
+repository-standardization workflow must not be restored; the App owns this
+automation surface directly.
 
 ## Current Guardrail
 
 The weakest verified policy surfaces were the boundaries between the App-owned
-standardization endpoint and the older Go diagnostics. Active workflows now
-delegate to `/api/v1/repo_standardization`, while the Go CLI smoke suite keeps
-the local diagnostic tools from drifting.
+standardization endpoint and the older Go diagnostics. The App endpoint owns
+repository standardization directly, while the Go CLI smoke suite keeps the
+local diagnostic tools from drifting.
 
 The riskiest runtime surface is current CI-failure issue cleanup. It must stay
 biased toward preserving or deferring issues when workflow identity or run state

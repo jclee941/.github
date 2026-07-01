@@ -100,6 +100,39 @@ jobs:
 	}
 }
 
+func TestActiveWorkflowsAvoidStaleControlPlaneSurfacesDetectsGithubScriptIssueMutation(t *testing.T) {
+	tmpDir := t.TempDir()
+	wfDir := filepath.Join(tmpDir, ".github", "workflows")
+	if err := os.MkdirAll(wfDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	bad := `name: Legacy GitHub Script Issue Writer
+on:
+  workflow_dispatch:
+jobs:
+  write:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            await github.rest.issues.create({owner: "jclee941", repo: "demo", title: "x", body: "y"})
+`
+	if err := os.WriteFile(filepath.Join(wfDir, "42_legacy-github-script-issue-writer.yml"), []byte(bad), 0o644); err != nil {
+		t.Fatalf("write bad workflow: %v", err)
+	}
+
+	v := &validator{rootDir: tmpDir}
+	err := v.activeWorkflowsAvoidStaleControlPlaneSurfaces()
+	if err == nil {
+		t.Fatal("expected GitHub Script workflow-owned issue mutation to be flagged")
+	}
+	if !strings.Contains(err.Error(), "github.rest.issues.create") {
+		t.Fatalf("error should mention GitHub Script issue mutation, got: %v", err)
+	}
+}
+
 func TestActiveWorkflowsAvoidStaleControlPlaneSurfacesDetectsLocalActionIssueMutation(t *testing.T) {
 	tmpDir := t.TempDir()
 	wfDir := filepath.Join(tmpDir, ".github", "workflows")

@@ -4,11 +4,18 @@ These tests validate the README generator helper WITHOUT making network
 calls. They guard against the dead-code duplication bug and enforce the
 canonical CLIProxyAPI model fallback chain.
 """
+# pyright: reportPrivateUsage=false
 
 from __future__ import annotations
 
 import importlib.util
+import sys
+from collections.abc import Callable
 from pathlib import Path
+from types import ModuleType
+from typing import Protocol, TypeGuard
+
+from pytest import MonkeyPatch
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / "scripts" / "generate_readme.py"
@@ -16,13 +23,49 @@ PROMPTS_SCRIPT = REPO_ROOT / "scripts" / "generate_readme_prompts.py"
 assert SCRIPT.exists(), f"generate_readme.py not found: {SCRIPT}"
 
 
-def _load_module():
+class GenerateReadmeModule(Protocol):
+    MODELS: list[str]
+    API_KEY: str
+    _RETRY_BACKOFF_SECONDS: list[int]
+    cliproxy_chat_completion: Callable[..., str]
+
+    def generate_readme(self, repo_root: Path) -> str: ...
+
+    def read_key_files(self, repo_root: Path) -> dict[str, str]: ...
+
+    def call_llm(self, system: str, user: str) -> str: ...
+
+    def run_tree(self, repo_root: Path) -> str: ...
+
+    def _looks_like_downstream_automation_boilerplate(self, text: str) -> bool: ...
+
+    def _is_transient(self, exc: BaseException) -> bool: ...
+
+
+def _load_module() -> GenerateReadmeModule:
     """Import generate_readme.py as a module (no API key required)."""
     spec = importlib.util.spec_from_file_location("generate_readme", SCRIPT)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
     spec.loader.exec_module(mod)
+    assert _is_generate_readme_module(mod)
     return mod
+
+
+def _is_generate_readme_module(mod: ModuleType) -> TypeGuard[GenerateReadmeModule]:
+    return (
+        hasattr(mod, "MODELS")
+        and hasattr(mod, "API_KEY")
+        and hasattr(mod, "_RETRY_BACKOFF_SECONDS")
+        and hasattr(mod, "cliproxy_chat_completion")
+        and hasattr(mod, "generate_readme")
+        and hasattr(mod, "read_key_files")
+        and hasattr(mod, "call_llm")
+        and hasattr(mod, "run_tree")
+        and hasattr(mod, "_looks_like_downstream_automation_boilerplate")
+        and hasattr(mod, "_is_transient")
+    )
 
 
 def test_canonical_model_chain():
@@ -35,7 +78,7 @@ def test_canonical_model_chain():
 
 def test_no_stale_model_text_in_prompt():
     """README-generator prompt must not hardcode the retired minimax fallback."""
-    text = SCRIPT.read_text() + PROMPTS_SCRIPT.read_text()
+    text = SCRIPT.read_text() + (REPO_ROOT / "scripts" / "generate_readme_prompts.py").read_text()
     assert "minimax-m2.7" not in text, (
         "generate_readme.py must not hardcode minimax-m2.7; fallback is minimax-m3"
     )
@@ -52,18 +95,21 @@ def test_prompt_keeps_jclee_bot_as_automation_surface():
     assert "list all real workflow files grouped by trigger type" not in text
 
 
-def test_downstream_repo_prompt_includes_agents_md_without_readme_boilerplate(monkeypatch, tmp_path):
+def test_downstream_repo_prompt_includes_agents_md_without_readme_boilerplate(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
     mod = _load_module()
     captured: dict[str, str] = {}
 
     (tmp_path / ".github" / "workflows").mkdir(parents=True)
-    (tmp_path / ".github" / "workflows" / "ci.yml").write_text("name: CI\n", encoding="utf-8")
-    (tmp_path / "AGENTS.md").write_text(
+    _ = (tmp_path / ".github" / "workflows" / "ci.yml").write_text("name: CI\n", encoding="utf-8")
+    _ = (tmp_path / "AGENTS.md").write_text(
         "Project instructions: document the CLI entry point and npm test command.\n",
         encoding="utf-8",
     )
-    (tmp_path / "package.json").write_text('{"name":"demo-tool"}\n', encoding="utf-8")
-    (tmp_path / "README.md").write_text(
+    _ = (tmp_path / "package.json").write_text('{"name":"demo-tool"}\n', encoding="utf-8")
+    _ = (tmp_path / "README.md").write_text(
         "# demo\n\n## jclee-bot Automation\n\nREADME Generation via gpt-5.5.\n",
         encoding="utf-8",
     )
@@ -73,7 +119,10 @@ def test_downstream_repo_prompt_includes_agents_md_without_readme_boilerplate(mo
         captured["user"] = user
         return "# demo-tool\n"
 
-    monkeypatch.setattr(mod, "run_tree", lambda _repo_root: ".\n├── package.json\n└── README.md")
+    def fake_run_tree(_repo_root: Path) -> str:
+        return ".\n├── package.json\n└── README.md"
+
+    monkeypatch.setattr(mod, "run_tree", fake_run_tree)
     monkeypatch.setattr(mod, "call_llm", fake_call_llm)
 
     assert mod.generate_readme(tmp_path) == "# demo-tool\n"
@@ -121,27 +170,30 @@ def test_downstream_boilerplate_detector_flags_control_plane_context():
     assert mod._looks_like_downstream_automation_boilerplate(readme)
 
 
-def test_source_repo_prompt_keeps_automation_contract(monkeypatch, tmp_path):
+def test_source_repo_prompt_keeps_automation_contract(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
     mod = _load_module()
     captured: dict[str, str] = {}
 
     (tmp_path / "jclee_bot").mkdir()
     (tmp_path / "jclee_bot" / "review_engine").mkdir(parents=True)
     (tmp_path / "config").mkdir()
-    (tmp_path / "config" / "repos.yaml").write_text("repositories: []\n", encoding="utf-8")
+    _ = (tmp_path / "config" / "repos.yaml").write_text("repositories: []\n", encoding="utf-8")
     (tmp_path / ".github" / "workflows").mkdir(parents=True)
-    (tmp_path / ".github" / "workflows" / "10_pr-review.yml").write_text(
+    _ = (tmp_path / ".github" / "workflows" / "10_pr-review.yml").write_text(
         "name: PR Review\n",
         encoding="utf-8",
     )
-    (tmp_path / "AGENTS.md").write_text("Automation inventory\n", encoding="utf-8")
+    _ = (tmp_path / "AGENTS.md").write_text("Automation inventory\n", encoding="utf-8")
 
     def fake_call_llm(system: str, user: str) -> str:
         captured["system"] = system
         captured["user"] = user
         return "# jclee-bot\n"
 
-    monkeypatch.setattr(mod, "run_tree", lambda _repo_root: ".\n├── jclee_bot\n└── pr_agent")
+    def fake_run_tree(_repo_root: Path) -> str:
+        return ".\n├── jclee_bot\n└── pr_agent"
+
+    monkeypatch.setattr(mod, "run_tree", fake_run_tree)
     monkeypatch.setattr(mod, "call_llm", fake_call_llm)
 
     assert mod.generate_readme(tmp_path) == "# jclee-bot\n"
@@ -174,7 +226,7 @@ def test_no_unreachable_duplicate_function_bodies():
     )
 
 
-def test_module_imports_without_api_key(monkeypatch):
+def test_module_imports_without_api_key(monkeypatch: MonkeyPatch) -> None:
     """Importing the module must not require CLIPROXY_API_KEY."""
     monkeypatch.delenv("CLIPROXY_API_KEY", raising=False)
     mod = _load_module()
@@ -203,17 +255,17 @@ def test_is_transient_error_classification():
     assert mod._is_transient(TimeoutError("timed out"))
 
 
-def test_call_llm_retries_transient_then_succeeds(monkeypatch):
+def test_call_llm_retries_transient_then_succeeds(monkeypatch: MonkeyPatch) -> None:
     """call_llm must retry a transient 524 and succeed on a later attempt
     without raising."""
     mod = _load_module()
     monkeypatch.setattr(mod, "API_KEY", "test-key")
     monkeypatch.setattr(mod, "MODELS", ["m1"])
-    monkeypatch.setattr(mod, "_RETRY_BACKOFF_SECONDS", [0, 0, 0])  # no real sleeping
+    monkeypatch.setattr(mod, "_RETRY_BACKOFF_SECONDS", [0, 0, 0])
 
     calls = {"n": 0}
 
-    def fake_chat_completion(**_kwargs):
+    def fake_chat_completion(**_kwargs: str | int | float | list[str] | list[dict[str, str]]) -> str:
         calls["n"] += 1
         if calls["n"] < 3:
             raise ConnectionError("timeout")

@@ -141,7 +141,7 @@ GitHub Actions do not own PR/issue mutation logic. They either run CI/build work
 
 All Go CLIs live under `scripts/cmd/<tool>/main.go` and are intended to be run from the repo root via the convention shown in *Commands Reference*. They are statically linked single-binary tools with no runtime dependencies beyond `git` and the `GITHUB_TOKEN` / `GH_TOKEN` env var.
 
-Production repository standardization is App-owned. The policy-related Go CLIs are kept for local dry-runs, diagnostics, and compatibility checks; active workflows delegate branch protection and Rulesets reconciliation to `/api/v1/repo_standardization`.
+Production repository standardization is App-owned. The policy-related Go CLIs are kept for local dry-runs, diagnostics, and compatibility checks; branch protection and Rulesets reconciliation run through the `jclee-bot` App standardization endpoint, not workflow-side Go execution.
 
 | # | Tool | Purpose | 목적 |
 |---|------|---------|------|

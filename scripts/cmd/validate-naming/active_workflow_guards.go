@@ -123,6 +123,10 @@ func workflowOwnedIssueMutationHits(fileName string, content string) []string {
 		"gh issue close",
 		"gh issue edit",
 		"gh label create",
+		"github.rest.issues.create",
+		"github.rest.issues.update",
+		"github.rest.issues.addLabels",
+		"github.rest.issues.createComment",
 	} {
 		if strings.Contains(content, token) {
 			hits = append(hits, fmt.Sprintf("%s retains workflow-owned issue mutation %q", fileName, token))
