@@ -246,13 +246,15 @@ def test_sanitize_links_rewrites_tree_main_paths_with_http_www_variants(
         "[docs](http://github.com/jclee941/account/tree/main/docs) "
         "[scripts](https://www.github.com/jclee941/jclee-bot/tree/main/scripts) "
         "[root](https://github.com/jclee941/account/tree/main?tab=readme-ov-file) "
-        "[raw](https://www.github.com/jclee941/jclee-bot/blob/main?raw=1)"
+        "[raw](https://www.github.com/jclee941/jclee-bot/blob/main?raw=1) "
+        "[section](https://github.com/jclee941/account/blob/main#readme)"
     )
 
     assert "https://github.com/jclee941/account/tree/master/docs" in out, out
     assert "https://github.com/jclee941/jclee-bot/tree/master/scripts" in out, out
     assert "https://github.com/jclee941/account/tree/master?tab=readme-ov-file" in out, out
     assert "https://github.com/jclee941/jclee-bot/blob/master?raw=1" in out, out
+    assert "https://github.com/jclee941/account/blob/master#readme" in out, out
     assert "http://github.com" not in out, out
     assert "www.github.com" not in out, out
     assert "/tree/main" not in out, out
