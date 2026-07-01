@@ -71,3 +71,11 @@ def test_product_prompt_keeps_visual_upgrade_without_bot_boilerplate() -> None:
     assert "quick-glance status table" in product_prompt
     assert "Do NOT add jclee-bot automation surfaces" in product_prompt
     assert "unless this repository's own source code implements that as the product" in product_prompt
+
+
+def test_product_prompt_rejects_stale_monorepo_branding() -> None:
+    product_prompt = _load_prompts_module().product_readme_system_prompt()
+
+    assert "Do NOT brand the repository as a monorepo in the title" in product_prompt
+    assert "technical structure detail" in product_prompt
+    assert "stale repository-name-plus-monorepo branding" in product_prompt

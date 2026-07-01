@@ -1,13 +1,46 @@
 from __future__ import annotations
 
-import codecs
 import json
 import re
 from pathlib import Path
+from typing import ClassVar, Final
 
 import yaml
+from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+class _ContentPayload(BaseModel):
+    model_config: ClassVar[ConfigDict] = ConfigDict(frozen=True, extra="ignore")
+
+    content: str
+
+
+class _RepoInventoryEntry(BaseModel):
+    model_config: ClassVar[ConfigDict] = ConfigDict(frozen=True, extra="ignore")
+
+    visibility: str
+    name: str
+
+
+class _RepoInventory(BaseModel):
+    model_config: ClassVar[ConfigDict] = ConfigDict(frozen=True, extra="ignore")
+
+    repositories: tuple[_RepoInventoryEntry, ...]
+
+
+_REPO_INVENTORY_MODEL_READY: Final[bool | None] = _RepoInventory.model_rebuild()
+_JSON_STRING_ADAPTER: Final[TypeAdapter[str]] = TypeAdapter(str)
+_KNOWN_STALE_BRANDING_REPLACEMENTS: Final[tuple[tuple[str, str], ...]] = (
+    ("레쥬메 모노레포 / Resume Portfolio Monorepo", "포트폴리오 자동화 워크스페이스 / Portfolio Automation Workspace"),
+    ("Resume portfolio monorepo:", "Portfolio automation workspace:"),
+    ("Resume Portfolio Monorepo", "Portfolio Automation Workspace"),
+    ("npm 워크스페이스 모노레포", "npm 워크스페이스 빌드"),
+    ("npm workspaces monorepo", "npm workspaces build"),
+    ("private npm workspaces build", "private automation workspace"),
+    ("이 모노레포", "이 워크스페이스"),
+)
 
 
 def normalize_llm_readme_response(text: str) -> str:
@@ -23,7 +56,20 @@ def normalize_llm_readme_response(text: str) -> str:
     if fence:
         s = fence.group(1).strip()
     s = re.sub(r"\[(!\[[^\]]*\]\([^)]*\))\]\(#\)", r"\1", s)
-    return _strip_generator_meta_notes(s)
+    s = _strip_generator_meta_notes(s)
+    return _repair_known_stale_branding(s)
+
+
+def _repair_known_stale_branding(text: str) -> str:
+    repaired = text
+    for stale, replacement in _KNOWN_STALE_BRANDING_REPLACEMENTS:
+        repaired = repaired.replace(stale, replacement)
+    repaired = re.sub(
+        r"하나의\s+npm 워크스페이스 빌드로\s+통합한",
+        "하나의 자동화 워크스페이스로 통합한",
+        repaired,
+    )
+    return repaired
 
 
 def _strip_generator_meta_notes(text: str) -> str:
@@ -60,17 +106,15 @@ def _strip_generator_meta_notes(text: str) -> str:
 
 def _unwrap_json_content(s: str) -> str:
     try:
-        obj = json.loads(s)
-        if isinstance(obj, dict) and isinstance(obj.get("content"), str):
-            return obj["content"].strip()
-    except (json.JSONDecodeError, ValueError):
+        return _ContentPayload.model_validate_json(s).content.strip()
+    except (ValidationError, ValueError):
         mcontent = re.search(r'"content"\s*:\s*"', s)
         if mcontent:
             body = re.sub(r'"\s*\}\s*$', "", s[mcontent.end():])
             try:
-                return json.loads('"' + body + '"').strip()
+                return _JSON_STRING_ADAPTER.validate_json('"' + body + '"').strip()
             except (json.JSONDecodeError, ValueError):
-                return codecs.decode(body.encode(), "unicode_escape", errors="ignore").strip()
+                return body.encode().decode("unicode_escape", errors="ignore").strip()
     return s
 
 
@@ -93,24 +137,19 @@ def sanitize_links(text: str) -> str:
 def _known_jclee_repos() -> set[str]:
     inventory = _REPO_ROOT / "config" / "repos.yaml"
     try:
-        payload = yaml.safe_load(inventory.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError):
-        return {"jclee-bot"}
-    if not isinstance(payload, dict):
-        return {"jclee-bot"}
-    repositories = payload.get("repositories")
-    if not isinstance(repositories, list):
+        payload = _RepoInventory.model_validate(yaml.safe_load(inventory.read_text(encoding="utf-8")))
+    except (OSError, ValidationError, yaml.YAMLError):
         return {"jclee-bot"}
     repos = {"jclee-bot"}
-    for repo in repositories:
-        if not isinstance(repo, dict):
+    for repo in payload.repositories:
+        if repo.visibility != "public":
             continue
-        name = repo.get("name")
-        if repo.get("visibility") != "public":
-            continue
-        if isinstance(name, str):
-            repos.add(name)
+        repos.add(repo.name)
     return repos
+
+
+def known_jclee_repos() -> set[str]:
+    return _known_jclee_repos()
 
 
 def redact_private_ips(text: str) -> str:

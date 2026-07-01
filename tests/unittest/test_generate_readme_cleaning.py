@@ -1,18 +1,44 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
+from types import ModuleType
+from typing import Protocol, TypeGuard
+
+from pytest import MonkeyPatch
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CLEANING_SCRIPT = REPO_ROOT / "scripts" / "generate_readme_cleaning.py"
 
 
-def _load_cleaning_module():
+class CleaningModule(Protocol):
+    _REPO_ROOT: Path
+
+    def normalize_llm_readme_response(self, text: str) -> str: ...
+
+    def sanitize_links(self, text: str) -> str: ...
+
+    def known_jclee_repos(self) -> set[str]: ...
+
+
+def _load_cleaning_module() -> CleaningModule:
     spec = importlib.util.spec_from_file_location("generate_readme_cleaning", CLEANING_SCRIPT)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
     spec.loader.exec_module(mod)
+    assert _is_cleaning_module(mod)
     return mod
+
+
+def _is_cleaning_module(mod: ModuleType) -> TypeGuard[CleaningModule]:
+    return (
+        hasattr(mod, "normalize_llm_readme_response")
+        and hasattr(mod, "sanitize_links")
+        and hasattr(mod, "known_jclee_repos")
+        and hasattr(mod, "_REPO_ROOT")
+    )
 
 
 def test_sanitize_links_strips_nonexistent_jclee_repos():
@@ -107,6 +133,34 @@ def test_normalize_strips_generator_meta_note():
     assert "automation-policy boilerplate" not in out
 
 
+def test_normalize_repairs_known_stale_resume_branding():
+    mod = _load_cleaning_module()
+    raw = (
+        "# 레쥬메 모노레포 / Resume Portfolio Monorepo\n\n"
+        "> Resume portfolio monorepo: Cloudflare Worker edge site, job automation.\n\n"
+        "이 저장소는 개인 포트폴리오 사이트와 운영 대시보드를 하나의 "
+        "npm 워크스페이스 모노레포로 통합한 사설 저장소입니다.\n\n"
+        "This repository is a private npm workspaces monorepo that unifies a "
+        "personal portfolio site and operations dashboard.\n\n"
+        "`package.json`의 `description` 필드는 이 모노레포를 다음과 같이 정의합니다.\n\n"
+        "- **npm 워크스페이스 모노레포** — `apps/*`와 `packages/*`를 통합 빌드합니다.\n"
+        "- **npm workspaces monorepo** — Unifies `apps/*` and `packages/*`.\n"
+    )
+
+    out = mod.normalize_llm_readme_response(raw)
+
+    assert "레쥬메 모노레포" not in out
+    assert "Resume Portfolio Monorepo" not in out
+    assert "Resume portfolio monorepo" not in out
+    assert "npm 워크스페이스 모노레포" not in out
+    assert "npm workspaces monorepo" not in out
+    assert "이 모노레포" not in out
+    assert out.startswith("# 포트폴리오 자동화 워크스페이스 / Portfolio Automation Workspace")
+    assert "Portfolio automation workspace: Cloudflare Worker edge site" in out
+    assert "npm 워크스페이스 빌드" in out
+    assert "npm workspaces build" in out
+
+
 def test_normalize_strips_wrapped_generator_meta_note():
     mod = _load_cleaning_module()
     raw = (
@@ -149,44 +203,52 @@ def test_sanitize_links_canonicalizes_unknown_repo_paths_to_repo_root():
     assert out.count("https://github.com/jclee941/jclee-bot") == 2
 
 
-def test_known_repos_excludes_private_inventory_entries(tmp_path, monkeypatch):
+def test_known_repos_excludes_private_inventory_entries(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     mod = _load_cleaning_module()
     config_dir = tmp_path / "config"
     config_dir.mkdir()
-    (config_dir / "repos.yaml").write_text(
-        "\n"
-        "repositories:\n"
-        "  - visibility: public\n"
-        "    name: account\n"
-        "  - visibility: private\n"
-        "    name: hycu\n",
+    _ = (config_dir / "repos.yaml").write_text(
+        "\n".join(
+            (
+                "repositories:",
+                "  - visibility: public",
+                "    name: account",
+                "  - visibility: private",
+                "    name: hycu",
+                "",
+            )
+        ),
         encoding="utf-8",
     )
 
     monkeypatch.setattr(mod, "_REPO_ROOT", tmp_path)
-    assert mod._known_jclee_repos() == {"jclee-bot", "account"}
+    assert mod.known_jclee_repos() == {"jclee-bot", "account"}
 
 
-def test_known_repos_parses_inventory_variation(tmp_path, monkeypatch):
+def test_known_repos_parses_inventory_variation(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     mod = _load_cleaning_module()
     config_dir = tmp_path / "config"
     config_dir.mkdir()
-    (config_dir / "repos.yaml").write_text(
-        "\n"
-        "repositories:\n"
-        "  - visibility: public\n"
-        "    name: account\n"
-        "  - visibility: public\n"
-        "    name: jclee-bot\n"
-        "    automation:\n"
-        "      branch_protection: true\n"
-        "  - visibility: public\n"
-        "    name: propose\n",
+    _ = (config_dir / "repos.yaml").write_text(
+        "\n".join(
+            (
+                "repositories:",
+                "  - visibility: public",
+                "    name: account",
+                "  - visibility: public",
+                "    name: jclee-bot",
+                "    automation:",
+                "      branch_protection: true",
+                "  - visibility: public",
+                "    name: propose",
+                "",
+            )
+        ),
         encoding="utf-8",
     )
 
     monkeypatch.setattr(mod, "_REPO_ROOT", tmp_path)
-    assert mod._known_jclee_repos() == {"jclee-bot", "account", "propose"}
+    assert mod.known_jclee_repos() == {"jclee-bot", "account", "propose"}
 
 
 def test_normalize_strips_thinking_variant():
