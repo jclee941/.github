@@ -41,6 +41,17 @@ _KNOWN_STALE_BRANDING_REPLACEMENTS: Final[tuple[tuple[str, str], ...]] = (
     ("private npm workspaces build", "private automation workspace"),
     ("이 모노레포", "이 워크스페이스"),
 )
+_STALE_RESUME_MONOREPO_RE: Final[re.Pattern[str]] = re.compile(
+    r"\br[eé]sum[eé](?:[-\s]+(?:site|portfolio|workspace|automation|dashboard|private|npm))*[-\s]+monorepo\b",
+    re.IGNORECASE,
+)
+_STALE_KOREAN_RESUME_MONOREPO_RE: Final[re.Pattern[str]] = re.compile(
+    r"(?:레쥬메|이력서)(?:\s+(?:포트폴리오|사이트|자동화|대시보드|워크스페이스))*\s+모노레포"
+)
+_NPM_WORKSPACE_MONOREPO_RE: Final[re.Pattern[str]] = re.compile(
+    r"\bnpm\s+workspaces?\s+monorepo\b",
+    re.IGNORECASE,
+)
 
 
 def normalize_llm_readme_response(text: str) -> str:
@@ -64,6 +75,9 @@ def _repair_known_stale_branding(text: str) -> str:
     repaired = text
     for stale, replacement in _KNOWN_STALE_BRANDING_REPLACEMENTS:
         repaired = repaired.replace(stale, replacement)
+    repaired = _STALE_RESUME_MONOREPO_RE.sub("Portfolio Automation Workspace", repaired)
+    repaired = _STALE_KOREAN_RESUME_MONOREPO_RE.sub("포트폴리오 자동화 워크스페이스", repaired)
+    repaired = _NPM_WORKSPACE_MONOREPO_RE.sub("npm workspaces build", repaired)
     repaired = re.sub(
         r"하나의\s+npm 워크스페이스 빌드로\s+통합한",
         "하나의 자동화 워크스페이스로 통합한",

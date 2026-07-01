@@ -161,6 +161,28 @@ def test_normalize_repairs_known_stale_resume_branding():
     assert "npm workspaces build" in out
 
 
+def test_normalize_repairs_resume_monorepo_branding_variants():
+    mod = _load_cleaning_module()
+    raw = (
+        "# Resume-site monorepo\n\n"
+        "> résumé portfolio monorepo for Cloudflare Worker delivery.\n\n"
+        "## 개요\n\n"
+        "레쥬메 포트폴리오 모노레포라는 오래된 이름이 남아 있었습니다.\n\n"
+        "- npm workspace monorepo layout\n"
+    )
+
+    out = mod.normalize_llm_readme_response(raw)
+
+    assert "Resume-site monorepo" not in out
+    assert "résumé portfolio monorepo" not in out
+    assert "레쥬메 포트폴리오 모노레포" not in out
+    assert "npm workspace monorepo" not in out
+    assert out.startswith("# Portfolio Automation Workspace")
+    assert "> Portfolio Automation Workspace for Cloudflare Worker delivery." in out
+    assert "포트폴리오 자동화 워크스페이스라는 오래된 이름" in out
+    assert "- npm workspaces build layout" in out
+
+
 def test_normalize_strips_wrapped_generator_meta_note():
     mod = _load_cleaning_module()
     raw = (
