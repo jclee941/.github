@@ -91,7 +91,7 @@ repositories:
       health_check: true
       auto_merge: true
     metadata:
-      description: "Resume and portfolio monorepo for resume.jclee.me plus job automation"
+      description: "Personal resume, portfolio, and job automation workspace"
       topics: [cloudflare-workers, personal-website, portfolio, resume]
       homepage: "https://resume.jclee.me"
 
@@ -104,7 +104,7 @@ repositories:
       health_check: true
       auto_merge: true
     metadata:
-      description: "Field-worker safety PWA with Cloudflare Workers API and Next.js admin dashboard"
+      description: "Field-worker safety app for reporting, operations, and admin workflows"
       topics: [cloudflare-workers, drizzle, hono, nextjs, pwa, safety]
       homepage: ""
 
@@ -157,7 +157,7 @@ repositories:
       health_check: true
       auto_merge: true
     metadata:
-      description: "HYCU online lecture attendance automation with Node.js, TypeScript, and Docker"
+      description: "HYCU online lecture attendance automation"
       topics: [attendance, automation, docker, lms, nodejs, typescript]
       homepage: ""
 
@@ -170,7 +170,7 @@ repositories:
       health_check: true
       auto_merge: true
     metadata:
-      description: "YouTube automation pipeline with n8n, FastAPI, and FFmpeg"
+      description: "YouTube automation pipeline for content production and publishing"
       topics: [automation, fastapi, ffmpeg, n8n, python, youtube]
       homepage: ""
 
@@ -183,6 +183,6 @@ repositories:
       health_check: true
       auto_merge: true
     metadata:
-      description: "Mobile wedding invitation for propose.jclee.me with Cloudflare Workers and GSAP"
+      description: "Mobile wedding invitation site for propose.jclee.me"
       topics: [cloudflare-workers, gsap, korean, typescript, wedding-invitation]
       homepage: "https://propose.jclee.me"
