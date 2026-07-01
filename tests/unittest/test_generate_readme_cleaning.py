@@ -41,6 +41,15 @@ def _is_cleaning_module(mod: ModuleType) -> TypeGuard[CleaningModule]:
     )
 
 
+def _use_inventory(
+    mod: CleaningModule, tmp_path: Path, monkeypatch: MonkeyPatch, *entries: str
+) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    _ = (config_dir / "repos.yaml").write_text("\n".join(("repositories:", *entries, "")), encoding="utf-8")
+    monkeypatch.setattr(mod, "_REPO_ROOT", tmp_path)
+
+
 def test_sanitize_links_strips_nonexistent_jclee_repos():
     mod = _load_cleaning_module()
     md = (
@@ -213,6 +222,43 @@ def test_sanitize_links_handles_http_and_www():
     assert "jclee941/jclee-bot" in out, out
 
 
+def test_sanitize_links_rewrites_known_jclee_main_branch_paths_to_master(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    mod = _load_cleaning_module()
+    _use_inventory(mod, tmp_path, monkeypatch, "  - visibility: public", "    name: account")
+    out = mod.sanitize_links(
+        "Docs https://github.com/jclee941/account/blob/main/README.md "
+        "Bot https://github.com/jclee941/jclee-bot/blob/main/scripts/generate_readme.py"
+    )
+
+    assert "https://github.com/jclee941/account/blob/master/README.md" in out, out
+    assert "https://github.com/jclee941/jclee-bot/blob/master/scripts/generate_readme.py" in out, out
+    assert "/blob/main/" not in out, out
+
+
+def test_sanitize_links_rewrites_tree_main_paths_with_http_www_variants(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    mod = _load_cleaning_module()
+    _use_inventory(mod, tmp_path, monkeypatch, "  - visibility: public", "    name: account")
+    out = mod.sanitize_links(
+        "[docs](http://github.com/jclee941/account/tree/main/docs) "
+        "[scripts](https://www.github.com/jclee941/jclee-bot/tree/main/scripts) "
+        "[root](https://github.com/jclee941/account/tree/main?tab=readme-ov-file) "
+        "[raw](https://www.github.com/jclee941/jclee-bot/blob/main?raw=1)"
+    )
+
+    assert "https://github.com/jclee941/account/tree/master/docs" in out, out
+    assert "https://github.com/jclee941/jclee-bot/tree/master/scripts" in out, out
+    assert "https://github.com/jclee941/account/tree/master?tab=readme-ov-file" in out, out
+    assert "https://github.com/jclee941/jclee-bot/blob/master?raw=1" in out, out
+    assert "http://github.com" not in out, out
+    assert "www.github.com" not in out, out
+    assert "/tree/main" not in out, out
+    assert "/blob/main" not in out, out
+
+
 def test_sanitize_links_canonicalizes_unknown_repo_paths_to_repo_root():
     mod = _load_cleaning_module()
     md = (
@@ -227,49 +273,31 @@ def test_sanitize_links_canonicalizes_unknown_repo_paths_to_repo_root():
 
 def test_known_repos_excludes_private_inventory_entries(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     mod = _load_cleaning_module()
-    config_dir = tmp_path / "config"
-    config_dir.mkdir()
-    _ = (config_dir / "repos.yaml").write_text(
-        "\n".join(
-            (
-                "repositories:",
-                "  - visibility: public",
-                "    name: account",
-                "  - visibility: private",
-                "    name: hycu",
-                "",
-            )
-        ),
-        encoding="utf-8",
+    _use_inventory(
+        mod, tmp_path, monkeypatch,
+        "  - visibility: public",
+        "    name: account",
+        "  - visibility: private",
+        "    name: hycu",
     )
 
-    monkeypatch.setattr(mod, "_REPO_ROOT", tmp_path)
     assert mod.known_jclee_repos() == {"jclee-bot", "account"}
 
 
 def test_known_repos_parses_inventory_variation(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     mod = _load_cleaning_module()
-    config_dir = tmp_path / "config"
-    config_dir.mkdir()
-    _ = (config_dir / "repos.yaml").write_text(
-        "\n".join(
-            (
-                "repositories:",
-                "  - visibility: public",
-                "    name: account",
-                "  - visibility: public",
-                "    name: jclee-bot",
-                "    automation:",
-                "      branch_protection: true",
-                "  - visibility: public",
-                "    name: propose",
-                "",
-            )
-        ),
-        encoding="utf-8",
+    _use_inventory(
+        mod, tmp_path, monkeypatch,
+        "  - visibility: public",
+        "    name: account",
+        "  - visibility: public",
+        "    name: jclee-bot",
+        "    automation:",
+        "      branch_protection: true",
+        "  - visibility: public",
+        "    name: propose",
     )
 
-    monkeypatch.setattr(mod, "_REPO_ROOT", tmp_path)
     assert mod.known_jclee_repos() == {"jclee-bot", "account", "propose"}
 
 

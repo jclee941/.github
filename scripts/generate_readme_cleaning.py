@@ -135,14 +135,15 @@ def _unwrap_json_content(s: str) -> str:
 def sanitize_links(text: str) -> str:
     canonical = "https://github.com/jclee941/jclee-bot"
     url_re = re.compile(
-        r"https?://(?:www\.)?github\.com/jclee941/([A-Za-z0-9._-]+)(?:/[^\s)\]>\"']*)?"
+        r"https?://(?:www\.)?github\.com/jclee941/([A-Za-z0-9._-]+)(/[^\s)\]>\"']*)?"
     )
     known_repos = _known_jclee_repos()
 
     def _replace(m: re.Match[str]) -> str:
         repo = m.group(1)
         if repo in known_repos:
-            return m.group(0)
+            path = re.sub(r"/(blob|tree)/main(?=/|$|[?#])", r"/\1/master", m.group(2) or "")
+            return f"https://github.com/jclee941/{repo}{path}"
         return canonical
 
     return url_re.sub(_replace, text)
