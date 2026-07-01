@@ -51,7 +51,9 @@ class TestCheckPullRequestEvent:
 
     def test_defaults_missing_draft_to_false(self):
         body = make_push_body()
-        del body["pull_request"]["draft"]
+        pull_request = body["pull_request"]
+        assert isinstance(pull_request, dict)
+        del pull_request["draft"]
         log_context = {}
         pr, api_url = github_app._check_pull_request_event("opened", body, log_context)
         assert pr == body["pull_request"]
@@ -247,7 +249,7 @@ class TestShouldProcessPrLogic:
         title="Feature: add login",
         labels=None,
         source_branch="feat/login",
-        target_branch="main",
+        target_branch="master",
     ):
         body = {
             "sender": {"login": sender},

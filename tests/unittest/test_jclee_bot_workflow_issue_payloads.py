@@ -50,12 +50,12 @@ def test_success_sweeps_legacy_on_payload_default_branch(monkeypatch) -> None:
         token="tok",
         repo_full_name="jclee941/jclee-bot",
         run=run,
-        default_branch="main",
+        default_branch="master",
         dry_run=False,
     )
 
     assert actions == []
-    assert seen == {"default_branch": "main"}
+    assert seen == {"default_branch": "master"}
 
 
 def test_ci_failure_endpoint_uses_repository_object_full_name(monkeypatch) -> None:

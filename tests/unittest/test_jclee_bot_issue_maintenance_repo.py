@@ -480,7 +480,7 @@ class TestMaintainRepo:
     def test_force_maintenance_creates_master_and_updates_default_branch(self, monkeypatch) -> None:
         # Given
         mutations: list[str] = []
-        refs = {"main": "abc123", "master": None}
+        refs = {"legacy": "abc123", "master": None}
 
         monkeypatch.setattr(issue_maintenance, "list_open_issues", lambda **kwargs: [])
         monkeypatch.setattr(issue_maintenance.pr_maintenance, "maintain_pull_requests", lambda **kwargs: [])
@@ -507,10 +507,10 @@ class TestMaintainRepo:
             repo_full_name="jclee941/pr-agent",
             dry_run=False,
             mode="force",
-            default_branch="main",
+            default_branch="legacy",
             branch_cleanup=True,
         )
 
         # Then
-        assert result["actions"] == ["create-branch:master:from:main", "set-default-branch:master:from:main"]
+        assert result["actions"] == ["create-branch:master:from:legacy", "set-default-branch:master:from:legacy"]
         assert mutations == ["create:master:abc123", "default:master"]

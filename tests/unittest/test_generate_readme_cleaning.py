@@ -217,11 +217,11 @@ def test_sanitize_links_canonicalizes_unknown_repo_paths_to_repo_root():
     mod = _load_cleaning_module()
     md = (
         "bad https://github.com/jclee941/no-such-repo/settings/secrets/actions "
-        "doc https://github.com/jclee941/no-such-repo/blob/main/README.md"
+        "doc https://github.com/jclee941/no-such-repo/blob/master/README.md"
     )
     out = mod.sanitize_links(md)
     assert "settings/secrets/actions" not in out, out
-    assert "blob/main/README.md" not in out, out
+    assert "blob/master/README.md" not in out, out
     assert out.count("https://github.com/jclee941/jclee-bot") == 2
 
 

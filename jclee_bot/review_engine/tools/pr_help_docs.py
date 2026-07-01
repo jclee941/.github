@@ -1,8 +1,7 @@
 import copy
-import math
 import os
 import re
-from functools import partial
+from collections.abc import Callable
 from tempfile import TemporaryDirectory
 
 from jinja2 import Environment, StrictUndefined
@@ -72,11 +71,11 @@ def extract_model_answer_and_relevant_sources(ai_response: str) -> str | None:
     get_logger().warning(f"Either no answer section found, or that section is malformed: {ai_response}")
     return None
 
-def get_maximal_text_input_length_for_token_count_estimation():
+def get_maximal_text_input_length_for_token_count_estimation() -> int:
     model = get_settings().config.model
     if 'claude-3-7-sonnet' in model.lower():
         return 900000 #Claude API for token estimation allows maximal text input of 900K chars
-    return math.inf #Otherwise, no known limitation on input text just for token estimation
+    return 10**12 #Otherwise, no known limitation on input text just for token estimation
 
 def return_document_headings(text: str, ext: str) -> str:
     try:
@@ -175,7 +174,10 @@ def format_markdown_q_and_a_response(question_str: str, response_str: str, relev
         answer_str += f"### Answer:\n{response_str.strip()}\n\n"
         answer_str += f"#### Relevant Sources:\n\n"
         for section in relevant_sections:
-            file = section.get('file_name').lstrip('/').strip() #Remove any '/' in the beginning, since some models do it anyway
+            file_name = section.get('file_name')
+            if not file_name:
+                continue
+            file = file_name.lstrip('/').strip() #Remove any '/' in the beginning, since some models do it anyway
             ext = [suffix for suffix in supported_suffixes if file.endswith(suffix)]
             if not ext:
                 get_logger().warning(f"Unsupported file extension: {file}")
@@ -283,14 +285,20 @@ class PredictionPreparator:
 
 
 class PRHelpDocs(object):
-    def __init__(self, ctx_url, ai_handler:partial[BaseAiHandler,] = LiteLLMAIHandler, args: tuple[str]=None, return_as_string: bool=False):
+    def __init__(
+        self,
+        ctx_url: str,
+        ai_handler: Callable[[], BaseAiHandler] = LiteLLMAIHandler,
+        args: tuple[str, ...] | None = None,
+        return_as_string: bool = False,
+    ) -> None:
         try:
             self.ctx_url = ctx_url
             self.question = args[0] if args else None
             self.return_as_string = return_as_string
             self.repo_url_given_explicitly = True
             self.repo_url = get_settings().get('PR_HELP_DOCS.REPO_URL', '')
-            self.repo_desired_branch = get_settings().get('PR_HELP_DOCS.REPO_DEFAULT_BRANCH', 'main') #Ignored if self.repo_url is empty
+            self.repo_desired_branch = get_settings().get('PR_HELP_DOCS.REPO_DEFAULT_BRANCH', 'master') #Ignored if self.repo_url is empty
             self.include_root_readme_file = not(get_settings()['PR_HELP_DOCS.EXCLUDE_ROOT_README'])
             self.supported_doc_exts = get_settings()['PR_HELP_DOCS.SUPPORTED_DOC_EXTS']
             self.docs_path = get_settings()['PR_HELP_DOCS.DOCS_PATH']
@@ -365,13 +373,16 @@ class PRHelpDocs(object):
                                                                              get_settings().pr_help_docs_prompts.system,
                                                                              get_settings().pr_help_docs_prompts.user),
                                                         model_type=ModelType.REGULAR)
+            if not isinstance(response, str):
+                get_logger().error("Model did not return a string response.", artifacts={'response': response})
+                return
             response_yaml = load_yaml(response)
             if not response_yaml:
                 get_logger().error("Failed to parse the AI response.", artifacts={'response': response})
                 return
             response_str = response_yaml.get('response')
             relevant_sections = response_yaml.get('relevant_sections')
-            if not response_str or not relevant_sections:
+            if not isinstance(response_str, str) or not isinstance(relevant_sections, list):
                 get_logger().error("Failed to extract response/relevant sections.",
                                        artifacts={'raw_response': response, 'response_str': response_str, 'relevant_sections': relevant_sections})
                 return
@@ -498,36 +509,59 @@ class PRHelpDocs(object):
                 aggregate_documentation_files_for_prompt_contents(docs_filepath_to_contents,
                                                                   return_just_headings=True))
             # Verify list of headings does not exceed limits - trim it if it does.
-            docs_prompt_to_send_to_model = self._trim_docs_input(docs_prompt_to_send_to_model, max_allowed_txt_input,
-                                                                 only_return_if_trim_needed=False)
-            if not docs_prompt_to_send_to_model:
+            trimmed_docs_prompt = self._trim_docs_input(
+                docs_prompt_to_send_to_model,
+                max_allowed_txt_input,
+                only_return_if_trim_needed=False,
+            )
+            if not isinstance(trimmed_docs_prompt, str) or not trimmed_docs_prompt:
                 get_logger().error("_trim_docs_input returned an empty result.")
                 return ""
 
+            docs_prompt_to_send_to_model = trimmed_docs_prompt
             self.vars['snippets'] = docs_prompt_to_send_to_model.strip()
             # Run the AI model and extract sections from its response
             response = await retry_with_fallback_models(PredictionPreparator(self.ai_handler, self.vars,
                                                                              get_settings().pr_help_docs_headings_prompts.system,
                                                                              get_settings().pr_help_docs_headings_prompts.user),
                                                         model_type=ModelType.REGULAR)
+            if not isinstance(response, str):
+                get_logger().error("Model did not return a string response.", artifacts={'response': response})
+                return ""
             response_yaml = load_yaml(response)
             if not response_yaml:
                 get_logger().error("Failed to parse the AI response.", artifacts={'response': response})
                 return ""
             # else: Sanitize the output so that the file names match 1:1 dictionary keys. Do this via the file index and not its name, which may be altered by the model.
-            valid_indices = [int(entry['idx']) for entry in response_yaml.get('relevant_files_ranking')
-                             if int(entry['idx']) >= 0 and int(entry['idx']) < len(docs_filepath_to_contents)]
+            ranking = response_yaml.get('relevant_files_ranking')
+            if not isinstance(ranking, list):
+                get_logger().error("Failed to parse relevant file ranking.", artifacts={'response': response})
+                return ""
+            valid_indices: list[int] = []
+            for entry in ranking:
+                if not isinstance(entry, dict):
+                    continue
+                try:
+                    idx = int(entry['idx'])
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if 0 <= idx < len(docs_filepath_to_contents):
+                    valid_indices.append(idx)
             valid_file_paths = [list(docs_filepath_to_contents.keys())[idx] for idx in valid_indices]
             selected_docs_dict = {file_path: docs_filepath_to_contents[file_path] for file_path in valid_file_paths}
             docs_prompt = aggregate_documentation_files_for_prompt_contents(selected_docs_dict)
             docs_prompt_to_send_to_model = docs_prompt
 
             # Check if the updated list of documents does not exceed limits and trim if it does:
-            docs_prompt_to_send_to_model = self._trim_docs_input(docs_prompt_to_send_to_model, max_allowed_txt_input,
-                                                                 only_return_if_trim_needed=False)
-            if not docs_prompt_to_send_to_model:
+            trimmed_docs_prompt = self._trim_docs_input(
+                docs_prompt_to_send_to_model,
+                max_allowed_txt_input,
+                only_return_if_trim_needed=False,
+            )
+            if not isinstance(trimmed_docs_prompt, str) or not trimmed_docs_prompt:
                 get_logger().error("_trim_docs_input returned an empty result.")
                 return ""
+            docs_prompt_to_send_to_model = trimmed_docs_prompt
             return docs_prompt_to_send_to_model
         except Exception:
             get_logger().exception(f"Unexpected exception thrown. Returning empty result.")
@@ -535,9 +569,11 @@ class PRHelpDocs(object):
 
     def _format_model_answer(self, response_str: str, relevant_sections: list[dict[str, str]]) -> str:
         try:
+            if self.question is None:
+                return ""
             canonical_url_prefix, canonical_url_suffix = (
-                self.git_provider.get_canonical_url_parts(repo_git_url=self.repo_url if self.repo_url_given_explicitly else None,
-                                                          desired_branch=self.repo_desired_branch))
+                self.git_provider.get_canonical_url_parts(repo_git_url=self.repo_url if self.repo_url_given_explicitly else "",
+                                                          desired_branch=self.repo_desired_branch or ""))
             answer_str = format_markdown_q_and_a_response(self.question, response_str, relevant_sections,
                                                           self.supported_doc_exts, canonical_url_prefix, canonical_url_suffix)
             if answer_str:
