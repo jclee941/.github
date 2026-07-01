@@ -11,6 +11,10 @@ repositories:
       branch_protection: true
       health_check: true
       auto_merge: true
+    metadata:
+      description: "GitHub App automation platform for jclee941 repositories"
+      topics: [automation, github-app, github-actions, gitops]
+      homepage: "https://jclee941.github.io/jclee-bot/"
 
   # Public repos
   - name: account
@@ -35,7 +39,7 @@ repositories:
       health_check: true
       auto_merge: true
     metadata:
-      description: "IP reputation / threat intel - migrated from GitLab"
+      description: "IP reputation and threat-intelligence list migrated from GitLab"
       topics: [ip-reputation, osint, security, threat-intelligence]
       homepage: ""
 
@@ -48,7 +52,7 @@ repositories:
       health_check: true
       auto_merge: true
     metadata:
-      description: "Bug bounty automation toolkit — recon, monitoring, vulnerability hunting"
+      description: "Bug bounty automation toolkit for recon, monitoring, and vulnerability hunting"
       topics: [automation, bug-bounty, pentesting, recon, security]
       homepage: ""
 
@@ -61,7 +65,7 @@ repositories:
       health_check: true
       auto_merge: true
     metadata:
-      description: "HYCU FSDS 자율주행 — Formula Student Driverless Simulator 기반 자율주행 시스템 (한양사이버대 자율주행 경진대회 우수상 2026)"
+      description: "HYCU FSDS autonomous-driving system for Formula Student Driverless Simulator"
       topics: [autonomous-driving, formula-student, python, robotics, simulation]
       homepage: ""
 
@@ -74,7 +78,7 @@ repositories:
       health_check: true
       auto_merge: true
     metadata:
-      description: "게임 보상 자동 수령 봇 — API 클레임 + 스크래핑 + 알림 (Python)"
+      description: "Game reward automation bot for API claims, scraping, and notifications"
       topics: [automation, bot, game, python, scraping]
       homepage: ""
 
@@ -87,7 +91,7 @@ repositories:
       health_check: true
       auto_merge: true
     metadata:
-      description: "Resume monorepo: Cloudflare Worker portfolio (resume.jclee.me) + job automation + Wishket profile. Korean infrastructure/security engineer, 9yr."
+      description: "Resume and portfolio monorepo for resume.jclee.me plus job automation"
       topics: [cloudflare-workers, personal-website, portfolio, resume]
       homepage: "https://resume.jclee.me"
 
@@ -100,7 +104,7 @@ repositories:
       health_check: true
       auto_merge: true
     metadata:
-      description: "SafetyWallet - Field worker safety PWA with Cloudflare Workers API, Next.js admin dashboard, and worker PWA. Hono + Drizzle + D1."
+      description: "Field-worker safety PWA with Cloudflare Workers API and Next.js admin dashboard"
       topics: [cloudflare-workers, drizzle, hono, nextjs, pwa, safety]
       homepage: ""
 
@@ -113,7 +117,7 @@ repositories:
       health_check: true
       auto_merge: true
     metadata:
-      description: "Security Alert System — Production Splunk app for FortiGate security monitoring (FAZ→Splunk HEC bridge, 15+ alerts, Slack interactive callbacks)"
+      description: "Splunk security monitoring app for FortiGate alerting and Slack callbacks"
       topics: [fortigate, python, security-monitoring, siem, splunk]
       homepage: ""
 
@@ -126,7 +130,7 @@ repositories:
       health_check: true
       auto_merge: true
     metadata:
-      description: "Homelab infrastructure-as-code monorepo — Proxmox, networking, monitoring, and external services via Terraform"
+      description: "Homelab infrastructure-as-code for Proxmox, networking, monitoring, and services"
       topics: [homelab, iac, infrastructure-as-code, proxmox, terraform]
       homepage: ""
 
@@ -153,7 +157,7 @@ repositories:
       health_check: true
       auto_merge: true
     metadata:
-      description: "한양사이버대학교(HYCU) 온라인 강의 출석 자동화 도구 (Node.js + TypeScript + Docker)"
+      description: "HYCU online lecture attendance automation with Node.js, TypeScript, and Docker"
       topics: [attendance, automation, docker, lms, nodejs, typescript]
       homepage: ""
 
@@ -166,7 +170,7 @@ repositories:
       health_check: true
       auto_merge: true
     metadata:
-      description: "YouTube automation pipeline (n8n v6 + Python FastAPI + FFmpeg)"
+      description: "YouTube automation pipeline with n8n, FastAPI, and FFmpeg"
       topics: [automation, fastapi, ffmpeg, n8n, python, youtube]
       homepage: ""
 
@@ -179,6 +183,6 @@ repositories:
       health_check: true
       auto_merge: true
     metadata:
-      description: "모바일 청첩장 — 결혼식 없이 시작을 알리는 커플용 디지털 청첩장 (Cloudflare Workers + GSAP, propose.jclee.me)"
+      description: "Mobile wedding invitation for propose.jclee.me with Cloudflare Workers and GSAP"
       topics: [cloudflare-workers, gsap, korean, typescript, wedding-invitation]
       homepage: "https://propose.jclee.me"
