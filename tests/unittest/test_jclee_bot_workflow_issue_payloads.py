@@ -77,3 +77,57 @@ def test_ci_failure_endpoint_uses_repository_object_full_name(monkeypatch) -> No
 
     assert result == {"dry_run": True, "actions": [], "error": "installation token unavailable"}
     assert seen == {"repo_full_name": "jclee941/jclee-bot"}
+
+
+def test_workflow_run_payload_accepts_github_webhook_shape() -> None:
+    from jclee_bot import app as app_module
+
+    run = app_module._workflow_run_from_payload(
+        {
+            "workflow_run": {
+                "name": "CI",
+                "head_sha": "abcdef1234567890abcdef1234567890abcdef12",
+                "id": "42",
+                "conclusion": "failure",
+                "html_url": "https://github.com/jclee941/tmux/actions/runs/42",
+                "pull_requests": [{"number": "7"}],
+            }
+        }
+    )
+
+    assert run == workflow_issue_automation.WorkflowRun(
+        name="CI",
+        head_sha="abcdef1234567890abcdef1234567890abcdef12",
+        run_id=42,
+        conclusion="failure",
+        pr_number=7,
+        run_url="https://github.com/jclee941/tmux/actions/runs/42",
+    )
+
+
+def test_workflow_run_event_forces_managed_repo_scope(monkeypatch) -> None:
+    from jclee_bot import app as app_module
+
+    seen: dict[str, object] = {}
+    monkeypatch.setenv("GITHUB_APP_ID", "123")
+    monkeypatch.setenv("GITHUB_PRIVATE_KEY", "key")
+
+    def fake_run_app_ci_failure_issues(**kwargs: object) -> dict[str, object]:
+        payload = kwargs["payload"]
+        assert isinstance(payload, dict)
+        seen.update(payload)
+        return {"actions": ["tmux:noop:no-workflow-runs"]}
+
+    monkeypatch.setattr(app_module, "_run_app_ci_failure_issues", fake_run_app_ci_failure_issues)
+
+    result = app_module._run_event_ci_failure_issues(
+        {
+            "action": "completed",
+            "repository": {"full_name": "jclee941/jclee-bot"},
+            "workflow_run": {"name": "CI", "id": 42, "conclusion": "success"},
+        },
+        "workflow_run",
+    )
+
+    assert result == {"actions": ["tmux:noop:no-workflow-runs"]}
+    assert seen["scope"] == "managed_repos"

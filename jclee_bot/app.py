@@ -25,6 +25,7 @@ from typing import Any, Literal
 
 from fastapi import Request, Response
 
+import jclee_bot.downstream_ci_sweep as downstream_ci_sweep
 from jclee_bot import (
     dispatch,
     github_checks,
@@ -39,7 +40,7 @@ from jclee_bot import (
 )
 from jclee_bot.context_guards import neutralize_on_missing_context
 from jclee_bot.git_auth import git_askpass_env, git_env_with_auth
-from jclee_bot.payload_parsing import default_branch_from_payload, json_payload_or_error, repo_full_name_from_payload
+from jclee_bot.payload_parsing import json_payload_or_error, repo_full_name_from_payload
 from jclee_bot.readme_automation import router as readme_automation_router
 
 # Reuse the review-engine app object so its middleware + all routes are preserved.
@@ -52,7 +53,9 @@ app.include_router(repo_standardization_endpoint.router)
 GITHUB_API = "https://api.github.com"
 type MaintenanceMode = Literal["safe", "force"]
 ISSUE_MAINTENANCE_EVENTS = frozenset({"issues", "pull_request", "create", "pull_request_review"})
+CI_FAILURE_EVENTS = frozenset({"workflow_run"})
 logger = logging.getLogger(__name__)
+__all__ = ["app"]
 
 
 def _verify_signature(secret: str, payload: bytes, signature: str | None) -> bool:
@@ -304,47 +307,54 @@ def _workflow_run_from_payload(payload: dict[str, Any]) -> workflow_issue_automa
     run_id = _int_or_zero(run.get("id"))
     if run_id <= 0:
         return None
+    pull_requests = run.get("pull_requests")
+    pr_number = run.get("pr_number")
+    if isinstance(pull_requests, list) and pull_requests:
+        first_pr = pull_requests[0]
+        if isinstance(first_pr, dict):
+            pr_number = first_pr.get("number")
     return workflow_issue_automation.WorkflowRun(
         name=str(run.get("name") or ""),
         head_sha=str(run.get("head_sha") or ""),
         run_id=run_id,
         conclusion=str(run.get("conclusion") or ""),
-        pr_number=_int_or_zero(run.get("pr_number")),
-        run_url=str(run.get("run_url") or ""),
+        pr_number=_int_or_zero(pr_number),
+        run_url=str(run.get("run_url") or run.get("html_url") or ""),
     )
 
 
 def _run_app_ci_failure_issues(*, app_id: str, private_key: str, payload: dict[str, Any]) -> dict[str, Any]:
-    repo_full_name = repo_full_name_from_payload(payload)
-    default_branch = default_branch_from_payload(payload)
-    dry_run = bool(payload.get("dry_run", False))
-    if not repo_full_name:
-        return {"dry_run": dry_run, "actions": [], "error": "repository is required"}
-    token = workflow_issue_automation.installation_token_for_repo(
+    return downstream_ci_sweep.run_app_ci_failure_issues(
         app_id=app_id,
         private_key=private_key,
-        repo_full_name=repo_full_name,
+        payload=payload,
+        workflow_run=_workflow_run_from_payload(payload),
     )
-    if not token:
-        return {"dry_run": dry_run, "actions": [], "error": "installation token unavailable"}
 
-    run = _workflow_run_from_payload(payload)
-    if run is None:
-        actions = workflow_issue_automation.sweep_legacy_failure_issues(
-            token=token,
-            repo_full_name=repo_full_name,
-            default_branch=default_branch,
-            dry_run=dry_run,
-        )
-    else:
-        actions = workflow_issue_automation.record_workflow_run(
-            token=token,
-            repo_full_name=repo_full_name,
-            run=run,
-            default_branch=default_branch,
-            dry_run=dry_run,
-        )
-    return {"dry_run": dry_run, "repository": repo_full_name, "actions": actions}
+
+def _run_event_ci_failure_issues(payload: dict[str, Any], event: str) -> dict[str, Any]:
+    if event not in CI_FAILURE_EVENTS:
+        return {"skipped": "event does not require ci failure maintenance", "event": event}
+    if payload.get("action") not in {None, "completed"}:
+        return {"skipped": "workflow_run is not completed", "event": event}
+    app_id = os.environ.get("GITHUB_APP_ID", "")
+    private_key = os.environ.get("GITHUB_PRIVATE_KEY", "")
+    if not app_id or not private_key:
+        return {"skipped": "github app credentials unavailable", "event": event}
+    try:
+        managed_payload = dict(payload)
+        managed_payload["scope"] = "managed_repos"
+        result = _run_app_ci_failure_issues(app_id=app_id, private_key=private_key, payload=managed_payload)
+        logger.info("Event CI-failure maintenance completed after %s webhook", event)
+        return result
+    except Exception as exc:  # noqa: BLE001 - webhook ack must not depend on CI-failure side effects
+        logger.exception("Event CI-failure maintenance failed after %s webhook", event)
+        return {
+            "event": event,
+            "actions": [],
+            "error": "ci failure maintenance failed",
+            "error_type": type(exc).__name__,
+        }
 
 
 def _run_app_issue_commands(*, app_id: str, private_key: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -416,10 +426,11 @@ async def _tee_pull_request_to_checks(request: Request, call_next):
         pull_request_ok = event == "pull_request" and _verify_signature(secret, raw, sig)
         issue_event_ok = event in {"issues", "issue_comment"} and bool(secret) and _verify_signature(secret, raw, sig)
         gitops_event_ok = event in {"create", "pull_request_review"} and _verify_signature(secret, raw, sig)
+        ci_failure_event_ok = event in CI_FAILURE_EVENTS and bool(secret) and _verify_signature(secret, raw, sig)
         maintenance_event_ok = (
             event in ISSUE_MAINTENANCE_EVENTS and bool(secret) and _verify_signature(secret, raw, sig)
         )
-        if pull_request_ok or issue_event_ok or gitops_event_ok:
+        if pull_request_ok or issue_event_ok or gitops_event_ok or ci_failure_event_ok:
             try:
                 payload = json.loads(raw or b"{}")
                 if event == "pull_request":
@@ -449,6 +460,10 @@ async def _tee_pull_request_to_checks(request: Request, call_next):
                     loop.run_in_executor(None, _run_gitops_automation_for_payload, payload, event)
                     if maintenance_event_ok:
                         loop.run_in_executor(None, _run_event_issue_maintenance_once, event)
+                elif event == "workflow_run":
+                    import asyncio
+
+                    asyncio.get_event_loop().run_in_executor(None, _run_event_ci_failure_issues, payload, event)
             except Exception:  # noqa: BLE001 - checks must never break the review path
                 pass
     return await call_next(request)

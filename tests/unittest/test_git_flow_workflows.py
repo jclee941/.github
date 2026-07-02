@@ -11,6 +11,7 @@ from pathlib import Path
 from tests.unittest.workflow_policy_helpers import (
     REPO_ROOT,
     WF_DIR,
+    read_app_source,
     read_workflow,
     read_workflow_issue_automation_source,
 )
@@ -193,37 +194,19 @@ class TestStaleFailureIssueAutoRecovery:
     """Failure/health issues created by scheduled workflows (Runtime
     Health, ELK Health, Downstream Health, Bot Health, ELK Setup) must
     auto-close when their originating workflow recovers; no
-    manual cleanup. ci-failure-issues.yml is the centralized recovery
-    mechanism: (1) event-driven on workflow_run success, and (2) a
-    manually dispatchable sweep that closes open failure/health issues
-    whose workflow's latest master run is green."""
+    manual cleanup. The GitHub App webhook path is the centralized recovery
+    mechanism; do not restore a CI-failure GitHub Actions caller."""
 
-    def test_watches_all_recoverable_workflows(self):
-        text = read_workflow("ci-failure-issues.yml")
-        # The event-driven workflow_run trigger must cover every health/scan
-        # workflow that has a stable-titled failure issue that should
-        # auto-close on recovery. Gitleaks / CodeQL / PR Checks / Drift
-        # Detector / Auto Deploy are gone (per-repo CI workflows were
-        # replaced by the jclee-bot App Checks-API runner).
-        for wf in [
-            "ELK Health Check",
-            "ELK Setup",
-            "Runtime Health Check",
-            "Downstream Health Check",
-            "Bot Health Monitor",
-        ]:
-            assert f'"{wf}"' in text, (
-                f"ci-failure-issues.yml workflow_run must watch '{wf}' so its "
-                "stale failure issue auto-closes on recovery."
-            )
+    def test_ci_failure_workflow_caller_is_removed(self):
+        assert not (WF_DIR / "37_ci-failure-issues.yml").exists()
+        assert not list(WF_DIR.glob("[0-9][0-9]_ci-failure-issues.yml"))
 
-    def test_workflow_delegates_issue_mutation_to_app(self):
-        text = read_workflow("ci-failure-issues.yml")
-        assert "/api/v1/ci_failure_issues" in text
-        assert "CI_FAILURE_ISSUES_TOKEN" in text
-        forbidden = ["gh issue create", "gh issue close", "gh issue comment", "gh label create"]
-        offenders = [token for token in forbidden if token in text]
-        assert not offenders, f"ci-failure-issues.yml must delegate issue mutations to jclee-bot: {offenders}"
+    def test_app_webhook_owns_workflow_run_recovery(self):
+        text = read_app_source()
+        assert 'CI_FAILURE_EVENTS = frozenset({"workflow_run"})' in text
+        assert "_run_event_ci_failure_issues" in text
+        assert "run_in_executor(None, _run_event_ci_failure_issues, payload, event)" in text
+        assert "_run_app_ci_failure_issues" in text
 
     def test_app_maps_health_workflow_titles_for_recovery(self):
         text = read_workflow_issue_automation_source()
@@ -238,34 +221,13 @@ class TestStaleFailureIssueAutoRecovery:
                 f"jclee-bot event-driven success path must close issues titled '{sub}' when the workflow recovers."
             )
 
-    def test_event_driven_cases_are_all_watched(self):
-        import re
-
-        text = read_workflow("ci-failure-issues.yml")
-        # Every workflow name with an event-driven case "$WF_NAME" mapping must
-        # be present in the workflow_run.workflows watch list, otherwise its
-        # success never triggers the immediate close.
-        m = re.search(r'workflow_run:\s*\n\s*workflows:\s*\n((?:\s+- "[^"]+"\n)+)', text)
-        assert m, "could not find workflow_run.workflows block"
-        watched = set(re.findall(r'- "([^"]+)"', m.group(1)))
-        app_text = read_workflow_issue_automation_source()
-        cases = set(re.findall(r'\("([^"]+)", \(', app_text))
-        missing = cases - watched
-        assert not missing, (
-            f"event-driven case-mapped workflows missing from workflow_run watch list: {sorted(missing)}"
-        )
-
-    def test_sweep_is_manually_dispatchable(self):
-        text = read_workflow("ci-failure-issues.yml")
-        # GitOps automation is event-driven: the periodic cron was removed in
-        # favor of workflow_dispatch + the event-driven workflow_run triage path.
-        # The stale-issue sweep must remain reachable via manual dispatch.
-        assert "schedule:" not in text and "cron:" not in text, (
-            "ci-failure-issues.yml must NOT use a cron schedule (event-driven only)."
-        )
-        assert "workflow_dispatch:" in text, (
-            "ci-failure-issues.yml must keep workflow_dispatch so the stale-failure sweep can be triggered manually."
-        )
+    def test_no_ci_failure_workflow_shell_mutations_remain(self):
+        offenders: list[str] = []
+        for path in WF_DIR.glob("*.yml"):
+            text = path.read_text(encoding="utf-8")
+            if "/api/v1/ci_failure_issues" in text or "CI_FAILURE_ISSUES_TOKEN" in text:
+                offenders.append(path.name)
+        assert not offenders, f"CI-failure automation must be App-native, not workflow-triggered: {offenders}"
 
     def test_sweep_queries_workflow_run_conclusion(self):
         text = read_workflow_issue_automation_source()

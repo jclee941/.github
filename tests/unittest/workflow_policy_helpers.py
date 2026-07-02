@@ -75,5 +75,12 @@ def read_workflow_issue_automation_source() -> str:
         REPO_ROOT / "jclee_bot" / "workflow_issue_automation.py",
         REPO_ROOT / "jclee_bot" / "workflow_legacy_sweep.py",
         REPO_ROOT / "jclee_bot" / "workflow_current_sweep.py",
+        REPO_ROOT / "jclee_bot" / "downstream_ci_runs.py",
+        REPO_ROOT / "jclee_bot" / "downstream_ci_sweep.py",
+        REPO_ROOT / "jclee_bot" / "downstream_ci_issues.py",
     ]
     return "\n".join(path.read_text(encoding="utf-8") for path in paths)
+
+
+def read_app_source() -> str:
+    return (REPO_ROOT / "jclee_bot" / "app.py").read_text(encoding="utf-8")

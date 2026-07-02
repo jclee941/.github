@@ -20,6 +20,7 @@ jclee_bot/
 ├── readme_automation.py      # App-owned README job orchestration
 ├── readme_runner.py          # README generation runner and sanitization checks
 ├── workflow_issue_automation.py, workflow_current_sweep.py, workflow_legacy_sweep.py
+├── downstream_ci_inventory.py, downstream_ci_runs.py, downstream_ci_sweep.py
 │                              # CI-failure issue creation/recovery/sweeps
 └── checks/
     ├── pr_metadata.py        # title, size, sensitive-file policy
@@ -39,7 +40,7 @@ jclee_bot/
 | Issue auto-label or stale-label removal | `issue_management.py`, then `app.py` |
 | Stale issue sweep or issue stats | `issue_maintenance.py`, then `app.py` |
 | README automation jobs | `readme_automation.py`, `readme_jobs.py`, `readme_job_worker.py`, `readme_runner.py` |
-| CI-failure issue automation | `workflow_issue_automation.py`, `workflow_current_sweep.py`, `workflow_legacy_sweep.py` |
+| CI-failure issue automation | `workflow_issue_automation.py`, `workflow_current_sweep.py`, `workflow_legacy_sweep.py`, `downstream_ci_*` |
 | Unit tests | `tests/unittest/test_jclee_bot_app.py`, `tests/unittest/test_jclee_bot_checks.py` |
 | Mocked e2e surface | `tests/e2e/test_webhooks.py`, `tests/e2e/test_health.py` |
 
@@ -52,8 +53,8 @@ jclee_bot/
 - Missing PR context must make required checks fail closed, not publish a skipped or misleading `success`
   conclusion. A skipped conclusion is allowed only for genuinely not-applicable cases such as actionlint
   with no workflow changes.
-- Issue opened auto-labeling, stale-label removal, stale issue sweep, and issue stats are App-owned;
-  do not restore the deleted downstream issue-management workflow caller or reusable workflow.
+- Issue opened auto-labeling, stale-label removal, stale issue sweep, issue stats, and CI-failure recovery are App-owned;
+  do not restore deleted downstream issue-management or CI-failure workflow callers.
 - `app.py` must not break the `/api/v1/github_webhooks`, `/health`, `/ready`, or `/metrics` routes exposed by the review engine.
 - External tools (`gitleaks`, `actionlint`) may map to a skipped advisory result in pure mappers, but required
   App check publishing must convert unavailable-tool skips to failure.
@@ -70,4 +71,4 @@ jclee_bot/
 - Do not report success for a scan that did not inspect real PR content.
 - Do not log installation tokens, webhook secrets, PR checkout URLs with credentials, or raw secret findings.
 - Do not move GitOps, README, or CI-failure mutation logic back into downstream
-  workflows; workflows should call the App or run dry-run validation.
+  workflows. CI-failure automation is handled by the App webhook path, not a workflow caller.

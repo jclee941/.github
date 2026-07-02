@@ -175,6 +175,50 @@ class TestWrapperApp:
         assert done.wait(2.0), "GitOps auto-merge did not run for labeled pull_request webhook"
         assert ran == [("pull_request", "labeled", "auto-merge")]
 
+    def test_workflow_run_on_main_webhook_triggers_ci_failure_maintenance(self, monkeypatch):
+        import hashlib
+        import hmac
+        import json
+        import threading
+
+        from fastapi.testclient import TestClient
+
+        from jclee_bot import app as app_module
+
+        ran = []
+        done = threading.Event()
+
+        def fake_ci_failure(payload, event):
+            ran.append((event, payload.get("workflow_run", {}).get("name")))
+            done.set()
+            return {"actions": ["tmux:create-ci-failure:[ci] CI failed at abcdef12"]}
+
+        monkeypatch.setattr(app_module, "_run_event_ci_failure_issues", fake_ci_failure)
+        monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "secret")
+        payload = {
+            "action": "completed",
+            "repository": {"full_name": "jclee941/jclee-bot", "default_branch": "master"},
+            "workflow_run": {
+                "name": "CI",
+                "head_sha": "abcdef1234567890abcdef1234567890abcdef12",
+                "id": 42,
+                "conclusion": "failure",
+                "html_url": "https://github.com/jclee941/jclee-bot/actions/runs/42",
+            },
+        }
+        raw = json.dumps(payload).encode()
+        signature = "sha256=" + hmac.new(b"secret", raw, hashlib.sha256).hexdigest()
+
+        r = TestClient(app_module.app, raise_server_exceptions=False).post(
+            "/api/v1/github_webhooks",
+            content=raw,
+            headers={"X-GitHub-Event": "workflow_run", "X-Hub-Signature-256": signature},
+        )
+
+        assert r.status_code != 500
+        assert done.wait(2.0), "CI failure maintenance did not run for workflow_run webhook"
+        assert ran == [("workflow_run", "CI")]
+
 
 class TestGithubChecksPayload:
     def test_check_run_payload_maps_fields(self):
