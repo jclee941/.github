@@ -62,7 +62,7 @@ def test_failure_dry_run_reports_ci_issue_creation_without_mutating(monkeypatch)
     )
     mutations: list[str] = []
 
-    monkeypatch.setattr(workflow_issue_automation, "_find_issue_by_title", lambda **kwargs: None)
+    monkeypatch.setattr(workflow_issue_automation, "_find_ci_failure_issue", lambda **kwargs: None)
     monkeypatch.setattr(workflow_issue_automation, "_ensure_ci_labels", lambda **kwargs: mutations.append("label"))
     monkeypatch.setattr(workflow_issue_automation, "_create_issue", lambda **kwargs: mutations.append("create") or 9)
 

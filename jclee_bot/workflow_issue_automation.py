@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import cast
 
 import requests
 
+import jclee_bot.workflow_rerun as workflow_rerun
 from jclee_bot import github_checks, issue_maintenance, workflow_legacy_sweep
+from jclee_bot.github_app_inventory import app_installations, installation_repositories
+from jclee_bot.workflow_recovery import RECOVERY_TITLE_MAP, recovered_ci_failure_title, short_sha
 
 GITHUB_API = "https://api.github.com"
 
@@ -14,21 +17,8 @@ CI_FAILURE_LABEL_DETAILS = {
     "ci-failure": ("B60205", "jclee-bot에의해자동화됨"),
     "automated": ("BFD4F2", "jclee-bot에의해자동화됨"),
 }
-RECOVERY_TITLE_MAP = (
-    ("ELK Health Check", ("ELK Health Check Failed",)),
-    ("ELK Setup", ("ELK Setup Failed",)),
-    (
-        "Runtime Health Check",
-        (
-            "Bot webhook endpoint unreachable",
-            "CLIProxyAPI unreachable",
-            "jclee-bot not responding",
-            "Runtime Health Check failed",
-        ),
-    ),
-    ("Downstream Health Check", ("Downstream workflow failures detected", "Downstream Health Check failed")),
-    ("Bot Health Monitor", ("bot-health", "Bot Health Monitor failed")),
-)
+
+
 @dataclass(frozen=True, slots=True)
 class WorkflowRun:
     name: str
@@ -45,53 +35,52 @@ def _headers(token: str) -> dict[str, str]:
 
 def _issue_body(run: WorkflowRun) -> str:
     pr_line = f"- **PR:** #{run.pr_number}\n" if run.pr_number > 0 else ""
-    return "\n".join(
-        [
-            "## CI Failure",
-            "",
-            f"- **Workflow:** {run.name}",
-            f"- **Commit:** {run.head_sha}",
-            f"{pr_line}- **Run:** {run.run_url}",
-            "",
-            "### Action Required",
-            (
-                "Inspect the failed run and either fix the underlying problem "
-                "or close this issue if the failure was transient."
-            ),
-            "",
-            "> jclee-bot에의해자동화됨.",
-        ]
+    return (
+        f"## CI Failure\n\n- **Workflow:** {run.name}\n- **Commit:** {run.head_sha}\n"
+        f"{pr_line}- **Run:** {run.run_url}\n\n### Action Required\n"
+        "Inspect the failed run and either fix the underlying problem "
+        "or close this issue if the failure was transient.\n\n"
+        "> jclee-bot에의해자동화됨."
     )
 
 
-def _short_sha(sha: str) -> str:
-    return sha[:8] if len(sha) >= 8 else sha
-
-
 def _ci_failure_title(run: WorkflowRun) -> str:
-    return f"[ci] {run.name} failed at {_short_sha(run.head_sha)}"
+    return f"[ci] {run.name} failed at {short_sha(run.head_sha)}"
 
 
-def _recovered_ci_failure_title(*, workflow_name: str, head_sha: str) -> str:
-    return f"[ci] {workflow_name} failed at {_short_sha(head_sha)}"
+def _int_value(value: object) -> int:
+    return value if isinstance(value, int) else int(value) if isinstance(value, str) and value.isdecimal() else 0
 
 
-def _open_issues(*, token: str, repo_full_name: str, labels: str | None = None) -> list[dict[str, Any]]:
-    params = {"state": "open"}
-    if labels:
-        params["labels"] = labels
-    return issue_maintenance._paginate(token, f"/repos/{repo_full_name}/issues", params)  # noqa: SLF001
+def _open_issues(*, token: str, repo_full_name: str, labels: str | None = None) -> list[dict[str, object]]:
+    issues = cast(
+        list[dict[str, object]], issue_maintenance.list_open_issues(token=token, repo_full_name=repo_full_name)
+    )
+    if labels is None:
+        return issues
+    required = set(labels.split(","))
+    return [issue for issue in issues if required <= _issue_label_names(issue)]
 
 
-def _find_issue_by_title(*, token: str, repo_full_name: str, title: str, label: str) -> int | None:
+def _find_ci_failure_issue(
+    *, token: str, repo_full_name: str, title: str, label: str
+) -> workflow_rerun.CiFailureIssue | None:
     for issue in _open_issues(token=token, repo_full_name=repo_full_name, labels=label):
         if str(issue.get("title") or "") == title:
-            number = int(issue.get("number", 0) or 0)
-            return number if number > 0 else None
+            number = _int_value(issue.get("number", 0))
+            if number <= 0:
+                return None
+            return workflow_rerun.CiFailureIssue(number=number, body=str(issue.get("body") or ""))
     return None
 
 
-def _issue_is_pull_request_failure(issue: dict[str, Any]) -> bool:
+def _issue_label_names(issue: dict[str, object]) -> set[str]:
+    raw_labels = issue.get("labels")
+    labels = cast(list[dict[str, object]], raw_labels) if isinstance(raw_labels, list) else []
+    return {str(label.get("name") or "") for label in labels}
+
+
+def _issue_is_pull_request_failure(issue: dict[str, object]) -> bool:
     if isinstance(issue.get("pull_request"), dict):
         return True
     body = str(issue.get("body") or "")
@@ -105,7 +94,7 @@ def _closeable_issue_numbers_with_title(*, token: str, repo_full_name: str, titl
             continue
         if title_substring not in str(issue.get("title") or ""):
             continue
-        number = int(issue.get("number", 0) or 0)
+        number = _int_value(issue.get("number", 0))
         if number > 0:
             numbers.append(number)
     return numbers
@@ -119,8 +108,9 @@ def _create_issue(*, token: str, repo_full_name: str, title: str, body: str) -> 
         timeout=30,
     )
     resp.raise_for_status()
-    data = resp.json()
-    number = int(data.get("number", 0) or 0) if isinstance(data, dict) else 0
+    raw_data = cast(object, resp.json())
+    data = cast(dict[str, object], raw_data) if isinstance(raw_data, dict) else {}
+    number = _int_value(data.get("number", 0))
     return number if number > 0 else None
 
 
@@ -184,21 +174,42 @@ def record_workflow_run(
         return actions
 
     title = _ci_failure_title(run)
-    existing = _find_issue_by_title(token=token, repo_full_name=repo_full_name, title=title, label="ci-failure")
+    existing = _find_ci_failure_issue(token=token, repo_full_name=repo_full_name, title=title, label="ci-failure")
     if existing is not None:
         if not dry_run:
+            rerun_actions = workflow_rerun.rerun_issue_actions(
+                token=token, repo_full_name=repo_full_name, workflow_name=run.name, run_id=run.run_id, issue=existing
+            )
+            if rerun_actions and rerun_actions[0].startswith("skip-rerun-bounded:"):
+                return rerun_actions
+            if rerun_actions:
+                workflow_rerun.patch_issue_rerun_marker(
+                    token=token,
+                    repo_full_name=repo_full_name,
+                    issue_number=existing.number,
+                    body=existing.body,
+                    run_id=run.run_id,
+                )
             _comment(
                 token=token,
                 repo_full_name=repo_full_name,
-                issue_number=existing,
+                issue_number=existing.number,
                 body=f"Another failure for the same workflow+sha. Run: {run.run_url}\n\n_jclee-bot에의해자동화됨._",
             )
-        return [f"comment-ci-failure:{existing}"]
+            return [f"comment-ci-failure:{existing.number}", *rerun_actions]
     if not dry_run:
         _ensure_ci_labels(token=token, repo_full_name=repo_full_name)
-        created = _create_issue(token=token, repo_full_name=repo_full_name, title=title, body=_issue_body(run))
-        return [f"create-ci-failure:{created or 0}"]
-    return [f"create-ci-failure:{title}"]
+        issue_body = _issue_body(run)
+        created = _create_issue(token=token, repo_full_name=repo_full_name, title=title, body=issue_body)
+        rerun_actions = workflow_rerun.rerun_issue_actions(
+            token=token, repo_full_name=repo_full_name, workflow_name=run.name, run_id=run.run_id, issue=None
+        )
+        if rerun_actions and created is not None:
+            workflow_rerun.patch_issue_rerun_marker(
+                token=token, repo_full_name=repo_full_name, issue_number=created, body=issue_body, run_id=run.run_id
+        )
+        return [f"create-ci-failure:{created or 0}", *rerun_actions]
+    return [f"comment-ci-failure:{existing.number}"] if existing is not None else [f"create-ci-failure:{title}"]
 
 
 def close_recovered_workflow_issues(
@@ -214,7 +225,7 @@ def close_recovered_workflow_issues(
     for number in _closeable_issue_numbers_with_title(
         token=token,
         repo_full_name=repo_full_name,
-        title_substring=_recovered_ci_failure_title(workflow_name=workflow_name, head_sha=head_sha),
+        title_substring=recovered_ci_failure_title(workflow_name=workflow_name, head_sha=head_sha),
     ):
         if number in closed_numbers:
             continue
@@ -272,12 +283,12 @@ def sweep_legacy_failure_issues(*, token: str, repo_full_name: str, default_bran
 
 
 def installation_token_for_repo(*, app_id: str, private_key: str, repo_full_name: str) -> str | None:
-    for installation in issue_maintenance.app_installations(app_id=app_id, private_key=private_key):
+    for installation in app_installations(app_id=app_id, private_key=private_key):
         installation_id = int(installation.get("id", 0) or 0)
         if installation_id <= 0:
             continue
         token = github_checks.installation_token(app_id, private_key, installation_id)
-        for repo in issue_maintenance.installation_repositories(token=token):
+        for repo in installation_repositories(token=token):
             if str(repo.get("full_name") or "") == repo_full_name:
                 return token
     return None
