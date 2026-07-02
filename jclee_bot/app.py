@@ -550,7 +550,17 @@ async def issue_commands_webhook(request: Request, response: Response) -> dict[s
     payload = json_payload_or_error(await request.body(), response)
     if payload is None:
         return {"error": "invalid json"}
-    return _run_app_issue_commands(app_id=app_id, private_key=private_key, payload=payload)
+    try:
+        return _run_app_issue_commands(app_id=app_id, private_key=private_key, payload=payload)
+    except Exception as exc:  # noqa: BLE001 - issue side effects must not fail CI callers
+        logger.exception("Issue command execution failed")
+        return {
+            "dry_run": bool(payload.get("dry_run", False)),
+            "repository": repo_full_name_from_payload(payload),
+            "actions": [],
+            "error": "issue command execution failed",
+            "error_type": type(exc).__name__,
+        }
 
 
 @app.post("/api/v1/native_health")
