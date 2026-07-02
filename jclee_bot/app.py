@@ -286,7 +286,11 @@ async def native_health_webhook(request: Request, response: Response) -> dict[st
     payload = json_payload_or_error(await request.body(), response)
     if payload is None:
         return {"error": "invalid json"}
-    return _run_app_native_health(app_id=app_id, private_key=private_key, payload=payload)
+    try:
+        return _run_app_native_health(app_id=app_id, private_key=private_key, payload=payload)
+    except Exception as exc:  # noqa: BLE001 - health checks must report JSON instead of HTTP 500
+        logger.exception("Native health execution failed")
+        return app_automation.native_health_execution_failure(payload, exc)
 
 
 @app.post("/api/v1/checks_webhook")

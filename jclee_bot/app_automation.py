@@ -251,3 +251,22 @@ def run_app_native_health(*, app_id: str, private_key: str, payload: dict[str, A
     if not token:
         return {"dry_run": dry_run, "actions": [], "error": "installation token unavailable"}
     return native_health.run_native_health(token=token, payload=payload)
+
+
+def native_health_execution_failure(payload: dict[str, Any], exc: Exception) -> dict[str, Any]:
+    checks = [
+        {
+            "name": check,
+            "status": "critical",
+            "summary": "Native health execution failed",
+        }
+        for check in native_health.requested_check_names(payload)
+    ]
+    return {
+        "dry_run": bool(payload.get("dry_run", False)),
+        "repository": repo_full_name_from_payload(payload),
+        "checks": checks,
+        "actions": [],
+        "error": "native health execution failed",
+        "error_type": type(exc).__name__,
+    }

@@ -158,3 +158,31 @@ def test_native_health_endpoint_delegates_to_app_module(monkeypatch) -> None:
     assert response.json()["repository"] == "jclee941/jclee-bot"
     assert calls[0]["app_id"] == "123"
     assert calls[0]["private_key"] == "key"
+
+
+def test_native_health_endpoint_returns_critical_shape_on_execution_failure(monkeypatch) -> None:
+    from jclee_bot import app as app_module
+
+    def broken_run(**_kwargs: object) -> dict[str, object]:
+        raise RuntimeError("github api failed")
+
+    monkeypatch.setenv("NATIVE_HEALTH_TOKEN", "native")
+    monkeypatch.setenv("GITHUB_APP_ID", "123")
+    monkeypatch.setenv("GITHUB_PRIVATE_KEY", "key")
+    monkeypatch.setattr(app_module, "_run_app_native_health", broken_run)
+
+    response = TestClient(app_module.app, raise_server_exceptions=False).post(
+        "/api/v1/native_health",
+        json={"repository": "jclee941/jclee-bot", "checks": ["runtime_health"]},
+        headers={"Authorization": "Bearer native"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "dry_run": False,
+        "repository": "jclee941/jclee-bot",
+        "checks": [{"name": "runtime_health", "status": "critical", "summary": "Native health execution failed"}],
+        "actions": [],
+        "error": "native health execution failed",
+        "error_type": "RuntimeError",
+    }

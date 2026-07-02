@@ -19,6 +19,10 @@ def _parse_checks(value: Any) -> list[CheckName]:
     return checks or list(ALL_CHECKS)
 
 
+def requested_check_names(payload: dict[str, Any]) -> list[CheckName]:
+    return _parse_checks(payload.get("checks") or payload.get("check"))
+
+
 def _body(result: HealthResult) -> str:
     detail_lines = [f"- **{key}:** {value}" for key, value in sorted(result.details.items()) if value]
     return "\n".join(
@@ -69,7 +73,7 @@ def run_native_health(*, token: str, payload: dict[str, Any]) -> dict[str, Any]:
     dry_run = bool(payload.get("dry_run", False))
     if not repo_full_name:
         return {"dry_run": dry_run, "actions": [], "error": "repository is required"}
-    requested_checks = _parse_checks(payload.get("checks") or payload.get("check"))
+    requested_checks = requested_check_names(payload)
     results = [_run_check(check, token, payload) for check in requested_checks]
     try:
         issue_result = issue_commands.run_issue_commands(
