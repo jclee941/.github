@@ -2,6 +2,58 @@ from __future__ import annotations
 
 
 class TestChecksReporting:
+    def test_checks_webhook_rejects_unsigned_by_default(self, monkeypatch):
+        import json
+
+        from fastapi.testclient import TestClient
+
+        from jclee_bot import app as app_module
+
+        monkeypatch.delenv("GITHUB_WEBHOOK_SECRET", raising=False)
+        monkeypatch.delenv("JCLEE_BOT_ALLOW_UNSIGNED_WEBHOOKS", raising=False)
+        monkeypatch.setattr(app_module, "_run_checks_for_payload", lambda payload: {"unexpected": payload})
+
+        response = TestClient(app_module.app, raise_server_exceptions=False).post(
+            "/api/v1/checks_webhook",
+            content=json.dumps({"repository": {"full_name": "jclee941/x"}}),
+        )
+
+        assert response.status_code == 401
+        assert response.json() == {"error": "invalid signature"}
+
+    def test_main_webhook_does_not_dispatch_unsigned_by_default(self, monkeypatch):
+        import json
+
+        from fastapi.testclient import TestClient
+
+        from jclee_bot import app as app_module
+
+        ran = []
+
+        def fake_checks(payload):
+            ran.append(payload)
+            return {"checks": []}
+
+        monkeypatch.delenv("GITHUB_WEBHOOK_SECRET", raising=False)
+        monkeypatch.delenv("JCLEE_BOT_ALLOW_UNSIGNED_WEBHOOKS", raising=False)
+        monkeypatch.setattr(app_module, "_run_checks_for_payload", fake_checks)
+
+        response = TestClient(app_module.app, raise_server_exceptions=False).post(
+            "/api/v1/github_webhooks",
+            content=json.dumps(
+                {
+                    "action": "opened",
+                    "installation": {"id": 1},
+                    "repository": {"full_name": "jclee941/x"},
+                    "pull_request": {"head": {"sha": "abc"}, "base": {"ref": "master"}},
+                }
+            ),
+            headers={"X-GitHub-Event": "pull_request"},
+        )
+
+        assert response.status_code != 500
+        assert ran == []
+
     def test_checks_webhook_reports_to_checks_api(self, monkeypatch):
         import json
 
@@ -26,6 +78,7 @@ class TestChecksReporting:
         monkeypatch.setattr(app_module.github_checks, "create_check_run", fake_create)
         monkeypatch.setattr(app_module, "_fetch_changed_files", lambda *a, **k: ["a.py"])
         monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "")
+        monkeypatch.setenv("JCLEE_BOT_ALLOW_UNSIGNED_WEBHOOKS", "true")
 
         payload = {
             "action": "opened",
@@ -69,6 +122,7 @@ class TestChecksReporting:
 
         monkeypatch.setattr(app_module, "_run_checks_for_payload", slow_checks)
         monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "")
+        monkeypatch.setenv("JCLEE_BOT_ALLOW_UNSIGNED_WEBHOOKS", "true")
 
         payload = {
             "action": "opened",
@@ -147,6 +201,7 @@ class TestChecksReporting:
 
         monkeypatch.setattr(app_module, "_installation_token", boom, raising=False)
         monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "")
+        monkeypatch.setenv("JCLEE_BOT_ALLOW_UNSIGNED_WEBHOOKS", "true")
         payload = {
             "action": "opened",
             "installation": {"id": 1},

@@ -21,6 +21,7 @@ class TestWrapperAppGitOps:
 
         monkeypatch.setattr(app_module, "_run_gitops_automation_for_payload", fake_gitops)
         monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "")
+        monkeypatch.setenv("JCLEE_BOT_ALLOW_UNSIGNED_WEBHOOKS", "true")
         payload = {
             "ref": "fix/issue-7-broken-ci",
             "ref_type": "branch",
@@ -50,6 +51,7 @@ class TestWrapperAppGitOps:
 
         monkeypatch.setattr(app_module, "_run_gitops_automation_for_payload", fake_gitops)
         monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "")
+        monkeypatch.setenv("JCLEE_BOT_ALLOW_UNSIGNED_WEBHOOKS", "true")
         payload = {
             "action": "labeled",
             "label": {"name": "auto-merge"},
@@ -80,6 +82,7 @@ class TestWrapperAppGitOps:
 
         monkeypatch.setattr(app_module, "_run_gitops_automation_for_payload", fake_gitops)
         monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "")
+        monkeypatch.setenv("JCLEE_BOT_ALLOW_UNSIGNED_WEBHOOKS", "true")
         payload = {
             "action": "ready_for_review",
             "installation": {"id": 1},

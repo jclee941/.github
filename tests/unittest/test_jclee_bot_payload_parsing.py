@@ -27,6 +27,8 @@ def test_authenticated_json_endpoints_reject_malformed_json(
     monkeypatch.setenv("GITHUB_APP_ID", "123")
     monkeypatch.setenv("GITHUB_PRIVATE_KEY", "key")
     monkeypatch.setenv(token_env, "" if token_env == "GITHUB_WEBHOOK_SECRET" else "tok")
+    if token_env == "GITHUB_WEBHOOK_SECRET":
+        monkeypatch.setenv("JCLEE_BOT_ALLOW_UNSIGNED_WEBHOOKS", "true")
     headers = {"Authorization": authorization} if authorization is not None else {}
 
     response = TestClient(app_module.app, raise_server_exceptions=False).post(
